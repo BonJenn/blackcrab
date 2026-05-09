@@ -19,6 +19,7 @@ import {
   EntryView,
   TypingIndicator,
   setToolUseMapForPanel,
+  isAuthErrorText,
   EditableTitle,
   SESSION_TAIL_LIMIT,
   looksLikeYesNoQuestion,
@@ -39,12 +40,14 @@ export function LivePanel({
   repo,
   sessionCache,
   isActive,
+  startEnabled,
   useWorktree,
   onFocus,
   onRemove,
   onRename,
   onSessionStarted,
   onAttention,
+  onAuthFailure,
   onExpand,
   dragOver,
   dragging,
@@ -72,6 +75,7 @@ export function LivePanel({
     { entries: Entry[]; toolUseMap: Map<string, ToolMeta>; mtime_ms: number }
   >;
   isActive: boolean;
+  startEnabled: boolean;
   useWorktree?: boolean;
   onFocus: () => void;
   onRemove: () => void;
@@ -82,6 +86,7 @@ export function LivePanel({
     sessionId: string,
     state: PanelAttentionState,
   ) => void;
+  onAuthFailure?: (reason?: string) => void;
   /** Double-click handler — expand this panel into the main single-view
    *  mode. Only fires once the panel has a real session id. The panelId
    *  is forwarded so the parent can stop this grid subprocess before
@@ -426,6 +431,20 @@ export function LivePanel({
           // eslint-disable-next-line no-console
           console.error(`[panel:${panelId}] result error`, ev);
         }
+        if (ev.is_error && isAuthErrorText(errorDetail || ev.subtype || "")) {
+          onAuthFailure?.(errorDetail || ev.subtype);
+          setEntries((es) => [
+            ...es,
+            {
+              kind: "system",
+              id: randomId(),
+              text: "Claude authentication needs attention. Opened setup.",
+            },
+          ]);
+          setAttention("error");
+          reportAttention("error", ev.session_id);
+          return;
+        }
         const text =
           ev.is_error && errorDetail
             ? `error • ${errorDetail}${cost}${dur}`
@@ -491,18 +510,40 @@ export function LivePanel({
       }
 
       // Top-level error event (API failure etc.) — paint the tile red.
-      const evAny = ev as { type?: string };
+      const evAny = ev as { type?: string; error?: unknown; message?: unknown };
       if (evAny.type === "error") {
+        const errObj = evAny.error as
+          | { message?: string; type?: string }
+          | string
+          | undefined;
+        const msg =
+          typeof errObj === "string"
+            ? errObj
+            : errObj?.message ??
+              (typeof evAny.message === "string" ? evAny.message : "");
+        const errType = typeof errObj === "object" ? (errObj?.type ?? "") : "";
+        if (errType === "authentication_error" || isAuthErrorText(msg)) {
+          onAuthFailure?.(msg);
+          setEntries((es) => [
+            ...es,
+            {
+              kind: "system",
+              id: randomId(),
+              text: "Claude authentication needs attention. Opened setup.",
+            },
+          ]);
+        }
         setAttention("error");
         reportAttention("error");
         return;
       }
     },
-    [toolUseMap, repo, panelId, reportAttention],
+    [toolUseMap, repo, panelId, reportAttention, onAuthFailure],
   );
 
   // Boot the subprocess exactly once on mount.
   useEffect(() => {
+    if (!startEnabled) return;
     if (startedRef.current) return;
     startedRef.current = true;
     (async () => {
@@ -529,7 +570,7 @@ export function LivePanel({
       invoke("stop_session", { panelId }).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelId]);
+  }, [panelId, startEnabled]);
 
   useEffect(() => {
     let off1: (() => void) | null = null;
@@ -560,6 +601,10 @@ export function LivePanel({
       (e) => {
         if (e.payload?.panel_id !== panelId) return;
         const line = e.payload?.line ?? "";
+        if (isAuthErrorText(line)) {
+          onAuthFailure?.(line);
+          return;
+        }
         if (line) {
           // eslint-disable-next-line no-console
           console.warn(`[panel:${panelId}] stderr`, line);
@@ -574,7 +619,7 @@ export function LivePanel({
       if (off2) off2();
       if (off3) off3();
     };
-  }, [panelId, handleEvent]);
+  }, [panelId, handleEvent, onAuthFailure]);
 
   // Auto-scroll to bottom on streaming deltas too, not just new rows.
   useEffect(() => {

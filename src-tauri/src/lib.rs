@@ -69,6 +69,8 @@ struct ClaudePreflight {
     managed_token_configured: bool,
     token_source: String,
     auth_env_conflict: bool,
+    auth_needs_attention: bool,
+    auth_attention_reason: String,
 }
 
 #[derive(serde::Serialize)]
@@ -127,6 +129,76 @@ fn auth_env_conflict_present() -> bool {
 
 fn env_oauth_token_present() -> bool {
     std::env::var_os("CLAUDE_CODE_OAUTH_TOKEN").is_some()
+}
+
+fn run_claude_auth_status(
+    path_env: &str,
+    remove_legacy_api_env: bool,
+) -> Result<serde_json::Value, (String, String, String)> {
+    use std::process::Command as StdCommand;
+
+    let mut cmd = StdCommand::new("claude");
+    cmd.args(["auth", "status", "--json"]).env("PATH", path_env);
+    if remove_legacy_api_env {
+        cmd.env_remove("ANTHROPIC_API_KEY");
+        cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
+    }
+
+    let output = cmd.output().map_err(|e| {
+        (
+            e.to_string(),
+            String::new(),
+            "failed to run `claude auth status`".to_string(),
+        )
+    })?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    serde_json::from_str::<serde_json::Value>(&stdout)
+        .map_err(|e| (stdout, stderr, e.to_string()))
+}
+
+fn auth_status_logged_in(v: &serde_json::Value) -> bool {
+    v.get("loggedIn")
+        .and_then(|x| x.as_bool())
+        .unwrap_or(false)
+}
+
+fn auth_status_method(v: &serde_json::Value) -> String {
+    v.get("authMethod")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn auth_status_provider(v: &serde_json::Value) -> String {
+    v.get("apiProvider")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn auth_status_uses_env_api_key(v: &serde_json::Value) -> bool {
+    let method = auth_status_method(v);
+    let source = v
+        .get("apiKeySource")
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
+    method == "api_key"
+        && matches!(source, "ANTHROPIC_API_KEY" | "ANTHROPIC_AUTH_TOKEN")
+}
+
+fn auth_status_without_legacy_api_env(path_env: &str) -> Option<serde_json::Value> {
+    run_claude_auth_status(path_env, true).ok()
+}
+
+fn should_ignore_legacy_api_env(path_env: &str) -> bool {
+    if !auth_env_conflict_present() {
+        return false;
+    }
+    auth_status_without_legacy_api_env(path_env)
+        .as_ref()
+        .map(auth_status_logged_in)
+        .unwrap_or(false)
 }
 
 #[cfg(target_os = "macos")]
@@ -311,17 +383,16 @@ fn claude_preflight() -> ClaudePreflight {
             managed_token_configured,
             token_source,
             auth_env_conflict,
+            auth_needs_attention: false,
+            auth_attention_reason: String::new(),
         };
     };
     let version = String::from_utf8_lossy(&version_output.stdout)
         .trim()
         .to_string();
 
-    let auth_output = StdCommand::new("claude")
-        .args(["auth", "status", "--json"])
-        .env("PATH", &path_env)
-        .output();
-    let Ok(auth_output) = auth_output else {
+    let auth_status = run_claude_auth_status(&path_env, false);
+    let Ok(mut v) = auth_status else {
         return ClaudePreflight {
             installed: true,
             authenticated: managed_token_configured,
@@ -341,70 +412,53 @@ fn claude_preflight() -> ClaudePreflight {
             managed_token_configured,
             token_source,
             auth_env_conflict,
+            auth_needs_attention: false,
+            auth_attention_reason: String::new(),
         };
     };
-    let stdout = String::from_utf8_lossy(&auth_output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&auth_output.stderr).to_string();
-    let parsed = serde_json::from_str::<serde_json::Value>(&stdout);
-    if let Ok(v) = parsed {
-        let cli_authenticated = v
-            .get("loggedIn")
-            .and_then(|x| x.as_bool())
-            .unwrap_or(false);
-        let cli_auth_method = v
-            .get("authMethod")
-            .and_then(|x| x.as_str())
-            .unwrap_or("");
-        return ClaudePreflight {
-            installed: true,
-            authenticated: cli_authenticated || managed_token_configured,
-            version,
-            path: cli_path,
-            auth_method: if cli_authenticated {
-                cli_auth_method.to_string()
-            } else if managed_token_configured {
-                "blackcrab-token".into()
+
+    let mut auth_needs_attention = false;
+    let mut auth_attention_reason = String::new();
+    if !managed_token_configured && auth_env_conflict && auth_status_logged_in(&v) {
+        if let Some(without_env) = auth_status_without_legacy_api_env(&path_env)
+            .filter(auth_status_logged_in)
+        {
+            v = without_env;
+        } else {
+            let env_auth_kind = if auth_status_uses_env_api_key(&v) {
+                "an Anthropic API key"
             } else {
-                cli_auth_method.to_string()
-            },
-            api_provider: v
-                .get("apiProvider")
-                .and_then(|x| x.as_str())
-                .unwrap_or("")
-                .to_string(),
-            error: String::new(),
-            managed_token_configured,
-            token_source,
-            auth_env_conflict,
-        };
+                "an Anthropic auth environment variable"
+            };
+            auth_needs_attention = true;
+            auth_attention_reason = format!(
+                "Claude Code is currently using {}. Blackcrab cannot verify it until a session starts, and stale credentials cause 401 errors on launch. Sign in with Claude Code or save a setup token here for reliable startup.",
+                env_auth_kind
+            );
+        }
     }
 
-    let detail = if !stderr.trim().is_empty() {
-        stderr.trim().to_string()
-    } else {
-        stdout.trim().to_string()
-    };
+    let cli_authenticated = auth_status_logged_in(&v);
+    let cli_auth_method = auth_status_method(&v);
     ClaudePreflight {
         installed: true,
-        authenticated: managed_token_configured,
+        authenticated: cli_authenticated || managed_token_configured,
         version,
         path: cli_path,
         auth_method: if managed_token_configured {
             "blackcrab-token".into()
+        } else if cli_authenticated {
+            cli_auth_method
         } else {
-            String::new()
+            auth_status_method(&v)
         },
-        api_provider: String::new(),
-        error: if managed_token_configured {
-            String::new()
-        } else if detail.is_empty() {
-            "could not parse `claude auth status` output".into()
-        } else {
-            detail
-        },
+        api_provider: auth_status_provider(&v),
+        error: String::new(),
         managed_token_configured,
         token_source,
         auth_env_conflict,
+        auth_needs_attention,
+        auth_attention_reason,
     }
 }
 
@@ -528,7 +582,8 @@ async fn start_session(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    cmd.env("PATH", claude_path_env());
+    let path_env = claude_path_env();
+    cmd.env("PATH", &path_env);
 
     // If the user configured Blackcrab's reliability token, use it only for
     // the child Claude process. Remove API-key auth from this spawn so a stale
@@ -538,6 +593,9 @@ async fn start_session(
         cmd.env_remove("ANTHROPIC_API_KEY");
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
     } else if env_oauth_token_present() {
+        cmd.env_remove("ANTHROPIC_API_KEY");
+        cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
+    } else if should_ignore_legacy_api_env(&path_env) {
         cmd.env_remove("ANTHROPIC_API_KEY");
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
     }

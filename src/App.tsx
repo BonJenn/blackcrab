@@ -234,6 +234,8 @@ type ClaudePreflight = {
   managed_token_configured: boolean;
   token_source: string;
   auth_env_conflict: boolean;
+  auth_needs_attention: boolean;
+  auth_attention_reason: string;
 };
 
 type ClaudeTokenStatus = {
@@ -1334,10 +1336,9 @@ function App() {
   const lastUserMessageRef = useRef<string>("");
   const [dragOver, setDragOver] = useState(false);
   // Set when we detect the claude CLI is running with bad credentials
-  // (expired OAuth token, stale API key). Renders a blocking modal that
-  // tells the user to re-auth and restart — the CLI only reloads its
-  // auth file at startup.
-  const [authErrorSeen, setAuthErrorSeen] = useState(false);
+  // (expired OAuth token, stale API key). Opens the Claude setup overlay
+  // directly so the user can fix auth without hunting through settings.
+  const [authIssue, setAuthIssue] = useState("");
   const [claudePreflight, setClaudePreflight] =
     useState<ClaudePreflight | null>(null);
   const [claudePreflightLoading, setClaudePreflightLoading] = useState(true);
@@ -2638,6 +2639,8 @@ function App() {
         managed_token_configured: false,
         token_source: "none",
         auth_env_conflict: false,
+        auth_needs_attention: false,
+        auth_attention_reason: "",
       });
       setClaudePreflightLoading(false);
       return;
@@ -2659,6 +2662,8 @@ function App() {
         managed_token_configured: false,
         token_source: "none",
         auth_env_conflict: false,
+        auth_needs_attention: false,
+        auth_attention_reason: "",
         error:
           typeof e === "string"
             ? e
@@ -2670,6 +2675,16 @@ function App() {
       setClaudePreflightLoading(false);
     }
   }, []);
+
+  const openClaudeSetup = useCallback(
+    (reason?: string) => {
+      setAuthIssue(reason?.trim() || "");
+      setOnboardingDismissed(false);
+      setOnboardingForced(true);
+      void refreshClaudePreflight();
+    },
+    [refreshClaudePreflight],
+  );
 
   const saveClaudeToken = useCallback(
     async (token: string): Promise<boolean> => {
@@ -2690,7 +2705,9 @@ function App() {
           token: trimmed,
         });
         notify("Claude token saved", "success");
+        setAuthIssue("");
         setOnboardingDismissed(false);
+        setOnboardingForced(false);
         await refreshClaudePreflight();
         return true;
       } catch (e) {
@@ -3192,10 +3209,13 @@ function App() {
         // many turns and surfaces "fatal: not a git repository" when
         // the cwd isn't tracked — not actionable, just clutter.
         if (isBenignStderr(line)) return;
+        if (isAuthErrorText(line)) {
+          openClaudeSetup(line);
+          return;
+        }
         if (activePanelIdRef.current === panelId) {
           setStderrLines((s) => [...s, line]);
         }
-        if (isAuthErrorText(line)) setAuthErrorSeen(true);
       }),
       listen<{ panel_id: string }>("claude-done", (e) => {
         const panelId = e.payload?.panel_id ?? "main";
@@ -3463,6 +3483,18 @@ function App() {
               .filter((s): s is string => typeof s === "string")
               .join(" • ")
           : "";
+      if (ev.is_error && isAuthErrorText(errorDetail || ev.subtype || "")) {
+        openClaudeSetup(errorDetail || ev.subtype);
+        setEntriesForTranscript(transcriptId, (es) => [
+          ...es,
+          {
+            kind: "system",
+            id: randomId(),
+            text: "Claude authentication needs attention. Opened setup.",
+          },
+        ]);
+        return;
+      }
       const text =
         ev.is_error && errorDetail
           ? `error • ${errorDetail}${cost}${dur}`
@@ -3545,14 +3577,23 @@ function App() {
           : errObj?.message ?? (typeof evAny.message === "string" ? evAny.message : "unknown error");
       const errType =
         typeof errObj === "object" ? (errObj?.type ?? "") : "";
+      if (errType === "authentication_error" || isAuthErrorText(msg)) {
+        openClaudeSetup(msg);
+        setEntriesForTranscript(transcriptId, (es) => [
+          ...es,
+          {
+            kind: "system",
+            id: randomId(),
+            text: "Claude authentication needs attention. Opened setup.",
+          },
+        ]);
+        return;
+      }
       setEntriesForTranscript(transcriptId, (es) => [
         ...es,
         { kind: "system", id: randomId(), text: `API error: ${msg}` },
       ]);
       if (isActivePanel) setShowStderr(true);
-      if (errType === "authentication_error" || isAuthErrorText(msg)) {
-        setAuthErrorSeen(true);
-      }
       return;
     }
   }
@@ -4583,11 +4624,14 @@ function App() {
   }, [activeSessionId, entries]);
   const shouldShowOnboarding =
     onboardingForced ||
+    !!authIssue ||
     (!onboardingDismissed &&
       ((claudePreflightLoading && !claudePreflight) ||
         !!(
           claudePreflight &&
-          (!claudePreflight.installed || !claudePreflight.authenticated)
+          (!claudePreflight.installed ||
+            !claudePreflight.authenticated ||
+            claudePreflight.auth_needs_attention)
         )));
 
   return (
@@ -4605,32 +4649,19 @@ function App() {
         <ClaudeOnboardingOverlay
           status={claudePreflight}
           loading={claudePreflightLoading}
+          authIssue={authIssue}
           tokenSaving={claudeTokenSaving}
           tokenError={claudeTokenError}
-          onRecheck={refreshClaudePreflight}
+          onRecheck={() => {
+            setAuthIssue("");
+            refreshClaudePreflight();
+          }}
           onSaveToken={saveClaudeToken}
           onClearToken={clearClaudeToken}
           onContinue={() => {
+            setAuthIssue("");
             setOnboardingDismissed(true);
             setOnboardingForced(false);
-          }}
-        />
-      )}
-      {authErrorSeen && (
-        <AuthErrorModal
-          onReconnect={() => {
-            setAuthErrorSeen(false);
-            setOnboardingDismissed(false);
-            setOnboardingForced(true);
-            void refreshClaudePreflight();
-          }}
-          onDismiss={() => setAuthErrorSeen(false)}
-          onQuit={() => {
-            if (!isTauriRuntime()) {
-              setAuthErrorSeen(false);
-              return;
-            }
-            getCurrentWindow().close().catch(() => {});
           }}
         />
       )}
@@ -4866,10 +4897,7 @@ function App() {
           }}
           onOpenClaudeSetup={() => {
             setSettingsOpen(false);
-            setAuthErrorSeen(false);
-            setOnboardingDismissed(false);
-            setOnboardingForced(true);
-            void refreshClaudePreflight();
+            openClaudeSetup();
           }}
         />
       )}
@@ -5140,6 +5168,7 @@ function App() {
             permissionMode={permissionMode}
             defaultCwd={cwd}
             defaultModel={model}
+            startEnabled={!shouldShowOnboarding}
             selectedId={selectedGridPanelId}
             suspendedSessionIds={gridHandoffSessionIds}
             onSelect={setSelectedGridPanelId}
@@ -5155,6 +5184,7 @@ function App() {
               refreshSessions();
             }}
             onPanelAttention={onGridPanelAttention}
+            onAuthFailure={openClaudeSetup}
             onExpand={(sid, panelCwd, panelId) => {
               void openSessionInSingleMode(sid, panelCwd, panelId);
             }}
@@ -9306,6 +9336,7 @@ function LiveGrid({
   permissionMode,
   defaultCwd,
   defaultModel,
+  startEnabled,
   selectedId,
   suspendedSessionIds,
   newPanelCwds,
@@ -9317,6 +9348,7 @@ function LiveGrid({
   onReorder,
   onSessionStarted,
   onPanelAttention,
+  onAuthFailure,
   onExpand,
 }: {
   panels: string[];
@@ -9329,6 +9361,7 @@ function LiveGrid({
   permissionMode: string;
   defaultCwd: string;
   defaultModel: string;
+  startEnabled: boolean;
   selectedId: string | null;
   suspendedSessionIds?: string[];
   newPanelCwds: Record<string, string>;
@@ -9344,6 +9377,7 @@ function LiveGrid({
     sessionId: string,
     state: PanelAttentionState,
   ) => void;
+  onAuthFailure: (reason?: string) => void;
   onExpand: (sessionId: string, cwd: string, panelId: string) => void;
 }) {
   // Draggable divider between the two rows lets the user rebalance tile
@@ -9615,12 +9649,14 @@ function LiveGrid({
             repo=""
             sessionCache={sessionCache}
             isActive={selectedId === id}
+            startEnabled={startEnabled}
             useWorktree={isPendingNewPanel ? !!newPanelWorktree[id] : false}
             onFocus={() => onSelect(id)}
             onRemove={() => onRemove(id)}
             onRename={onRename}
             onSessionStarted={onSessionStarted}
             onAttention={onPanelAttention}
+            onAuthFailure={onAuthFailure}
             onExpand={onExpand}
             dragging={dragId === id}
             dragOver={overId === id && dragId !== null && dragId !== id}
@@ -10121,6 +10157,7 @@ function WorktreePromptModal({
 function ClaudeOnboardingOverlay({
   status,
   loading,
+  authIssue,
   tokenSaving,
   tokenError,
   onRecheck,
@@ -10130,6 +10167,7 @@ function ClaudeOnboardingOverlay({
 }: {
   status: ClaudePreflight | null;
   loading: boolean;
+  authIssue: string;
   tokenSaving: boolean;
   tokenError: string;
   onRecheck: () => void;
@@ -10145,6 +10183,8 @@ function ClaudeOnboardingOverlay({
   const isAuthenticated = !!status?.authenticated;
   const hasManagedToken = !!status?.managed_token_configured;
   const hasStoredToken = status?.token_source === "keychain";
+  const needsAttention = !!authIssue || !!status?.auth_needs_attention;
+  const authOk = isAuthenticated && !needsAttention;
   const authLabel =
     hasManagedToken && status?.token_source === "keychain"
       ? "Blackcrab token (keychain)"
@@ -10155,6 +10195,8 @@ function ClaudeOnboardingOverlay({
     ? "Checking Claude Code"
     : !isInstalled
       ? "Install Claude Code"
+      : needsAttention
+        ? "Reconnect Claude Code"
       : !isAuthenticated
         ? "Sign in to Claude Code"
         : "Claude Code is ready";
@@ -10188,20 +10230,29 @@ function ClaudeOnboardingOverlay({
               </span>
             </div>
           </div>
-          <div className={`onboarding-status ${isAuthenticated ? "ok" : loading ? "" : "bad"}`}>
+          <div className={`onboarding-status ${authOk ? "ok" : loading ? "" : "bad"}`}>
             <span className="onboarding-status-dot" />
             <div>
               <strong>Authentication</strong>
               <span>
                 {loading
                   ? "checking..."
-                  : isAuthenticated
+                  : authOk
                     ? authLabel
+                    : needsAttention
+                      ? "needs attention"
                     : "not signed in"}
               </span>
             </div>
           </div>
         </div>
+        {!loading && needsAttention && (
+          <p className="onboarding-note">
+            {authIssue ||
+              status?.auth_attention_reason ||
+              "Claude returned a 401 authentication error. Fix sign-in once here and Blackcrab will reuse the saved state on future launches."}
+          </p>
+        )}
         {!loading && status?.auth_env_conflict && !hasManagedToken && (
           <p className="onboarding-note">
             An Anthropic API auth environment variable is present. It can take
@@ -10216,7 +10267,7 @@ function ClaudeOnboardingOverlay({
             <CommandCopyRow command={setupTokenCommand} onCopy={copyCommand} />
           </>
         )}
-        {!loading && isInstalled && !isAuthenticated && (
+        {!loading && isInstalled && (!isAuthenticated || needsAttention) && (
           <>
             <p>
               First try normal Claude Code login in a terminal. Run{" "}
@@ -10348,55 +10399,6 @@ function CommandCopyRow({
       >
         Copy
       </button>
-    </div>
-  );
-}
-
-function AuthErrorModal({
-  onReconnect,
-  onDismiss,
-  onQuit,
-}: {
-  onReconnect: () => void;
-  onDismiss: () => void;
-  onQuit: () => void;
-}) {
-  return (
-    <div className="auth-error-overlay" role="alertdialog" aria-modal="true">
-      <div className="auth-error-card">
-        <h2>Claude needs you to sign in again</h2>
-        <p>
-          The <code>claude</code> CLI got a <strong>401 Invalid authentication
-          credentials</strong> response. That usually means the CLI credential
-          available to Blackcrab is missing, expired, or being shadowed by a
-          stale API-key environment variable.
-        </p>
-        <p>
-          Reconnect Claude to open the setup flow. The most reliable option for
-          packaged app launches is to run <code>claude setup-token</code> once
-          and save that token in Blackcrab.
-        </p>
-        <ol>
-          <li>
-            Try normal CLI login with <code>claude</code> and <code>/login</code>.
-          </li>
-          <li>
-            If that still fails, use <code>claude setup-token</code> and paste
-            the token into Blackcrab so it can be stored in macOS Keychain.
-          </li>
-        </ol>
-        <div className="auth-error-actions">
-          <button type="button" className="btn btn-secondary" onClick={onDismiss}>
-            Dismiss
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={onReconnect}>
-            Reconnect Claude
-          </button>
-          <button type="button" className="btn btn-primary" onClick={onQuit}>
-            Quit app
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

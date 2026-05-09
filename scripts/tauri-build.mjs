@@ -37,9 +37,18 @@ for (const arg of rawArgs) {
 
 const hasUpdaterKey = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY?.trim());
 const tauriArgs = ["tauri", "build", ...passThrough];
+const targetFlag = passThrough.find((arg) => arg.startsWith("--target="));
+const targetIndex = passThrough.indexOf("--target");
+const buildTarget = targetFlag
+  ? targetFlag.slice("--target=".length)
+  : targetIndex >= 0
+    ? passThrough[targetIndex + 1] || ""
+    : "";
+const targetCanProduceMacApp = !buildTarget || buildTarget.includes("apple-darwin");
 const localMacDefaultBundle =
   mode !== "signed" &&
   process.platform === "darwin" &&
+  targetCanProduceMacApp &&
   !passThrough.some((arg) => arg === "--bundles" || arg === "-b");
 
 if (mode === "signed") {
@@ -70,6 +79,9 @@ if (mode === "signed") {
 }
 
 function archSuffix() {
+  if (buildTarget.includes("universal-apple-darwin")) return "universal";
+  if (buildTarget.includes("aarch64")) return "aarch64";
+  if (buildTarget.includes("x86_64")) return "x64";
   if (process.arch === "arm64") return "aarch64";
   if (process.arch === "x64") return "x64";
   return process.arch;
@@ -102,8 +114,9 @@ function createLocalDmg() {
   fs.mkdirSync(dmgDir, { recursive: true });
 
   console.log(`Creating local DMG at ${dmgPath}`);
+  const hdiutil = "/usr/bin/hdiutil";
   const result = spawn(
-    "hdiutil",
+    fs.existsSync(hdiutil) ? hdiutil : "hdiutil",
     [
       "create",
       "-volname",
@@ -119,7 +132,10 @@ function createLocalDmg() {
   );
 
   return new Promise((resolve, reject) => {
-    result.on("error", reject);
+    result.on("error", (err) => {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      reject(err);
+    });
     result.on("exit", (code, signal) => {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       if (signal) {
@@ -137,6 +153,11 @@ const bin = process.platform === "win32" ? "npx.cmd" : "npx";
 const child = spawn(bin, tauriArgs, {
   stdio: "inherit",
   env: process.env,
+});
+
+child.on("error", (err) => {
+  console.error(`failed to run ${bin}: ${err.message}`);
+  process.exit(1);
 });
 
 child.on("exit", async (code, signal) => {

@@ -33,6 +33,7 @@ import {
   removeSessionInfoFromList,
   type SessionInfoUpdater,
 } from "./sessionMetadata";
+import { buildDiagnosticsReport, redactDiagnosticText } from "./diagnostics";
 import blackcrabLogo from "../blackcrab_logo.png";
 import {
   LivePanel,
@@ -1340,6 +1341,7 @@ function App() {
   const [claudeTokenError, setClaudeTokenError] = useState("");
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [onboardingForced, setOnboardingForced] = useState(false);
+  const [authRecheckActive, setAuthRecheckActive] = useState(false);
   const [availableUpdate, setAvailableUpdate] =
     useState<AvailableUpdate | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
@@ -2644,6 +2646,9 @@ function App() {
       setClaudePreflight(status);
       if (status.installed && status.authenticated) {
         setOnboardingDismissed(false);
+        setOnboardingForced(false);
+        setAuthIssue("");
+        setAuthRecheckActive(false);
       }
     } catch (e) {
       setClaudePreflight({
@@ -2669,6 +2674,14 @@ function App() {
       setClaudePreflightLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!authRecheckActive) return;
+    const id = window.setInterval(() => {
+      void refreshClaudePreflight();
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [authRecheckActive, refreshClaudePreflight]);
 
   const openClaudeSetup = useCallback(
     (reason?: string) => {
@@ -4661,6 +4674,7 @@ function App() {
             setAuthIssue("");
             setOnboardingDismissed(true);
             setOnboardingForced(false);
+            setAuthRecheckActive(true);
             openCommandTerminal(command, label);
           }}
         />
@@ -10058,24 +10072,17 @@ function DiagnosticsPanel({
     const activityText = Object.entries(activityCounts)
       .map(([state, count]) => `${state}: ${count}`)
       .join(", ");
-    const lines = [
-      "Blackcrab diagnostics",
-      "",
-      ...rows.map(([label, value]) => `${label}: ${value}`),
-      `auth attention: ${
-        claudePreflight?.auth_needs_attention
-          ? claudePreflight.auth_attention_reason || "yes"
-          : "no"
-      }`,
-      `active title: ${activeSession?.title || "(none)"}`,
-      `active cwd: ${activeSession?.cwd || cwd || "(unset)"}`,
-      `user agent: ${navigator.userAgent || "(unknown)"}`,
-      `activity: ${activityText || "(none)"}`,
-      "",
-      "recent stderr:",
-      latestStderr.length ? latestStderr.join("\n") : "(none)",
-    ];
-    return redactDiagnosticText(lines.join("\n"));
+    return buildDiagnosticsReport({
+      rows,
+      authAttention: claudePreflight?.auth_needs_attention
+        ? claudePreflight.auth_attention_reason || "yes"
+        : "no",
+      activeTitle: activeSession?.title || "(none)",
+      activeCwd: activeSession?.cwd || cwd || "(unset)",
+      userAgent: navigator.userAgent || "(unknown)",
+      activityText,
+      latestStderr,
+    });
   }, [
     activeSession,
     activityCounts,
@@ -10176,17 +10183,6 @@ function DiagnosticsPanel({
       </div>
     </div>
   );
-}
-
-function redactDiagnosticText(text: string): string {
-  return text
-    .replace(/sk-ant-[A-Za-z0-9._-]+/g, "sk-ant-[redacted]")
-    .replace(
-      /(ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN)=\S+/g,
-      "$1=[redacted]",
-    )
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
-    .replace(/authorization:\s*[^\n]+/gi, "authorization: [redacted]");
 }
 
 function WorktreePromptModal({

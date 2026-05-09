@@ -28,12 +28,12 @@ import { Webview, getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { compileMarkdown } from "./markdown";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import {
   patchSessionInfoList,
   removeSessionInfoFromList,
   type SessionInfoUpdater,
 } from "./sessionMetadata";
-import { buildDiagnosticsReport, redactDiagnosticText } from "./diagnostics";
 import blackcrabLogo from "../blackcrab_logo.png";
 import {
   LivePanel,
@@ -215,6 +215,7 @@ type ClaudePreflight = {
   error: string;
   managed_token_configured: boolean;
   token_source: string;
+  token_error: string;
   auth_env_conflict: boolean;
   auth_needs_attention: boolean;
   auth_attention_reason: string;
@@ -2634,6 +2635,7 @@ function App() {
         error: "",
         managed_token_configured: false,
         token_source: "none",
+        token_error: "",
         auth_env_conflict: false,
         auth_needs_attention: false,
         auth_attention_reason: "",
@@ -2660,6 +2662,7 @@ function App() {
         api_provider: "",
         managed_token_configured: false,
         token_source: "none",
+        token_error: "",
         auth_env_conflict: false,
         auth_needs_attention: false,
         auth_attention_reason: "",
@@ -9996,190 +9999,6 @@ function CommandPalette({
           <span>↵ select</span>
           <span>esc close</span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function DiagnosticsPanel({
-  cwd,
-  activeSessionId,
-  activeSession,
-  sessionOn,
-  busy,
-  stuckBusy,
-  gridMode,
-  sessions,
-  attentionCount,
-  activity,
-  pendingPermission,
-  pendingDenials,
-  stderrLines,
-  claudePreflight,
-  onClose,
-}: {
-  cwd: string;
-  activeSessionId?: string;
-  activeSession?: SessionInfo;
-  sessionOn: boolean;
-  busy: boolean;
-  stuckBusy: boolean;
-  gridMode: boolean;
-  sessions: SessionInfo[];
-  attentionCount: number;
-  activity: SessionActivityStore;
-  pendingPermission: PermissionRequest | null;
-  pendingDenials: Array<{ tool_name: string; tool_input?: unknown }> | null;
-  stderrLines: string[];
-  claudePreflight: ClaudePreflight | null;
-  onClose: () => void;
-}) {
-  const [appVersion, setAppVersion] = useState("");
-  useEffect(() => {
-    getVersion()
-      .then(setAppVersion)
-      .catch(() => setAppVersion(""));
-  }, []);
-  const activityCounts = sessions.reduce<Record<string, number>>((acc, session) => {
-    const state = deriveSessionActivity(session, activity).state;
-    acc[state] = (acc[state] ?? 0) + 1;
-    return acc;
-  }, {});
-  const archivedCount = sessions.filter((s) => s.archived).length;
-  const latestStderr = stderrLines.slice(-8);
-  const rows: Array<[string, string]> = [
-    ["app", appVersion || "(unknown)"],
-    ["platform", navigator.platform || "(unknown)"],
-    ["cwd", cwd || "(unset)"],
-    ["active", activeSessionId ? activeSessionId.slice(0, 8) : "(none)"],
-    ["connected", sessionOn ? "yes" : "no"],
-    ["busy", busy ? (stuckBusy ? "stuck" : "yes") : "no"],
-    ["mode", gridMode ? "grid" : "single"],
-    ["sessions", String(sessions.length)],
-    ["attention", String(attentionCount)],
-    ["archived", String(archivedCount)],
-    ["permission", pendingPermission ? pendingPermission.toolName : "none"],
-    ["denials", pendingDenials ? String(pendingDenials.length) : "0"],
-    ["stderr", String(stderrLines.length)],
-    ["claude", claudePreflight?.version || "(unknown)"],
-    ["claude path", claudePreflight?.path || "(unknown)"],
-    ["auth", claudePreflight?.authenticated ? "ready" : "needs setup"],
-    ["auth method", claudePreflight?.auth_method || "(none)"],
-    ["token source", claudePreflight?.token_source || "none"],
-    ["env conflict", claudePreflight?.auth_env_conflict ? "yes" : "no"],
-  ];
-  const report = useMemo(() => {
-    const activityText = Object.entries(activityCounts)
-      .map(([state, count]) => `${state}: ${count}`)
-      .join(", ");
-    return buildDiagnosticsReport({
-      rows,
-      authAttention: claudePreflight?.auth_needs_attention
-        ? claudePreflight.auth_attention_reason || "yes"
-        : "no",
-      activeTitle: activeSession?.title || "(none)",
-      activeCwd: activeSession?.cwd || cwd || "(unset)",
-      userAgent: navigator.userAgent || "(unknown)",
-      activityText,
-      latestStderr,
-    });
-  }, [
-    activeSession,
-    activityCounts,
-    claudePreflight,
-    cwd,
-    latestStderr,
-    rows,
-  ]);
-  const copyReport = () => {
-    if (!navigator.clipboard) {
-      notify("Clipboard is not available", "error");
-      return;
-    }
-    navigator.clipboard
-      .writeText(report)
-      .then(() => notify("Diagnostics copied", "success"))
-      .catch(notifyErr("copy diagnostics failed"));
-  };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div
-      className="diagnostics-overlay"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="diagnostics-panel">
-        <header className="diagnostics-head">
-          <div>
-            <div className="diagnostics-title">Diagnostics</div>
-            <div className="diagnostics-subtitle">
-              {activeSession?.title || "No active conversation"}
-            </div>
-          </div>
-          <div className="diagnostics-actions">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={copyReport}
-              title="copy redacted diagnostics"
-            >
-              Copy report
-            </button>
-            <button
-              type="button"
-              className="search-btn search-close"
-              onClick={onClose}
-              title="close"
-              aria-label="close diagnostics"
-            >
-              ×
-            </button>
-          </div>
-        </header>
-        <div className="diagnostics-grid">
-          {rows.map(([label, value]) => (
-            <div key={label} className="diagnostics-row">
-              <span>{label}</span>
-              <strong title={value}>{value}</strong>
-            </div>
-          ))}
-        </div>
-        <section className="diagnostics-section">
-          <div className="diagnostics-section-title">Activity</div>
-          <div className="diagnostics-chips">
-            {Object.entries(activityCounts).map(([state, count]) => (
-              <span key={state} className={`diagnostics-chip state-${state}`}>
-                {state}: {count}
-              </span>
-            ))}
-          </div>
-        </section>
-        <section className="diagnostics-section">
-          <div className="diagnostics-section-title">Recent stderr</div>
-          {latestStderr.length === 0 ? (
-            <div className="diagnostics-empty">no stderr captured</div>
-          ) : (
-            <pre className="diagnostics-stderr">
-              {redactDiagnosticText(latestStderr.join("\n"))}
-            </pre>
-          )}
-        </section>
-        <section className="diagnostics-section">
-          <div className="diagnostics-section-title">Copyable report</div>
-          <pre className="diagnostics-stderr diagnostics-report">{report}</pre>
-        </section>
       </div>
     </div>
   );

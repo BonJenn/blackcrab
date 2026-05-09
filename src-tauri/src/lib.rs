@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -68,6 +69,7 @@ struct ClaudePreflight {
     error: String,
     managed_token_configured: bool,
     token_source: String,
+    token_error: String,
     auth_env_conflict: bool,
     auth_needs_attention: bool,
     auth_attention_reason: String,
@@ -122,13 +124,24 @@ fn find_executable_in_path(name: &str, path_env: &str) -> Option<PathBuf> {
 
 const BLACKCRAB_CLAUDE_TOKEN_SERVICE: &str = "Blackcrab Claude Code OAuth Token";
 
+fn env_value_present(value: &OsStr) -> bool {
+    !value.to_string_lossy().trim().is_empty()
+}
+
+fn env_var_present(name: &str) -> bool {
+    std::env::var_os(name)
+        .as_deref()
+        .map(env_value_present)
+        .unwrap_or(false)
+}
+
 fn auth_env_conflict_present() -> bool {
-    std::env::var_os("ANTHROPIC_API_KEY").is_some()
-        || std::env::var_os("ANTHROPIC_AUTH_TOKEN").is_some()
+    env_var_present("ANTHROPIC_API_KEY")
+        || env_var_present("ANTHROPIC_AUTH_TOKEN")
 }
 
 fn env_oauth_token_present() -> bool {
-    std::env::var_os("CLAUDE_CODE_OAUTH_TOKEN").is_some()
+    env_var_present("CLAUDE_CODE_OAUTH_TOKEN")
 }
 
 fn run_claude_auth_status(
@@ -182,9 +195,13 @@ fn auth_status_uses_env_api_key(v: &serde_json::Value) -> bool {
     let source = v
         .get("apiKeySource")
         .and_then(|x| x.as_str())
-        .unwrap_or("");
+        .unwrap_or("")
+        .to_ascii_uppercase();
     method == "api_key"
-        && matches!(source, "ANTHROPIC_API_KEY" | "ANTHROPIC_AUTH_TOKEN")
+        && matches!(
+            source.as_str(),
+            "ANTHROPIC_API_KEY" | "ANTHROPIC_AUTH_TOKEN"
+        )
 }
 
 fn auth_status_without_legacy_api_env(path_env: &str) -> Option<serde_json::Value> {
@@ -307,6 +324,28 @@ mod tests {
 
         assert!(!resolved.needs_attention);
         assert!(!auth_status_logged_in(&resolved.status));
+    }
+
+    #[test]
+    fn empty_auth_env_values_do_not_count_as_configured() {
+        assert!(!env_value_present(OsStr::new("")));
+        assert!(!env_value_present(OsStr::new("  \t  ")));
+        assert!(env_value_present(OsStr::new("sk-ant-oat-real")));
+    }
+
+    #[test]
+    fn api_key_source_detection_is_case_insensitive() {
+        let current = auth_status(
+            true,
+            "api_key",
+            "firstParty",
+            Some("anthropic_api_key"),
+        );
+
+        let resolved = resolve_claude_auth_status(current, None, false, true);
+
+        assert!(resolved.needs_attention);
+        assert!(resolved.attention_reason.contains("Anthropic API key"));
     }
 }
 
@@ -471,6 +510,7 @@ fn claude_preflight() -> ClaudePreflight {
     let token_status = claude_token_state();
     let managed_token_configured = token_status.configured;
     let token_source = token_status.source.clone();
+    let token_error = token_status.error.clone();
     let auth_env_conflict = auth_env_conflict_present();
     let cli_path = find_executable_in_path("claude", &path_env)
         .map(|p| p.to_string_lossy().to_string())
@@ -491,6 +531,7 @@ fn claude_preflight() -> ClaudePreflight {
             error: "Claude Code CLI was not found on PATH".into(),
             managed_token_configured,
             token_source,
+            token_error,
             auth_env_conflict,
             auth_needs_attention: false,
             auth_attention_reason: String::new(),
@@ -520,6 +561,7 @@ fn claude_preflight() -> ClaudePreflight {
             },
             managed_token_configured,
             token_source,
+            token_error,
             auth_env_conflict,
             auth_needs_attention: false,
             auth_attention_reason: String::new(),
@@ -560,6 +602,7 @@ fn claude_preflight() -> ClaudePreflight {
         error: String::new(),
         managed_token_configured,
         token_source,
+        token_error,
         auth_env_conflict,
         auth_needs_attention: resolved.needs_attention,
         auth_attention_reason: resolved.attention_reason,

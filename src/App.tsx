@@ -28,6 +28,11 @@ import { Webview, getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { compileMarkdown } from "./markdown";
+import {
+  patchSessionInfoList,
+  removeSessionInfoFromList,
+  type SessionInfoUpdater,
+} from "./sessionMetadata";
 import blackcrabLogo from "../blackcrab_logo.png";
 import {
   LivePanel,
@@ -185,30 +190,6 @@ type SessionHitPreview = {
   matchCount: number;
   source: string;
 };
-
-type SessionInfoUpdater = (session: SessionInfo) => SessionInfo;
-
-function patchSessionInfoList(
-  sessions: SessionInfo[],
-  id: string,
-  updater: SessionInfoUpdater,
-): SessionInfo[] {
-  let changed = false;
-  const next = sessions.map((session) => {
-    if (session.id !== id) return session;
-    changed = true;
-    return updater(session);
-  });
-  return changed ? next : sessions;
-}
-
-function removeSessionInfoFromList(
-  sessions: SessionInfo[],
-  id: string,
-): SessionInfo[] {
-  const next = sessions.filter((session) => session.id !== id);
-  return next.length === sessions.length ? sessions : next;
-}
 
 export type PanelAttentionState =
   | "engaged"
@@ -1328,6 +1309,19 @@ function App() {
       prev.map((t) => (t.id === id ? { ...t, label: trimmed } : t)),
     );
   }
+  function openCommandTerminal(command: string, label: string) {
+    const id = `term-${randomId()}`;
+    const tab: TerminalTab = {
+      id,
+      label,
+      kind: "shell",
+      initialWrites: [{ id: `cmd-${id}`, data: `${command}\r`, delayMs: 250 }],
+    };
+    setTerminalTabs((prev) => [...prev, tab]);
+    setActiveTerminalId(id);
+    setTerminalOpen(true);
+    setTerminalHeight((h) => Math.max(h, 360));
+  }
   const [editingTerminalTabId, setEditingTerminalTabId] = useState<
     string | null
   >(null);
@@ -1367,7 +1361,7 @@ function App() {
     setSessions(next);
   }, []);
   const updateSessionInfo = useCallback(
-    (id: string, updater: SessionInfoUpdater) => {
+    (id: string, updater: SessionInfoUpdater<SessionInfo>) => {
       setSessions((prev) => patchSessionInfoList(prev, id, updater));
     },
     [],
@@ -4663,6 +4657,12 @@ function App() {
             setOnboardingDismissed(true);
             setOnboardingForced(false);
           }}
+          onOpenTerminalCommand={(command, label) => {
+            setAuthIssue("");
+            setOnboardingDismissed(true);
+            setOnboardingForced(false);
+            openCommandTerminal(command, label);
+          }}
         />
       )}
       {paletteOpen && (
@@ -4916,6 +4916,7 @@ function App() {
           pendingPermission={pendingPermission}
           pendingDenials={pendingDenials}
           stderrLines={stderrLines}
+          claudePreflight={claudePreflight}
           onClose={() => setDiagnosticsOpen(false)}
         />
       )}
@@ -10000,6 +10001,7 @@ function DiagnosticsPanel({
   pendingPermission,
   pendingDenials,
   stderrLines,
+  claudePreflight,
   onClose,
 }: {
   cwd: string;
@@ -10015,8 +10017,15 @@ function DiagnosticsPanel({
   pendingPermission: PermissionRequest | null;
   pendingDenials: Array<{ tool_name: string; tool_input?: unknown }> | null;
   stderrLines: string[];
+  claudePreflight: ClaudePreflight | null;
   onClose: () => void;
 }) {
+  const [appVersion, setAppVersion] = useState("");
+  useEffect(() => {
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(""));
+  }, []);
   const activityCounts = sessions.reduce<Record<string, number>>((acc, session) => {
     const state = deriveSessionActivity(session, activity).state;
     acc[state] = (acc[state] ?? 0) + 1;
@@ -10025,6 +10034,8 @@ function DiagnosticsPanel({
   const archivedCount = sessions.filter((s) => s.archived).length;
   const latestStderr = stderrLines.slice(-8);
   const rows: Array<[string, string]> = [
+    ["app", appVersion || "(unknown)"],
+    ["platform", navigator.platform || "(unknown)"],
     ["cwd", cwd || "(unset)"],
     ["active", activeSessionId ? activeSessionId.slice(0, 8) : "(none)"],
     ["connected", sessionOn ? "yes" : "no"],
@@ -10036,7 +10047,53 @@ function DiagnosticsPanel({
     ["permission", pendingPermission ? pendingPermission.toolName : "none"],
     ["denials", pendingDenials ? String(pendingDenials.length) : "0"],
     ["stderr", String(stderrLines.length)],
+    ["claude", claudePreflight?.version || "(unknown)"],
+    ["claude path", claudePreflight?.path || "(unknown)"],
+    ["auth", claudePreflight?.authenticated ? "ready" : "needs setup"],
+    ["auth method", claudePreflight?.auth_method || "(none)"],
+    ["token source", claudePreflight?.token_source || "none"],
+    ["env conflict", claudePreflight?.auth_env_conflict ? "yes" : "no"],
   ];
+  const report = useMemo(() => {
+    const activityText = Object.entries(activityCounts)
+      .map(([state, count]) => `${state}: ${count}`)
+      .join(", ");
+    const lines = [
+      "Blackcrab diagnostics",
+      "",
+      ...rows.map(([label, value]) => `${label}: ${value}`),
+      `auth attention: ${
+        claudePreflight?.auth_needs_attention
+          ? claudePreflight.auth_attention_reason || "yes"
+          : "no"
+      }`,
+      `active title: ${activeSession?.title || "(none)"}`,
+      `active cwd: ${activeSession?.cwd || cwd || "(unset)"}`,
+      `user agent: ${navigator.userAgent || "(unknown)"}`,
+      `activity: ${activityText || "(none)"}`,
+      "",
+      "recent stderr:",
+      latestStderr.length ? latestStderr.join("\n") : "(none)",
+    ];
+    return redactDiagnosticText(lines.join("\n"));
+  }, [
+    activeSession,
+    activityCounts,
+    claudePreflight,
+    cwd,
+    latestStderr,
+    rows,
+  ]);
+  const copyReport = () => {
+    if (!navigator.clipboard) {
+      notify("Clipboard is not available", "error");
+      return;
+    }
+    navigator.clipboard
+      .writeText(report)
+      .then(() => notify("Diagnostics copied", "success"))
+      .catch(notifyErr("copy diagnostics failed"));
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -10064,15 +10121,25 @@ function DiagnosticsPanel({
               {activeSession?.title || "No active conversation"}
             </div>
           </div>
-          <button
-            type="button"
-            className="search-btn search-close"
-            onClick={onClose}
-            title="close"
-            aria-label="close diagnostics"
-          >
-            ×
-          </button>
+          <div className="diagnostics-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={copyReport}
+              title="copy redacted diagnostics"
+            >
+              Copy report
+            </button>
+            <button
+              type="button"
+              className="search-btn search-close"
+              onClick={onClose}
+              title="close"
+              aria-label="close diagnostics"
+            >
+              ×
+            </button>
+          </div>
         </header>
         <div className="diagnostics-grid">
           {rows.map(([label, value]) => (
@@ -10098,13 +10165,28 @@ function DiagnosticsPanel({
             <div className="diagnostics-empty">no stderr captured</div>
           ) : (
             <pre className="diagnostics-stderr">
-              {latestStderr.join("\n")}
+              {redactDiagnosticText(latestStderr.join("\n"))}
             </pre>
           )}
+        </section>
+        <section className="diagnostics-section">
+          <div className="diagnostics-section-title">Copyable report</div>
+          <pre className="diagnostics-stderr diagnostics-report">{report}</pre>
         </section>
       </div>
     </div>
   );
+}
+
+function redactDiagnosticText(text: string): string {
+  return text
+    .replace(/sk-ant-[A-Za-z0-9._-]+/g, "sk-ant-[redacted]")
+    .replace(
+      /(ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_OAUTH_TOKEN)=\S+/g,
+      "$1=[redacted]",
+    )
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
+    .replace(/authorization:\s*[^\n]+/gi, "authorization: [redacted]");
 }
 
 function WorktreePromptModal({
@@ -10164,6 +10246,7 @@ function ClaudeOnboardingOverlay({
   onSaveToken,
   onClearToken,
   onContinue,
+  onOpenTerminalCommand,
 }: {
   status: ClaudePreflight | null;
   loading: boolean;
@@ -10174,6 +10257,7 @@ function ClaudeOnboardingOverlay({
   onSaveToken: (token: string) => Promise<boolean>;
   onClearToken: () => void;
   onContinue: () => void;
+  onOpenTerminalCommand: (command: string, label: string) => void;
 }) {
   const installCommand = "npm install -g @anthropic-ai/claude-code";
   const loginCommand = "claude";
@@ -10274,12 +10358,28 @@ function ClaudeOnboardingOverlay({
               <code>claude</code>, use <code>/login</code>, then recheck.
             </p>
             <CommandCopyRow command={loginCommand} onCopy={copyCommand} />
+            <button
+              type="button"
+              className="btn btn-secondary onboarding-inline-action"
+              onClick={() => onOpenTerminalCommand(loginCommand, "claude-login")}
+            >
+              Open login terminal
+            </button>
             <p className="onboarding-note">
               If Blackcrab still cannot authenticate, create a long-lived
               token and paste it here. This is the recommended reliability path
               for packaged app launches.
             </p>
             <CommandCopyRow command={setupTokenCommand} onCopy={copyCommand} />
+            <button
+              type="button"
+              className="btn btn-secondary onboarding-inline-action"
+              onClick={() =>
+                onOpenTerminalCommand(setupTokenCommand, "setup-token")
+              }
+            >
+              Open setup-token terminal
+            </button>
             <TokenSetupForm
               value={tokenDraft}
               saving={tokenSaving}

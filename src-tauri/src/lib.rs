@@ -201,6 +201,115 @@ fn should_ignore_legacy_api_env(path_env: &str) -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(test)]
+fn auth_status(
+    logged_in: bool,
+    method: &str,
+    provider: &str,
+    source: Option<&str>,
+) -> serde_json::Value {
+    let mut status = serde_json::json!({
+        "loggedIn": logged_in,
+        "authMethod": method,
+        "apiProvider": provider,
+    });
+    if let Some(source) = source {
+        status["apiKeySource"] = serde_json::Value::String(source.to_string());
+    }
+    status
+}
+
+struct ResolvedClaudeAuth {
+    status: serde_json::Value,
+    needs_attention: bool,
+    attention_reason: String,
+}
+
+fn resolve_claude_auth_status(
+    current: serde_json::Value,
+    without_legacy_env: Option<serde_json::Value>,
+    managed_token_configured: bool,
+    auth_env_conflict: bool,
+) -> ResolvedClaudeAuth {
+    if managed_token_configured || !auth_env_conflict || !auth_status_logged_in(&current) {
+        return ResolvedClaudeAuth {
+            status: current,
+            needs_attention: false,
+            attention_reason: String::new(),
+        };
+    }
+
+    if let Some(without_env) = without_legacy_env.filter(auth_status_logged_in) {
+        return ResolvedClaudeAuth {
+            status: without_env,
+            needs_attention: false,
+            attention_reason: String::new(),
+        };
+    }
+
+    let env_auth_kind = if auth_status_uses_env_api_key(&current) {
+        "an Anthropic API key"
+    } else {
+        "an Anthropic auth environment variable"
+    };
+    ResolvedClaudeAuth {
+        status: current,
+        needs_attention: true,
+        attention_reason: format!(
+            "Claude Code is currently using {}. Blackcrab cannot verify it until a session starts, and stale credentials cause 401 errors on launch. Sign in with Claude Code or save a setup token here for reliable startup.",
+            env_auth_kind
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefers_cli_login_when_legacy_env_shadows_it() {
+        let current = auth_status(true, "api_key", "firstParty", Some("ANTHROPIC_API_KEY"));
+        let cli_login = auth_status(true, "claudeai", "firstParty", None);
+
+        let resolved = resolve_claude_auth_status(current, Some(cli_login), false, true);
+
+        assert!(!resolved.needs_attention);
+        assert_eq!(auth_status_method(&resolved.status), "claudeai");
+    }
+
+    #[test]
+    fn flags_env_auth_when_no_underlying_cli_login_exists() {
+        let current = auth_status(true, "api_key", "firstParty", Some("ANTHROPIC_API_KEY"));
+        let no_login = auth_status(false, "none", "firstParty", None);
+
+        let resolved = resolve_claude_auth_status(current, Some(no_login), false, true);
+
+        assert!(resolved.needs_attention);
+        assert!(resolved.attention_reason.contains("Anthropic API key"));
+        assert_eq!(auth_status_method(&resolved.status), "api_key");
+    }
+
+    #[test]
+    fn managed_token_takes_precedence_without_attention() {
+        let current = auth_status(true, "api_key", "firstParty", Some("ANTHROPIC_API_KEY"));
+
+        let resolved = resolve_claude_auth_status(current, None, true, true);
+
+        assert!(!resolved.needs_attention);
+        assert_eq!(auth_status_method(&resolved.status), "api_key");
+    }
+
+    #[test]
+    fn missing_auth_remains_missing_without_extra_attention() {
+        let current = auth_status(false, "none", "firstParty", None);
+
+        let resolved = resolve_claude_auth_status(current, None, false, true);
+
+        assert!(!resolved.needs_attention);
+        assert!(!auth_status_logged_in(&resolved.status));
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn keychain_account() -> String {
     std::env::var("USER").unwrap_or_else(|_| "default".to_string())
@@ -392,7 +501,7 @@ fn claude_preflight() -> ClaudePreflight {
         .to_string();
 
     let auth_status = run_claude_auth_status(&path_env, false);
-    let Ok(mut v) = auth_status else {
+    let Ok(v) = auth_status else {
         return ClaudePreflight {
             installed: true,
             authenticated: managed_token_configured,
@@ -417,26 +526,21 @@ fn claude_preflight() -> ClaudePreflight {
         };
     };
 
-    let mut auth_needs_attention = false;
-    let mut auth_attention_reason = String::new();
-    if !managed_token_configured && auth_env_conflict && auth_status_logged_in(&v) {
-        if let Some(without_env) = auth_status_without_legacy_api_env(&path_env)
-            .filter(auth_status_logged_in)
-        {
-            v = without_env;
-        } else {
-            let env_auth_kind = if auth_status_uses_env_api_key(&v) {
-                "an Anthropic API key"
-            } else {
-                "an Anthropic auth environment variable"
-            };
-            auth_needs_attention = true;
-            auth_attention_reason = format!(
-                "Claude Code is currently using {}. Blackcrab cannot verify it until a session starts, and stale credentials cause 401 errors on launch. Sign in with Claude Code or save a setup token here for reliable startup.",
-                env_auth_kind
-            );
-        }
-    }
+    let without_legacy_env = if !managed_token_configured
+        && auth_env_conflict
+        && auth_status_logged_in(&v)
+    {
+        auth_status_without_legacy_api_env(&path_env)
+    } else {
+        None
+    };
+    let resolved = resolve_claude_auth_status(
+        v,
+        without_legacy_env,
+        managed_token_configured,
+        auth_env_conflict,
+    );
+    let v = resolved.status;
 
     let cli_authenticated = auth_status_logged_in(&v);
     let cli_auth_method = auth_status_method(&v);
@@ -457,8 +561,8 @@ fn claude_preflight() -> ClaudePreflight {
         managed_token_configured,
         token_source,
         auth_env_conflict,
-        auth_needs_attention,
-        auth_attention_reason,
+        auth_needs_attention: resolved.needs_attention,
+        auth_attention_reason: resolved.attention_reason,
     }
 }
 

@@ -60,14 +60,22 @@ The workflow can also be run manually from GitHub Actions with a tag input.
 ## Local Native Builds
 
 Use the local native build command when you only need a testable `.app` and
-installer from the current checkout:
+`.dmg` from the current checkout:
 
 ```sh
 npm run build:native
 ```
 
-That command passes a temporary Tauri config override that disables updater
-artifact creation. It should not require `TAURI_SIGNING_PRIVATE_KEY`.
+That command builds the `.app` with updater artifacts disabled, then creates a
+plain local DMG with the app and an Applications symlink. It should not require
+`TAURI_SIGNING_PRIVATE_KEY`.
+
+For a local verification pass:
+
+```sh
+npm run smoke
+npm run smoke:native
+```
 
 Use the signed build command for release-style artifacts:
 

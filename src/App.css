@@ -1716,6 +1716,12 @@ body[data-resizing="true"] .terminal-resizer::after {
   background: var(--bg-elev);
 }
 
+.diagnostics-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .diagnostics-title {
   font-size: 15px;
   font-weight: 650;
@@ -1805,6 +1811,10 @@ body[data-resizing="true"] .terminal-resizer::after {
   color: var(--text-dim);
   font-family: var(--mono);
   font-size: 11px;
+}
+
+.diagnostics-report {
+  max-height: 300px;
 }
 
 .usage-overlay {
@@ -2618,6 +2628,10 @@ body[data-resizing="true"] .terminal-resizer::after {
   min-width: 0;
   overflow-x: auto;
   white-space: nowrap;
+}
+
+.onboarding-inline-action {
+  margin: 0 0 8px;
 }
 
 .onboarding-note {

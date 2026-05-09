@@ -23,6 +23,8 @@
     "build:native": "node scripts/tauri-build.mjs --local",
     "build:native:signed": "node scripts/tauri-build.mjs --signed",
     "check": "npm run typecheck && cargo check --manifest-path src-tauri/Cargo.toml --locked",
+    "smoke": "node scripts/smoke-check.mjs",
+    "smoke:native": "node scripts/smoke-check.mjs --native",
     "preview": "vite preview",
     "tauri": "tauri"
   },

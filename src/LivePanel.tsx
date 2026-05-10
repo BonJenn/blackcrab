@@ -567,7 +567,9 @@ export function LivePanel({
     })();
     return () => {
       // Kill the subprocess on unmount so sessions don't pile up.
-      invoke("stop_session", { panelId }).catch(() => {});
+      invoke("stop_session", { panelId }).catch((e) =>
+        console.warn(`panel ${panelId.slice(0, 8)} cleanup failed`, e),
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panelId, startEnabled]);
@@ -611,9 +613,15 @@ export function LivePanel({
         }
       },
     );
-    p1.then((u) => (off1 = u)).catch(() => {});
-    p2.then((u) => (off2 = u)).catch(() => {});
-    p3.then((u) => (off3 = u)).catch(() => {});
+    p1
+      .then((u) => (off1 = u))
+      .catch(notifyErr(`panel ${panelId.slice(0, 8)} event listener failed`));
+    p2
+      .then((u) => (off2 = u))
+      .catch(notifyErr(`panel ${panelId.slice(0, 8)} done listener failed`));
+    p3
+      .then((u) => (off3 = u))
+      .catch(notifyErr(`panel ${panelId.slice(0, 8)} stderr listener failed`));
     return () => {
       if (off1) off1();
       if (off2) off2();

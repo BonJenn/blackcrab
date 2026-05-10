@@ -1140,7 +1140,16 @@ fn terminal_spawn(
                         }),
                     );
                 }
-                Err(_) => break,
+                Err(e) => {
+                    let _ = app_for_thread.emit(
+                        "terminal-error",
+                        serde_json::json!({
+                            "terminal_id": id_for_thread,
+                            "error": e.to_string(),
+                        }),
+                    );
+                    break;
+                }
             }
         }
         let _ = app_for_thread.emit(

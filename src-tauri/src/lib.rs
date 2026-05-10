@@ -347,6 +347,57 @@ mod tests {
         assert!(resolved.needs_attention);
         assert!(resolved.attention_reason.contains("Anthropic API key"));
     }
+
+    #[tokio::test]
+    async fn reserve_session_owner_rejects_competing_panel() {
+        let owners = Arc::new(Mutex::new(HashMap::new()));
+
+        let reserved = reserve_session_owner(&owners, Some("session-1"), "panel-a")
+            .await
+            .unwrap();
+        assert_eq!(reserved.as_deref(), Some("session-1"));
+
+        let err = reserve_session_owner(&owners, Some("session-1"), "panel-b")
+            .await
+            .unwrap_err();
+        assert!(err.contains("panel-a"));
+
+        release_session_owner_if_matches(&owners, "session-1", "panel-a").await;
+        assert!(reserve_session_owner(&owners, Some("session-1"), "panel-b")
+            .await
+            .is_ok());
+    }
+
+    #[test]
+    fn session_path_rejects_unsafe_session_ids_and_separators() {
+        let projects = PathBuf::from("projects");
+        let path = session_path_under_projects(&projects, "abc-123_DEF", "/Users/me/project")
+            .expect("safe session path");
+
+        assert_eq!(
+            path,
+            projects
+                .join("-Users-me-project")
+                .join("abc-123_DEF.jsonl")
+        );
+        assert!(session_path_under_projects(&projects, "../escape", "/Users/me").is_none());
+        assert!(session_path_under_projects(&projects, "nested/path", "/Users/me").is_none());
+        assert!(session_path_under_projects(&projects, "nested\\path", "/Users/me").is_none());
+        assert_eq!(encode_cwd(r"C:\Users\me\project"), "C:-Users-me-project");
+    }
+
+    #[test]
+    fn custom_title_normalization_trims_rejects_newlines_and_caps_length() {
+        assert_eq!(normalize_custom_title("  hello  ").unwrap(), "hello");
+        assert!(normalize_custom_title("   ").is_err());
+        assert!(normalize_custom_title("hello\nworld").is_err());
+
+        let long = "x".repeat(MAX_CUSTOM_TITLE_CHARS + 10);
+        assert_eq!(
+            normalize_custom_title(&long).unwrap().chars().count(),
+            MAX_CUSTOM_TITLE_CHARS
+        );
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -621,12 +672,58 @@ fn context_limit_for(model: &str, max_observed: u64) -> u64 {
 }
 
 fn encode_cwd(cwd: &str) -> String {
-    cwd.replace('/', "-")
+    cwd.chars()
+        .map(|c| if c == '/' || c == '\\' { '-' } else { c })
+        .collect()
 }
 
 fn projects_dir() -> Option<PathBuf> {
     let home = std::env::var("HOME").ok()?;
     Some(PathBuf::from(home).join(".claude").join("projects"))
+}
+
+async fn release_panel_session_owners(
+    owners: &Arc<Mutex<HashMap<String, String>>>,
+    panel_id: &str,
+) {
+    let mut owners = owners.lock().await;
+    owners.retain(|_, owner| owner != panel_id);
+}
+
+async fn release_session_owner_if_matches(
+    owners: &Arc<Mutex<HashMap<String, String>>>,
+    session_id: &str,
+    panel_id: &str,
+) {
+    let mut owners = owners.lock().await;
+    if owners
+        .get(session_id)
+        .map(|owner| owner == panel_id)
+        .unwrap_or(false)
+    {
+        owners.remove(session_id);
+    }
+}
+
+async fn reserve_session_owner(
+    owners: &Arc<Mutex<HashMap<String, String>>>,
+    session_id: Option<&str>,
+    panel_id: &str,
+) -> Result<Option<String>, String> {
+    let Some(session_id) = session_id else {
+        return Ok(None);
+    };
+    let mut owners = owners.lock().await;
+    if let Some(other) = owners.get(session_id) {
+        if other != panel_id {
+            return Err(format!(
+                "session {} is already open in panel {} — close it there first",
+                session_id, other
+            ));
+        }
+    }
+    owners.insert(session_id.to_string(), panel_id.to_string());
+    Ok(Some(session_id.to_string()))
 }
 
 #[tauri::command]
@@ -640,26 +737,19 @@ async fn start_session(
     resume_id: Option<String>,
     use_worktree: Option<bool>,
 ) -> Result<(), String> {
+    let resume_id = resume_id.and_then(|s| {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
     let mut guard = state.sessions.lock().await;
     if let Some(mut s) = guard.remove(&panel_id) {
         let _ = s.child.start_kill();
     }
-
-    // Single-writer gate: if we're about to resume a session id, make sure
-    // no other live panel is already attached to it. The prior subprocess
-    // for this panel (killed above) held any ownership for this panel_id
-    // so a restart-same-session on the same panel is still allowed.
-    if let Some(rid) = resume_id.as_deref().filter(|s| !s.is_empty()) {
-        let owners = state.session_owners.lock().await;
-        if let Some(other) = owners.get(rid) {
-            if other != &panel_id {
-                return Err(format!(
-                    "session {} is already open in panel {} — close it there first",
-                    rid, other
-                ));
-            }
-        }
-    }
+    release_panel_session_owners(&state.session_owners, &panel_id).await;
 
     let mode = permission_mode.unwrap_or_else(|| "bypassPermissions".to_string());
 
@@ -693,8 +783,8 @@ async fn start_session(
         cmd.arg("--model").arg(m);
     }
 
-    let is_resume = resume_id.as_deref().map(|s| !s.is_empty()).unwrap_or(false);
-    if let Some(rid) = resume_id.filter(|s| !s.is_empty()) {
+    let is_resume = resume_id.is_some();
+    if let Some(rid) = resume_id.as_deref() {
         cmd.arg("--resume").arg(rid);
     }
 
@@ -747,29 +837,94 @@ async fn start_session(
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
     }
 
-    let mut child = cmd.spawn().map_err(|e| format!("failed to spawn claude: {}", e))?;
-    let stdin = child.stdin.take().ok_or_else(|| "no stdin handle".to_string())?;
-    let stdout = child.stdout.take().ok_or_else(|| "no stdout handle".to_string())?;
-    let stderr = child.stderr.take().ok_or_else(|| "no stderr handle".to_string())?;
+    // Reserve known resumed sessions before spawning the child. Otherwise two
+    // panels can both pass the initial owner check and race until stdout emits
+    // the first session_id, leaving two writers on the same JSONL.
+    let reserved_session_id =
+        reserve_session_owner(&state.session_owners, resume_id.as_deref(), &panel_id).await?;
+
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            if let Some(session_id) = reserved_session_id.as_deref() {
+                release_session_owner_if_matches(&state.session_owners, session_id, &panel_id)
+                    .await;
+            }
+            return Err(format!("failed to spawn claude: {}", e));
+        }
+    };
+    let stdin = match child.stdin.take() {
+        Some(stdin) => stdin,
+        None => {
+            let _ = child.start_kill();
+            if let Some(session_id) = reserved_session_id.as_deref() {
+                release_session_owner_if_matches(&state.session_owners, session_id, &panel_id)
+                    .await;
+            }
+            return Err("no stdin handle".to_string());
+        }
+    };
+    let stdout = match child.stdout.take() {
+        Some(stdout) => stdout,
+        None => {
+            let _ = child.start_kill();
+            if let Some(session_id) = reserved_session_id.as_deref() {
+                release_session_owner_if_matches(&state.session_owners, session_id, &panel_id)
+                    .await;
+            }
+            return Err("no stdout handle".to_string());
+        }
+    };
+    let stderr = match child.stderr.take() {
+        Some(stderr) => stderr,
+        None => {
+            let _ = child.start_kill();
+            if let Some(session_id) = reserved_session_id.as_deref() {
+                release_session_owner_if_matches(&state.session_owners, session_id, &panel_id)
+                    .await;
+            }
+            return Err("no stderr handle".to_string());
+        }
+    };
 
     let app_out = app.clone();
     let pid_out = panel_id.clone();
     let owners_out = state.session_owners.clone();
     tokio::spawn(async move {
         let mut lines = BufReader::new(stdout).lines();
-        let mut claimed: Option<String> = None;
+        let mut claimed: Option<String> = reserved_session_id;
         while let Ok(Some(line)) = lines.next_line().await {
             // Claim ownership of the session id on the first init event
             // that carries one. Cheap substring check before a full JSON
             // parse — session_id only appears on a handful of event types.
-            if claimed.is_none() && line.contains("\"session_id\"") {
+            if line.contains("\"session_id\"") {
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
-                    if let Some(sid) =
-                        v.get("session_id").and_then(|x| x.as_str())
-                    {
+                    if let Some(sid) = v.get("session_id").and_then(|x| x.as_str()) {
+                        if claimed.as_deref() == Some(sid) {
+                            let _ = app_out.emit(
+                                "claude-event",
+                                serde_json::json!({ "panel_id": pid_out, "line": line }),
+                            );
+                            continue;
+                        }
                         let mut owners = owners_out.lock().await;
-                        owners.insert(sid.to_string(), pid_out.clone());
-                        claimed = Some(sid.to_string());
+                        if let Some(other) = owners.get(sid) {
+                            if other != &pid_out {
+                                let _ = app_out.emit(
+                                    "claude-stderr",
+                                    serde_json::json!({
+                                        "panel_id": pid_out,
+                                        "line": format!(
+                                            "session {} is already open in panel {}; refusing to overwrite owner",
+                                            sid, other
+                                        ),
+                                    }),
+                                );
+                            }
+                        } else {
+                            owners.insert(sid.to_string(), pid_out.clone());
+                            claimed = Some(sid.to_string());
+                        }
                     }
                 }
             }
@@ -1864,13 +2019,54 @@ const REPLAY_SKIP_TYPES: [&str; 7] = [
     "system",
 ];
 
-fn session_path(session_id: &str, cwd: &str) -> Option<PathBuf> {
+const MAX_SESSION_ID_LEN: usize = 128;
+const MAX_CUSTOM_TITLE_CHARS: usize = 256;
+
+fn safe_session_filename(session_id: &str) -> Option<String> {
+    if session_id.is_empty() || session_id.len() > MAX_SESSION_ID_LEN {
+        return None;
+    }
+    if !session_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return None;
+    }
+    Some(format!("{}.jsonl", session_id))
+}
+
+fn session_path_under_projects(
+    projects: &std::path::Path,
+    session_id: &str,
+    cwd: &str,
+) -> Option<PathBuf> {
     let encoded = encode_cwd(cwd);
-    Some(
-        projects_dir()?
-            .join(encoded)
-            .join(format!("{}.jsonl", session_id)),
-    )
+    if encoded.is_empty() || encoded.contains('/') || encoded.contains('\\') {
+        return None;
+    }
+    let path = projects.join(encoded).join(safe_session_filename(session_id)?);
+    if path.starts_with(projects) {
+        Some(path)
+    } else {
+        None
+    }
+}
+
+fn session_path(session_id: &str, cwd: &str) -> Result<PathBuf, String> {
+    let projects = projects_dir().ok_or_else(|| "no HOME".to_string())?;
+    session_path_under_projects(&projects, session_id, cwd)
+        .ok_or_else(|| "invalid session id or cwd".to_string())
+}
+
+fn normalize_custom_title(title: &str) -> Result<String, String> {
+    let trimmed = title.trim();
+    if trimmed.is_empty() {
+        return Err("session title cannot be empty".to_string());
+    }
+    if trimmed.contains('\n') || trimmed.contains('\r') {
+        return Err("session title cannot contain line breaks".to_string());
+    }
+    Ok(trimmed.chars().take(MAX_CUSTOM_TITLE_CHARS).collect())
 }
 
 fn should_skip_line(line: &str) -> bool {
@@ -1888,8 +2084,7 @@ fn should_skip_line(line: &str) -> bool {
 
 #[tauri::command]
 fn load_session(session_id: String, cwd: String) -> Result<Vec<serde_json::Value>, String> {
-    let path = session_path(&session_id, &cwd)
-        .ok_or_else(|| "no HOME".to_string())?;
+    let path = session_path(&session_id, &cwd)?;
     if !path.exists() {
         return Err("session file not found".to_string());
     }
@@ -1929,17 +2124,16 @@ fn load_session(session_id: String, cwd: String) -> Result<Vec<serde_json::Value
 #[tauri::command]
 fn set_session_title(session_id: String, cwd: String, title: String) -> Result<(), String> {
     use std::io::Write;
-    let path = session_path(&session_id, &cwd)
-        .ok_or_else(|| "no HOME".to_string())?;
+    let path = session_path(&session_id, &cwd)?;
     if !path.exists() {
         return Err("session file not found".to_string());
     }
-    let trimmed = title.trim();
+    let title = normalize_custom_title(&title)?;
     // summarize_session takes the most recent custom-title record, so appending
     // is enough — no need to rewrite prior lines.
     let record = serde_json::json!({
         "type": "custom-title",
-        "customTitle": trimmed,
+        "customTitle": title,
         "timestamp": chrono_now_iso(),
     });
     let line = serde_json::to_string(&record).map_err(|e| e.to_string())?;
@@ -1954,8 +2148,7 @@ fn set_session_title(session_id: String, cwd: String, title: String) -> Result<(
 #[tauri::command]
 fn set_session_archived(session_id: String, cwd: String, archived: bool) -> Result<(), String> {
     use std::io::Write;
-    let path = session_path(&session_id, &cwd)
-        .ok_or_else(|| "no HOME".to_string())?;
+    let path = session_path(&session_id, &cwd)?;
     if !path.exists() {
         return Err("session file not found".to_string());
     }
@@ -1992,8 +2185,7 @@ async fn delete_session(
             ));
         }
     }
-    let path = session_path(&session_id, &cwd)
-        .ok_or_else(|| "no HOME".to_string())?;
+    let path = session_path(&session_id, &cwd)?;
     if !path.exists() {
         return Err("session file not found".to_string());
     }
@@ -2053,8 +2245,7 @@ fn load_session_tail(
     cwd: String,
     limit: usize,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let path = session_path(&session_id, &cwd)
-        .ok_or_else(|| "no HOME".to_string())?;
+    let path = session_path(&session_id, &cwd)?;
     if !path.exists() {
         return Err("session file not found".to_string());
     }

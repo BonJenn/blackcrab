@@ -32,6 +32,7 @@ function run(command, args) {
 }
 
 run("npm", ["run", "typecheck"]);
+run("npm", ["test"]);
 run("cargo", ["test", "--manifest-path", "src-tauri/Cargo.toml", "--locked"]);
 run("cargo", ["check", "--manifest-path", "src-tauri/Cargo.toml", "--locked"]);
 run("npm", ["run", "build"]);

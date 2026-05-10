@@ -32,6 +32,7 @@ export function TerminalPanel({
   const termRef = useRef<XTerm | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const startedRef = useRef(false);
+  const terminalErrorShownRef = useRef(false);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -56,6 +57,22 @@ export function TerminalPanel({
     term.open(el);
     termRef.current = term;
     fitRef.current = fit;
+    terminalErrorShownRef.current = false;
+
+    const writeTerminalError = (label: string, error: unknown) => {
+      if (terminalErrorShownRef.current) {
+        console.warn(label, error);
+        return;
+      }
+      terminalErrorShownRef.current = true;
+      const message =
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      term.writeln(`\r\n\x1b[31m[${label}: ${message}]\x1b[0m`);
+    };
 
     // Initial fit + spawn the PTY with matching dimensions.
     fit.fit();
@@ -80,7 +97,7 @@ export function TerminalPanel({
               data: write.data,
             })
               .then(() => onInitialWrite?.(write))
-              .catch(() => {});
+              .catch((e) => writeTerminalError("initial terminal write failed", e));
           }, Math.max(0, write.delayMs ?? 0));
           timers.push(timer);
         }
@@ -90,14 +107,19 @@ export function TerminalPanel({
       });
 
     const writeSub = term.onData((data) => {
-      invoke("terminal_write", { terminalId, data }).catch(() => {});
+      invoke("terminal_write", { terminalId, data }).catch((e) =>
+        writeTerminalError("terminal write failed", e),
+      );
     });
     const resizeSub = term.onResize(({ cols, rows }) => {
-      invoke("terminal_resize", { terminalId, cols, rows }).catch(() => {});
+      invoke("terminal_resize", { terminalId, cols, rows }).catch((e) =>
+        console.warn("terminal resize failed", e),
+      );
     });
 
     let unlistenOutput: (() => void) | null = null;
     let unlistenExit: (() => void) | null = null;
+    let unlistenError: (() => void) | null = null;
     listen<{ terminal_id: string; data: string }>("terminal-output", (e) => {
       if (e.payload.terminal_id !== terminalId) return;
       term.write(e.payload.data);
@@ -105,7 +127,7 @@ export function TerminalPanel({
       .then((u) => {
         unlistenOutput = u;
       })
-      .catch(() => {});
+      .catch((e) => writeTerminalError("terminal output listener failed", e));
     listen<{ terminal_id: string }>("terminal-exit", (e) => {
       if (e.payload.terminal_id !== terminalId) return;
       term.writeln("\r\n\x1b[33m[terminal exited]\x1b[0m");
@@ -113,7 +135,15 @@ export function TerminalPanel({
       .then((u) => {
         unlistenExit = u;
       })
-      .catch(() => {});
+      .catch((e) => writeTerminalError("terminal exit listener failed", e));
+    listen<{ terminal_id: string; error: string }>("terminal-error", (e) => {
+      if (e.payload.terminal_id !== terminalId) return;
+      writeTerminalError("terminal read failed", e.payload.error);
+    })
+      .then((u) => {
+        unlistenError = u;
+      })
+      .catch((e) => writeTerminalError("terminal error listener failed", e));
 
     const onResize = () => {
       try {
@@ -132,8 +162,11 @@ export function TerminalPanel({
       resizeSub.dispose();
       if (unlistenOutput) unlistenOutput();
       if (unlistenExit) unlistenExit();
+      if (unlistenError) unlistenError();
       ro.disconnect();
-      invoke("terminal_kill", { terminalId }).catch(() => {});
+      invoke("terminal_kill", { terminalId }).catch((e) =>
+        console.warn("terminal cleanup failed", e),
+      );
       term.dispose();
       termRef.current = null;
       fitRef.current = null;

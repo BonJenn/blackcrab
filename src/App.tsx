@@ -266,6 +266,14 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   newPanelWorktreeMode: "ask",
 };
 
+function errorMessage(error: unknown): string {
+  return typeof error === "string"
+    ? error
+    : error instanceof Error
+      ? error.message
+      : String(error);
+}
+
 const THEME_OPTIONS: Array<{ value: AppTheme; label: string; glyph: string }> = [
   { value: "light", label: "Light", glyph: "☀" },
   { value: "dark", label: "Dark", glyph: "◐" },
@@ -1363,6 +1371,25 @@ function App() {
   const [stuckBusy, setStuckBusy] = useState(false);
   const [stderrLines, setStderrLines] = useState<string[]>([]);
   const [showStderr, setShowStderr] = useState(false);
+  const appendDiagnosticLine = useCallback((line: string) => {
+    setStderrLines((prev) => [...prev.slice(-79), line]);
+  }, []);
+  const reportCleanupError = useCallback(
+    (label: string) => (error: unknown) => {
+      const line = `${label}: ${errorMessage(error)}`;
+      console.warn(line, error);
+      appendDiagnosticLine(line);
+    },
+    [appendDiagnosticLine],
+  );
+  const reportListenerError = useCallback(
+    (label: string) => (error: unknown) => {
+      const line = `${label}: ${errorMessage(error)}`;
+      appendDiagnosticLine(line);
+      notify(line, "error");
+    },
+    [appendDiagnosticLine],
+  );
   const [stuckToBottom, setStuckToBottom] = useState(true);
   const [hasNewBelow, setHasNewBelow] = useState(false);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -1649,7 +1676,9 @@ function App() {
         );
       },
       stop: (terminalId) => {
-        invoke("terminal_kill", { terminalId }).catch(() => {});
+        invoke("terminal_kill", { terminalId }).catch(
+          reportCleanupError("computer-use terminal cleanup failed"),
+        );
         updateComputerUseEntry(terminalId, (entry) => ({
           ...entry,
           status: "done",
@@ -1659,7 +1688,7 @@ function App() {
     return () => {
       computerUseControlsRef.current = null;
     };
-  }, [updateComputerUseEntry]);
+  }, [reportCleanupError, updateComputerUseEntry]);
   useEffect(() => {
     if (!canUseTauriEventApi()) return;
     const pending: Promise<() => void>[] = [
@@ -1678,6 +1707,9 @@ function App() {
                 : output,
           };
         });
+      }).catch((e) => {
+        reportListenerError("computer-use terminal output listener failed")(e);
+        return () => {};
       }),
       listen<{ terminal_id: string }>("terminal-exit", (e) => {
         const terminalId = e.payload?.terminal_id;
@@ -1687,14 +1719,34 @@ function App() {
           status: entry.status === "error" ? entry.status : "done",
         }));
         computerUseWorkersRef.current.delete(terminalId);
+      }).catch((e) => {
+        reportListenerError("computer-use terminal exit listener failed")(e);
+        return () => {};
+      }),
+      listen<{ terminal_id: string; error: string }>("terminal-error", (e) => {
+        const terminalId = e.payload?.terminal_id;
+        if (!terminalId?.startsWith("cu-inline-")) return;
+        const error = e.payload?.error || "terminal read failed";
+        updateComputerUseEntry(terminalId, (entry) => ({
+          ...entry,
+          status: "error",
+          error,
+        }));
+        computerUseWorkersRef.current.delete(terminalId);
+        notify("Computer-use terminal read failed", "error");
+      }).catch((e) => {
+        reportListenerError("computer-use terminal error listener failed")(e);
+        return () => {};
       }),
     ];
     return () => {
       for (const p of pending) {
-        p.then((u) => u()).catch(() => {});
+        p.then((u) => u()).catch(
+          reportCleanupError("computer-use terminal listener cleanup failed"),
+        );
       }
     };
-  }, [updateComputerUseEntry]);
+  }, [reportCleanupError, reportListenerError, updateComputerUseEntry]);
   const startInlineComputerUse = useEvent(async () => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
@@ -2014,7 +2066,10 @@ function App() {
         sid
           ? sessionPanelIdsRef.current.get(sid) ?? activePanelIdRef.current
           : activePanelIdRef.current;
-      await invoke("stop_session", { panelId }).catch(() => {});
+      await invoke("stop_session", { panelId }).catch((e) => {
+        reportCleanupError("grid handoff stop_session failed")(e);
+        notifyErr("failed to stop session before grid handoff")(e);
+      });
       if (cancelled) return;
       setPanelOn(panelId, false);
       setPanelBusy(panelId, false);
@@ -2032,6 +2087,7 @@ function App() {
     busy,
     setActiveSessionId,
     clearGridHandoffs,
+    reportCleanupError,
   ]);
 
   // In grid mode, the topbar mirrors whichever panel is currently selected
@@ -2079,8 +2135,9 @@ function App() {
             unlisten = cleanup;
           }
         })
-        .catch(() => {});
-    } catch {
+        .catch(reportListenerError("settings listener failed"));
+    } catch (e) {
+      reportListenerError("settings listener failed")(e);
       return;
     }
 
@@ -2310,18 +2367,19 @@ function App() {
           });
         }
       });
-    } catch {
+    } catch (e) {
+      reportListenerError("native drag-drop listener failed")(e);
       return;
     }
     listenPromise
       .then((fn) => {
         unlisten = fn;
       })
-      .catch(() => {});
+      .catch(reportListenerError("native drag-drop listener failed"));
     return () => {
       if (unlisten) unlisten();
     };
-  }, []);
+  }, [reportListenerError]);
 
   // DOM-level file drop handler. Tauri's `onDragDropEvent` only fires
   // when `dragDropEnabled: true` in tauri.conf.json, which is off so
@@ -3216,6 +3274,9 @@ function App() {
         } catch (err) {
           console.error("bad claude-event payload", err, line);
         }
+      }).catch((e) => {
+        reportListenerError("claude event listener failed")(e);
+        return () => {};
       }),
       listen<{ panel_id: string; line: string }>("claude-stderr", (e) => {
         const panelId = e.payload?.panel_id ?? "main";
@@ -3236,6 +3297,9 @@ function App() {
         if (activePanelIdRef.current === panelId) {
           setStderrLines((s) => [...s, line]);
         }
+      }).catch((e) => {
+        reportListenerError("claude stderr listener failed")(e);
+        return () => {};
       }),
       listen<{ panel_id: string }>("claude-done", (e) => {
         const panelId = e.payload?.panel_id ?? "main";
@@ -3258,16 +3322,21 @@ function App() {
           { kind: "system", id: randomId(), text: "session ended" },
         ]);
         refreshSessions();
+      }).catch((e) => {
+        reportListenerError("claude done listener failed")(e);
+        return () => {};
       }),
     ];
 
     return () => {
       for (const p of pending) {
-        p.then((u) => u()).catch(() => {});
+        p.then((u) => u()).catch(
+          reportCleanupError("claude listener cleanup failed"),
+        );
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reportCleanupError, reportListenerError]);
 
   function transcriptIdForPanel(panelId: string): string {
     return (
@@ -7643,7 +7712,7 @@ function NativePreview({ url, reloadKey }: { url: string; reloadKey: number }) {
         topInsetRef.current = v;
         scheduleRef.current?.();
       })
-      .catch(() => {});
+      .catch((e) => console.warn("window_top_inset failed", e));
   }, []);
 
   // Mount / unmount: create the webview, tear it down on cleanup.
@@ -7658,7 +7727,10 @@ function NativePreview({ url, reloadKey }: { url: string; reloadKey: number }) {
       // Use the Tauri-reported inset so the initial bounds are right too.
       let inset = topInsetRef.current;
       if (inset === 0) {
-        inset = await invoke<number>("window_top_inset").catch(() => 0);
+        inset = await invoke<number>("window_top_inset").catch((e) => {
+          console.warn("window_top_inset failed", e);
+          return 0;
+        });
         topInsetRef.current = inset;
       }
       const rect = el.getBoundingClientRect();
@@ -7672,7 +7744,9 @@ function NativePreview({ url, reloadKey }: { url: string; reloadKey: number }) {
         height: Math.max(10, Math.round(rect.height)),
       });
       if (cancelled) {
-        wv.close().catch(() => {});
+        wv.close().catch((e) =>
+          console.warn("preview webview close failed", e),
+        );
         return;
       }
       webviewRef.current = wv;
@@ -7686,8 +7760,13 @@ function NativePreview({ url, reloadKey }: { url: string; reloadKey: number }) {
       cancelled = true;
       const w = webviewRef.current;
       webviewRef.current = null;
-      if (w) w.close().catch(() => {});
-      else if (wv) wv.close().catch(() => {});
+      if (w) {
+        w.close().catch((e) => console.warn("preview webview close failed", e));
+      } else if (wv) {
+        wv.close().catch((e) =>
+          console.warn("preview webview close failed", e),
+        );
+      }
     };
     // Only mount once; URL changes are handled by a separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7747,9 +7826,9 @@ function NativePreview({ url, reloadKey }: { url: string; reloadKey: number }) {
       const wv = webviewRef.current;
       if (!wv) return;
       if (document.body.dataset.resizing === "true") {
-        wv.hide().catch(() => {});
+        wv.hide().catch((e) => console.warn("preview webview hide failed", e));
       } else {
-        wv.show().catch(() => {});
+        wv.show().catch((e) => console.warn("preview webview show failed", e));
         schedule();
       }
     });
@@ -10111,7 +10190,7 @@ function ClaudeOnboardingOverlay({
         : "Claude Code is ready";
   const copyCommand = (cmd: string) => {
     if (!navigator.clipboard) return;
-    navigator.clipboard.writeText(cmd).catch(() => {});
+    navigator.clipboard.writeText(cmd).catch(notifyErr("copy command failed"));
   };
 
   return (

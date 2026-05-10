@@ -89,18 +89,23 @@ function isSafeUrl(href: string): boolean {
   return true;
 }
 
+const MARKDOWN_CACHE_LIMIT = 500;
 const mdCache = new Map<string, string>();
 
 export function compileMarkdown(text: string, repo?: string): string {
   if (!text) return "";
-  const key = repo ? `${repo}\x00${text}` : text;
+  const key = markdownCacheKey(text, repo);
   const hit = mdCache.get(key);
-  if (hit) return hit;
+  if (hit !== undefined) {
+    mdCache.delete(key);
+    mdCache.set(key, hit);
+    return hit;
+  }
   try {
     let html = marked.parse(text, { async: false }) as string;
     if (repo) html = linkifyPrRefs(html, repo);
-    if (mdCache.size > 5000) mdCache.clear();
     mdCache.set(key, html);
+    trimMarkdownCache();
     return html;
   } catch (err) {
     console.error("markdown compile failed", err);
@@ -108,7 +113,45 @@ export function compileMarkdown(text: string, repo?: string): string {
   }
 }
 
+function markdownCacheKey(text: string, repo?: string): string {
+  return `${repo ?? ""}\x00${text.length}\x00${hashString(text)}`;
+}
+
+function hashString(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function trimMarkdownCache(): void {
+  while (mdCache.size > MARKDOWN_CACHE_LIMIT) {
+    const oldest = mdCache.keys().next().value;
+    if (!oldest) return;
+    mdCache.delete(oldest);
+  }
+}
+
 const PR_RE = /\b(?:PR|pr|pull(?:\s+request)?)\s*#?(\d+)\b/g;
+
+export function githubPullUrl(repo: string, pullNumber: string): string | null {
+  const [owner, name, ...extra] = repo.split("/");
+  if (
+    extra.length > 0 ||
+    !owner ||
+    !name ||
+    !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) ||
+    !/^[A-Za-z0-9._-]+$/.test(name) ||
+    !/^[1-9]\d*$/.test(pullNumber)
+  ) {
+    return null;
+  }
+  const url = new URL("https://github.com");
+  url.pathname = `/${owner}/${name}/pull/${pullNumber}`;
+  return url.toString();
+}
 
 // Walk the parsed HTML body, replace "PR #123" / "PR#123" / "pull request 123"
 // references in text nodes with real anchors. Skips code, pre, and existing
@@ -146,10 +189,15 @@ function linkifyPrRefs(html: string, repo: string): string {
       if (offset > last) {
         frag.appendChild(doc.createTextNode(text.slice(last, offset)));
       }
-      const a = doc.createElement("a");
-      a.setAttribute("href", `https://github.com/${repo}/pull/${num}`);
-      a.textContent = match;
-      frag.appendChild(a);
+      const url = githubPullUrl(repo, num);
+      if (url) {
+        const a = doc.createElement("a");
+        a.setAttribute("href", url);
+        a.textContent = match;
+        frag.appendChild(a);
+      } else {
+        frag.appendChild(doc.createTextNode(match));
+      }
       last = offset + match.length;
     }
     if (last < text.length) {

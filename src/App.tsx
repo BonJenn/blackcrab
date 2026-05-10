@@ -41,6 +41,7 @@ import {
   respondPermission,
   type PermissionRequest,
 } from "./LivePanel";
+import { PanelErrorBoundary } from "./PanelErrorBoundary";
 import { subscribeToasts, type Toast, notify, notifyErr } from "./toast";
 import "./App.css";
 
@@ -9744,60 +9745,66 @@ function LiveGrid({
           ? defaultModel
           : info?.model || defaultModel;
         return (
-          <LivePanel
+          <PanelErrorBoundary
             key={id}
-            panelId={id}
-            initialSessionId={isPendingNewPanel ? undefined : sessionId}
-            initialCwd={panelCwd}
-            initialModel={panelModel}
-            initialTitle={info?.title}
-            initialMtime={isPendingNewPanel ? 0 : info?.mtime_ms ?? 0}
-            permissionMode={info?.permission_mode || permissionMode}
-            repo=""
-            sessionCache={sessionCache}
-            isActive={selectedId === id}
-            startEnabled={startEnabled}
-            useWorktree={isPendingNewPanel ? !!newPanelWorktree[id] : false}
-            onFocus={() => onSelect(id)}
+            resetKey={`${id}:${sessionId}`}
+            title={info?.title || sessionId || "new panel"}
             onRemove={() => onRemove(id)}
-            onRename={onRename}
-            onSessionStarted={onSessionStarted}
-            onAttention={onPanelAttention}
-            onAuthFailure={onAuthFailure}
-            onExpand={onExpand}
-            dragging={dragId === id}
-            dragOver={overId === id && dragId !== null && dragId !== id}
-            onHandleDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", id);
-              e.dataTransfer.effectAllowed = "move";
-              setDragId(id);
-            }}
-            onHandleDragEnd={() => {
-              setDragId(null);
-              setOverId(null);
-            }}
-            onPanelDragOver={(e) => {
-              if (!dragId || dragId === id) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-              if (overId !== id) setOverId(id);
-            }}
-            onPanelDragLeave={(e) => {
-              // Ignore leaves into descendants — only clear when the
-              // pointer actually exits the tile.
-              const tgt = e.currentTarget as HTMLElement;
-              const related = e.relatedTarget as Node | null;
-              if (related && tgt.contains(related)) return;
-              if (overId === id) setOverId(null);
-            }}
-            onPanelDrop={(e) => {
-              e.preventDefault();
-              const from = e.dataTransfer.getData("text/plain") || dragId;
-              setDragId(null);
-              setOverId(null);
-              if (from && from !== id) onReorder(from, id);
-            }}
-          />
+          >
+            <LivePanel
+              panelId={id}
+              initialSessionId={isPendingNewPanel ? undefined : sessionId}
+              initialCwd={panelCwd}
+              initialModel={panelModel}
+              initialTitle={info?.title}
+              initialMtime={isPendingNewPanel ? 0 : info?.mtime_ms ?? 0}
+              permissionMode={info?.permission_mode || permissionMode}
+              repo=""
+              sessionCache={sessionCache}
+              isActive={selectedId === id}
+              startEnabled={startEnabled}
+              useWorktree={isPendingNewPanel ? !!newPanelWorktree[id] : false}
+              onFocus={() => onSelect(id)}
+              onRemove={() => onRemove(id)}
+              onRename={onRename}
+              onSessionStarted={onSessionStarted}
+              onAttention={onPanelAttention}
+              onAuthFailure={onAuthFailure}
+              onExpand={onExpand}
+              dragging={dragId === id}
+              dragOver={overId === id && dragId !== null && dragId !== id}
+              onHandleDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", id);
+                e.dataTransfer.effectAllowed = "move";
+                setDragId(id);
+              }}
+              onHandleDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+              onPanelDragOver={(e) => {
+                if (!dragId || dragId === id) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (overId !== id) setOverId(id);
+              }}
+              onPanelDragLeave={(e) => {
+                // Ignore leaves into descendants — only clear when the
+                // pointer actually exits the tile.
+                const tgt = e.currentTarget as HTMLElement;
+                const related = e.relatedTarget as Node | null;
+                if (related && tgt.contains(related)) return;
+                if (overId === id) setOverId(null);
+              }}
+              onPanelDrop={(e) => {
+                e.preventDefault();
+                const from = e.dataTransfer.getData("text/plain") || dragId;
+                setDragId(null);
+                setOverId(null);
+                if (from && from !== id) onReorder(from, id);
+              }}
+            />
+          </PanelErrorBoundary>
         );
       })}
       {addInGrid && (

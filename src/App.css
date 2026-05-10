@@ -1101,6 +1101,31 @@ body[data-resizing="true"] .grid-col-divider::before {
   box-shadow: 0 0 0 1px var(--err);
 }
 
+.panel-error-boundary {
+  border-color: var(--err);
+}
+
+.panel-error-boundary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.panel-error-boundary-body p {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.panel-error-boundary-body code {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--err);
+}
+
 /* Drag-and-drop reordering */
 .grid-panel.dragging {
   opacity: 0.45;

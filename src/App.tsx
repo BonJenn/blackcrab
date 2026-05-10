@@ -322,6 +322,7 @@ export const SESSION_TAIL_LIMIT = 200;
 // discarded to keep the store bounded.
 const DRAFTS_STORAGE_KEY = "composerDrafts";
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_SESSION_TITLE_CHARS = 256;
 type DraftStore = Record<string, { text: string; updated_ms: number }>;
 
 type SessionActivityState =
@@ -495,6 +496,12 @@ function saveSessionActivity(store: SessionActivityStore): void {
   } catch {
     // localStorage full / private mode — sidebar activity is best effort.
   }
+}
+
+function normalizeSessionTitleInput(title: string): string | null {
+  const trimmed = title.trim();
+  if (!trimmed || /[\r\n]/.test(trimmed)) return null;
+  return Array.from(trimmed).slice(0, MAX_SESSION_TITLE_CHARS).join("");
 }
 
 function pruneSessionActivity(
@@ -2967,15 +2974,18 @@ function App() {
 
   const renameSession = useCallback(
     async (id: string, sessionCwd: string, title: string) => {
-      const trimmed = title.trim();
-      if (!trimmed) return;
+      const normalized = normalizeSessionTitleInput(title);
+      if (!normalized) {
+        notify("Session titles cannot be empty or contain line breaks", "error");
+        return;
+      }
       try {
         await invoke("set_session_title", {
           sessionId: id,
           cwd: sessionCwd,
-          title: trimmed,
+          title: normalized,
         });
-        updateSessionInfo(id, (session) => ({ ...session, title: trimmed }));
+        updateSessionInfo(id, (session) => ({ ...session, title: normalized }));
       } catch (e) {
         notifyErr("failed to rename session")(e);
       }

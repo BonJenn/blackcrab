@@ -215,6 +215,7 @@ type ClaudePreflight = {
   api_provider: string;
   error: string;
   managed_token_configured: boolean;
+  managed_token_active: boolean;
   token_source: string;
   token_error: string;
   auth_env_conflict: boolean;
@@ -2700,6 +2701,7 @@ function App() {
         api_provider: "",
         error: "",
         managed_token_configured: false,
+        managed_token_active: false,
         token_source: "none",
         token_error: "",
         auth_env_conflict: false,
@@ -2727,6 +2729,7 @@ function App() {
         auth_method: "",
         api_provider: "",
         managed_token_configured: false,
+        managed_token_active: false,
         token_source: "none",
         token_error: "",
         auth_env_conflict: false,
@@ -10177,13 +10180,14 @@ function ClaudeOnboardingOverlay({
   const isInstalled = !!status?.installed;
   const isAuthenticated = !!status?.authenticated;
   const hasManagedToken = !!status?.managed_token_configured;
+  const managedTokenActive = !!status?.managed_token_active;
   const hasStoredToken = status?.token_source === "keychain";
   const needsAttention = !!authIssue || !!status?.auth_needs_attention;
   const authOk = isAuthenticated && !needsAttention;
   const authLabel =
-    hasManagedToken && status?.token_source === "keychain"
+    managedTokenActive && status?.token_source === "keychain"
       ? "Blackcrab token (keychain)"
-      : hasManagedToken && status?.token_source === "environment"
+      : managedTokenActive && status?.token_source === "environment"
         ? "Claude OAuth token (environment)"
         : `${status?.auth_method || "signed in"}${status?.api_provider ? ` (${status.api_provider})` : ""}`;
   const title = loading
@@ -10307,9 +10311,11 @@ function ClaudeOnboardingOverlay({
         {!loading && isInstalled && isAuthenticated && hasManagedToken && (
           <>
             <p className="onboarding-note">
-              {hasStoredToken
+              {managedTokenActive && hasStoredToken
                 ? "Blackcrab will use its stored token for Claude sessions and ignore stale Anthropic API-key variables for spawned Claude processes."
-                : "Blackcrab will use the Claude OAuth token from the environment and ignore stale Anthropic API-key variables for spawned Claude processes."}
+                : managedTokenActive
+                  ? "Blackcrab will use the Claude OAuth token from the environment and ignore stale Anthropic API-key variables for spawned Claude processes."
+                  : "Blackcrab found a normal Claude Code CLI login and will use it for sessions instead of credential override tokens."}
             </p>
             {tokenError && <pre className="onboarding-error">{tokenError}</pre>}
           </>

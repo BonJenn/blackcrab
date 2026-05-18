@@ -215,6 +215,7 @@ type ClaudePreflight = {
   api_provider: string;
   error: string;
   managed_token_configured: boolean;
+  managed_token_active: boolean;
   token_source: string;
   token_error: string;
   auth_env_conflict: boolean;
@@ -230,6 +231,7 @@ type ClaudeTokenStatus = {
 };
 
 type AppTheme = "light" | "dark" | "jet";
+type AppDensity = "comfortable" | "compact" | "focus";
 type PermissionMode = "bypassPermissions" | "acceptEdits" | "default" | "plan";
 type NewPanelWorktreeMode = "ask" | "always" | "never";
 
@@ -242,6 +244,7 @@ type AppSettings = {
   autoOpenPreview: boolean;
   analyticsEnabled: boolean;
   newPanelWorktreeMode: NewPanelWorktreeMode;
+  density: AppDensity;
 };
 
 type TerminalTab = {
@@ -265,6 +268,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   autoOpenPreview: true,
   analyticsEnabled: true,
   newPanelWorktreeMode: "ask",
+  density: "compact",
 };
 
 function errorMessage(error: unknown): string {
@@ -280,6 +284,24 @@ const THEME_OPTIONS: Array<{ value: AppTheme; label: string; glyph: string }> = 
   { value: "dark", label: "Dark", glyph: "◐" },
   { value: "jet", label: "Jet", glyph: "●" },
 ];
+
+const DENSITY_OPTIONS: Array<{ value: AppDensity; label: string }> = [
+  { value: "comfortable", label: "Comfortable" },
+  { value: "compact", label: "Compact" },
+  { value: "focus", label: "Focus" },
+];
+
+const DENSITY_SHORT_LABELS: Record<AppDensity, string> = {
+  comfortable: "comfy",
+  compact: "compact",
+  focus: "focus",
+};
+
+function nextDensity(density: AppDensity): AppDensity {
+  if (density === "comfortable") return "compact";
+  if (density === "compact") return "focus";
+  return "comfortable";
+}
 
 const MODEL_OPTIONS: Array<{ value: string; label: string; disabled?: boolean }> = [
   { value: "", label: "default (auto)" },
@@ -379,6 +401,10 @@ function isNewPanelWorktreeMode(v: unknown): v is NewPanelWorktreeMode {
   return v === "ask" || v === "always" || v === "never";
 }
 
+function isAppDensity(v: unknown): v is AppDensity {
+  return v === "comfortable" || v === "compact" || v === "focus";
+}
+
 function loadAppSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
@@ -417,6 +443,9 @@ function loadAppSettings(): AppSettings {
       )
         ? parsed.newPanelWorktreeMode
         : DEFAULT_APP_SETTINGS.newPanelWorktreeMode,
+      density: isAppDensity(parsed.density)
+        ? parsed.density
+        : DEFAULT_APP_SETTINGS.density,
     };
   } catch {
     return DEFAULT_APP_SETTINGS;
@@ -2167,6 +2196,23 @@ function App() {
     ackSessionActivity(next.id);
     void openSessionInSingleMode(next.id, next.cwd);
   });
+  const openRelativeSession = useEvent((delta: 1 | -1) => {
+    const visible = sessions
+      .filter((s) => showArchivedSessions || !s.archived)
+      .sort((a, b) => b.mtime_ms - a.mtime_ms);
+    if (visible.length === 0) return;
+    const currentId = activeSessionIdRef.current;
+    const currentIndex = currentId
+      ? visible.findIndex((s) => s.id === currentId)
+      : -1;
+    const nextIndex =
+      currentIndex < 0
+        ? 0
+        : (currentIndex + delta + visible.length) % visible.length;
+    const next = visible[nextIndex];
+    ackSessionActivity(next.id);
+    void openSessionInSingleMode(next.id, next.cwd);
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -2215,11 +2261,27 @@ function App() {
         if (editable) return;
         e.preventDefault();
         setDiagnosticsOpen((v) => !v);
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (e.key === "]" || e.key === "}")
+      ) {
+        if (editable) return;
+        e.preventDefault();
+        openRelativeSession(1);
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (e.key === "[" || e.key === "{")
+      ) {
+        if (editable) return;
+        e.preventDefault();
+        openRelativeSession(-1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openNextAttentionSession]);
+  }, [openNextAttentionSession, openRelativeSession]);
 
   // Grid-scoped keyboard shortcuts. Only fire when gridMode is on and
   // focus isn't captured by an editable (composer, title input, etc.),
@@ -2700,6 +2762,7 @@ function App() {
         api_provider: "",
         error: "",
         managed_token_configured: false,
+        managed_token_active: false,
         token_source: "none",
         token_error: "",
         auth_env_conflict: false,
@@ -2727,6 +2790,7 @@ function App() {
         auth_method: "",
         api_provider: "",
         managed_token_configured: false,
+        managed_token_active: false,
         token_source: "none",
         token_error: "",
         auth_env_conflict: false,
@@ -4725,7 +4789,7 @@ function App() {
         )));
 
   return (
-    <div className="root">
+    <div className={`root density-${appSettings.density}`} data-density={appSettings.density}>
       <ToastHost />
       {availableUpdate && !updateDismissed && (
         <UpdateBanner
@@ -4790,6 +4854,26 @@ function App() {
               },
             },
             {
+              id: "cycle-density",
+              title: `Density: ${appSettings.density} → ${nextDensity(appSettings.density)}`,
+              hint: "layout",
+              run: () => {
+                updateAppSettings({
+                  density: nextDensity(appSettings.density),
+                });
+                setPaletteOpen(false);
+              },
+            },
+            ...DENSITY_OPTIONS.map((opt) => ({
+              id: `density-${opt.value}`,
+              title: `Use ${opt.label.toLowerCase()} density`,
+              hint: opt.value === appSettings.density ? "active" : "density",
+              run: () => {
+                updateAppSettings({ density: opt.value });
+                setPaletteOpen(false);
+              },
+            })),
+            {
               id: "settings",
               title: "Open settings",
               hint: "⌘,",
@@ -4851,6 +4935,24 @@ function App() {
               hint: "⌘⇧N",
               run: () => {
                 openNextAttentionSession();
+                setPaletteOpen(false);
+              },
+            },
+            {
+              id: "next-session",
+              title: "Open next recent session",
+              hint: "⌘⇧]",
+              run: () => {
+                openRelativeSession(1);
+                setPaletteOpen(false);
+              },
+            },
+            {
+              id: "previous-session",
+              title: "Open previous recent session",
+              hint: "⌘⇧[",
+              run: () => {
+                openRelativeSession(-1);
                 setPaletteOpen(false);
               },
             },
@@ -5090,6 +5192,15 @@ function App() {
             <img className="brand-logo" src={blackcrabLogo} alt="" aria-hidden="true" />
             <span>Blackcrab</span>
           </div>
+          <button
+            type="button"
+            className="command-chip"
+            onClick={() => setPaletteOpen(true)}
+            title="open command palette (⌘K)"
+          >
+            <span>Command</span>
+            <kbd>⌘K</kbd>
+          </button>
           <div className="controls">
             <label className="field">
               <span>cwd</span>
@@ -5791,14 +5902,62 @@ function App() {
         <div className="statusbar">
           <div className="status-left">
             <span className={`dot ${sessionOn ? "on" : "off"}`} />
-            {sessionOn ? "connected" : "idle"}
+            <span className="status-primary">{busy ? "running" : sessionOn ? "connected" : "idle"}</span>
             {sessionMeta?.sessionId && (
-              <span className="meta">• {sessionMeta.sessionId.slice(0, 8)}</span>
+              <span className="status-chip">{sessionMeta.sessionId.slice(0, 8)}</span>
             )}
-            {sessionMeta?.model && <span className="meta">• {sessionMeta.model}</span>}
-            {sessionMeta?.tools && <span className="meta">• {sessionMeta.tools.length} tools</span>}
+            <span className="status-chip status-cwd" title={cwd}>
+              {basename(cwd) || cwd || "no cwd"}
+            </span>
+            {branchInfo?.is_repo && (
+              <span
+                className={`status-chip ${branchInfo.dirty ? "dirty" : ""}`}
+                title={branchInfo.current}
+              >
+                {branchInfo.current || "detached"}
+              </span>
+            )}
+            <span className="status-chip" title={model || "default model"}>
+              {model || sessionMeta?.model || "auto"}
+            </span>
+            <span className="status-chip" title="permission mode">
+              {permissionMode}
+            </span>
+            {activeSessionInfo && (
+              <>
+                <span className="status-chip">
+                  ctx {formatTokens(activeSessionInfo.context_tokens)}
+                </span>
+                <span className="status-chip">
+                  ${activeSessionInfo.total_cost_usd.toFixed(3)}
+                </span>
+              </>
+            )}
+            {sessionMeta?.tools && (
+              <span className="status-chip">{sessionMeta.tools.length} tools</span>
+            )}
           </div>
           <div className="status-right">
+            {attentionSessions.length > 0 && (
+              <button
+                className="stderr-toggle attention-toggle"
+                onClick={openNextAttentionSession}
+                title="open next attention session"
+              >
+                attention {attentionSessions.length}
+              </button>
+            )}
+            <button
+              className="stderr-toggle density-status"
+              onClick={() =>
+                updateAppSettings({
+                  density: nextDensity(appSettings.density),
+                })
+              }
+              title="cycle density"
+            >
+              {DENSITY_SHORT_LABELS[appSettings.density]}
+            </button>
             <button
               className="stderr-toggle"
               onClick={() => setDiagnosticsOpen((v) => !v)}
@@ -6000,6 +6159,25 @@ function SettingsModal({
                         theme === opt.value ? "active" : ""
                       }`}
                       onClick={() => onThemeChange(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="settings-row">
+              <span className="settings-label">Density</span>
+              <div className="settings-control">
+                <div className="settings-segment" role="group" aria-label="density">
+                  {DENSITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={`settings-segment-btn ${
+                        settings.density === opt.value ? "active" : ""
+                      }`}
+                      onClick={() => onSettingsChange({ density: opt.value })}
                     >
                       {opt.label}
                     </button>
@@ -10177,13 +10355,14 @@ function ClaudeOnboardingOverlay({
   const isInstalled = !!status?.installed;
   const isAuthenticated = !!status?.authenticated;
   const hasManagedToken = !!status?.managed_token_configured;
+  const managedTokenActive = !!status?.managed_token_active;
   const hasStoredToken = status?.token_source === "keychain";
   const needsAttention = !!authIssue || !!status?.auth_needs_attention;
   const authOk = isAuthenticated && !needsAttention;
   const authLabel =
-    hasManagedToken && status?.token_source === "keychain"
+    managedTokenActive && status?.token_source === "keychain"
       ? "Blackcrab token (keychain)"
-      : hasManagedToken && status?.token_source === "environment"
+      : managedTokenActive && status?.token_source === "environment"
         ? "Claude OAuth token (environment)"
         : `${status?.auth_method || "signed in"}${status?.api_provider ? ` (${status.api_provider})` : ""}`;
   const title = loading
@@ -10307,9 +10486,11 @@ function ClaudeOnboardingOverlay({
         {!loading && isInstalled && isAuthenticated && hasManagedToken && (
           <>
             <p className="onboarding-note">
-              {hasStoredToken
+              {managedTokenActive && hasStoredToken
                 ? "Blackcrab will use its stored token for Claude sessions and ignore stale Anthropic API-key variables for spawned Claude processes."
-                : "Blackcrab will use the Claude OAuth token from the environment and ignore stale Anthropic API-key variables for spawned Claude processes."}
+                : managedTokenActive
+                  ? "Blackcrab will use the Claude OAuth token from the environment and ignore stale Anthropic API-key variables for spawned Claude processes."
+                  : "Blackcrab found a normal Claude Code CLI login and will use it for sessions instead of credential override tokens."}
             </p>
             {tokenError && <pre className="onboarding-error">{tokenError}</pre>}
           </>

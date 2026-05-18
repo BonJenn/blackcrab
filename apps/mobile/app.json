@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Blackcrab Remote",
+    "slug": "blackcrab-remote",
+    "scheme": "blackcrab-remote",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.blackcrab.remote"
+    },
+    "android": {
+      "package": "dev.blackcrab.remote"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

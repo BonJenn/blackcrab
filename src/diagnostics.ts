@@ -34,6 +34,7 @@ export type DiagnosticClaudePreflight = {
   path: string;
   auth_method: string;
   api_provider: string;
+  managed_token_active: boolean;
   token_source: string;
   token_error: string;
   auth_env_conflict: boolean;

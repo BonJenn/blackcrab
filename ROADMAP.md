@@ -161,3 +161,17 @@ action.
 Start with PR 1, then PR 2. Release/build reliability protects every future
 change, and global search is the highest daily-use product feature after the
 recent grid and usage work.
+
+## Future / Experimental
+
+### Mobile Remote Companion
+
+**Status.** Experimental scaffolding only. Not on the shipped feature list.
+
+Foundation work for an iOS/Android remote companion lives under `apps/mobile`
+(Expo + React Native + EAS) and `packages/remote-protocol` (typed protocol).
+The desktop app remains authority over local sessions; the mobile app would
+pair to a desktop host and observe sessions and approvals through an
+encrypted relay. No relay, no real network code, and no remote control of any
+kind exists yet. See `docs/mobile-remote.md` for the intended architecture and
+explicit non-goals.

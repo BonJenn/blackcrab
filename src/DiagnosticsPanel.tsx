@@ -87,6 +87,7 @@ export function DiagnosticsPanel({
       ["auth", claudePreflight?.authenticated ? "ready" : "needs setup"],
       ["auth method", claudePreflight?.auth_method || "(none)"],
       ["token source", claudePreflight?.token_source || "none"],
+      ["token active", claudePreflight?.managed_token_active ? "yes" : "no"],
       ["token error", claudePreflight?.token_error || "none"],
       ["env conflict", claudePreflight?.auth_env_conflict ? "yes" : "no"],
     ],

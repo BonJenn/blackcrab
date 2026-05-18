@@ -68,6 +68,7 @@ struct ClaudePreflight {
     api_provider: String,
     error: String,
     managed_token_configured: bool,
+    managed_token_active: bool,
     token_source: String,
     token_error: String,
     auth_env_conflict: bool,
@@ -147,6 +148,7 @@ fn env_oauth_token_present() -> bool {
 fn run_claude_auth_status(
     path_env: &str,
     remove_legacy_api_env: bool,
+    remove_oauth_env: bool,
 ) -> Result<serde_json::Value, (String, String, String)> {
     use std::process::Command as StdCommand;
 
@@ -155,6 +157,9 @@ fn run_claude_auth_status(
     if remove_legacy_api_env {
         cmd.env_remove("ANTHROPIC_API_KEY");
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
+    }
+    if remove_oauth_env {
+        cmd.env_remove("CLAUDE_CODE_OAUTH_TOKEN");
     }
 
     let output = cmd.output().map_err(|e| {
@@ -204,15 +209,12 @@ fn auth_status_uses_env_api_key(v: &serde_json::Value) -> bool {
         )
 }
 
-fn auth_status_without_legacy_api_env(path_env: &str) -> Option<serde_json::Value> {
-    run_claude_auth_status(path_env, true).ok()
+fn auth_status_without_credential_env(path_env: &str) -> Option<serde_json::Value> {
+    run_claude_auth_status(path_env, true, true).ok()
 }
 
-fn should_ignore_legacy_api_env(path_env: &str) -> bool {
-    if !auth_env_conflict_present() {
-        return false;
-    }
-    auth_status_without_legacy_api_env(path_env)
+fn cli_auth_available_without_overrides(path_env: &str) -> bool {
+    auth_status_without_credential_env(path_env)
         .as_ref()
         .map(auth_status_logged_in)
         .unwrap_or(false)
@@ -244,21 +246,23 @@ struct ResolvedClaudeAuth {
 
 fn resolve_claude_auth_status(
     current: serde_json::Value,
-    without_legacy_env: Option<serde_json::Value>,
-    managed_token_configured: bool,
+    without_credential_env: Option<serde_json::Value>,
+    managed_token_active: bool,
     auth_env_conflict: bool,
 ) -> ResolvedClaudeAuth {
-    if managed_token_configured || !auth_env_conflict || !auth_status_logged_in(&current) {
-        return ResolvedClaudeAuth {
-            status: current,
-            needs_attention: false,
-            attention_reason: String::new(),
-        };
+    if !managed_token_active {
+        if let Some(without_env) = without_credential_env.filter(auth_status_logged_in) {
+            return ResolvedClaudeAuth {
+                status: without_env,
+                needs_attention: false,
+                attention_reason: String::new(),
+            };
+        }
     }
 
-    if let Some(without_env) = without_legacy_env.filter(auth_status_logged_in) {
+    if managed_token_active || !auth_env_conflict || !auth_status_logged_in(&current) {
         return ResolvedClaudeAuth {
-            status: without_env,
+            status: current,
             needs_attention: false,
             attention_reason: String::new(),
         };
@@ -307,13 +311,24 @@ mod tests {
     }
 
     #[test]
-    fn managed_token_takes_precedence_without_attention() {
+    fn active_managed_token_takes_precedence_without_attention() {
         let current = auth_status(true, "api_key", "firstParty", Some("ANTHROPIC_API_KEY"));
 
         let resolved = resolve_claude_auth_status(current, None, true, true);
 
         assert!(!resolved.needs_attention);
         assert_eq!(auth_status_method(&resolved.status), "api_key");
+    }
+
+    #[test]
+    fn inactive_managed_token_prefers_cli_login_without_overrides() {
+        let current = auth_status(true, "oauth_token", "firstParty", None);
+        let cli_login = auth_status(true, "claudeai", "firstParty", None);
+
+        let resolved = resolve_claude_auth_status(current, Some(cli_login), false, false);
+
+        assert!(!resolved.needs_attention);
+        assert_eq!(auth_status_method(&resolved.status), "claudeai");
     }
 
     #[test]
@@ -581,6 +596,7 @@ fn claude_preflight() -> ClaudePreflight {
             api_provider: String::new(),
             error: "Claude Code CLI was not found on PATH".into(),
             managed_token_configured,
+            managed_token_active: false,
             token_source,
             token_error,
             auth_env_conflict,
@@ -592,7 +608,7 @@ fn claude_preflight() -> ClaudePreflight {
         .trim()
         .to_string();
 
-    let auth_status = run_claude_auth_status(&path_env, false);
+    let auth_status = run_claude_auth_status(&path_env, false, false);
     let Ok(v) = auth_status else {
         return ClaudePreflight {
             installed: true,
@@ -611,6 +627,7 @@ fn claude_preflight() -> ClaudePreflight {
                 "failed to run `claude auth status`".into()
             },
             managed_token_configured,
+            managed_token_active: managed_token_configured,
             token_source,
             token_error,
             auth_env_conflict,
@@ -619,18 +636,23 @@ fn claude_preflight() -> ClaudePreflight {
         };
     };
 
-    let without_legacy_env = if !managed_token_configured
-        && auth_env_conflict
-        && auth_status_logged_in(&v)
+    let without_credential_env = if managed_token_configured
+        || auth_env_conflict
+        || env_oauth_token_present()
     {
-        auth_status_without_legacy_api_env(&path_env)
+        auth_status_without_credential_env(&path_env)
     } else {
         None
     };
+    let cli_without_overrides = without_credential_env
+        .as_ref()
+        .map(auth_status_logged_in)
+        .unwrap_or(false);
+    let managed_token_active = managed_token_configured && !cli_without_overrides;
     let resolved = resolve_claude_auth_status(
         v,
-        without_legacy_env,
-        managed_token_configured,
+        without_credential_env,
+        managed_token_active,
         auth_env_conflict,
     );
     let v = resolved.status;
@@ -639,10 +661,10 @@ fn claude_preflight() -> ClaudePreflight {
     let cli_auth_method = auth_status_method(&v);
     ClaudePreflight {
         installed: true,
-        authenticated: cli_authenticated || managed_token_configured,
+        authenticated: cli_authenticated || managed_token_active,
         version,
         path: cli_path,
-        auth_method: if managed_token_configured {
+        auth_method: if managed_token_active {
             "blackcrab-token".into()
         } else if cli_authenticated {
             cli_auth_method
@@ -652,6 +674,7 @@ fn claude_preflight() -> ClaudePreflight {
         api_provider: auth_status_provider(&v),
         error: String::new(),
         managed_token_configured,
+        managed_token_active,
         token_source,
         token_error,
         auth_env_conflict,
@@ -822,17 +845,24 @@ async fn start_session(
     let path_env = claude_path_env();
     cmd.env("PATH", &path_env);
 
-    // If the user configured Blackcrab's reliability token, use it only for
-    // the child Claude process. Remove API-key auth from this spawn so a stale
-    // shell key cannot take precedence over the managed OAuth token.
-    if let Ok(Some(token)) = read_blackcrab_claude_token() {
+    let keychain_token = read_blackcrab_claude_token().ok().flatten();
+    let has_auth_override = keychain_token.is_some()
+        || env_oauth_token_present()
+        || auth_env_conflict_present();
+
+    // Prefer the normal Claude Code login whenever it is available without
+    // credential override env vars. `claude auth status` reports "loggedIn"
+    // even for stale API/OAuth tokens, so stale overrides must not shadow a
+    // healthy local CLI login.
+    if has_auth_override && cli_auth_available_without_overrides(&path_env) {
+        cmd.env_remove("CLAUDE_CODE_OAUTH_TOKEN");
+        cmd.env_remove("ANTHROPIC_API_KEY");
+        cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
+    } else if let Some(token) = keychain_token {
         cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
         cmd.env_remove("ANTHROPIC_API_KEY");
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
     } else if env_oauth_token_present() {
-        cmd.env_remove("ANTHROPIC_API_KEY");
-        cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
-    } else if should_ignore_legacy_api_env(&path_env) {
         cmd.env_remove("ANTHROPIC_API_KEY");
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
     }
@@ -2369,6 +2399,76 @@ fn hydrate_login_shell_env() {
     }
 }
 
+#[derive(serde::Serialize)]
+struct RemoteHostInfo {
+    #[serde(rename = "hostId")]
+    host_id: String,
+    #[serde(rename = "displayName")]
+    display_name: String,
+    platform: &'static str,
+    #[serde(rename = "appVersion")]
+    app_version: &'static str,
+    online: bool,
+    #[serde(rename = "lastSeenAtMs")]
+    last_seen_at_ms: u128,
+}
+
+fn remote_host_platform() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    }
+}
+
+fn read_hostname() -> String {
+    let mut buf = [0u8; 256];
+    // SAFETY: writing into our own stack buffer with a known length.
+    let result =
+        unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
+    if result != 0 {
+        return "blackcrab-host".into();
+    }
+    let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+    let raw = String::from_utf8_lossy(&buf[..len]).to_string();
+    if raw.trim().is_empty() {
+        "blackcrab-host".into()
+    } else {
+        raw
+    }
+}
+
+fn remote_host_id(hostname: &str) -> String {
+    // Stable per-machine placeholder. The pairing flow will replace this
+    // with a properly issued host id once that lands; the protocol does
+    // not constrain the format.
+    format!("desktop-{}", hostname)
+}
+
+fn now_unix_ms() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
+#[tauri::command]
+fn remote_host_info() -> RemoteHostInfo {
+    let hostname = read_hostname();
+    RemoteHostInfo {
+        host_id: remote_host_id(&hostname),
+        display_name: hostname,
+        platform: remote_host_platform(),
+        app_version: env!("CARGO_PKG_VERSION"),
+        online: true,
+        last_seen_at_ms: now_unix_ms(),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(all(unix, not(debug_assertions)))]
@@ -2416,7 +2516,8 @@ pub fn run() {
             terminal_spawn,
             terminal_write,
             terminal_resize,
-            terminal_kill
+            terminal_kill,
+            remote_host_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

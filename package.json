@@ -1,7 +1,7 @@
 {
   "name": "blackcrab",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "A local desktop GUI for Claude Code sessions.",
   "author": "Jonathan Benn",
   "license": "Apache-2.0",
@@ -14,6 +14,10 @@
     "url": "https://github.com/BonJenn/blackcrab/issues"
   },
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "node scripts/tauri-dev.mjs",
     "dev:desktop": "node scripts/tauri-dev.mjs",
@@ -51,10 +55,10 @@
     "@tauri-apps/cli": "^2.11.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.1.1",
     "typescript": "~6.0.3",
-    "vite": "^7.0.4",
+    "vite": "^8.0.11",
     "vitest": "^4.1.5"
   }
 }

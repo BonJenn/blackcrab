@@ -139,6 +139,12 @@ history, render transcript tails quickly, and export conversations.
   linkification.
 - `src-tauri/src/lib.rs`: Tauri commands for Claude process management,
   session indexing/search, git helpers, native preview navigation, and PTY I/O.
+- `apps/mobile/`: experimental Expo/React Native scaffold for the future mobile
+  remote companion. Not connected to a host yet.
+- `packages/remote-protocol/`: typed protocol definitions shared between the
+  desktop host and the future mobile companion.
+- `docs/mobile-remote.md`: intended architecture and non-goals for the mobile
+  remote.
 - `ROADMAP.md`: current stability and feature priorities.
 
 ## Privacy

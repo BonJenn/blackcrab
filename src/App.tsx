@@ -47,6 +47,8 @@ import {
   type PairedDevice,
   type PairingStartResponse,
 } from "./remote/pairing";
+import { buildPairingPayload } from "./remote/pairingPayload";
+import { QRCodeSVG } from "qrcode.react";
 import { subscribeToasts, type Toast, notify, notifyErr } from "./toast";
 import "./App.css";
 
@@ -6415,6 +6417,7 @@ function MobileRemoteSettings() {
   );
   const [activePairing, setActivePairing] =
     useState<PairingStartResponse | null>(null);
+  const [pairingPayload, setPairingPayload] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState("");
 
@@ -6449,7 +6452,14 @@ function MobileRemoteSettings() {
     try {
       const next = await pairingClient.start();
       setActivePairing(next);
+      setPairingPayload(null);
       setNowMs(Date.now());
+      try {
+        const built = await buildPairingPayload(next);
+        setPairingPayload(built.serialized);
+      } catch (e) {
+        notifyErr("failed to build pairing payload")(e);
+      }
       notify("Pairing code created", "success");
     } catch (e) {
       setError(errorMessage(e));
@@ -6466,6 +6476,7 @@ function MobileRemoteSettings() {
     try {
       await pairingClient.cancel(activePairing.code);
       setActivePairing(null);
+      setPairingPayload(null);
     } catch (e) {
       setError(errorMessage(e));
       notifyErr("failed to cancel pairing code")(e);
@@ -6481,6 +6492,16 @@ function MobileRemoteSettings() {
       notify("Pairing code copied", "success");
     } catch (e) {
       notifyErr("failed to copy pairing code")(e);
+    }
+  };
+
+  const copyPairingPayload = async () => {
+    if (!pairingPayload) return;
+    try {
+      await navigator.clipboard.writeText(pairingPayload);
+      notify("Pairing payload copied", "success");
+    } catch (e) {
+      notifyErr("failed to copy pairing payload")(e);
     }
   };
 
@@ -6565,6 +6586,30 @@ function MobileRemoteSettings() {
               >
                 Copy
               </button>
+            </div>
+          )}
+
+          {activePairing && pairingPayload && !pairingExpired && (
+            <div className="settings-pairing-qr">
+              <div className="settings-pairing-qr-frame">
+                <QRCodeSVG
+                  value={pairingPayload}
+                  size={168}
+                  level="M"
+                  bgColor="#ffffff"
+                  fgColor="#11151a"
+                />
+              </div>
+              <div className="settings-pairing-qr-hint">
+                <span>Scan with Blackcrab Remote on your phone, or</span>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={copyPairingPayload}
+                >
+                  Copy payload
+                </button>
+              </div>
             </div>
           )}
         </div>

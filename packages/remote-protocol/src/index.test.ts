@@ -5,13 +5,20 @@ import {
   DESKTOP_PAIRING_PAYLOAD_TYPE,
   hasDesktopPairingPayloadExpired,
   isDesktopPairingPayload,
+  isHeartbeat,
   isHostPlatform,
   isPairingCode,
   isRemoteAction,
+  isRemoteEnvelope,
   isRemoteEvent,
+  isRemoteWireMessage,
   parseDesktopPairingPayload,
+  parseEnvelope,
   REMOTE_PROTOCOL_VERSION,
   serializeDesktopPairingPayload,
+  serializeEnvelope,
+  wrapEnvelope,
+  type RemoteEnvelope,
 } from "./index";
 
 describe("remote-protocol", () => {
@@ -64,6 +71,8 @@ describe("remote-protocol", () => {
       appVersion: "0.2.0",
       code: "ABCDEF",
       expiresAtMs: 1_800_000_000_000,
+      lanHost: "192.168.1.5",
+      lanPort: 8124,
     });
 
     it("creates and validates a desktop pairing payload", () => {
@@ -76,6 +85,8 @@ describe("remote-protocol", () => {
         appVersion: "0.2.0",
         code: "ABCDEF",
         expiresAtMs: 1_800_000_000_000,
+        lanHost: "192.168.1.5",
+        lanPort: 8124,
       });
       expect(isDesktopPairingPayload(payload)).toBe(true);
     });
@@ -103,6 +114,15 @@ describe("remote-protocol", () => {
         parseDesktopPairingPayload(
           JSON.stringify({ ...payload, expiresAtMs: Number.NaN }),
         ),
+      ).toBeNull();
+      expect(
+        parseDesktopPairingPayload(JSON.stringify({ ...payload, lanHost: "" })),
+      ).toBeNull();
+      expect(
+        parseDesktopPairingPayload(JSON.stringify({ ...payload, lanPort: 0 })),
+      ).toBeNull();
+      expect(
+        parseDesktopPairingPayload(JSON.stringify({ ...payload, lanPort: 65536 })),
       ).toBeNull();
     });
 
@@ -168,6 +188,83 @@ describe("remote-protocol", () => {
     it("rejects unknown or malformed payloads", () => {
       expect(isRemoteEvent({ type: "send_message" })).toBe(false);
       expect(isRemoteEvent(undefined)).toBe(false);
+    });
+  });
+
+  describe("heartbeat", () => {
+    it("recognizes ping and pong with matching seq", () => {
+      expect(isHeartbeat({ type: "ping", seq: 0 })).toBe(true);
+      expect(isHeartbeat({ type: "pong", seq: 17 })).toBe(true);
+    });
+
+    it("rejects malformed heartbeats", () => {
+      expect(isHeartbeat({ type: "ping" })).toBe(false);
+      expect(isHeartbeat({ type: "ping", seq: "1" })).toBe(false);
+      expect(isHeartbeat({ type: "bark", seq: 0 })).toBe(false);
+    });
+  });
+
+  describe("envelope", () => {
+    const action = { type: "stop_session", hostId: "h", sessionId: "s" } as const;
+    const envelope: RemoteEnvelope = wrapEnvelope(action);
+
+    it("wraps a wire message with the current protocol version", () => {
+      expect(envelope).toEqual({ v: REMOTE_PROTOCOL_VERSION, msg: action });
+    });
+
+    it("recognizes valid envelopes via the type guard", () => {
+      expect(isRemoteEnvelope(envelope)).toBe(true);
+      expect(isRemoteWireMessage(action)).toBe(true);
+    });
+
+    it("rejects envelopes with the wrong version or payload", () => {
+      expect(isRemoteEnvelope({ ...envelope, v: 999 })).toBe(false);
+      expect(isRemoteEnvelope({ v: REMOTE_PROTOCOL_VERSION, msg: { type: "no" } })).toBe(
+        false,
+      );
+      expect(isRemoteEnvelope(null)).toBe(false);
+    });
+
+    it("serializes and parses envelopes losslessly", () => {
+      expect(parseEnvelope(serializeEnvelope(action))).toEqual(envelope);
+      expect(parseEnvelope("not json")).toBeNull();
+      expect(
+        parseEnvelope(
+          JSON.stringify({ v: REMOTE_PROTOCOL_VERSION, msg: { type: "no" } }),
+        ),
+      ).toBeNull();
+    });
+
+    it("accepts pairing handshake messages", () => {
+      const req = {
+        type: "pairing_request",
+        code: "ABCDEF",
+        deviceName: "Phone",
+        requestedAt: "2026-05-18T18:00:00Z",
+      } as const;
+      const resp = {
+        type: "pairing_response",
+        code: "ABCDEF",
+        status: "accepted",
+        hostId: "h",
+        remoteToken: "tok",
+      } as const;
+      expect(isRemoteEnvelope(wrapEnvelope(req))).toBe(true);
+      expect(isRemoteEnvelope(wrapEnvelope(resp))).toBe(true);
+    });
+
+    it("accepts auth and auth_response messages", () => {
+      expect(
+        isRemoteEnvelope(wrapEnvelope({ type: "auth", remoteToken: "tok" })),
+      ).toBe(true);
+      expect(
+        isRemoteEnvelope(
+          wrapEnvelope({ type: "auth_response", status: "accepted", hostId: "h" }),
+        ),
+      ).toBe(true);
+      expect(
+        isRemoteEnvelope(wrapEnvelope({ type: "auth", remoteToken: "" } as never)),
+      ).toBe(false);
     });
   });
 });

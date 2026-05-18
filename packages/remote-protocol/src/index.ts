@@ -184,12 +184,73 @@ export interface DesktopPairingPayload {
   code: PairingCode;
   /** Unix epoch milliseconds when the desktop-side code expires. */
   expiresAtMs: number;
+  /** LAN hostname or IP literal the desktop is listening on. */
+  lanHost: string;
+  /** LAN TCP port the desktop WebSocket server is bound to. */
+  lanPort: number;
 }
 
 export type DesktopPairingPayloadInput = Omit<
   DesktopPairingPayload,
   "type" | "protocolVersion"
 >;
+
+// ---------------------------------------------------------------------------
+// Token auth (mobile -> host on reconnect)
+// ---------------------------------------------------------------------------
+
+export interface AuthMessage {
+  type: "auth";
+  /** Token previously issued by the host in a PairingResponse. */
+  remoteToken: string;
+}
+
+export interface AuthResponse {
+  type: "auth_response";
+  status: "accepted" | "rejected";
+  hostId?: HostId;
+  rejectedReason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Heartbeat
+// ---------------------------------------------------------------------------
+
+export interface PingMessage {
+  type: "ping";
+  /** Monotonic counter chosen by the sender. */
+  seq: number;
+}
+
+export interface PongMessage {
+  type: "pong";
+  /** Echoes the `seq` from the matching ping. */
+  seq: number;
+}
+
+export type Heartbeat = PingMessage | PongMessage;
+
+// ---------------------------------------------------------------------------
+// Wire envelope
+// ---------------------------------------------------------------------------
+
+/**
+ * Every message on the LAN/relay transport is wrapped in this envelope. The
+ * version field lets either side detect protocol skew before parsing the body.
+ */
+export interface RemoteEnvelope {
+  v: RemoteProtocolVersion;
+  msg: RemoteWireMessage;
+}
+
+export type RemoteWireMessage =
+  | PairingRequest
+  | PairingResponse
+  | AuthMessage
+  | AuthResponse
+  | RemoteEvent
+  | RemoteAction
+  | Heartbeat;
 
 // ---------------------------------------------------------------------------
 // Connection status
@@ -301,7 +362,18 @@ export function isDesktopPairingPayload(
     isNonEmptyString(value.appVersion) &&
     isPairingCode(value.code) &&
     typeof value.expiresAtMs === "number" &&
-    Number.isFinite(value.expiresAtMs)
+    Number.isFinite(value.expiresAtMs) &&
+    isNonEmptyString(value.lanHost) &&
+    isLanPort(value.lanPort)
+  );
+}
+
+function isLanPort(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= 65535
   );
 }
 
@@ -368,6 +440,82 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
     default:
       return false;
   }
+}
+
+export function isHeartbeat(value: unknown): value is Heartbeat {
+  if (!isRecord(value)) return false;
+  const seqOk = typeof value.seq === "number" && Number.isFinite(value.seq);
+  return seqOk && (value.type === "ping" || value.type === "pong");
+}
+
+function isPairingRequest(value: unknown): value is PairingRequest {
+  if (!isRecord(value)) return false;
+  return (
+    value.type === "pairing_request" &&
+    isPairingCode(value.code) &&
+    isNonEmptyString(value.deviceName) &&
+    isNonEmptyString(value.requestedAt)
+  );
+}
+
+function isPairingResponse(value: unknown): value is PairingResponse {
+  if (!isRecord(value)) return false;
+  if (value.type !== "pairing_response") return false;
+  if (!isPairingCode(value.code)) return false;
+  const status = value.status;
+  return (
+    status === "accepted" || status === "rejected" || status === "expired"
+  );
+}
+
+function isAuthMessage(value: unknown): value is AuthMessage {
+  if (!isRecord(value)) return false;
+  return value.type === "auth" && isNonEmptyString(value.remoteToken);
+}
+
+function isAuthResponse(value: unknown): value is AuthResponse {
+  if (!isRecord(value)) return false;
+  if (value.type !== "auth_response") return false;
+  return value.status === "accepted" || value.status === "rejected";
+}
+
+export function isRemoteWireMessage(
+  value: unknown,
+): value is RemoteWireMessage {
+  return (
+    isPairingRequest(value) ||
+    isPairingResponse(value) ||
+    isAuthMessage(value) ||
+    isAuthResponse(value) ||
+    isRemoteEvent(value) ||
+    isRemoteAction(value) ||
+    isHeartbeat(value)
+  );
+}
+
+export function isRemoteEnvelope(value: unknown): value is RemoteEnvelope {
+  if (!isRecord(value)) return false;
+  return (
+    value.v === REMOTE_PROTOCOL_VERSION && isRemoteWireMessage(value.msg)
+  );
+}
+
+export function wrapEnvelope(msg: RemoteWireMessage): RemoteEnvelope {
+  return { v: REMOTE_PROTOCOL_VERSION, msg };
+}
+
+export function serializeEnvelope(msg: RemoteWireMessage): string {
+  return JSON.stringify(wrapEnvelope(msg));
+}
+
+export function parseEnvelope(text: string): RemoteEnvelope | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  return isRemoteEnvelope(parsed) ? parsed : null;
 }
 
 /**

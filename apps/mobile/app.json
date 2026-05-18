@@ -9,7 +9,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "dev.blackcrab.remote"
+      "bundleIdentifier": "dev.blackcrab.remote",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Blackcrab Remote connects to your desktop on the same Wi-Fi to control Claude Code sessions."
+      }
     },
     "android": {
       "package": "dev.blackcrab.remote"

@@ -4,6 +4,7 @@ import {
   isHostPlatform,
   isPairingCode,
   parseDesktopPairingPayload,
+  type DesktopPairingPayload,
   type HostId,
   type PairedHostSummary,
 } from "@blackcrab/remote-protocol";
@@ -16,6 +17,11 @@ export type StoredPairingSource = "desktop_payload" | "manual_code";
 export interface StoredPairedHost extends PairedHostSummary {
   pairedAt: string;
   pairingSource: StoredPairingSource;
+  /** Set after a successful LAN pairing handshake. */
+  remoteToken?: string;
+  /** LAN endpoint to reconnect to with the remoteToken. */
+  lanHost?: string;
+  lanPort?: number;
 }
 
 export type CreateStoredHostResult =
@@ -49,16 +55,7 @@ export function createStoredHostFromPairingInput(
 
     return {
       ok: true,
-      host: {
-        hostId: payload.hostId,
-        displayName: payload.displayName,
-        platform: payload.platform,
-        appVersion: payload.appVersion,
-        lastSeenAt: now.toISOString(),
-        online: false,
-        pairedAt: now.toISOString(),
-        pairingSource: "desktop_payload",
-      },
+      host: storedHostFromPayload(payload, now),
     };
   }
 
@@ -80,6 +77,30 @@ export function createStoredHostFromPairingInput(
       pairingSource: "manual_code",
     },
   };
+}
+
+export function storedHostFromPayload(
+  payload: DesktopPairingPayload,
+  now: Date = new Date(),
+): StoredPairedHost {
+  return {
+    hostId: payload.hostId,
+    displayName: payload.displayName,
+    platform: payload.platform,
+    appVersion: payload.appVersion,
+    lastSeenAt: now.toISOString(),
+    online: false,
+    pairedAt: now.toISOString(),
+    pairingSource: "desktop_payload",
+    lanHost: payload.lanHost,
+    lanPort: payload.lanPort,
+  };
+}
+
+export async function persistPairedHost(
+  host: StoredPairedHost,
+): Promise<StoredPairedHost[]> {
+  return upsertStoredHost(host);
 }
 
 export async function pairHostFromInput(
@@ -135,7 +156,10 @@ function isStoredPairedHost(value: unknown): value is StoredPairedHost {
     typeof value.online === "boolean" &&
     typeof value.pairedAt === "string" &&
     (value.pairingSource === "desktop_payload" ||
-      value.pairingSource === "manual_code")
+      value.pairingSource === "manual_code") &&
+    (value.remoteToken === undefined || typeof value.remoteToken === "string") &&
+    (value.lanHost === undefined || typeof value.lanHost === "string") &&
+    (value.lanPort === undefined || typeof value.lanPort === "number")
   );
 }
 

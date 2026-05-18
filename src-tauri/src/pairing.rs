@@ -196,6 +196,32 @@ impl PairingService {
         Ok(removed)
     }
 
+    /// Look up a paired device by remote token. Returns the public summary on
+    /// match (and updates `last_seen_at_ms`); returns `None` if no device with
+    /// that token is paired.
+    pub fn verify_token(
+        &self,
+        remote_token: &str,
+        now_ms: u128,
+    ) -> Result<Option<PairedDevice>, String> {
+        if remote_token.is_empty() {
+            return Ok(None);
+        }
+        let mut state = self.state.lock().map_err(|_| "lock poisoned".to_string())?;
+        let device = state
+            .devices
+            .iter_mut()
+            .find(|d| d.remote_token == remote_token);
+        match device {
+            None => Ok(None),
+            Some(d) => {
+                d.last_seen_at_ms = now_ms;
+                let public = d.to_public();
+                persist(&self.path, &state)?;
+                Ok(Some(public))
+            }
+        }
+    }
 }
 
 pub fn default_state_path() -> Result<PathBuf, String> {
@@ -374,6 +400,25 @@ mod tests {
         assert!(svc.revoke_device(&device_id).unwrap());
         assert!(!svc.revoke_device(&device_id).unwrap());
         assert!(svc.list_devices().unwrap().is_empty());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn verify_token_returns_device_and_updates_last_seen() {
+        let (svc, path) = fresh_service();
+        let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
+        let accept = svc.accept_pairing(&start.code, "Phone", 2_000).unwrap();
+
+        let found = svc
+            .verify_token(&accept.remote_token, 5_000)
+            .unwrap()
+            .expect("token recognized");
+        assert_eq!(found.device_id, accept.paired_device.device_id);
+        assert_eq!(found.last_seen_at_ms, 5_000);
+
+        assert!(svc.verify_token("bogus", 6_000).unwrap().is_none());
+        assert!(svc.verify_token("", 6_000).unwrap().is_none());
+
         let _ = std::fs::remove_file(&path);
     }
 

@@ -12,7 +12,9 @@ import {
   useCameraPermissions,
   type BarcodeScanningResult,
 } from "expo-camera";
+import { Platform } from "react-native";
 import {
+  hasDesktopPairingPayloadExpired,
   isPairingCode,
   parseDesktopPairingPayload,
 } from "@blackcrab/remote-protocol";
@@ -23,13 +25,21 @@ import {
   type PairHostFromInputResult,
   type StoredPairedHost,
 } from "../pairingStore";
+import type { LanWebSocketTransport } from "../transport/lanWebSocketTransport";
+import { pairOverLan } from "../transport/pairOverLan";
 import { screenStyles } from "./styles";
 
 type PairMode = "manual" | "scan";
 
 interface PairHostScreenProps {
-  onPaired: (hosts: StoredPairedHost[]) => void;
+  onPaired: (
+    hosts: StoredPairedHost[],
+    host: StoredPairedHost,
+    transport: LanWebSocketTransport | null,
+  ) => void;
 }
+
+const DEVICE_NAME = `Phone (${Platform.OS})`;
 
 export function PairHostScreen({ onPaired }: PairHostScreenProps) {
   const [mode, setMode] = useState<PairMode>("manual");
@@ -52,6 +62,26 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
   async function pair(input: string) {
     setBusy(true);
     setError(null);
+
+    const payload = parseDesktopPairingPayload(input);
+    if (payload && !hasDesktopPairingPayloadExpired(payload)) {
+      try {
+        const result = await pairOverLan(payload, { deviceName: DEVICE_NAME });
+        setBusy(false);
+        setPairingInput("");
+        onPaired(result.hosts, result.host, result.transport);
+        return;
+      } catch (e) {
+        setBusy(false);
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not reach the desktop on this network.",
+        );
+        return;
+      }
+    }
+
     let result: PairHostFromInputResult;
     try {
       result = await pairHostFromInput(input);
@@ -68,7 +98,7 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
     }
 
     setPairingInput("");
-    onPaired(result.hosts);
+    onPaired(result.hosts, result.host, null);
   }
 
   async function handlePair() {

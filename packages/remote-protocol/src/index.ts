@@ -26,6 +26,13 @@ export type PairingCode = string;
 
 export type HostPlatform = "macos" | "windows" | "linux" | "unknown";
 
+const HOST_PLATFORMS: readonly HostPlatform[] = [
+  "macos",
+  "windows",
+  "linux",
+  "unknown",
+];
+
 export interface PairedHostSummary {
   hostId: HostId;
   displayName: string;
@@ -165,6 +172,25 @@ export interface PairingResponse {
   rejectedReason?: string;
 }
 
+export const DESKTOP_PAIRING_PAYLOAD_TYPE = "blackcrab_desktop_pairing" as const;
+
+export interface DesktopPairingPayload {
+  type: typeof DESKTOP_PAIRING_PAYLOAD_TYPE;
+  protocolVersion: RemoteProtocolVersion;
+  hostId: HostId;
+  displayName: string;
+  platform: HostPlatform;
+  appVersion: string;
+  code: PairingCode;
+  /** Unix epoch milliseconds when the desktop-side code expires. */
+  expiresAtMs: number;
+}
+
+export type DesktopPairingPayloadInput = Omit<
+  DesktopPairingPayload,
+  "type" | "protocolVersion"
+>;
+
 // ---------------------------------------------------------------------------
 // Connection status
 // ---------------------------------------------------------------------------
@@ -244,6 +270,68 @@ export function isPairingCode(value: unknown): value is PairingCode {
   return typeof value === "string" && PAIRING_CODE_PATTERN.test(value);
 }
 
+export function isHostPlatform(value: unknown): value is HostPlatform {
+  return (
+    typeof value === "string" &&
+    HOST_PLATFORMS.includes(value as HostPlatform)
+  );
+}
+
+export function createDesktopPairingPayload(
+  input: DesktopPairingPayloadInput,
+): DesktopPairingPayload {
+  return {
+    type: DESKTOP_PAIRING_PAYLOAD_TYPE,
+    protocolVersion: REMOTE_PROTOCOL_VERSION,
+    ...input,
+  };
+}
+
+export function isDesktopPairingPayload(
+  value: unknown,
+): value is DesktopPairingPayload {
+  if (!isRecord(value)) return false;
+
+  return (
+    value.type === DESKTOP_PAIRING_PAYLOAD_TYPE &&
+    value.protocolVersion === REMOTE_PROTOCOL_VERSION &&
+    isNonEmptyString(value.hostId) &&
+    isNonEmptyString(value.displayName) &&
+    isHostPlatform(value.platform) &&
+    isNonEmptyString(value.appVersion) &&
+    isPairingCode(value.code) &&
+    typeof value.expiresAtMs === "number" &&
+    Number.isFinite(value.expiresAtMs)
+  );
+}
+
+export function serializeDesktopPairingPayload(
+  payload: DesktopPairingPayload,
+): string {
+  if (!isDesktopPairingPayload(payload)) {
+    throw new Error("Invalid desktop pairing payload.");
+  }
+  return JSON.stringify(payload);
+}
+
+export function parseDesktopPairingPayload(
+  value: string,
+): DesktopPairingPayload | null {
+  try {
+    const parsed = JSON.parse(value.trim());
+    return isDesktopPairingPayload(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasDesktopPairingPayloadExpired(
+  payload: DesktopPairingPayload,
+  nowMs = Date.now(),
+): boolean {
+  return payload.expiresAtMs <= nowMs;
+}
+
 export function isRemoteAction(value: unknown): value is RemoteAction {
   if (!value || typeof value !== "object") return false;
   const v = value as { type?: unknown };
@@ -256,6 +344,14 @@ export function isRemoteAction(value: unknown): value is RemoteAction {
     default:
       return false;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export function isRemoteEvent(value: unknown): value is RemoteEvent {

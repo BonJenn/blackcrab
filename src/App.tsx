@@ -5487,6 +5487,15 @@ function App() {
           )}
           {stuckBusy && (
             <div className="stuck-banner" role="status">
+              <button
+                type="button"
+                className="stuck-banner-dismiss"
+                onClick={() => setStuckBusy(false)}
+                aria-label="dismiss"
+                title="dismiss"
+              >
+                ×
+              </button>
               <span className="stuck-banner-text">
                 claude has been silent for 60+ seconds — the subprocess
                 may be wedged.

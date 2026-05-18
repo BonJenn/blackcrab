@@ -1546,7 +1546,8 @@ body[data-resizing="true"] .terminal-resizer::after {
   transform: translateX(-50%);
   z-index: 12;
   max-width: 560px;
-  padding: 10px 14px;
+  padding: 10px 14px 10px 14px;
+  padding-right: 30px;
   background: var(--bg-elev);
   border: 1px solid var(--accent);
   border-radius: 8px;
@@ -1566,6 +1567,27 @@ body[data-resizing="true"] .terminal-resizer::after {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.stuck-banner-dismiss {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.stuck-banner-dismiss:hover {
+  color: var(--text);
+  background: var(--bg);
 }
 
 .palette-overlay {
@@ -4496,7 +4518,6 @@ details[open] > .tool-result-fold-summary .tool-result-fold-preview {
 .preview {
   flex-shrink: 0;
   min-width: 280px;
-  max-width: min(480px, 42vw);
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -5290,6 +5311,12 @@ textarea,
   background: var(--bg);
   border-top: 1px solid var(--border);
   font-size: 11px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.statusbar::-webkit-scrollbar {
+  display: none;
 }
 
 .status-left,
@@ -5302,7 +5329,12 @@ textarea,
 
 .status-left {
   flex: 1 1 auto;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.status-left::-webkit-scrollbar {
+  display: none;
 }
 
 .status-right {
@@ -5431,7 +5463,6 @@ textarea,
 
   .preview {
     min-width: 260px;
-    max-width: min(380px, 38vw);
   }
 }
 
@@ -5467,7 +5498,6 @@ textarea,
 
   .preview {
     min-width: 240px;
-    max-width: min(320px, 44vw);
   }
 }
 

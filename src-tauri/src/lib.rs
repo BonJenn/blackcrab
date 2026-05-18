@@ -1,14 +1,21 @@
+mod pairing;
+
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::Mutex;
+
+use crate::pairing::{
+    now_unix_ms as pairing_now_ms, PairedDevice, PairingAcceptResponse, PairingService,
+    PairingStartResponse, PAIRING_DEFAULT_TTL_SECS,
+};
 
 struct Session {
     child: Child,
@@ -2456,6 +2463,51 @@ fn now_unix_ms() -> u128 {
         .unwrap_or(0)
 }
 
+static PAIRING_SERVICE: OnceLock<Arc<PairingService>> = OnceLock::new();
+
+fn pairing_service() -> Result<Arc<PairingService>, String> {
+    if let Some(svc) = PAIRING_SERVICE.get() {
+        return Ok(svc.clone());
+    }
+    let path = pairing::default_state_path()?;
+    let svc = Arc::new(PairingService::load(path)?);
+    let _ = PAIRING_SERVICE.set(svc.clone());
+    Ok(PAIRING_SERVICE.get().cloned().unwrap_or(svc))
+}
+
+#[tauri::command]
+fn pairing_start() -> Result<PairingStartResponse, String> {
+    let svc = pairing_service()?;
+    svc.start_pairing(pairing_now_ms(), PAIRING_DEFAULT_TTL_SECS)
+}
+
+#[tauri::command]
+fn pairing_accept(
+    code: String,
+    device_name: String,
+) -> Result<PairingAcceptResponse, String> {
+    let svc = pairing_service()?;
+    svc.accept_pairing(&code, &device_name, pairing_now_ms())
+}
+
+#[tauri::command]
+fn pairing_cancel(code: String) -> Result<bool, String> {
+    let svc = pairing_service()?;
+    svc.cancel_pending(&code)
+}
+
+#[tauri::command]
+fn pairing_list_devices() -> Result<Vec<PairedDevice>, String> {
+    let svc = pairing_service()?;
+    svc.list_devices()
+}
+
+#[tauri::command]
+fn pairing_revoke(device_id: String) -> Result<bool, String> {
+    let svc = pairing_service()?;
+    svc.revoke_device(&device_id)
+}
+
 #[tauri::command]
 fn remote_host_info() -> RemoteHostInfo {
     let hostname = read_hostname();
@@ -2517,7 +2569,12 @@ pub fn run() {
             terminal_write,
             terminal_resize,
             terminal_kill,
-            remote_host_info
+            remote_host_info,
+            pairing_start,
+            pairing_accept,
+            pairing_cancel,
+            pairing_list_devices,
+            pairing_revoke
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

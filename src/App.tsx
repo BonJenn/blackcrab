@@ -662,6 +662,11 @@ export function findPanelForSession(
   return undefined;
 }
 
+export function normalizeModelValue(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed : null;
+}
+
 export function randomId() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -3908,12 +3913,13 @@ function App() {
 
     panelCwdsRef.current.set(panelId, panelCwd);
     panelPermissionModesRef.current.set(panelId, panelPermissionMode);
-    if (panelModel) panelModelsRef.current.set(panelId, panelModel);
+    const normalizedModel = normalizeModelValue(panelModel);
+    if (normalizedModel) panelModelsRef.current.set(panelId, normalizedModel);
     const startPromise = invoke("start_session", {
       panelId,
       cwd: panelCwd,
       permissionMode: panelPermissionMode,
-      model: panelModel,
+      model: normalizedModel,
       resumeId,
       useWorktree: !!useWorktree,
     });
@@ -4252,7 +4258,7 @@ function App() {
         panelId,
         panelCwd: useCwd,
         panelPermissionMode: sessionPermissionMode || permissionMode,
-        panelModel: sessionModel || model || null,
+        panelModel: normalizeModelValue(sessionModel) ?? normalizeModelValue(model),
         resumeId: sessionId,
       });
     })();
@@ -4380,7 +4386,7 @@ function App() {
         panelId,
         panelCwd: cwd,
         panelPermissionMode: permissionMode,
-        panelModel: model || null,
+        panelModel: normalizeModelValue(model),
         resumeId: activeSessionId || null,
       });
     } catch (e) {
@@ -4414,7 +4420,7 @@ function App() {
           panelId,
           panelCwd: cwd,
           panelPermissionMode: permissionMode,
-          panelModel: model || null,
+          panelModel: normalizeModelValue(model),
           resumeId: activeSessionId || null,
         });
       } catch (e) {
@@ -4476,7 +4482,7 @@ function App() {
           panelId,
           panelCwd: cwd,
           panelPermissionMode: permissionMode,
-          panelModel: model || null,
+          panelModel: normalizeModelValue(model),
           resumeId: activeSessionId || null,
         });
       } catch (e) {
@@ -5569,7 +5575,7 @@ function App() {
                     panelId,
                     cwd: useCwd,
                     permissionMode: "bypassPermissions",
-                    model: model || null,
+                    model: normalizeModelValue(model),
                     resumeId: sid || null,
                   });
                   setPanelOn(panelId, true);

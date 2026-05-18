@@ -14,6 +14,10 @@
     "url": "https://github.com/BonJenn/blackcrab/issues"
   },
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "node scripts/tauri-dev.mjs",
     "dev:desktop": "node scripts/tauri-dev.mjs",

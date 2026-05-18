@@ -1,0 +1,27 @@
+{
+  "name": "@blackcrab/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Blackcrab mobile remote companion (experimental scaffolding).",
+  "license": "Apache-2.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@blackcrab/remote-protocol": "*",
+    "expo": "^52.0.0",
+    "expo-status-bar": "~2.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
+    "react-native-safe-area-context": "4.12.0"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.12",
+    "typescript": "~5.6.3"
+  }
+}

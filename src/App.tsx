@@ -42,6 +42,11 @@ import {
   type PermissionRequest,
 } from "./LivePanel";
 import { PanelErrorBoundary } from "./PanelErrorBoundary";
+import {
+  pairingClient,
+  type PairedDevice,
+  type PairingStartResponse,
+} from "./remote/pairing";
 import { subscribeToasts, type Toast, notify, notifyErr } from "./toast";
 import "./App.css";
 
@@ -665,6 +670,15 @@ export function findPanelForSession(
 export function normalizeModelValue(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
+}
+
+export function formatPairingTimeLeft(expiresAtMs: number, nowMs: number): string {
+  const remainingSeconds = Math.ceil((expiresAtMs - nowMs) / 1000);
+  if (remainingSeconds <= 0) return "expired";
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
 export function randomId() {
@@ -6325,6 +6339,8 @@ function SettingsModal({
             </div>
           </section>
 
+          <MobileRemoteSettings />
+
           <section className="settings-section">
             <h3>Usage</h3>
             <div className="settings-row">
@@ -6387,6 +6403,222 @@ function SettingsModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function MobileRemoteSettings() {
+  const pairingAvailable = isTauriRuntime();
+  const [devices, setDevices] = useState<PairedDevice[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [busy, setBusy] = useState<"pair" | "cancel" | `revoke:${string}` | null>(
+    null,
+  );
+  const [activePairing, setActivePairing] =
+    useState<PairingStartResponse | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!activePairing) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activePairing]);
+
+  const refreshDevices = useCallback(async () => {
+    if (!pairingAvailable) return;
+    setLoadingDevices(true);
+    setError("");
+    try {
+      setDevices(await pairingClient.listDevices());
+    } catch (e) {
+      setError(errorMessage(e));
+      notifyErr("failed to load paired devices")(e);
+    } finally {
+      setLoadingDevices(false);
+    }
+  }, [pairingAvailable]);
+
+  useEffect(() => {
+    void refreshDevices();
+  }, [refreshDevices]);
+
+  const startPairing = async () => {
+    if (!pairingAvailable) return;
+    setBusy("pair");
+    setError("");
+    try {
+      const next = await pairingClient.start();
+      setActivePairing(next);
+      setNowMs(Date.now());
+      notify("Pairing code created", "success");
+    } catch (e) {
+      setError(errorMessage(e));
+      notifyErr("failed to create pairing code")(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const cancelPairing = async () => {
+    if (!activePairing) return;
+    setBusy("cancel");
+    setError("");
+    try {
+      await pairingClient.cancel(activePairing.code);
+      setActivePairing(null);
+    } catch (e) {
+      setError(errorMessage(e));
+      notifyErr("failed to cancel pairing code")(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const copyPairingCode = async () => {
+    if (!activePairing) return;
+    try {
+      await navigator.clipboard.writeText(activePairing.code);
+      notify("Pairing code copied", "success");
+    } catch (e) {
+      notifyErr("failed to copy pairing code")(e);
+    }
+  };
+
+  const revokeDevice = async (device: PairedDevice) => {
+    if (!window.confirm(`Revoke ${device.displayName}?`)) return;
+    const busyKey = `revoke:${device.deviceId}` as const;
+    setBusy(busyKey);
+    setError("");
+    try {
+      const removed = await pairingClient.revoke(device.deviceId);
+      if (removed) {
+        setDevices((current) =>
+          current.filter((d) => d.deviceId !== device.deviceId),
+        );
+        notify("Device revoked", "success");
+      } else {
+        await refreshDevices();
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+      notifyErr("failed to revoke device")(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pairingExpired =
+    !!activePairing && activePairing.expiresAtMs <= nowMs;
+  const pairingStatus = activePairing
+    ? formatPairingTimeLeft(activePairing.expiresAtMs, nowMs)
+    : pairingAvailable
+      ? "ready"
+      : "desktop app only";
+
+  return (
+    <section className="settings-section">
+      <h3>Mobile Remote</h3>
+      <div className="settings-row settings-row-top">
+        <span className="settings-label">Pairing</span>
+        <div className="settings-control settings-remote-control">
+          <div className="settings-remote-summary">
+            <span
+              className={`settings-status-pill ${
+                pairingExpired
+                  ? "expired"
+                  : pairingAvailable
+                    ? "ready"
+                    : "muted"
+              }`}
+            >
+              {pairingStatus}
+            </span>
+            <div className="settings-remote-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={startPairing}
+                disabled={!pairingAvailable || busy !== null}
+              >
+                {activePairing ? "New code" : "Pair device"}
+              </button>
+              {activePairing && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={cancelPairing}
+                  disabled={busy !== null}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+
+          {activePairing && (
+            <div className="settings-pairing-code-row">
+              <code className="settings-pairing-code">{activePairing.code}</code>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={copyPairingCode}
+              >
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="settings-row settings-row-top">
+        <span className="settings-label">Devices</span>
+        <div className="settings-control settings-devices-control">
+          <div className="settings-remote-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void refreshDevices()}
+              disabled={!pairingAvailable || loadingDevices || busy !== null}
+            >
+              Refresh
+            </button>
+          </div>
+
+          {loadingDevices ? (
+            <div className="settings-empty-row">Loading devices...</div>
+          ) : devices.length === 0 ? (
+            <div className="settings-empty-row">No paired devices</div>
+          ) : (
+            <div className="settings-device-list">
+              {devices.map((device) => {
+                const busyKey = `revoke:${device.deviceId}`;
+                return (
+                  <div className="settings-device-row" key={device.deviceId}>
+                    <div className="settings-device-main">
+                      <strong>{device.displayName}</strong>
+                      <span>
+                        paired {relativeTime(device.pairedAtMs)} · last seen{" "}
+                        {relativeTime(device.lastSeenAtMs) || "never"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => void revokeDevice(device)}
+                      disabled={busy !== null}
+                    >
+                      {busy === busyKey ? "Revoking..." : "Revoke"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {error && <div className="settings-inline-error">{error}</div>}
+        </div>
+      </div>
+    </section>
   );
 }
 

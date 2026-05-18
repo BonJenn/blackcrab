@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findPanelForSession,
+  formatPairingTimeLeft,
   normalizeModelValue,
   resolvePanelSession,
 } from "./App";
@@ -36,5 +37,14 @@ describe("model helpers", () => {
     expect(normalizeModelValue("")).toBeNull();
     expect(normalizeModelValue("  \t  ")).toBeNull();
     expect(normalizeModelValue(" sonnet ")).toBe("sonnet");
+  });
+});
+
+describe("pairing helpers", () => {
+  it("formats pairing code expiration countdowns", () => {
+    expect(formatPairingTimeLeft(10_000, 9_500)).toBe("1s");
+    expect(formatPairingTimeLeft(70_000, 10_000)).toBe("1m 00s");
+    expect(formatPairingTimeLeft(75_000, 10_000)).toBe("1m 05s");
+    expect(formatPairingTimeLeft(10_000, 10_000)).toBe("expired");
   });
 });

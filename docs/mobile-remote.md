@@ -68,12 +68,17 @@ phone. Remote tokens should move from the JSON file to the macOS keychain
 (and platform equivalents) before pairing is exposed to users — the
 plaintext-on-disk storage is a stub.
 
+The desktop Settings panel exposes the local pairing state: create or cancel a
+pairing code, refresh paired devices, and revoke a paired device. Accepting a
+pairing is still reserved for the future mobile/relay path.
+
 ## Non-goals for this branch
 
 - No relay implementation. There is no server-side component in this branch.
 - No real network calls from the mobile app. Screens render mock fixtures
   from the protocol package.
-- No real pairing flow. Pairing types exist; the UI does not exercise them.
+- No real end-to-end pairing flow. The desktop can create local pairing codes
+  and list/revoke devices, but no phone can connect through a relay yet.
 - No transcript sync to the cloud. Transcripts continue to live only on the
   desktop host's disk.
 - No remote terminal, no remote file browser, no remote shell execution.

@@ -143,6 +143,19 @@ fn env_var_present(name: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn normalize_model_name(model: &str) -> Option<String> {
+    let trimmed = model.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn normalize_model_arg(model: Option<String>) -> Option<String> {
+    model.and_then(|m| normalize_model_name(&m))
+}
+
 fn auth_env_conflict_present() -> bool {
     env_var_present("ANTHROPIC_API_KEY")
         || env_var_present("ANTHROPIC_AUTH_TOKEN")
@@ -353,6 +366,42 @@ mod tests {
         assert!(!env_value_present(OsStr::new("")));
         assert!(!env_value_present(OsStr::new("  \t  ")));
         assert!(env_value_present(OsStr::new("sk-ant-oat-real")));
+    }
+
+    #[test]
+    fn model_args_are_trimmed_and_empty_values_are_ignored() {
+        assert_eq!(normalize_model_arg(None), None);
+        assert_eq!(normalize_model_arg(Some(String::new())), None);
+        assert_eq!(normalize_model_arg(Some("  \t  ".into())), None);
+        assert_eq!(
+            normalize_model_arg(Some("  claude-sonnet-4-6  ".into())),
+            Some("claude-sonnet-4-6".into())
+        );
+    }
+
+    #[test]
+    fn session_summary_ignores_blank_assistant_model_and_uses_model_usage() {
+        let path = std::env::temp_dir().join(format!(
+            "blackcrab-model-summary-{}-{}.jsonl",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let content = [
+            r#"{"type":"user","cwd":"/tmp/project","message":{"content":"hello"}}"#,
+            r#"{"type":"assistant","message":{"model":"   ","usage":{"input_tokens":10,"output_tokens":2}}}"#,
+            r#"{"type":"result","modelUsage":{"claude-haiku-4-5":{"contextWindow":200000},"claude-sonnet-4-6":{"contextWindow":1000000}}}"#,
+        ]
+        .join("\n");
+        fs::write(&path, content).unwrap();
+
+        let info = summarize_session(&path).unwrap();
+        let _ = fs::remove_file(&path);
+
+        assert_eq!(info.model, "claude-sonnet-4-6");
+        assert_eq!(info.context_limit, 1_000_000);
     }
 
     #[test]
@@ -809,7 +858,7 @@ async fn start_session(
         cmd.arg("--add-dir").arg(home);
     }
 
-    if let Some(m) = model.filter(|s| !s.is_empty()) {
+    if let Some(m) = normalize_model_arg(model) {
         cmd.arg("--model").arg(m);
     }
 
@@ -1621,8 +1670,12 @@ fn summarize_session_with_search(
             "assistant" => {
                 last_event_type = t.to_string();
                 message_count += 1;
-                if let Some(m) = v.pointer("/message/model").and_then(|x| x.as_str()) {
-                    model = m.to_string();
+                if let Some(m) = v
+                    .pointer("/message/model")
+                    .and_then(|x| x.as_str())
+                    .and_then(normalize_model_name)
+                {
+                    model = m;
                 }
                 if let Some(usage) = v.pointer("/message/usage") {
                     let input =
@@ -1665,19 +1718,41 @@ fn summarize_session_with_search(
                 if let Some(usage) =
                     v.get("modelUsage").and_then(|x| x.as_object())
                 {
+                    let mut best_usage_model: Option<(String, u64)> = None;
                     for (model_name, info) in usage {
+                        let normalized_name = match normalize_model_name(model_name) {
+                            Some(name) => name,
+                            None => continue,
+                        };
+                        let context_window = info
+                            .get("contextWindow")
+                            .and_then(|x| x.as_u64())
+                            .unwrap_or(0);
+                        if best_usage_model
+                            .as_ref()
+                            .map(|(_, best_context_window)| context_window > *best_context_window)
+                            .unwrap_or(true)
+                        {
+                            best_usage_model =
+                                Some((normalized_name.clone(), context_window));
+                        }
                         if let Some(cw) = info
                             .get("contextWindow")
                             .and_then(|x| x.as_u64())
                         {
                             if cw > 0 {
                                 let entry = context_window_by_model
-                                    .entry(model_name.clone())
+                                    .entry(normalized_name)
                                     .or_insert(0);
                                 if cw > *entry {
                                     *entry = cw;
                                 }
                             }
+                        }
+                    }
+                    if model.is_empty() {
+                        if let Some((usage_model, _)) = best_usage_model {
+                            model = usage_model;
                         }
                     }
                 }

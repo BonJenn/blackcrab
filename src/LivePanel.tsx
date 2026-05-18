@@ -24,6 +24,7 @@ import {
   SESSION_TAIL_LIMIT,
   looksLikeYesNoQuestion,
   notifyTurnComplete,
+  normalizeModelValue,
 } from "./App";
 
 // A self-contained live session. Each LivePanel owns its own subprocess,
@@ -552,7 +553,7 @@ export function LivePanel({
           panelId,
           cwd: initialCwd,
           permissionMode,
-          model: initialModel || null,
+          model: normalizeModelValue(initialModel),
           resumeId: initialSessionId || null,
           useWorktree: !!useWorktree,
         });
@@ -696,7 +697,7 @@ export function LivePanel({
         panelId,
         cwd: initialCwd,
         permissionMode: "bypassPermissions",
-        model: initialModel || null,
+        model: normalizeModelValue(initialModel),
         resumeId: sessionId || initialSessionId || null,
       });
       setSessionOn(true);

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { findPanelForSession, resolvePanelSession } from "./App";
+import {
+  findPanelForSession,
+  normalizeModelValue,
+  resolvePanelSession,
+} from "./App";
 
 describe("grid panel session helpers", () => {
   it("resolves direct session panels without consulting placeholder mappings", () => {
@@ -22,5 +26,15 @@ describe("grid panel session helpers", () => {
       "new:abc:123",
     );
     expect(findPanelForSession("missing", panels, mappings)).toBeUndefined();
+  });
+});
+
+describe("model helpers", () => {
+  it("normalizes empty model selections before backend calls", () => {
+    expect(normalizeModelValue(undefined)).toBeNull();
+    expect(normalizeModelValue(null)).toBeNull();
+    expect(normalizeModelValue("")).toBeNull();
+    expect(normalizeModelValue("  \t  ")).toBeNull();
+    expect(normalizeModelValue(" sonnet ")).toBe("sonnet");
   });
 });

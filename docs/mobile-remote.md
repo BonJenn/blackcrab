@@ -53,6 +53,21 @@ The protocol is intentionally narrow. Anything that would require streaming a
 full terminal, a file browser, or arbitrary remote control belongs in a
 follow-up design, not this scaffold.
 
+## Desktop pairing service
+
+`src-tauri/src/pairing.rs` is the desktop's local pairing state. It exposes
+Tauri commands `pairing_start`, `pairing_accept`, `pairing_cancel`,
+`pairing_list_devices`, and `pairing_revoke`. State persists to
+`~/.blackcrab/pairings.json` (file mode 0600 on Unix). Pairing codes are
+drawn from the protocol's unambiguous alphabet and default to a 5 minute
+TTL. Remote tokens are generated from `/dev/urandom`.
+
+The service has no transport. Codes are minted on the desktop and shown to
+the user; a future LAN bridge or relay will actually deliver the code to a
+phone. Remote tokens should move from the JSON file to the macOS keychain
+(and platform equivalents) before pairing is exposed to users — the
+plaintext-on-disk storage is a stub.
+
 ## Non-goals for this branch
 
 - No relay implementation. There is no server-side component in this branch.

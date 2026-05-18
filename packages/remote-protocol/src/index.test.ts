@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDesktopPairingPayload,
+  DESKTOP_PAIRING_PAYLOAD_TYPE,
+  hasDesktopPairingPayloadExpired,
+  isDesktopPairingPayload,
+  isHostPlatform,
   isPairingCode,
   isRemoteAction,
   isRemoteEvent,
+  parseDesktopPairingPayload,
   REMOTE_PROTOCOL_VERSION,
+  serializeDesktopPairingPayload,
 } from "./index";
 
 describe("remote-protocol", () => {
@@ -31,6 +38,87 @@ describe("remote-protocol", () => {
       expect(isPairingCode("")).toBe(false);
       expect(isPairingCode(undefined)).toBe(false);
       expect(isPairingCode(123456)).toBe(false);
+    });
+  });
+
+  describe("isHostPlatform", () => {
+    it("recognizes supported desktop platforms", () => {
+      expect(isHostPlatform("macos")).toBe(true);
+      expect(isHostPlatform("windows")).toBe(true);
+      expect(isHostPlatform("linux")).toBe(true);
+      expect(isHostPlatform("unknown")).toBe(true);
+    });
+
+    it("rejects unsupported values", () => {
+      expect(isHostPlatform("ios")).toBe(false);
+      expect(isHostPlatform("android")).toBe(false);
+      expect(isHostPlatform(undefined)).toBe(false);
+    });
+  });
+
+  describe("desktop pairing payloads", () => {
+    const payload = createDesktopPairingPayload({
+      hostId: "host-local-mac",
+      displayName: "Studio MacBook Pro",
+      platform: "macos",
+      appVersion: "0.2.0",
+      code: "ABCDEF",
+      expiresAtMs: 1_800_000_000_000,
+    });
+
+    it("creates and validates a desktop pairing payload", () => {
+      expect(payload).toEqual({
+        type: DESKTOP_PAIRING_PAYLOAD_TYPE,
+        protocolVersion: REMOTE_PROTOCOL_VERSION,
+        hostId: "host-local-mac",
+        displayName: "Studio MacBook Pro",
+        platform: "macos",
+        appVersion: "0.2.0",
+        code: "ABCDEF",
+        expiresAtMs: 1_800_000_000_000,
+      });
+      expect(isDesktopPairingPayload(payload)).toBe(true);
+    });
+
+    it("serializes and parses valid payloads", () => {
+      expect(parseDesktopPairingPayload(serializeDesktopPairingPayload(payload))).toEqual(
+        payload,
+      );
+    });
+
+    it("returns null for invalid JSON or unsupported payloads", () => {
+      expect(parseDesktopPairingPayload("not json")).toBeNull();
+      expect(
+        parseDesktopPairingPayload(
+          JSON.stringify({ ...payload, protocolVersion: 999 }),
+        ),
+      ).toBeNull();
+      expect(
+        parseDesktopPairingPayload(JSON.stringify({ ...payload, code: "ABC0EF" })),
+      ).toBeNull();
+      expect(
+        parseDesktopPairingPayload(JSON.stringify({ ...payload, platform: "ios" })),
+      ).toBeNull();
+      expect(
+        parseDesktopPairingPayload(
+          JSON.stringify({ ...payload, expiresAtMs: Number.NaN }),
+        ),
+      ).toBeNull();
+    });
+
+    it("throws when asked to serialize an invalid payload", () => {
+      expect(() =>
+        serializeDesktopPairingPayload({ ...payload, code: "ABC0EF" }),
+      ).toThrow("Invalid desktop pairing payload.");
+    });
+
+    it("checks expiration against a supplied clock", () => {
+      expect(hasDesktopPairingPayloadExpired(payload, payload.expiresAtMs - 1)).toBe(
+        false,
+      );
+      expect(hasDesktopPairingPayloadExpired(payload, payload.expiresAtMs)).toBe(
+        true,
+      );
     });
   });
 

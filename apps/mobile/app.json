@@ -19,6 +19,10 @@
     },
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-asset"
+    ]
   }
 }

@@ -18,13 +18,15 @@ is registered with EAS.
 
 ## What works
 
-- Static, mocked UI for paired hosts, sessions, transcript tail, and
-  attention/approval screens.
-- All data comes from `@blackcrab/remote-protocol` mock fixtures.
-- No network calls. No host pairing. No relay.
+- Local demo pairing from a short desktop code or serialized desktop pairing
+  payload.
+- Paired host summaries are stored with Expo SecureStore, with a web/local
+  fallback for development.
+- Mocked UI for sessions, transcript tail, and attention/approval screens.
+- No network calls. No relay.
 
 ## What does not work yet
 
-- Pairing with a desktop host.
+- End-to-end pairing with a desktop host over LAN or relay.
 - Any real-time updates.
 - Sending messages, stopping sessions, or approving actions.

@@ -1,16 +1,24 @@
-import { useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import type { HostId } from "@blackcrab/remote-protocol";
 
 import { ApprovalScreen } from "./src/screens/ApprovalScreen";
 import { PairedHostsScreen } from "./src/screens/PairedHostsScreen";
+import { PairHostScreen } from "./src/screens/PairHostScreen";
 import { SessionsScreen } from "./src/screens/SessionsScreen";
 import { TranscriptScreen } from "./src/screens/TranscriptScreen";
+import {
+  forgetStoredHost,
+  loadStoredHosts,
+  type StoredPairedHost,
+} from "./src/pairingStore";
 
-type TabKey = "hosts" | "sessions" | "transcript" | "approval";
+type TabKey = "hosts" | "pair" | "sessions" | "transcript" | "approval";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "hosts", label: "Hosts" },
+  { key: "pair", label: "Pair" },
   { key: "sessions", label: "Sessions" },
   { key: "transcript", label: "Transcript" },
   { key: "approval", label: "Attention" },
@@ -18,15 +26,52 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>("hosts");
+  const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
+  const [loadingHosts, setLoadingHosts] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    loadStoredHosts()
+      .then((hosts) => {
+        if (mounted) {
+          setStoredHosts(hosts);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoadingHosts(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleForgetHost(hostId: HostId) {
+    const hosts = await forgetStoredHost(hostId);
+    setStoredHosts(hosts);
+  }
+
+  function handlePaired(hosts: StoredPairedHost[]) {
+    setStoredHosts(hosts);
+    setTab("hosts");
+  }
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
       <View style={styles.header}>
         <Text style={styles.title}>Blackcrab Remote</Text>
-        <Text style={styles.subtitle}>Experimental scaffold · not connected</Text>
+        <Text style={styles.subtitle}>Experimental scaffold · local demo</Text>
       </View>
-      <View style={styles.tabs}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabs}
+        contentContainerStyle={styles.tabsContent}
+      >
         {TABS.map((entry) => {
           const active = entry.key === tab;
           return (
@@ -40,9 +85,17 @@ export default function App() {
             </Text>
           );
         })}
-      </View>
+      </ScrollView>
       <View style={styles.body}>
-        {tab === "hosts" && <PairedHostsScreen />}
+        {tab === "hosts" && (
+          <PairedHostsScreen
+            loading={loadingHosts}
+            storedHosts={storedHosts}
+            onForgetHost={handleForgetHost}
+            onPairHost={() => setTab("pair")}
+          />
+        )}
+        {tab === "pair" && <PairHostScreen onPaired={handlePaired} />}
         {tab === "sessions" && <SessionsScreen />}
         {tab === "transcript" && <TranscriptScreen />}
         {tab === "approval" && <ApprovalScreen />}
@@ -70,10 +123,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tabs: {
-    flexDirection: "row",
-    paddingHorizontal: 8,
+    flexGrow: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#1f242b",
+  },
+  tabsContent: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
   },
   tab: {
     color: "#9aa3ad",

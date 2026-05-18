@@ -22,7 +22,13 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Blackcrab Remote uses the camera to scan pairing QR codes from your desktop."
+        }
+      ]
     ]
   }
 }

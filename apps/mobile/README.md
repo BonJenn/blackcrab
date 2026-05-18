@@ -18,8 +18,8 @@ is registered with EAS.
 
 ## What works
 
-- Local demo pairing from a short desktop code or serialized desktop pairing
-  payload.
+- Local demo pairing from a short desktop code, a serialized desktop pairing
+  payload, or by scanning the desktop's pairing QR (`expo-camera`).
 - Paired host summaries are stored with Expo SecureStore, with a web/local
   fallback for development.
 - Mocked UI for sessions, transcript tail, and attention/approval screens.

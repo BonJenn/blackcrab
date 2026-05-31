@@ -2916,6 +2916,17 @@ body[data-resizing="true"] .terminal-resizer::after {
   font-size: 12px;
 }
 
+.settings-pairing-lan {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.settings-pairing-lan code {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
 .settings-device-list {
   display: flex;
   flex-direction: column;

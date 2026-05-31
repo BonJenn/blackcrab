@@ -48,6 +48,10 @@ import {
   type PairingStartResponse,
 } from "./remote/pairing";
 import { buildPairingPayload } from "./remote/pairingPayload";
+import {
+  fetchTransportEndpoint,
+  type TransportEndpoint,
+} from "./remote/transport";
 import { QRCodeSVG } from "qrcode.react";
 import { subscribeToasts, type Toast, notify, notifyErr } from "./toast";
 import "./App.css";
@@ -6418,8 +6422,24 @@ function MobileRemoteSettings() {
   const [activePairing, setActivePairing] =
     useState<PairingStartResponse | null>(null);
   const [pairingPayload, setPairingPayload] = useState<string | null>(null);
+  const [lanEndpoint, setLanEndpoint] = useState<TransportEndpoint | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!pairingAvailable) return;
+    let mounted = true;
+    fetchTransportEndpoint()
+      .then((endpoint) => {
+        if (mounted) setLanEndpoint(endpoint);
+      })
+      .catch((e) => {
+        notifyErr("failed to read transport info")(e);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [pairingAvailable]);
 
   useEffect(() => {
     if (!activePairing) return;
@@ -6455,7 +6475,9 @@ function MobileRemoteSettings() {
       setPairingPayload(null);
       setNowMs(Date.now());
       try {
-        const built = await buildPairingPayload(next);
+        const endpoint = lanEndpoint ?? (await fetchTransportEndpoint());
+        if (!lanEndpoint) setLanEndpoint(endpoint);
+        const built = await buildPairingPayload(next, endpoint);
         setPairingPayload(built.serialized);
       } catch (e) {
         notifyErr("failed to build pairing payload")(e);
@@ -6610,6 +6632,15 @@ function MobileRemoteSettings() {
                   Copy payload
                 </button>
               </div>
+            </div>
+          )}
+
+          {lanEndpoint && lanEndpoint.port > 0 && (
+            <div className="settings-pairing-lan">
+              Server listening on{" "}
+              <code>
+                ws://{lanEndpoint.host}:{lanEndpoint.port}
+              </code>
             </div>
           )}
         </div>

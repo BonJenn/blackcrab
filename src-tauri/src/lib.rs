@@ -1,4 +1,5 @@
 mod pairing;
+mod transport;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -16,6 +17,7 @@ use crate::pairing::{
     now_unix_ms as pairing_now_ms, PairedDevice, PairingAcceptResponse, PairingService,
     PairingStartResponse, PAIRING_DEFAULT_TTL_SECS,
 };
+use crate::transport::{TransportEndpoint, TransportServer};
 
 struct Session {
     child: Child,
@@ -2583,6 +2585,29 @@ fn pairing_revoke(device_id: String) -> Result<bool, String> {
     svc.revoke_device(&device_id)
 }
 
+static TRANSPORT_SERVER: OnceLock<Arc<TransportServer>> = OnceLock::new();
+
+fn transport_server() -> Arc<TransportServer> {
+    TRANSPORT_SERVER
+        .get_or_init(|| Arc::new(TransportServer::new()))
+        .clone()
+}
+
+#[tauri::command]
+async fn remote_transport_info() -> Result<TransportEndpoint, String> {
+    let server = transport_server();
+    if let Some(endpoint) = server.endpoint().await {
+        return Ok(endpoint);
+    }
+    let pairing = pairing_service()?;
+    server.start(pairing).await
+}
+
+pub(crate) fn remote_host_id_for_pairing() -> String {
+    let hostname = read_hostname();
+    remote_host_id(&hostname)
+}
+
 #[tauri::command]
 fn remote_host_info() -> RemoteHostInfo {
     let hostname = read_hostname();
@@ -2645,12 +2670,29 @@ pub fn run() {
             terminal_resize,
             terminal_kill,
             remote_host_info,
+            remote_transport_info,
             pairing_start,
             pairing_accept,
             pairing_cancel,
             pairing_list_devices,
             pairing_revoke
         ])
+        .setup(|_app| {
+            let server = transport_server();
+            tauri::async_runtime::spawn(async move {
+                let pairing = match pairing_service() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("transport: pairing service unavailable: {e}");
+                        return;
+                    }
+                };
+                if let Err(e) = server.start(pairing).await {
+                    eprintln!("transport: failed to start: {e}");
+                }
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

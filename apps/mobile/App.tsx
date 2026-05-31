@@ -13,6 +13,8 @@ import {
   loadStoredHosts,
   type StoredPairedHost,
 } from "./src/pairingStore";
+import { LanWebSocketTransport } from "./src/transport/lanWebSocketTransport";
+import type { TransportStatus } from "./src/transport/types";
 
 type TabKey = "hosts" | "pair" | "sessions" | "transcript" | "approval";
 
@@ -28,6 +30,10 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
+  const [activeTransport, setActiveTransport] =
+    useState<LanWebSocketTransport | null>(null);
+  const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
+  const [activeHostId, setActiveHostId] = useState<HostId | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -49,13 +55,40 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!activeTransport) {
+      setActiveStatus(null);
+      return;
+    }
+    const unsub = activeTransport.subscribe((status) => {
+      setActiveStatus(status);
+    });
+    return unsub;
+  }, [activeTransport]);
+
+  useEffect(() => () => activeTransport?.close(), [activeTransport]);
+
   async function handleForgetHost(hostId: HostId) {
     const hosts = await forgetStoredHost(hostId);
     setStoredHosts(hosts);
+    if (activeHostId === hostId) {
+      activeTransport?.close();
+      setActiveTransport(null);
+      setActiveHostId(null);
+    }
   }
 
-  function handlePaired(hosts: StoredPairedHost[]) {
+  function handlePaired(
+    hosts: StoredPairedHost[],
+    host: StoredPairedHost,
+    transport: LanWebSocketTransport | null,
+  ) {
     setStoredHosts(hosts);
+    if (transport) {
+      activeTransport?.close();
+      setActiveTransport(transport);
+      setActiveHostId(host.hostId);
+    }
     setTab("hosts");
   }
 
@@ -93,6 +126,8 @@ export default function App() {
             storedHosts={storedHosts}
             onForgetHost={handleForgetHost}
             onPairHost={() => setTab("pair")}
+            activeHostId={activeHostId}
+            activeStatus={activeStatus}
           />
         )}
         {tab === "pair" && <PairHostScreen onPaired={handlePaired} />}

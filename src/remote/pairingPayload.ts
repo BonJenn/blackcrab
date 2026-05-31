@@ -1,7 +1,8 @@
 /**
- * Builds a serializable `DesktopPairingPayload` from a `pairing_start` response
- * and the host metadata returned by `remote_host_info`. The serialized JSON is
- * what the desktop renders as a QR for the mobile companion to scan.
+ * Builds a serializable `DesktopPairingPayload` from a `pairing_start` response,
+ * the host metadata returned by `remote_host_info`, and the LAN address the
+ * desktop's transport server is listening on. The serialized JSON is what the
+ * desktop renders as a QR for the mobile companion to scan.
  */
 
 import {
@@ -12,6 +13,7 @@ import {
 
 import { fetchDesktopHostInfo, type HostInfoInvoker } from "./desktop";
 import type { PairingStartResponse } from "./pairing";
+import type { TransportEndpoint } from "./transport";
 
 export interface BuiltPairingPayload {
   payload: DesktopPairingPayload;
@@ -20,6 +22,7 @@ export interface BuiltPairingPayload {
 
 export async function buildPairingPayload(
   start: PairingStartResponse,
+  lan: TransportEndpoint,
   invoker?: HostInfoInvoker,
 ): Promise<BuiltPairingPayload> {
   const host = await fetchDesktopHostInfo(invoker);
@@ -30,6 +33,8 @@ export async function buildPairingPayload(
     appVersion: host.appVersion,
     code: start.code,
     expiresAtMs: start.expiresAtMs,
+    lanHost: lan.host,
+    lanPort: lan.port,
   });
   return { payload, serialized: serializeDesktopPairingPayload(payload) };
 }

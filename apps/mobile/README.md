@@ -18,12 +18,16 @@ is registered with EAS.
 
 ## What works
 
-- Local demo pairing from a short desktop code, a serialized desktop pairing
-  payload, or by scanning the desktop's pairing QR (`expo-camera`).
-- Paired host summaries are stored with Expo SecureStore, with a web/local
-  fallback for development.
+- LAN pairing over WebSocket: scan the desktop's QR (or paste the serialized
+  payload) and the phone opens `ws://lanHost:lanPort`, performs the pairing
+  handshake, and persists the issued remote token in Expo SecureStore.
+- Live connection-status indicator on the Paired Hosts screen
+  (connecting / connected / reconnecting / error) backed by a real ping/pong
+  heartbeat.
+- Raw pairing codes still take a local-demo path (no transport address to
+  connect to).
 - Mocked UI for sessions, transcript tail, and attention/approval screens.
-- No network calls. No relay.
+- No relay, no auto-reconnect on app launch (yet).
 
 ## What does not work yet
 

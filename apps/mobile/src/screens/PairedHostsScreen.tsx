@@ -6,6 +6,7 @@ import {
 } from "@blackcrab/remote-protocol";
 
 import type { StoredPairedHost } from "../pairingStore";
+import type { TransportStatus } from "../transport/types";
 import { screenStyles } from "./styles";
 
 interface PairedHostsScreenProps {
@@ -13,6 +14,8 @@ interface PairedHostsScreenProps {
   storedHosts: StoredPairedHost[];
   onForgetHost: (hostId: HostId) => void;
   onPairHost: () => void;
+  activeHostId?: HostId | null;
+  activeStatus?: TransportStatus | null;
 }
 
 export function PairedHostsScreen({
@@ -20,6 +23,8 @@ export function PairedHostsScreen({
   storedHosts,
   onForgetHost,
   onPairHost,
+  activeHostId,
+  activeStatus,
 }: PairedHostsScreenProps) {
   const hasStoredHosts = storedHosts.length > 0;
   const hosts = loading ? [] : hasStoredHosts ? storedHosts : MOCK_PAIRED_HOSTS;
@@ -55,6 +60,11 @@ export function PairedHostsScreen({
             host={item}
             isStored={hasStoredHosts}
             onForgetHost={hasStoredHosts ? onForgetHost : undefined}
+            connectionStatus={
+              activeHostId && activeHostId === item.hostId
+                ? activeStatus ?? null
+                : null
+            }
           />
         )}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
@@ -70,11 +80,18 @@ function HostRow({
   host,
   isStored,
   onForgetHost,
+  connectionStatus,
 }: {
   host: PairedHostSummary;
   isStored: boolean;
   onForgetHost?: (hostId: HostId) => void;
+  connectionStatus: TransportStatus | null;
 }) {
+  const label = connectionStatus
+    ? connectionStatus.state.replace("_", " ")
+    : host.online
+      ? "online"
+      : "offline";
   return (
     <View style={localStyles.row}>
       <View style={localStyles.rowMain}>
@@ -85,12 +102,9 @@ function HostRow({
       </View>
       <View style={localStyles.rowActions}>
         <Text
-          style={[
-            localStyles.status,
-            host.online ? localStyles.online : localStyles.offline,
-          ]}
+          style={[localStyles.status, statusStyle(connectionStatus, host.online)]}
         >
-          {host.online ? "online" : "offline"}
+          {label}
         </Text>
         {isStored && onForgetHost && (
           <Pressable
@@ -107,6 +121,26 @@ function HostRow({
       </View>
     </View>
   );
+}
+
+function statusStyle(
+  status: TransportStatus | null,
+  fallbackOnline: boolean,
+) {
+  if (status) {
+    switch (status.state) {
+      case "connected":
+        return localStyles.online;
+      case "connecting":
+      case "reconnecting":
+        return localStyles.connecting;
+      case "error":
+        return localStyles.error;
+      default:
+        return localStyles.offline;
+    }
+  }
+  return fallbackOnline ? localStyles.online : localStyles.offline;
 }
 
 const localStyles = StyleSheet.create({
@@ -147,6 +181,12 @@ const localStyles = StyleSheet.create({
   },
   offline: {
     color: "#6b7480",
+  },
+  connecting: {
+    color: "#e6c065",
+  },
+  error: {
+    color: "#ff9b8a",
   },
   secondaryButton: {
     alignSelf: "flex-start",

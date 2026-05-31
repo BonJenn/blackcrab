@@ -72,23 +72,39 @@ phone. Remote tokens should move from the JSON file to the macOS keychain
 plaintext-on-disk storage is a stub.
 
 The desktop Settings panel exposes the local pairing state: create or cancel a
-pairing code, refresh paired devices, and revoke a paired device. Accepting a
-pairing is still reserved for the future mobile/relay path.
+pairing code, refresh paired devices, and revoke a paired device. The desktop
+now also runs a local WebSocket server on a kernel-assigned LAN port; that
+host + port is baked into the QR payload so the phone can connect directly.
+The server handles two handshakes:
 
-The mobile app has a local demo pairing screen. It accepts either a short code
-or the serialized desktop pairing payload and persists a host summary in Expo
-SecureStore, with a web/local fallback for Expo web development. This proves
-the mobile-side state boundary but does not create a real desktop trust
-relationship yet.
+- `pairing_request`: consumes a desktop-minted code via the existing
+  `PairingService::accept_pairing` and replies with the issued `remoteToken`.
+- `auth`: re-authenticates a previously paired device by remote token.
+
+After either handshake the connection enters a ping/pong heartbeat loop and
+emits `connection_status` events. Action handling (send_message, stop_session,
+approve, deny) is deliberately not implemented yet — that lands in the next
+feature alongside live session sync.
+
+The mobile app's Pair screen now performs the real pairing handshake when it
+sees a scanned/pasted payload with `lanHost`/`lanPort`: it opens
+`ws://lanHost:lanPort`, sends the pairing code, persists the issued token in
+Expo SecureStore, and keeps the WebSocket alive as the active connection. The
+Paired Hosts screen surfaces live transport state for the active host
+(connecting / connected / reconnecting / error). Raw codes still take the
+demo-only path, since they carry no transport address.
 
 ## Non-goals for this branch
 
-- No relay implementation. There is no server-side component in this branch.
-- No real network calls from the mobile app. Screens render mock fixtures
-  from the protocol package.
-- No real end-to-end pairing flow. The desktop can create local pairing codes,
-  and the mobile app can store local demo hosts, but no phone can connect
-  through a relay yet.
+- No relay implementation. There is no server-side relay component yet — only
+  a local LAN WebSocket.
+- No automatic reconnect on app launch yet — the active transport is only
+  established at pairing time. Future work persists the token and reconnects
+  on startup.
+- No real-time session, transcript, or approval data over the wire — those
+  screens still render mock fixtures.
+- No remote actions (send_message, stop_session, approve, deny) — the
+  desktop server ignores action messages for now.
 - No transcript sync to the cloud. Transcripts continue to live only on the
   desktop host's disk.
 - No remote terminal, no remote file browser, no remote shell execution.

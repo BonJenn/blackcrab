@@ -276,6 +276,46 @@ describe("LanWebSocketTransport", () => {
     transport.close();
   });
 
+  it("surfaces sessions events to event subscribers", () => {
+    const ws = new FakeWebSocket();
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => ws,
+      timers: fakeTimers(),
+    });
+    const events: string[] = [];
+    transport.subscribeEvents((event) => events.push(event.type));
+
+    ws.openConnection();
+    ws.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: {
+          type: "sessions",
+          hostId: "desktop-studio",
+          sessions: [
+            {
+              hostId: "desktop-studio",
+              sessionId: "sess-1",
+              title: "Demo",
+              projectPath: "~/p",
+              model: "claude-opus-4-8",
+              state: "idle",
+              updatedAt: "2026-05-31T16:00:00.000Z",
+              pendingApprovalCount: 0,
+              unreadCount: 0,
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(events).toContain("sessions");
+    transport.close();
+  });
+
   it("reconnects after the socket closes", () => {
     const sockets: FakeWebSocket[] = [];
     const transport = new LanWebSocketTransport({

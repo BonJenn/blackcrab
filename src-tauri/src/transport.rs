@@ -39,6 +39,22 @@ pub(crate) enum RemoteCommand {
     StopSession { session_id: String },
 }
 
+/// Builds the `sessions` event body (in protocol shape) the desktop pushes to
+/// authenticated clients. Returns `None` when no snapshot is available.
+pub(crate) type SessionSnapshot =
+    Arc<dyn Fn() -> Option<serde_json::Value> + Send + Sync>;
+
+/// Side channels the transport uses to talk to the rest of the app, kept
+/// behind this bundle so `start`'s signature stays stable as more host->mobile
+/// data sources land. Cheap to clone (a sender + an `Arc`).
+#[derive(Clone, Default)]
+pub(crate) struct RemoteHooks {
+    /// Sink for actions decoded off authenticated connections.
+    pub commands: Option<UnboundedSender<RemoteCommand>>,
+    /// Produces the current session list to push on connect and each tick.
+    pub sessions: Option<SessionSnapshot>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TransportEndpoint {
@@ -62,13 +78,14 @@ impl TransportServer {
 
     /// Start the WebSocket server. Returns the LAN endpoint to advertise.
     ///
-    /// `commands` is the sink for actions decoded off authenticated
-    /// connections; pass `None` to accept connections without dispatching any
-    /// actions (the server still pairs, authenticates, and heartbeats).
+    /// `hooks` carries the action sink and host->mobile data providers; pass
+    /// `RemoteHooks::default()` to accept connections without dispatching
+    /// actions or pushing data (the server still pairs, authenticates, and
+    /// heartbeats).
     pub async fn start(
         self: &Arc<Self>,
         pairing: Arc<PairingService>,
-        commands: Option<UnboundedSender<RemoteCommand>>,
+        hooks: RemoteHooks,
     ) -> Result<TransportEndpoint, String> {
         if let Some(existing) = self.endpoint.lock().await.clone() {
             return Ok(existing);
@@ -87,25 +104,21 @@ impl TransportServer {
 
         let pairing_for_loop = pairing.clone();
         tokio::spawn(async move {
-            accept_loop(listener, pairing_for_loop, commands).await;
+            accept_loop(listener, pairing_for_loop, hooks).await;
         });
 
         Ok(advertised)
     }
 }
 
-async fn accept_loop(
-    listener: TcpListener,
-    pairing: Arc<PairingService>,
-    commands: Option<UnboundedSender<RemoteCommand>>,
-) {
+async fn accept_loop(listener: TcpListener, pairing: Arc<PairingService>, hooks: RemoteHooks) {
     loop {
         match listener.accept().await {
             Ok((tcp, _peer)) => {
                 let pairing = pairing.clone();
-                let commands = commands.clone();
+                let hooks = hooks.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = handle_connection(tcp, pairing, commands).await {
+                    if let Err(e) = handle_connection(tcp, pairing, hooks).await {
                         eprintln!("transport connection error: {e}");
                     }
                 });
@@ -121,7 +134,7 @@ async fn accept_loop(
 async fn handle_connection(
     tcp: tokio::net::TcpStream,
     pairing: Arc<PairingService>,
-    commands: Option<UnboundedSender<RemoteCommand>>,
+    hooks: RemoteHooks,
 ) -> Result<(), String> {
     let ws = tokio_tungstenite::accept_async(tcp)
         .await
@@ -241,6 +254,12 @@ async fn handle_connection(
     )
     .await?;
 
+    // Push an initial session snapshot so the client renders real sessions
+    // immediately rather than waiting a full heartbeat interval.
+    if let Some(body) = snapshot_sessions(&hooks) {
+        send_event_value(&mut sink, body).await?;
+    }
+
     let mut heartbeat = interval(PING_INTERVAL);
     heartbeat.tick().await; // skip the initial immediate tick
     let mut next_seq: u64 = 1;
@@ -251,6 +270,11 @@ async fn handle_connection(
                 next_seq += 1;
                 if send_envelope(&mut sink, WireMessage::Ping { seq }).await.is_err() {
                     break;
+                }
+                // Refresh the session list alongside the heartbeat. A send
+                // failure here means the socket is gone; the next ping breaks.
+                if let Some(body) = snapshot_sessions(&hooks) {
+                    let _ = send_event_value(&mut sink, body).await;
                 }
             }
             incoming = stream.next() => {
@@ -270,13 +294,13 @@ async fn handle_connection(
                                     session_id, body, ..
                                 } => {
                                     forward_command(
-                                        commands.as_ref(),
+                                        hooks.commands.as_ref(),
                                         RemoteCommand::SendMessage { session_id, body },
                                     );
                                 }
                                 WireMessage::StopSession { session_id, .. } => {
                                     forward_command(
-                                        commands.as_ref(),
+                                        hooks.commands.as_ref(),
                                         RemoteCommand::StopSession { session_id },
                                     );
                                 }
@@ -299,6 +323,25 @@ async fn handle_connection(
 
     let _ = sink.close().await;
     Ok(())
+}
+
+/// Ask the host for the current session list, if a provider is wired up.
+fn snapshot_sessions(hooks: &RemoteHooks) -> Option<serde_json::Value> {
+    hooks.sessions.as_ref().and_then(|provider| provider())
+}
+
+/// Wrap an already-protocol-shaped event body in the versioned envelope and
+/// send it. Used for host->mobile events (`sessions`, and later transcript and
+/// approval events) that `lib.rs` builds directly as JSON.
+async fn send_event_value<S>(sink: &mut S, body: serde_json::Value) -> Result<(), String>
+where
+    S: SinkExt<WsMessage, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
+{
+    let env = serde_json::json!({ "v": PROTOCOL_VERSION, "msg": body });
+    let text = serde_json::to_string(&env).map_err(|e| e.to_string())?;
+    sink.send(WsMessage::Text(text.into()))
+        .await
+        .map_err(|e| format!("ws send: {e}"))
 }
 
 /// Hand a decoded action to the consumer if one is wired up. A closed or
@@ -577,7 +620,10 @@ mod tests {
             .unwrap();
 
         let server = Arc::new(TransportServer::new());
-        let endpoint = server.start(pairing.clone(), None).await.unwrap();
+        let endpoint = server
+            .start(pairing.clone(), RemoteHooks::default())
+            .await
+            .unwrap();
         // Use 127.0.0.1 explicitly — `detect_lan_host` may return an address
         // not bound on this machine.
         let url = format!("ws://127.0.0.1:{}/", endpoint.port);
@@ -626,7 +672,10 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let pairing = Arc::new(PairingService::load(path.clone()).unwrap());
         let server = Arc::new(TransportServer::new());
-        let endpoint = server.start(pairing.clone(), None).await.unwrap();
+        let endpoint = server
+            .start(pairing.clone(), RemoteHooks::default())
+            .await
+            .unwrap();
         let url = format!("ws://127.0.0.1:{}/", endpoint.port);
         let req = url.into_client_request().unwrap();
         let (mut ws, _resp) = tokio_tungstenite::connect_async(req).await.unwrap();
@@ -699,7 +748,11 @@ mod tests {
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
         let server = Arc::new(TransportServer::new());
-        let endpoint = server.start(pairing.clone(), Some(tx)).await.unwrap();
+        let hooks = RemoteHooks {
+            commands: Some(tx),
+            ..Default::default()
+        };
+        let endpoint = server.start(pairing.clone(), hooks).await.unwrap();
         let url = format!("ws://127.0.0.1:{}/", endpoint.port);
         let req = url.into_client_request().unwrap();
         let (mut ws, _resp) = tokio_tungstenite::connect_async(req).await.unwrap();
@@ -745,6 +798,66 @@ mod tests {
                 body: "ship it".into(),
             }
         );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn pushes_a_session_snapshot_after_authentication() {
+        let path = tmp_path();
+        let _ = std::fs::remove_file(&path);
+        let pairing = Arc::new(PairingService::load(path.clone()).unwrap());
+        let start = pairing
+            .start_pairing(crate::pairing::now_unix_ms(), PAIRING_DEFAULT_TTL_SECS)
+            .unwrap();
+
+        let snapshot: SessionSnapshot = Arc::new(|| {
+            Some(serde_json::json!({
+                "type": "sessions",
+                "hostId": "host-1",
+                "sessions": [{ "sessionId": "sess-1", "title": "Demo" }],
+            }))
+        });
+        let server = Arc::new(TransportServer::new());
+        let hooks = RemoteHooks {
+            sessions: Some(snapshot),
+            ..Default::default()
+        };
+        let endpoint = server.start(pairing.clone(), hooks).await.unwrap();
+        let url = format!("ws://127.0.0.1:{}/", endpoint.port);
+        let req = url.into_client_request().unwrap();
+        let (mut ws, _resp) = tokio_tungstenite::connect_async(req).await.unwrap();
+
+        use futures_util::{SinkExt, StreamExt};
+        let pair_req = serde_json::to_string(&Envelope {
+            v: PROTOCOL_VERSION,
+            msg: WireMessage::PairingRequest {
+                code: start.code.clone(),
+                device_name: "Phone".into(),
+                requested_at: "2026-05-18T18:00:00Z".into(),
+            },
+        })
+        .unwrap();
+        ws.send(WsMessage::Text(pair_req.into())).await.unwrap();
+
+        // Drain frames until the sessions event arrives (after pairing_response
+        // and connection_status), or time out.
+        let body = timeout(Duration::from_secs(2), async {
+            loop {
+                let frame = ws.next().await.unwrap().unwrap();
+                if let WsMessage::Text(t) = frame {
+                    let value: serde_json::Value = serde_json::from_str(&t).unwrap();
+                    if value["msg"]["type"] == "sessions" {
+                        return value;
+                    }
+                }
+            }
+        })
+        .await
+        .expect("sessions event should arrive");
+
+        assert_eq!(body["msg"]["hostId"], "host-1");
+        assert_eq!(body["msg"]["sessions"][0]["sessionId"], "sess-1");
 
         let _ = std::fs::remove_file(&path);
     }

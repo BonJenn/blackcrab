@@ -20,6 +20,7 @@ import {
   type HostId,
   type PairingRequest,
   type PairingResponse,
+  type RemoteAction,
   type RemoteWireMessage,
 } from "@blackcrab/remote-protocol";
 
@@ -123,6 +124,19 @@ export class LanWebSocketTransport implements Transport {
     } catch {
       // Drop send failures — the next message or heartbeat will surface the
       // error via onerror/onclose.
+    }
+  }
+
+  sendAction(action: RemoteAction): boolean {
+    // Guard on the authenticated state — the desktop ignores actions on an
+    // unauthenticated socket, so dropping early gives the caller honest
+    // feedback instead of silently writing into the void.
+    if (this.statusValue.state !== "connected" || !this.ws) return false;
+    try {
+      this.ws.send(serializeEnvelope(action));
+      return true;
+    } catch {
+      return false;
     }
   }
 

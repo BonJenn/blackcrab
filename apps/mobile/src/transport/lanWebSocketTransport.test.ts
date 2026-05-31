@@ -213,6 +213,69 @@ describe("LanWebSocketTransport", () => {
     transport.close();
   });
 
+  it("sends an action over the socket once connected", () => {
+    const ws = new FakeWebSocket();
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => ws,
+      timers: fakeTimers(),
+    });
+    ws.openConnection();
+    ws.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: {
+          type: "pairing_response",
+          code: "ABCDEFGH",
+          status: "accepted",
+          hostId: "desktop-studio",
+          remoteToken: "TOK",
+        },
+      }),
+    );
+
+    const ok = transport.sendAction({
+      type: "send_message",
+      hostId: "desktop-studio",
+      sessionId: "sess-abc",
+      body: "ship it",
+    });
+
+    expect(ok).toBe(true);
+    expect(lastEnvelope(ws)?.msg).toEqual({
+      type: "send_message",
+      hostId: "desktop-studio",
+      sessionId: "sess-abc",
+      body: "ship it",
+    });
+    transport.close();
+  });
+
+  it("drops actions and reports false when not connected", () => {
+    const ws = new FakeWebSocket();
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => ws,
+      timers: fakeTimers(),
+    });
+    ws.openConnection(); // handshake sent, but not yet accepted -> "connecting"
+
+    const sentBefore = ws.sent.length;
+    const ok = transport.sendAction({
+      type: "stop_session",
+      hostId: "desktop-studio",
+      sessionId: "sess-abc",
+    });
+
+    expect(ok).toBe(false);
+    expect(ws.sent.length).toBe(sentBefore);
+    transport.close();
+  });
+
   it("reconnects after the socket closes", () => {
     const sockets: FakeWebSocket[] = [];
     const transport = new LanWebSocketTransport({

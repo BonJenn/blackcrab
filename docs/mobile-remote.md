@@ -82,9 +82,15 @@ The server handles two handshakes:
 - `auth`: re-authenticates a previously paired device by remote token.
 
 After either handshake the connection enters a ping/pong heartbeat loop and
-emits `connection_status` events. Action handling (send_message, stop_session,
-approve, deny) is deliberately not implemented yet — that lands in the next
-feature alongside live session sync.
+emits `connection_status` events. Once authenticated, the connection also
+accepts `send_message` and `stop_session` actions: the transport decodes them
+off the wire and forwards them to a consumer in `lib.rs`, which resolves the
+target Claude `sessionId` to the panel that currently owns its live subprocess
+(via the `session_owners` map) and reuses the same code paths as the desktop's
+own `send_message`/`stop_session` commands. Actions targeting a session no
+panel is resuming are dropped with a log line. `approve`/`deny` are still not
+handled — they need the desktop to first forward pending approvals to the
+phone, which lands with live session sync.
 
 The mobile app's Pair screen now performs the real pairing handshake when it
 sees a scanned/pasted payload with `lanHost`/`lanPort`: it opens
@@ -102,9 +108,10 @@ demo-only path, since they carry no transport address.
   established at pairing time. Future work persists the token and reconnects
   on startup.
 - No real-time session, transcript, or approval data over the wire — those
-  screens still render mock fixtures.
-- No remote actions (send_message, stop_session, approve, deny) — the
-  desktop server ignores action messages for now.
+  screens still render mock fixtures, so the Sessions screen sends actions
+  against mock `sessionId`s until live session sync lands.
+- No `approve`/`deny` over the wire yet — only `send_message` and
+  `stop_session` are dispatched. Approvals are still answered on the desktop.
 - No transcript sync to the cloud. Transcripts continue to live only on the
   desktop host's disk.
 - No remote terminal, no remote file browser, no remote shell execution.

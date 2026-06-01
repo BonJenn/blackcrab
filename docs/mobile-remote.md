@@ -171,16 +171,25 @@ foundation is in place:
   snapshot/broadcast events per device — so one desktop serves LAN and relay
   clients through one set of session/approval logic.
 
-Still to come: the mobile relay transport + off‑LAN connect UX (`RELAY_URL`
-config, QR carrying the relay address), then reconnect/failover between LAN and
-relay plus push notifications.
+- **The mobile relay transport** (`apps/mobile/src/transport/relayTransport.ts`)
+  implements the same `Transport` interface as the LAN transport, so the app
+  uses either interchangeably. It `hello`s into the room as a device, seals
+  every outbound wire message with the `e2eKey` (wrapped in a `data` frame),
+  and opens inbound `data` frames into events. Pairing now captures the
+  device's `deviceId` and the host's advertised `relayUrl` (a new optional
+  `DesktopPairingPayload` field), and `connectViaRelay` builds the transport
+  from a stored host.
+
+Still to come: the desktop advertising its `relayUrl` in the pairing QR, and
+automatic LAN↔relay selection/failover (try LAN, fall back to relay off‑LAN),
+plus push notifications.
 
 ## Non-goals for this branch
 
-- The mobile relay transport is not wired yet — the desktop relay client and
-  relay crate work (proven by an end‑to‑end integration test), but the phone
-  still connects only over LAN. The mobile off‑LAN transport, `RELAY_URL`
-  config, and the QR carrying a relay address come next.
+- The app doesn't yet *auto-select* the relay — all three pieces exist (relay,
+  desktop client, mobile `RelayTransport`, each tested), but the desktop doesn't
+  advertise its `relayUrl` in the QR yet and the app still always reconnects
+  over LAN. Wiring the QR + automatic LAN↔relay selection/failover is next.
 - Session focus is global, not per-device — with multiple phones paired, a
   `focus_session` from one changes the followed transcript for all of them.
 - No transcript sync to the cloud. Transcripts continue to live only on the

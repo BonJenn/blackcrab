@@ -5,9 +5,13 @@ import type { StoredPairedHost } from "../pairingStore";
 import type { MinimalWebSocket, TimerProvider } from "./lanWebSocketTransport";
 import {
   canReconnect,
+  canUseRelay,
   connectStoredHost,
+  connectViaRelay,
   firstReconnectableHost,
 } from "./reconnect";
+
+const KEY_B64 = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="; // 32 bytes 1..32
 
 function host(overrides: Partial<StoredPairedHost> = {}): StoredPairedHost {
   return {
@@ -86,5 +90,43 @@ describe("reconnect", () => {
     const envelope = parseEnvelope(ws.sent[0]);
     expect(envelope?.msg).toEqual({ type: "auth", remoteToken: "TOK123" });
     transport?.close();
+  });
+
+  it("treats hosts with relay url, key, and device id as relay-capable", () => {
+    const relayHost = host({
+      relayUrl: "wss://relay.example.com",
+      e2eKey: KEY_B64,
+      deviceId: "dev-1",
+    });
+    expect(canUseRelay(relayHost)).toBe(true);
+    expect(canUseRelay(host())).toBe(false); // no relay fields
+    expect(canUseRelay(host({ relayUrl: "wss://r", e2eKey: KEY_B64 }))).toBe(
+      false,
+    ); // missing deviceId
+  });
+
+  it("opens a relay transport that sends a device hello", () => {
+    const ws = new FakeWebSocket();
+    const transport = connectViaRelay(
+      host({
+        relayUrl: "wss://relay.example.com",
+        e2eKey: KEY_B64,
+        deviceId: "dev-1",
+      }),
+      { webSocketFactory: () => ws, timers: noopTimers },
+    );
+    expect(transport).not.toBeNull();
+    ws.open();
+    expect(JSON.parse(ws.sent[0]!)).toEqual({
+      type: "hello",
+      role: "device",
+      hostId: "host-1",
+      deviceId: "dev-1",
+    });
+    transport?.close();
+  });
+
+  it("returns null from connectViaRelay without relay essentials", () => {
+    expect(connectViaRelay(host())).toBeNull();
   });
 });

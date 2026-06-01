@@ -10,6 +10,7 @@ import {
   LanWebSocketTransport,
   type LanWebSocketTransportConfig,
 } from "./lanWebSocketTransport";
+import { RelayTransport, type RelayTransportConfig } from "./relayTransport";
 
 // The desktop ignores the device name on token re-auth (it's only used to
 // label a brand-new pairing), so a plain constant avoids a react-native
@@ -55,6 +56,45 @@ export function connectStoredHost(
     remoteToken: host.remoteToken,
     deviceName: RECONNECT_DEVICE_NAME,
     hostId: host.hostId,
+    onFatalReject: options.onFatalReject,
+    webSocketFactory: options.webSocketFactory,
+    timers: options.timers,
+  });
+}
+
+/** A stored host can use the relay only if it kept the off-LAN essentials. */
+export function canUseRelay(host: StoredPairedHost): boolean {
+  return (
+    typeof host.relayUrl === "string" &&
+    host.relayUrl.length > 0 &&
+    typeof host.e2eKey === "string" &&
+    host.e2eKey.length > 0 &&
+    typeof host.deviceId === "string" &&
+    host.deviceId.length > 0
+  );
+}
+
+export interface ConnectViaRelayOptions {
+  onFatalReject?: (reason: string) => void;
+  webSocketFactory?: RelayTransportConfig["webSocketFactory"];
+  timers?: RelayTransportConfig["timers"];
+}
+
+/**
+ * Open a relay-backed transport to a stored host. Returns `null` when the host
+ * lacks the relay URL, E2E key, or device id (e.g. paired before relay support
+ * or a host with no relay configured).
+ */
+export function connectViaRelay(
+  host: StoredPairedHost,
+  options: ConnectViaRelayOptions = {},
+): RelayTransport | null {
+  if (!canUseRelay(host)) return null;
+  return new RelayTransport({
+    url: host.relayUrl!,
+    hostId: host.hostId,
+    deviceId: host.deviceId!,
+    e2eKey: host.e2eKey!,
     onFatalReject: options.onFatalReject,
     webSocketFactory: options.webSocketFactory,
     timers: options.timers,

@@ -206,6 +206,12 @@ export interface DesktopPairingPayload {
   lanHost: string;
   /** LAN TCP port the desktop WebSocket server is bound to. */
   lanPort: number;
+  /**
+   * Relay WebSocket URL the desktop is reachable through off-LAN, when it has
+   * a relay configured. The phone connects here when the LAN endpoint is
+   * unreachable.
+   */
+  relayUrl?: string;
 }
 
 export type DesktopPairingPayloadInput = Omit<
@@ -382,7 +388,8 @@ export function isDesktopPairingPayload(
     typeof value.expiresAtMs === "number" &&
     Number.isFinite(value.expiresAtMs) &&
     isNonEmptyString(value.lanHost) &&
-    isLanPort(value.lanPort)
+    isLanPort(value.lanPort) &&
+    (value.relayUrl === undefined || isNonEmptyString(value.relayUrl))
   );
 }
 

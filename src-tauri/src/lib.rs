@@ -431,7 +431,10 @@ mod tests {
         let err = reserve_session_owner(&owners, Some("session-1"), "panel-b")
             .await
             .unwrap_err();
-        assert!(err.contains("panel-a"));
+        // The frontend keys off this exact prefix + owner panel id to drive the
+        // session-conflict dialog; keep the encoding stable.
+        assert_eq!(err, format!("{}panel-a — session session-1 is already open there; close it first", SESSION_BUSY_PREFIX));
+        assert!(err.starts_with(SESSION_BUSY_PREFIX));
 
         release_session_owner_if_matches(&owners, "session-1", "panel-a").await;
         assert!(reserve_session_owner(&owners, Some("session-1"), "panel-b")
@@ -784,6 +787,12 @@ async fn release_session_owner_if_matches(
     }
 }
 
+/// Stable, machine-readable prefix for the single-writer conflict error. The
+/// frontend matches on this to distinguish a busy-session rejection from any
+/// other start failure and to recover the owning panel id, rather than parsing
+/// the human-readable tail. Format: `SESSION_BUSY:{owner_panel_id}`.
+const SESSION_BUSY_PREFIX: &str = "SESSION_BUSY:";
+
 async fn reserve_session_owner(
     owners: &Arc<Mutex<HashMap<String, String>>>,
     session_id: Option<&str>,
@@ -796,8 +805,8 @@ async fn reserve_session_owner(
     if let Some(other) = owners.get(session_id) {
         if other != panel_id {
             return Err(format!(
-                "session {} is already open in panel {} — close it there first",
-                session_id, other
+                "{}{} — session {} is already open there; close it first",
+                SESSION_BUSY_PREFIX, other, session_id
             ));
         }
     }

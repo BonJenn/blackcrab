@@ -667,6 +667,40 @@ export function findPanelForSession(
   return undefined;
 }
 
+/** Stable prefix the backend uses to flag a single-writer conflict; see
+ *  `SESSION_BUSY_PREFIX` in src-tauri/src/lib.rs. */
+export const SESSION_BUSY_PREFIX = "SESSION_BUSY:";
+
+/** Detect the backend's single-writer rejection and recover the owning panel
+ *  id. Returns null for any other start failure so the normal error path runs.
+ *  The error encoding is `SESSION_BUSY:{ownerPanelId} — …`. */
+export function parseSessionBusyError(
+  e: unknown,
+): { ownerPanelId: string } | null {
+  const msg = typeof e === "string" ? e : (e as { message?: unknown })?.message;
+  if (typeof msg !== "string" || !msg.startsWith(SESSION_BUSY_PREFIX)) return null;
+  const rest = msg.slice(SESSION_BUSY_PREFIX.length);
+  // Owner id runs up to the human-readable separator (" — ") we append.
+  const ownerPanelId = rest.split(" — ")[0].trim();
+  return ownerPanelId ? { ownerPanelId } : null;
+}
+
+/** Human label for where a session is already open, for the conflict dialog.
+ *  Grid panels read as "panel N of the grid" (1-based); anything else (the
+ *  single-view panel, or an owner this window can't resolve) is "another view". */
+export function describePanelLocation(
+  ownerPanelId: string,
+  gridPanels: string[],
+  panelSessionIds: Record<string, string>,
+): string {
+  const index = gridPanels.indexOf(ownerPanelId);
+  if (index >= 0) return `panel ${index + 1} of the grid`;
+  // A resolved single-view panel still lives outside gridPanels; only treat it
+  // as the main view when it isn't a grid placeholder.
+  if (resolvePanelSession(ownerPanelId, panelSessionIds)) return "the main view";
+  return "another view";
+}
+
 export function normalizeModelValue(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
@@ -1418,6 +1452,14 @@ function App() {
   // surface a banner so the user can interrupt / reset instead of
   // waiting forever on a wedged subprocess.
   const [stuckBusy, setStuckBusy] = useState(false);
+  // Set when opening a session is refused by the backend single-writer gate
+  // because another panel already owns it. Drives the conflict dialog, which
+  // offers focusing the owning panel or handing the session off to this view.
+  const [conflict, setConflict] = useState<{
+    sessionId: string;
+    sessionCwd: string;
+    ownerPanelId: string;
+  } | null>(null);
   const [stderrLines, setStderrLines] = useState<string[]>([]);
   const [showStderr, setShowStderr] = useState(false);
   const appendDiagnosticLine = useCallback((line: string) => {
@@ -4293,6 +4335,18 @@ function App() {
       .catch((e) => {
         if (!isLatest()) return;
         setPanelOn(panelId, false);
+        // A single-writer rejection isn't a failure to surface as an error —
+        // the session is alive elsewhere. Roll back the optimistic local panel
+        // state (done above) and let the conflict dialog offer a safe action.
+        const busyConflict = parseSessionBusyError(e);
+        if (busyConflict) {
+          setConflict({
+            sessionId,
+            sessionCwd,
+            ownerPanelId: busyConflict.ownerPanelId,
+          });
+          return;
+        }
         markSessionActivity(sessionId, "error", "failed to start");
         setEntriesForTranscript(sessionId, (es) => [
           ...es,
@@ -5178,6 +5232,51 @@ function App() {
           }}
         />
       )}
+      {conflict &&
+        (() => {
+          const ownerPanelId = conflict.ownerPanelId;
+          // Only offer "go to" when this window can actually resolve the owning
+          // panel; a stale backend owner leaves handoff as the safe path.
+          const resolvedOwner = findPanelForSession(
+            conflict.sessionId,
+            gridPanels,
+            panelSessionIds,
+          );
+          const canFocus = resolvedOwner === ownerPanelId;
+          const sessionTitle =
+            sessions.find((s) => s.id === conflict.sessionId)?.title ||
+            "This session";
+          return (
+            <SessionConflictDialog
+              sessionTitle={sessionTitle}
+              locationLabel={describePanelLocation(
+                ownerPanelId,
+                gridPanels,
+                panelSessionIds,
+              )}
+              canFocus={canFocus}
+              onFocus={() => {
+                if (gridPanels.includes(ownerPanelId)) {
+                  setGridMode(true);
+                  setSelectedGridPanelId(ownerPanelId);
+                } else {
+                  leaveGridMode();
+                  activateSinglePanel(ownerPanelId, conflict.sessionId);
+                }
+                setConflict(null);
+              }}
+              onHandoff={() => {
+                openSessionInSingleMode(
+                  conflict.sessionId,
+                  conflict.sessionCwd,
+                  ownerPanelId,
+                );
+                setConflict(null);
+              }}
+              onCancel={() => setConflict(null)}
+            />
+          );
+        })()}
       <Sidebar
         sessions={sessions}
         activeId={sidebarActiveId}
@@ -10565,6 +10664,72 @@ function WorktreePromptModal({
           </button>
           <button type="button" className="btn btn-primary" onClick={onYes}>
             Yes, new worktree
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionConflictDialog({
+  sessionTitle,
+  locationLabel,
+  canFocus,
+  onFocus,
+  onHandoff,
+  onCancel,
+}: {
+  sessionTitle: string;
+  locationLabel: string;
+  canFocus: boolean;
+  onFocus: () => void;
+  onHandoff: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="auth-error-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div className="auth-error-card">
+        <h2>Session already open</h2>
+        <p>
+          <strong>{sessionTitle}</strong> is already open in {locationLabel}.
+          Blackcrab runs each conversation in one place at a time, so it can't
+          start a second copy here.
+        </p>
+        <p>
+          {canFocus
+            ? "Go to where it's open, or take it over in this view."
+            : "Take it over to move it into this view."}
+        </p>
+        <div className="auth-error-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          {canFocus && (
+            <button type="button" className="btn btn-primary" onClick={onFocus}>
+              Go to where it's open
+            </button>
+          )}
+          <button
+            type="button"
+            className={canFocus ? "btn btn-secondary" : "btn btn-primary"}
+            onClick={onHandoff}
+          >
+            Take over here
           </button>
         </div>
       </div>

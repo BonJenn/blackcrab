@@ -16,6 +16,8 @@ with Claude Code, Tauri, and local developer tools.
   or transcript text.
 - View project-level session, token, cost, and attention summaries.
 - Run a single conversation or a grid of up to six live panels.
+- Save named, per-project grid layouts and restore them from the command
+  palette (⌘K → "Save current layout…" / "Load layout").
 - Rename, delete, and export sessions as Markdown.
 - View tool calls, diffs, command output, thinking blocks, and permission
   prompts in a structured transcript.

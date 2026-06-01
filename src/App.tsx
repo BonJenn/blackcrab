@@ -61,6 +61,17 @@ import {
   parseBackup,
   type SessionOverride,
 } from "./backup";
+import {
+  captureLayout,
+  layoutLabel,
+  LAYOUT_KEYS,
+  LAYOUTS_KEY,
+  parseLayouts,
+  removeLayout,
+  serializeLayouts,
+  upsertLayout,
+  type SavedLayout,
+} from "./layouts";
 import "./App.css";
 
 const TerminalPanel = lazy(() =>
@@ -1984,6 +1995,18 @@ function App() {
   useEffect(() => {
     localStorage.setItem("newPanelCwds", JSON.stringify(newPanelCwds));
   }, [newPanelCwds]);
+  // Named, per-project grid layouts the user can save and restore.
+  const [savedLayouts, setSavedLayouts] = useState<SavedLayout[]>(() =>
+    parseLayouts(localStorage.getItem(LAYOUTS_KEY)),
+  );
+  useEffect(() => {
+    localStorage.setItem(LAYOUTS_KEY, serializeLayouts(savedLayouts));
+  }, [savedLayouts]);
+  // Bumped when a layout is applied to force LiveGrid (which reads its row/col
+  // sizing from localStorage at mount) to remount and pick up restored sizing.
+  const [gridInstanceKey, setGridInstanceKey] = useState(0);
+  // Drives the "name this layout" modal; null when closed.
+  const [layoutNamePrompt, setLayoutNamePrompt] = useState<string | null>(null);
   const [selectedGridPanelId, setSelectedGridPanelId] = useState<string | null>(
     null,
   );
@@ -4207,6 +4230,57 @@ function App() {
     }
   }
 
+  // Snapshot the current grid arrangement under a name, scoped to the active
+  // project (current cwd). The grid keys are already mirrored to localStorage
+  // by their own effects, so reading them there gives the current arrangement.
+  function saveCurrentLayout(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const snapshot: Record<string, string | null> = {};
+    for (const key of LAYOUT_KEYS) snapshot[key] = localStorage.getItem(key);
+    const layout = captureLayout(trimmed, cwd, snapshot, {
+      id: randomId(),
+      createdAt: new Date().toISOString(),
+    });
+    setSavedLayouts((list) => upsertLayout(list, layout));
+    notify(`Saved layout “${trimmed}”`, "success");
+  }
+
+  // Restore a saved layout: write its grid keys back to localStorage, apply the
+  // top-level grid state immediately, and remount LiveGrid so it re-reads the
+  // restored row/column sizing.
+  function applyLayout(layout: SavedLayout) {
+    try {
+      for (const [key, value] of Object.entries(layout.values)) {
+        localStorage.setItem(key, value);
+      }
+      const readJson = <T,>(key: string, fallback: T): T => {
+        const raw = layout.values[key];
+        if (raw === undefined) return fallback;
+        try {
+          return JSON.parse(raw) as T;
+        } catch {
+          return fallback;
+        }
+      };
+      setGridPanels(readJson<string[]>("gridPanels", []).slice(0, 6));
+      setPanelSessionIds(readJson<Record<string, string>>("gridPanelSessionIds", {}));
+      setNewPanelCwds(readJson<Record<string, string>>("newPanelCwds", {}));
+      setNewPanelWorktree(readJson<Record<string, boolean>>("newPanelWorktree", {}));
+      setSelectedGridPanelId(null);
+      setGridMode(layout.values.gridMode === "1");
+      setGridInstanceKey((k) => k + 1);
+      notify(`Loaded layout “${layout.name}”`, "success");
+    } catch (e) {
+      notifyErr("failed to load layout")(e);
+    }
+  }
+
+  function deleteLayout(layout: SavedLayout) {
+    if (!window.confirm(`Delete layout “${layout.name}”?`)) return;
+    setSavedLayouts((list) => removeLayout(list, layout.id));
+  }
+
   async function exportBackup() {
     try {
       const settings: Record<string, string> = {};
@@ -5033,6 +5107,37 @@ function App() {
               },
             },
             {
+              id: "save-layout",
+              title: "Save current layout…",
+              hint: gridMode ? "layout" : "enter grid first",
+              run: () => {
+                setPaletteOpen(false);
+                if (!gridMode) {
+                  notify("Enter grid mode to save a layout", "info");
+                  return;
+                }
+                setLayoutNamePrompt(basename(cwd) || "");
+              },
+            },
+            ...savedLayouts.map((layout) => ({
+              id: `load-layout-${layout.id}`,
+              title: `Load layout: ${layoutLabel(layout)}`,
+              hint: "layout",
+              run: () => {
+                setPaletteOpen(false);
+                applyLayout(layout);
+              },
+            })),
+            ...savedLayouts.map((layout) => ({
+              id: `delete-layout-${layout.id}`,
+              title: `Delete layout: ${layoutLabel(layout)}`,
+              hint: "layout",
+              run: () => {
+                setPaletteOpen(false);
+                deleteLayout(layout);
+              },
+            })),
+            {
               id: "cycle-theme",
               title: `Theme: ${theme} → ${nextTheme(theme)}`,
               hint: theme,
@@ -5393,6 +5498,16 @@ function App() {
             />
           );
         })()}
+      {layoutNamePrompt !== null && (
+        <LayoutNameModal
+          initialName={layoutNamePrompt}
+          onSave={(name) => {
+            saveCurrentLayout(name);
+            setLayoutNamePrompt(null);
+          }}
+          onCancel={() => setLayoutNamePrompt(null)}
+        />
+      )}
       <Sidebar
         sessions={sessions}
         activeId={sidebarActiveId}
@@ -5605,6 +5720,7 @@ function App() {
 
         <div className={`grid-wrap ${gridMode ? "" : "hidden"}`}>
           <LiveGrid
+            key={gridInstanceKey}
             panels={gridPanels}
             sessions={sessions}
             panelSessionIds={panelSessionIds}
@@ -10949,6 +11065,69 @@ function SessionConflictDialog({
             onClick={onHandoff}
           >
             Take over here
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LayoutNameModal({
+  initialName,
+  onSave,
+  onCancel,
+}: {
+  initialName: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  const submit = () => {
+    const trimmed = name.trim();
+    if (trimmed) onSave(trimmed);
+  };
+
+  return (
+    <div
+      className="auth-error-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div className="auth-error-card">
+        <h2>Save layout</h2>
+        <p>Name this grid arrangement so you can restore it later.</p>
+        <input
+          autoFocus
+          value={name}
+          placeholder="Layout name"
+          style={{ width: "100%", boxSizing: "border-box" }}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+        />
+        <div className="auth-error-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!name.trim()}
+            onClick={submit}
+          >
+            Save layout
           </button>
         </div>
       </div>

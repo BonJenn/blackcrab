@@ -32,6 +32,7 @@ export const BACKUP_KEYS: readonly string[] = [
   "sidebar.groupByProject",
   "sidebar.showArchived",
   "sidebar.attentionOnly",
+  "blackcrab.savedLayouts.v1",
 ];
 
 export type SessionOverride = {

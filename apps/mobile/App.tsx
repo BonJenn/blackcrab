@@ -131,7 +131,9 @@ export default function App() {
           />
         )}
         {tab === "pair" && <PairHostScreen onPaired={handlePaired} />}
-        {tab === "sessions" && <SessionsScreen />}
+        {tab === "sessions" && (
+          <SessionsScreen transport={activeTransport} status={activeStatus} />
+        )}
         {tab === "transcript" && <TranscriptScreen />}
         {tab === "approval" && <ApprovalScreen />}
       </View>

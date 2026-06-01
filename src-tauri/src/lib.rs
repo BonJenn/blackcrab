@@ -8,16 +8,17 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 
 use crate::pairing::{
     now_unix_ms as pairing_now_ms, PairedDevice, PairingAcceptResponse, PairingService,
     PairingStartResponse, PAIRING_DEFAULT_TTL_SECS,
 };
-use crate::transport::{TransportEndpoint, TransportServer};
+use crate::transport::{RemoteCommand, TransportEndpoint, TransportServer};
 
 struct Session {
     child: Child,
@@ -439,6 +440,46 @@ mod tests {
         assert!(reserve_session_owner(&owners, Some("session-1"), "panel-b")
             .await
             .is_ok());
+    }
+
+    #[tokio::test]
+    async fn panel_for_session_resolves_owner_and_misses_cleanly() {
+        let owners = Arc::new(Mutex::new(HashMap::new()));
+        owners
+            .lock()
+            .await
+            .insert("session-1".to_string(), "panel-a".to_string());
+
+        assert_eq!(
+            panel_for_session(&owners, "session-1").await.as_deref(),
+            Some("panel-a")
+        );
+        assert!(panel_for_session(&owners, "session-unknown").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn terminate_panel_releases_owned_sessions() {
+        // No live subprocess to remove, but ownership must still be released so
+        // a remote stop_session frees the session for a future resume.
+        let sessions = Arc::new(Mutex::new(HashMap::new()));
+        let owners = Arc::new(Mutex::new(HashMap::new()));
+        owners
+            .lock()
+            .await
+            .insert("session-1".to_string(), "panel-a".to_string());
+
+        terminate_panel(&sessions, &owners, "panel-a").await;
+
+        assert!(owners.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn deliver_user_message_errors_without_a_session() {
+        let sessions = Arc::new(Mutex::new(HashMap::new()));
+        let err = deliver_user_message(&sessions, "panel-a", "hi")
+            .await
+            .unwrap_err();
+        assert!(err.contains("no active session"));
     }
 
     #[test]
@@ -1049,15 +1090,17 @@ async fn start_session(
     Ok(())
 }
 
-#[tauri::command]
-async fn send_message(
-    state: State<'_, AppState>,
-    panel_id: String,
-    text: String,
+/// Write a user message to a panel's claude subprocess. Shared by the
+/// `send_message` Tauri command and the remote-action consumer so both paths
+/// frame the message identically.
+async fn deliver_user_message(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: &str,
+    text: &str,
 ) -> Result<(), String> {
-    let mut guard = state.sessions.lock().await;
+    let mut guard = sessions.lock().await;
     let session = guard
-        .get_mut(&panel_id)
+        .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
     let msg = serde_json::json!({
         "type": "user",
@@ -1071,6 +1114,42 @@ async fn send_message(
         .map_err(|e| e.to_string())?;
     session.stdin.flush().await.map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Kill a panel's subprocess and release any session it owned. Shared by the
+/// `stop_session` Tauri command and the remote-action consumer.
+async fn terminate_panel(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    session_owners: &Arc<Mutex<HashMap<String, String>>>,
+    panel_id: &str,
+) {
+    {
+        let mut guard = sessions.lock().await;
+        if let Some(mut s) = guard.remove(panel_id) {
+            let _ = s.child.start_kill();
+        }
+    }
+    let mut owners = session_owners.lock().await;
+    owners.retain(|_, owner| owner != panel_id);
+}
+
+/// Resolve the Claude session id a remote action targets to the panel that
+/// currently owns its live subprocess. Returns `None` when no panel is
+/// resuming that session (nothing to act on).
+async fn panel_for_session(
+    session_owners: &Arc<Mutex<HashMap<String, String>>>,
+    session_id: &str,
+) -> Option<String> {
+    session_owners.lock().await.get(session_id).cloned()
+}
+
+#[tauri::command]
+async fn send_message(
+    state: State<'_, AppState>,
+    panel_id: String,
+    text: String,
+) -> Result<(), String> {
+    deliver_user_message(&state.sessions, &panel_id, &text).await
 }
 
 /// Writes an arbitrary JSON line to the panel's subprocess stdin. Used
@@ -1346,16 +1425,11 @@ fn list_tracked_files(cwd: String) -> Result<Vec<String>, String> {
 
 #[tauri::command]
 async fn stop_session(state: State<'_, AppState>, panel_id: String) -> Result<(), String> {
-    let mut guard = state.sessions.lock().await;
-    if let Some(mut s) = guard.remove(&panel_id) {
-        let _ = s.child.start_kill();
-    }
     // The stdout-reader's own cleanup already drops ownership once
     // claude's stdout closes, but killing via start_kill races that
     // close so we release eagerly here too to unblock the next
     // start_session for the same sid.
-    let mut owners = state.session_owners.lock().await;
-    owners.retain(|_, owner| owner != &panel_id);
+    terminate_panel(&state.sessions, &state.session_owners, &panel_id).await;
     Ok(())
 }
 
@@ -2593,6 +2667,42 @@ fn transport_server() -> Arc<TransportServer> {
         .clone()
 }
 
+// Sink for actions decoded off paired mobile connections. Populated once in
+// `setup` after the session-owning consumer task is spawned, so the transport
+// server's accept loop can forward decoded actions to it.
+static REMOTE_CMD_TX: OnceLock<UnboundedSender<RemoteCommand>> = OnceLock::new();
+
+/// Drain remote actions, dispatching each into the live session that owns the
+/// targeted Claude session id. Runs for the lifetime of the app.
+async fn run_remote_command_consumer(
+    mut rx: UnboundedReceiver<RemoteCommand>,
+    sessions: Arc<Mutex<HashMap<String, Session>>>,
+    session_owners: Arc<Mutex<HashMap<String, String>>>,
+) {
+    while let Some(command) = rx.recv().await {
+        let result = match command {
+            RemoteCommand::SendMessage { session_id, body } => {
+                match panel_for_session(&session_owners, &session_id).await {
+                    Some(panel_id) => deliver_user_message(&sessions, &panel_id, &body).await,
+                    None => Err(format!("no live session for {session_id}")),
+                }
+            }
+            RemoteCommand::StopSession { session_id } => {
+                match panel_for_session(&session_owners, &session_id).await {
+                    Some(panel_id) => {
+                        terminate_panel(&sessions, &session_owners, &panel_id).await;
+                        Ok(())
+                    }
+                    None => Err(format!("no live session for {session_id}")),
+                }
+            }
+        };
+        if let Err(e) = result {
+            eprintln!("remote action dropped: {e}");
+        }
+    }
+}
+
 #[tauri::command]
 async fn remote_transport_info() -> Result<TransportEndpoint, String> {
     let server = transport_server();
@@ -2600,7 +2710,7 @@ async fn remote_transport_info() -> Result<TransportEndpoint, String> {
         return Ok(endpoint);
     }
     let pairing = pairing_service()?;
-    server.start(pairing).await
+    server.start(pairing, REMOTE_CMD_TX.get().cloned()).await
 }
 
 pub(crate) fn remote_host_id_for_pairing() -> String {
@@ -2677,8 +2787,18 @@ pub fn run() {
             pairing_list_devices,
             pairing_revoke
         ])
-        .setup(|_app| {
+        .setup(|app| {
             let server = transport_server();
+
+            // Spawn the remote-action consumer before starting the server so
+            // the sender is registered by the time any connection authenticates.
+            let state = app.state::<AppState>();
+            let sessions = state.sessions.clone();
+            let session_owners = state.session_owners.clone();
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
+            let _ = REMOTE_CMD_TX.set(tx.clone());
+            tauri::async_runtime::spawn(run_remote_command_consumer(rx, sessions, session_owners));
+
             tauri::async_runtime::spawn(async move {
                 let pairing = match pairing_service() {
                     Ok(p) => p,
@@ -2687,7 +2807,7 @@ pub fn run() {
                         return;
                     }
                 };
-                if let Err(e) = server.start(pairing).await {
+                if let Err(e) = server.start(pairing, Some(tx)).await {
                     eprintln!("transport: failed to start: {e}");
                 }
             });

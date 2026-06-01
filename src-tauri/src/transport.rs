@@ -18,6 +18,7 @@ use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 use tokio::time::{interval, timeout};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
@@ -27,6 +28,16 @@ use crate::pairing::PairingService;
 const PROTOCOL_VERSION: u16 = 1;
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(15);
 const PING_INTERVAL: Duration = Duration::from_secs(15);
+
+/// An action a paired mobile device asked the desktop to perform, decoded off
+/// the wire and forwarded to a consumer in `lib.rs` that owns the live session
+/// subprocesses. The transport intentionally knows nothing about how these are
+/// dispatched — it only resolves the connection is authenticated first.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum RemoteCommand {
+    SendMessage { session_id: String, body: String },
+    StopSession { session_id: String },
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -50,9 +61,14 @@ impl TransportServer {
     }
 
     /// Start the WebSocket server. Returns the LAN endpoint to advertise.
+    ///
+    /// `commands` is the sink for actions decoded off authenticated
+    /// connections; pass `None` to accept connections without dispatching any
+    /// actions (the server still pairs, authenticates, and heartbeats).
     pub async fn start(
         self: &Arc<Self>,
         pairing: Arc<PairingService>,
+        commands: Option<UnboundedSender<RemoteCommand>>,
     ) -> Result<TransportEndpoint, String> {
         if let Some(existing) = self.endpoint.lock().await.clone() {
             return Ok(existing);
@@ -71,20 +87,25 @@ impl TransportServer {
 
         let pairing_for_loop = pairing.clone();
         tokio::spawn(async move {
-            accept_loop(listener, pairing_for_loop).await;
+            accept_loop(listener, pairing_for_loop, commands).await;
         });
 
         Ok(advertised)
     }
 }
 
-async fn accept_loop(listener: TcpListener, pairing: Arc<PairingService>) {
+async fn accept_loop(
+    listener: TcpListener,
+    pairing: Arc<PairingService>,
+    commands: Option<UnboundedSender<RemoteCommand>>,
+) {
     loop {
         match listener.accept().await {
             Ok((tcp, _peer)) => {
                 let pairing = pairing.clone();
+                let commands = commands.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = handle_connection(tcp, pairing).await {
+                    if let Err(e) = handle_connection(tcp, pairing, commands).await {
                         eprintln!("transport connection error: {e}");
                     }
                 });
@@ -100,6 +121,7 @@ async fn accept_loop(listener: TcpListener, pairing: Arc<PairingService>) {
 async fn handle_connection(
     tcp: tokio::net::TcpStream,
     pairing: Arc<PairingService>,
+    commands: Option<UnboundedSender<RemoteCommand>>,
 ) -> Result<(), String> {
     let ws = tokio_tungstenite::accept_async(tcp)
         .await
@@ -240,15 +262,28 @@ async fn handle_connection(
                 match msg {
                     WsMessage::Text(t) => {
                         match serde_json::from_str::<Envelope>(&t) {
-                            Ok(env) if env.v == PROTOCOL_VERSION => {
-                                if let WireMessage::Ping { seq } = env.msg {
+                            Ok(env) if env.v == PROTOCOL_VERSION => match env.msg {
+                                WireMessage::Ping { seq } => {
                                     let _ = send_envelope(&mut sink, WireMessage::Pong { seq }).await;
                                 }
-                                // Other messages (pong, actions, etc.) are
-                                // ignored here — this branch is connection-
-                                // status only. Action handling lands in the
-                                // next feature.
-                            }
+                                WireMessage::SendMessage {
+                                    session_id, body, ..
+                                } => {
+                                    forward_command(
+                                        commands.as_ref(),
+                                        RemoteCommand::SendMessage { session_id, body },
+                                    );
+                                }
+                                WireMessage::StopSession { session_id, .. } => {
+                                    forward_command(
+                                        commands.as_ref(),
+                                        RemoteCommand::StopSession { session_id },
+                                    );
+                                }
+                                // Pong, host->mobile events, and not-yet-handled
+                                // actions (approve/deny) are ignored here.
+                                _ => {}
+                            },
                             _ => continue,
                         }
                     }
@@ -264,6 +299,16 @@ async fn handle_connection(
 
     let _ = sink.close().await;
     Ok(())
+}
+
+/// Hand a decoded action to the consumer if one is wired up. A closed or
+/// missing channel is non-fatal — the connection keeps serving heartbeats.
+fn forward_command(commands: Option<&UnboundedSender<RemoteCommand>>, command: RemoteCommand) {
+    if let Some(tx) = commands {
+        if tx.send(command).is_err() {
+            eprintln!("transport: remote command channel closed; dropping action");
+        }
+    }
 }
 
 async fn send_envelope<S>(sink: &mut S, msg: WireMessage) -> Result<(), String>
@@ -377,6 +422,21 @@ enum WireMessage {
     Pong {
         seq: u64,
     },
+    SendMessage {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        body: String,
+    },
+    StopSession {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -421,6 +481,15 @@ fn _wire_uses() {
         code: String::new(),
         device_name: String::new(),
         requested_at: String::new(),
+    };
+    let _ = WireMessage::SendMessage {
+        host_id: String::new(),
+        session_id: String::new(),
+        body: String::new(),
+    };
+    let _ = WireMessage::StopSession {
+        host_id: String::new(),
+        session_id: String::new(),
     };
     let _ = ConnectionState::Disconnected;
     let _ = ConnectionState::Connecting;
@@ -508,7 +577,7 @@ mod tests {
             .unwrap();
 
         let server = Arc::new(TransportServer::new());
-        let endpoint = server.start(pairing.clone()).await.unwrap();
+        let endpoint = server.start(pairing.clone(), None).await.unwrap();
         // Use 127.0.0.1 explicitly — `detect_lan_host` may return an address
         // not bound on this machine.
         let url = format!("ws://127.0.0.1:{}/", endpoint.port);
@@ -557,7 +626,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let pairing = Arc::new(PairingService::load(path.clone()).unwrap());
         let server = Arc::new(TransportServer::new());
-        let endpoint = server.start(pairing.clone()).await.unwrap();
+        let endpoint = server.start(pairing.clone(), None).await.unwrap();
         let url = format!("ws://127.0.0.1:{}/", endpoint.port);
         let req = url.into_client_request().unwrap();
         let (mut ws, _resp) = tokio_tungstenite::connect_async(req).await.unwrap();
@@ -590,6 +659,92 @@ mod tests {
             }
             other => panic!("expected pairing_response, got {other:?}"),
         }
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn envelope_round_trips_send_message_action() {
+        // The mobile client emits camelCase field names; confirm we decode
+        // them into the snake_case Rust struct.
+        let text = r#"{"v":1,"msg":{"type":"send_message","hostId":"h","sessionId":"sess-abc","body":"hi"}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::SendMessage { session_id, body, .. } => {
+                assert_eq!(session_id, "sess-abc");
+                assert_eq!(body, "hi");
+            }
+            other => panic!("expected send_message, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn envelope_round_trips_stop_session_action() {
+        let text = r#"{"v":1,"msg":{"type":"stop_session","hostId":"h","sessionId":"sess-xyz"}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::StopSession { session_id, .. } => assert_eq!(session_id, "sess-xyz"),
+            other => panic!("expected stop_session, got {other:?}"),
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn authenticated_actions_reach_the_command_channel() {
+        let path = tmp_path();
+        let _ = std::fs::remove_file(&path);
+        let pairing = Arc::new(PairingService::load(path.clone()).unwrap());
+        let start = pairing
+            .start_pairing(crate::pairing::now_unix_ms(), PAIRING_DEFAULT_TTL_SECS)
+            .unwrap();
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
+        let server = Arc::new(TransportServer::new());
+        let endpoint = server.start(pairing.clone(), Some(tx)).await.unwrap();
+        let url = format!("ws://127.0.0.1:{}/", endpoint.port);
+        let req = url.into_client_request().unwrap();
+        let (mut ws, _resp) = tokio_tungstenite::connect_async(req).await.unwrap();
+
+        use futures_util::{SinkExt, StreamExt};
+
+        // Pair first — actions before authentication must be ignored.
+        let pair_req = serde_json::to_string(&Envelope {
+            v: PROTOCOL_VERSION,
+            msg: WireMessage::PairingRequest {
+                code: start.code.clone(),
+                device_name: "Phone".into(),
+                requested_at: "2026-05-18T18:00:00Z".into(),
+            },
+        })
+        .unwrap();
+        ws.send(WsMessage::Text(pair_req.into())).await.unwrap();
+
+        // Drain the pairing_response and the connection_status announcement.
+        for _ in 0..2 {
+            let _ = ws.next().await.unwrap().unwrap();
+        }
+
+        let action = serde_json::to_string(&Envelope {
+            v: PROTOCOL_VERSION,
+            msg: WireMessage::SendMessage {
+                host_id: "h".into(),
+                session_id: "sess-abc".into(),
+                body: "ship it".into(),
+            },
+        })
+        .unwrap();
+        ws.send(WsMessage::Text(action.into())).await.unwrap();
+
+        let received = timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("command should arrive before timeout")
+            .expect("channel open");
+        assert_eq!(
+            received,
+            RemoteCommand::SendMessage {
+                session_id: "sess-abc".into(),
+                body: "ship it".into(),
+            }
+        );
 
         let _ = std::fs::remove_file(&path);
     }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type {
+  ApprovalRequest,
   HostId,
   SessionSummary,
   TranscriptEntry,
@@ -42,6 +43,7 @@ export default function App() {
   const [liveTranscript, setLiveTranscript] = useState<TranscriptEntry[] | null>(
     null,
   );
+  const [approvals, setApprovals] = useState<ApprovalRequest[] | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -68,8 +70,10 @@ export default function App() {
       setActiveStatus(null);
       setLiveSessions(null);
       setLiveTranscript(null);
+      setApprovals(null);
       return;
     }
+    setApprovals([]);
     const unsubStatus = activeTransport.subscribe((status) => {
       setActiveStatus(status);
     });
@@ -78,6 +82,16 @@ export default function App() {
         setLiveSessions(event.sessions);
       } else if (event.type === "transcript_tail") {
         setLiveTranscript(event.entries);
+      } else if (event.type === "approval_requested") {
+        setApprovals((prev) => {
+          const list = prev ?? [];
+          if (list.some((a) => a.id === event.approval.id)) return list;
+          return [...list, event.approval];
+        });
+      } else if (event.type === "approval_resolved") {
+        setApprovals((prev) =>
+          (prev ?? []).filter((a) => a.id !== event.approvalId),
+        );
       }
     });
     return () => {
@@ -159,7 +173,9 @@ export default function App() {
           />
         )}
         {tab === "transcript" && <TranscriptScreen entries={liveTranscript} />}
-        {tab === "approval" && <ApprovalScreen />}
+        {tab === "approval" && (
+          <ApprovalScreen transport={activeTransport} approvals={approvals} />
+        )}
       </View>
     </SafeAreaView>
   );

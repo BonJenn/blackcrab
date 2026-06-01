@@ -579,6 +579,7 @@ export function LivePanel({
     let off1: (() => void) | null = null;
     let off2: (() => void) | null = null;
     let off3: (() => void) | null = null;
+    let off4: (() => void) | null = null;
     const p1 = listen<{ panel_id: string; line: string }>(
       "claude-event",
       (e) => {
@@ -614,6 +615,18 @@ export function LivePanel({
         }
       },
     );
+    // A paired phone may answer a permission prompt remotely; clear the local
+    // prompt so the desktop doesn't show a stale, already-resolved request.
+    const p4 = listen<{ panel_id: string; request_id: string }>(
+      "blackcrab-remote-permission-resolved",
+      (e) => {
+        if (e.payload?.panel_id !== panelId) return;
+        const requestId = e.payload?.request_id;
+        setPendingPermission((prev) =>
+          prev && prev.requestId === requestId ? null : prev,
+        );
+      },
+    );
     p1
       .then((u) => (off1 = u))
       .catch(notifyErr(`panel ${panelId.slice(0, 8)} event listener failed`));
@@ -623,10 +636,14 @@ export function LivePanel({
     p3
       .then((u) => (off3 = u))
       .catch(notifyErr(`panel ${panelId.slice(0, 8)} stderr listener failed`));
+    p4
+      .then((u) => (off4 = u))
+      .catch(notifyErr(`panel ${panelId.slice(0, 8)} remote-perm listener failed`));
     return () => {
       if (off1) off1();
       if (off2) off2();
       if (off3) off3();
+      if (off4) off4();
     };
   }, [panelId, handleEvent, onAuthFailure]);
 

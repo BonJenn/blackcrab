@@ -88,9 +88,9 @@ off the wire and forwards them to a consumer in `lib.rs`, which resolves the
 target Claude `sessionId` to the panel that currently owns its live subprocess
 (via the `session_owners` map) and reuses the same code paths as the desktop's
 own `send_message`/`stop_session` commands. Actions targeting a session no
-panel is resuming are dropped with a log line. `approve`/`deny` are still not
-handled — they need the desktop to first forward pending approvals to the
-phone.
+panel is resuming are dropped with a log line. `approve`/`deny` actions are
+also handled: the desktop answers them by writing the same `control_response`
+its own UI sends (see approvals below).
 
 The desktop also pushes host → mobile events: the transport asks `lib.rs` for
 an event snapshot right after authentication and again on each heartbeat tick.
@@ -108,7 +108,21 @@ The snapshot currently contains:
   so the phone follows whichever session changed most recently; a future
   `focus_session` action will let the user pick.
 
-Approval events are not pushed yet.
+Approvals use a **real-time push** instead of the snapshot cadence, since a
+permission prompt needs to reach the phone immediately and clear the moment
+it's answered. The desktop's stdout reader already sees every Claude line, so
+it detects `can_use_tool` control-requests, records them in a pending-approval
+registry (keyed by `request_id`, which doubles as the protocol `approvalId`),
+and broadcasts an `approval_requested` event over a `tokio::sync::broadcast`
+channel that each connection forwards to its socket. A phone's `approve`/`deny`
+action is answered by writing the exact `control_response` the desktop UI sends
+(`allow` with the original `updated_input`, or `deny`), after which an
+`approval_resolved` event is broadcast. When the **desktop** answers a prompt
+via `send_raw`, the same registry is cleared and `approval_resolved` is pushed,
+so the phone stays in sync; conversely, a phone-answered prompt emits a Tauri
+event that dismisses the desktop's prompt. Outstanding approvals are also
+included in the connect/heartbeat snapshot so a phone that connects mid-prompt
+catches up. This works whether or not the desktop window is focused.
 
 The mobile app's Pair screen now performs the real pairing handshake when it
 sees a scanned/pasted payload with `lanHost`/`lanPort`: it opens
@@ -125,11 +139,8 @@ demo-only path, since they carry no transport address.
 - No automatic reconnect on app launch yet — the active transport is only
   established at pairing time. Future work persists the token and reconnects
   on startup.
-- No live approval data over the wire yet — the Sessions and Transcript
-  screens now render the host's real data, but the Attention screen still
-  renders mock fixtures.
-- No `approve`/`deny` over the wire yet — only `send_message` and
-  `stop_session` are dispatched. Approvals are still answered on the desktop.
+- No per-device session focus yet — the phone follows the most-recently-active
+  session's transcript; a future `focus_session` action will let it choose.
 - No transcript sync to the cloud. Transcripts continue to live only on the
   desktop host's disk.
 - No remote terminal, no remote file browser, no remote shell execution.

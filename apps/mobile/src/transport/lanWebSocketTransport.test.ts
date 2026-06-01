@@ -356,6 +356,44 @@ describe("LanWebSocketTransport", () => {
     transport.close();
   });
 
+  it("sends an approve action over the socket when connected", () => {
+    const ws = new FakeWebSocket();
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => ws,
+      timers: fakeTimers(),
+    });
+    ws.openConnection();
+    ws.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: {
+          type: "pairing_response",
+          code: "ABCDEFGH",
+          status: "accepted",
+          hostId: "desktop-studio",
+          remoteToken: "TOK",
+        },
+      }),
+    );
+
+    const ok = transport.sendAction({
+      type: "approve",
+      hostId: "desktop-studio",
+      approvalId: "appr-1",
+    });
+
+    expect(ok).toBe(true);
+    expect(lastEnvelope(ws)?.msg).toEqual({
+      type: "approve",
+      hostId: "desktop-studio",
+      approvalId: "appr-1",
+    });
+    transport.close();
+  });
+
   it("reconnects after the socket closes", () => {
     const sockets: FakeWebSocket[] = [];
     const transport = new LanWebSocketTransport({

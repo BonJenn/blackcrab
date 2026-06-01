@@ -24,6 +24,8 @@ with Claude Code, Tauri, and local developer tools.
 - Launch an interactive Claude Code computer-use session from Blackcrab.
 - Attach dropped files to messages.
 - Track context and output-token usage per session.
+- Export and restore a local backup of settings, layout, usage history, drafts,
+  and per-session titles/archived state. See [`docs/backup-restore.md`](docs/backup-restore.md).
 
 ## Requirements
 

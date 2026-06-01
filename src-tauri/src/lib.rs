@@ -564,6 +564,37 @@ mod tests {
     }
 
     #[test]
+    fn extract_session_override_skips_files_without_restorable_metadata() {
+        let dir = std::env::temp_dir().join(format!(
+            "blackcrab-override-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::create_dir_all(&dir);
+
+        // No custom-title / archive-state records → nothing to restore.
+        let plain = dir.join("plain.jsonl");
+        fs::write(&plain, "{\"type\":\"user\",\"cwd\":\"/tmp/x\"}\n").unwrap();
+        assert!(extract_session_override(&plain).is_none());
+
+        // A custom title plus archived state → captured, with cwd resolved.
+        let rich = dir.join("rich.jsonl");
+        fs::write(
+            &rich,
+            "{\"type\":\"user\",\"cwd\":\"/tmp/proj\"}\n\
+             {\"type\":\"custom-title\",\"customTitle\":\"Renamed\"}\n\
+             {\"type\":\"archive-state\",\"archived\":true}\n",
+        )
+        .unwrap();
+        let over = extract_session_override(&rich).expect("override present");
+        assert_eq!(over.id, "rich");
+        assert_eq!(over.cwd, "/tmp/proj");
+        assert_eq!(over.custom_title.as_deref(), Some("Renamed"));
+        assert!(over.archived);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn session_path_rejects_unsafe_session_ids_and_separators() {
         let projects = PathBuf::from("projects");
         let path = session_path_under_projects(&projects, "abc-123_DEF", "/Users/me/project")
@@ -1288,6 +1319,14 @@ async fn send_raw(
 #[tauri::command]
 fn write_text_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| format!("write failed: {}", e))
+}
+
+// Reads arbitrary UTF-8 text from the given path. Symmetric to
+// `write_text_file`; used by Backup & Restore to load a user-chosen backup
+// file on import without pulling in plugin-fs.
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("read failed: {}", e))
 }
 
 // Saves bytes from a web-drop — an in-browser File blob that the OS
@@ -2306,6 +2345,105 @@ fn list_sessions() -> Result<Vec<SessionInfo>, String> {
     let mut out: Vec<SessionInfo> = by_id.into_iter().map(|(_, info)| info).collect();
     out.sort_by(|a, b| b.mtime_ms.cmp(&a.mtime_ms));
     Ok(out)
+}
+
+// App-written, restorable metadata for a single session. `custom_title` is
+// Some only when the user explicitly set one (a `custom-title` record exists),
+// so restore never pins an auto-derived/ai title.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SessionOverride {
+    id: String,
+    cwd: String,
+    custom_title: Option<String>,
+    archived: bool,
+}
+
+// Scans a session file for only the records Backup & Restore can rewrite:
+// the latest `custom-title` and `archive-state`, plus the session `cwd`
+// (needed to address the file on restore). Returns None unless there is
+// something to restore and a cwd to target.
+fn extract_session_override(path: &std::path::Path) -> Option<SessionOverride> {
+    let id = path.file_stem()?.to_str()?.to_string();
+    let file = std::fs::File::open(path).ok()?;
+    use std::io::BufRead;
+    let reader = std::io::BufReader::new(file);
+
+    let mut cwd = String::new();
+    let mut custom_title: Option<String> = None;
+    let mut archived = false;
+    for line in reader.lines().map_while(Result::ok) {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        if cwd.is_empty() {
+            if let Some(s) = v.get("cwd").and_then(|x| x.as_str()) {
+                cwd = s.to_string();
+            }
+        }
+        match v.get("type").and_then(|x| x.as_str()) {
+            Some("custom-title") => {
+                if let Some(s) = v.get("customTitle").and_then(|x| x.as_str()) {
+                    custom_title = Some(s.to_string());
+                }
+            }
+            Some("archive-state") => {
+                if let Some(value) = v.get("archived").and_then(|x| x.as_bool()) {
+                    archived = value;
+                }
+            }
+            _ => {}
+        }
+    }
+    if cwd.is_empty() || (custom_title.is_none() && !archived) {
+        return None;
+    }
+    Some(SessionOverride {
+        id,
+        cwd,
+        custom_title,
+        archived,
+    })
+}
+
+// Returns the app-written overrides (custom titles, archived state) across all
+// sessions, for Backup & Restore. Mirrors `list_sessions`' directory walk but
+// keeps only sessions that carry a restorable override.
+#[tauri::command]
+fn list_session_overrides() -> Result<Vec<SessionOverride>, String> {
+    let projects = match projects_dir() {
+        Some(p) => p,
+        None => return Ok(vec![]),
+    };
+    if !projects.exists() {
+        return Ok(vec![]);
+    }
+    let mut by_id: HashMap<String, SessionOverride> = HashMap::new();
+    let dirs = fs::read_dir(&projects).map_err(|e| e.to_string())?;
+    for dir_entry in dirs.flatten() {
+        let dir_path = dir_entry.path();
+        if !dir_path.is_dir() {
+            continue;
+        }
+        let files = match fs::read_dir(&dir_path) {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
+        for file_entry in files.flatten() {
+            let path = file_entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
+                continue;
+            }
+            if let Some(over) = extract_session_override(&path) {
+                by_id.insert(over.id.clone(), over);
+            }
+        }
+    }
+    Ok(by_id.into_iter().map(|(_, over)| over).collect())
 }
 
 // Internal event types we never surface in the transcript.
@@ -3349,6 +3487,8 @@ pub fn run() {
             set_session_archived,
             delete_session,
             write_text_file,
+            read_text_file,
+            list_session_overrides,
             save_dropped_file,
             list_tracked_files,
             search_sessions,

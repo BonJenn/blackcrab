@@ -1,7 +1,7 @@
 # Roadmap
 
-This roadmap tracks the next product push for Blackcrab. Each item should land
-as a separate pull request with its own tests and focused review surface.
+This roadmap tracks Blackcrab's product direction. Each item should land as a
+separate pull request with its own tests and focused review surface.
 
 ## Operating Rules
 
@@ -10,168 +10,74 @@ as a separate pull request with its own tests and focused review surface.
 - Prefer shared data/model fixes before adding UI on top of shaky state.
 - Update this roadmap when scope changes during implementation.
 
-## PR Sequence
+## Shipped
 
-### 1. Native Build And Release Ergonomics
+The original ten-item product push is complete. Each landed as its own PR with
+tests:
 
-**Goal.** Local native builds should complete cleanly without requiring the
-private updater signing key, while release builds should still fail loudly when
-release signing is missing.
+1. **Native build & release ergonomics** — one local command for an unsigned
+   `.app`/`.dmg`; a separate strict signed release path.
+2. **Global session search** — find conversations across projects by title,
+   project, model, date, and transcript text.
+3. **Session metadata reliability layer** — sidebar, grid, single mode, palette,
+   and usage all read session metadata from one source.
+4. **Project dashboard** — per-project view of sessions, activity, and
+   token/cost totals with quick launch.
+5. **Usage dashboard v2** — saved usage history, budgets/thresholds, breakdowns,
+   CSV/JSON export.
+6. **Backup & restore** — export/import settings, layouts, usage history,
+   drafts, and per-session overrides; transcripts and secrets excluded. See
+   `docs/backup-restore.md`.
+7. **Session conflict UX** — a busy session offers "focus where it's open" or
+   "take over here" instead of a raw error. *(Read-only view deferred — see
+   Next.)*
+8. **Command palette expansion** — keyword/alias search plus commands for
+   project switching, rename, archive, delete, duplicate panel, backup, and
+   diagnostics.
+9. **Diagnostics & logs view** — recent command failures, process state, stderr,
+   environment, and a redacted copyable report for bug filing.
+10. **Saved layouts & workspaces** — named, per-project grid layouts with
+    save/load/delete palette commands.
 
-**Scope.**
+Infrastructure landed alongside: CI now runs the frontend (`vitest`) and Rust
+(`cargo test`) suites on every PR, not just type-check and build.
 
-- Add an explicit local native build command that disables updater artifacts.
-- Add an explicit signed release build command that requires updater signing.
-- Document when to use each path.
-- Keep the existing GitHub release workflow strict about signing and
-  notarization.
+## Next
 
-**Done when.** A contributor can run one local command to produce a `.app` and
-`.dmg`, and maintainers still have a separate signed release path.
+Near-term, grounded follow-ups:
 
-### 2. Global Session Search
+- **Read-only session view** — the deferred third action from #7. Let a user
+  observe a session that another panel owns without taking it over: render the
+  transcript with a disabled composer and a clear read-only indicator, leaving
+  the backend single-writer protection intact.
+- **Lint in CI** — CI type-checks, tests, and builds, but runs no linter. Add
+  ESLint (frontend) and `cargo clippy` (Rust) so style/correctness regressions
+  are caught in review.
+- **Dependency hygiene** — keep the Dependabot PR backlog moving; batch and
+  verify the Cargo and npm bumps.
 
-**Goal.** Make conversations discoverable across projects.
+Pick the read-only view first — it closes out the one explicitly deferred piece
+of shipped work.
 
-**Scope.**
+## Mobile Remote Companion
 
-- Search session titles, cwd/project, model, dates, and transcript text.
-- Show result snippets with project/session context.
-- Open a result directly in single mode.
-- Keep the index local and derived from existing session files.
+**Status.** In active development (previously experimental scaffolding).
 
-**Done when.** A user can find an old conversation without knowing its project
-or exact title.
+An iOS/Android companion that pairs to a desktop host and observes sessions and
+approvals. Substantial pieces have landed:
 
-### 3. Session Metadata Reliability Layer
+- **Pairing** — QR pairing, a desktop pairing service, and a mobile pairing
+  screen + Settings UI (`src-tauri/src/pairing.rs`, `apps/mobile`).
+- **Transport** — a LAN WebSocket transport plus an end-to-end encrypted relay
+  for reaching the desktop off-LAN, with automatic LAN/relay failover
+  (`src-tauri/src/transport.rs`, `relay_client.rs`, `crypto.rs`,
+  `packages/remote-protocol`).
+- **Live data** — the desktop pushes the session list and streams the active
+  transcript tail to the companion.
+- **Remote actions** — send message / stop session, and approve/deny permission
+  prompts forwarded from the desktop.
 
-**Goal.** Sidebar, grid, and single mode should read session metadata from one
-consistent source.
-
-**Scope.**
-
-- Centralize session metadata updates for title, timestamps, costs, tokens, and
-  active ownership.
-- Reduce direct ad hoc `sessions` array edits in UI handlers.
-- Add focused helpers for replacing, refreshing, and removing session metadata.
-
-**Done when.** Renaming or updating a session reflects consistently in sidebar,
-grid, command palette, usage dashboard, and active transcript chrome.
-
-### 4. Project Dashboard
-
-**Goal.** Give each project a real operational home.
-
-**Scope.**
-
-- Add a project dashboard view grouped by cwd/project.
-- Show sessions, recent activity, token/cost totals, active tasks, and quick
-  launch actions.
-- Support opening sessions and starting a new session in a project.
-
-**Done when.** A user can answer "what is happening in this project?" without
-manually scanning the sidebar.
-
-### 5. Usage Dashboard V2
-
-**Goal.** Turn the first usage dashboard into a more useful cost management
-surface.
-
-**Scope.**
-
-- Add saved usage history over time rather than relying only on current session
-  summaries.
-- Add monthly/project/model breakdowns.
-- Add budget thresholds and visible warnings.
-- Preserve CSV and JSON export.
-
-**Done when.** A user can identify cost trends and high-spend projects over
-time, then export the underlying data.
-
-### 6. Backup And Restore
-
-**Goal.** Make local-first data portable and recoverable.
-
-**Scope.**
-
-- Export sessions, settings, project metadata, usage data, and drafts.
-- Import a backup with conflict handling.
-- Document what is included and what is intentionally excluded.
-
-**Done when.** A user can move Blackcrab data to another machine or recover from
-an accidental data loss.
-
-### 7. Session Conflict UX
-
-**Goal.** Replace confusing "session is being used somewhere else" failures
-with clear choices.
-
-**Scope.**
-
-- Show where the session is currently open.
-- Offer appropriate actions: focus existing view, open read-only, or request a
-  handoff.
-- Keep backend single-writer protections intact.
-
-**Done when.** Attempting to open a busy session explains the conflict and gives
-the user a safe next action.
-
-### 8. Command Palette Expansion
-
-**Goal.** Make common workflows keyboard reachable.
-
-**Scope.**
-
-- Add commands for project switching, usage, rename, archive, duplicate/open
-  panel, export, backup, and diagnostics.
-- Add aliases and useful hints.
-- Keep destructive commands confirm-gated.
-
-**Done when.** A power user can navigate and operate the app without reaching
-for the mouse for routine actions.
-
-### 9. Diagnostics And Logs View
-
-**Goal.** Make failures explainable from inside the app.
-
-**Scope.**
-
-- Expand diagnostics into a support/debug console.
-- Show recent Tauri command failures, Claude process state, stderr snippets,
-  app version, OS, and copyable reports.
-- Avoid exposing secrets in copied diagnostics.
-
-**Done when.** A user can produce a useful bug report without opening devtools.
-
-### 10. Saved Layouts And Workspaces
-
-**Goal.** Let users preserve grid setups for repeated work.
-
-**Scope.**
-
-- Save named grid layouts per project.
-- Restore panel counts, session assignments, cwd, and relevant view state.
-- Add commands for saving, loading, and deleting layouts.
-
-**Done when.** A user can reopen a project-specific working layout with one
-action.
-
-## Current Priority
-
-Start with PR 1, then PR 2. Release/build reliability protects every future
-change, and global search is the highest daily-use product feature after the
-recent grid and usage work.
-
-## Future / Experimental
-
-### Mobile Remote Companion
-
-**Status.** Experimental scaffolding only. Not on the shipped feature list.
-
-Foundation work for an iOS/Android remote companion lives under `apps/mobile`
-(Expo + React Native + EAS) and `packages/remote-protocol` (typed protocol).
-The desktop app remains authority over local sessions; the mobile app would
-pair to a desktop host and observe sessions and approvals through an
-encrypted relay. No relay, no real network code, and no remote control of any
-kind exists yet. See `docs/mobile-remote.md` for the intended architecture and
-explicit non-goals.
+The desktop remains the single authority over local sessions. See
+`docs/mobile-remote.md` for the intended architecture and non-goals. Remaining
+work centers on hardening the relay/failover paths, reconnection, and the mobile
+UX; track those as their own PRs.

@@ -43,6 +43,10 @@ struct StoredDevice {
     device_id: String,
     display_name: String,
     remote_token: String,
+    // base64 32-byte E2E key shared with this device, minted over LAN at
+    // pairing. Defaulted so pairing files written before relay support load.
+    #[serde(default)]
+    e2e_key: String,
     paired_at_ms: u128,
     last_seen_at_ms: u128,
 }
@@ -84,6 +88,9 @@ pub struct PairingStartResponse {
 pub struct PairingAcceptResponse {
     #[serde(rename = "remoteToken")]
     pub remote_token: String,
+    /// base64 32-byte E2E key the device uses to encrypt relay traffic.
+    #[serde(rename = "e2eKey")]
+    pub e2e_key: String,
     #[serde(rename = "pairedDevice")]
     pub paired_device: PairedDevice,
 }
@@ -153,10 +160,13 @@ impl PairingService {
         state.pending.remove(pos);
         let device_id = format!("dev_{}", hex(&random_bytes(DEVICE_ID_BYTES)?));
         let remote_token = hex(&random_bytes(REMOTE_TOKEN_BYTES)?);
+        let e2e_key = crate::crypto::generate_key_b64()
+            .ok_or_else(|| "failed to generate e2e key".to_string())?;
         let stored = StoredDevice {
             device_id,
             display_name: device_name.to_string(),
             remote_token: remote_token.clone(),
+            e2e_key: e2e_key.clone(),
             paired_at_ms: now_ms,
             last_seen_at_ms: now_ms,
         };
@@ -165,6 +175,7 @@ impl PairingService {
         persist(&self.path, &state)?;
         Ok(PairingAcceptResponse {
             remote_token,
+            e2e_key,
             paired_device: public,
         })
     }

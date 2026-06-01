@@ -193,6 +193,7 @@ async fn handle_connection(
                     status: PairingStatus::Accepted,
                     host_id: Some(read_host_id_for_response()),
                     remote_token: Some(resp.remote_token),
+                    e2e_key: Some(resp.e2e_key),
                     rejected_reason: None,
                 };
                 send_envelope(&mut sink, body).await?;
@@ -208,6 +209,7 @@ async fn handle_connection(
                     },
                     host_id: None,
                     remote_token: None,
+                    e2e_key: None,
                     rejected_reason: Some(reason),
                 };
                 send_envelope(&mut sink, body).await?;
@@ -500,6 +502,8 @@ enum WireMessage {
         host_id: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "remoteToken")]
         remote_token: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "e2eKey")]
+        e2e_key: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "rejectedReason")]
         rejected_reason: Option<String>,
     },

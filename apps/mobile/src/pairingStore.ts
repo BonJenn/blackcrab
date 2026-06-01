@@ -19,6 +19,8 @@ export interface StoredPairedHost extends PairedHostSummary {
   pairingSource: StoredPairingSource;
   /** Set after a successful LAN pairing handshake. */
   remoteToken?: string;
+  /** base64 32-byte E2E key for relay traffic, minted over LAN at pairing. */
+  e2eKey?: string;
   /** LAN endpoint to reconnect to with the remoteToken. */
   lanHost?: string;
   lanPort?: number;
@@ -158,6 +160,7 @@ function isStoredPairedHost(value: unknown): value is StoredPairedHost {
     (value.pairingSource === "desktop_payload" ||
       value.pairingSource === "manual_code") &&
     (value.remoteToken === undefined || typeof value.remoteToken === "string") &&
+    (value.e2eKey === undefined || typeof value.e2eKey === "string") &&
     (value.lanHost === undefined || typeof value.lanHost === "string") &&
     (value.lanPort === undefined || typeof value.lanPort === "number")
   );

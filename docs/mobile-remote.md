@@ -139,10 +139,36 @@ kept a remote token and LAN endpoint and opens a token-authenticated transport
 If the stored token is rejected (e.g. revoked on the desktop) the transport
 stops and the active connection is cleared.
 
+## Encrypted relay (foundation)
+
+The relay lets the phone reach the desktop **off‑LAN**, over the internet,
+without the relay ever reading traffic. This is being built in phases; the
+foundation is in place:
+
+- **End‑to‑end encryption** uses NaCl secretbox (XSalsa20‑Poly1305).
+  `apps/mobile/src/crypto/secretbox.ts` (tweetnacl) and
+  `src-tauri/src/crypto.rs` (RustCrypto `crypto_secretbox`) are wire‑compatible
+  — the 16‑byte Poly1305 tag is prepended to the ciphertext, and a shared
+  canonical test vector is asserted in both test suites to prove interop.
+- **Key bootstrap over the trusted LAN**: at pairing the desktop mints a random
+  32‑byte `e2eKey`, stores it on the device record, and returns it in the
+  `pairing_response` (over LAN). The phone persists it in SecureStore alongside
+  the remote token. The relay never sees it.
+- **The relay binary** (`apps/relay`, a standalone Rust crate) is a dumb router:
+  a desktop **host** and its **devices** `hello` into a room keyed by `hostId`,
+  and the relay forwards opaque `data` frames host↔device. It only sees
+  `{hostId, deviceId, nonce, ciphertext}` routing metadata. A `RELAY_TOKEN`
+  gates room creation (anti‑squatting); end‑to‑end encryption is the real
+  access control. Deploy it behind a `wss://` TLS proxy.
+
+Still to come: the desktop/mobile relay **clients** and off‑LAN connect UX,
+then reconnect/failover between LAN and relay plus push notifications.
+
 ## Non-goals for this branch
 
-- No relay implementation. There is no server-side relay component yet — only
-  a local LAN WebSocket.
+- The desktop and mobile relay clients are not wired yet — the relay crate runs
+  and the E2E envelope works, but the apps still connect only over LAN. Off‑LAN
+  connect, `RELAY_URL` config, and the QR carrying a relay address come next.
 - Session focus is global, not per-device — with multiple phones paired, a
   `focus_session` from one changes the followed transcript for all of them.
 - No transcript sync to the cloud. Transcripts continue to live only on the

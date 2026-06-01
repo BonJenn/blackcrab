@@ -47,6 +47,27 @@ describe("buildPairingPayload", () => {
     expect(parsed).toEqual(built.payload);
   });
 
+  it("includes relayUrl only when provided", async () => {
+    const withRelay = await buildPairingPayload(
+      { code: "ABCDEFGH", expiresAtMs: 1_700_000_300_000 },
+      lan,
+      async () => hostInfo,
+      "wss://relay.example.com",
+    );
+    expect(withRelay.payload.relayUrl).toBe("wss://relay.example.com");
+    expect(parseDesktopPairingPayload(withRelay.serialized)?.relayUrl).toBe(
+      "wss://relay.example.com",
+    );
+
+    const withoutRelay = await buildPairingPayload(
+      { code: "ABCDEFGH", expiresAtMs: 1_700_000_300_000 },
+      lan,
+      async () => hostInfo,
+      "",
+    );
+    expect(withoutRelay.payload.relayUrl).toBeUndefined();
+  });
+
   it("normalizes a malformed host_info payload into safe defaults", async () => {
     const built = await buildPairingPayload(
       { code: "ABCDEFGH", expiresAtMs: 1_700_000_300_000 },

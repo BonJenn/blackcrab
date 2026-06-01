@@ -49,6 +49,7 @@ import {
 } from "./remote/pairing";
 import { buildPairingPayload } from "./remote/pairingPayload";
 import {
+  fetchRelayUrl,
   fetchTransportEndpoint,
   type TransportEndpoint,
 } from "./remote/transport";
@@ -6835,7 +6836,8 @@ function MobileRemoteSettings() {
       try {
         const endpoint = lanEndpoint ?? (await fetchTransportEndpoint());
         if (!lanEndpoint) setLanEndpoint(endpoint);
-        const built = await buildPairingPayload(next, endpoint);
+        const relayUrl = await fetchRelayUrl().catch(() => "");
+        const built = await buildPairingPayload(next, endpoint, undefined, relayUrl);
         setPairingPayload(built.serialized);
       } catch (e) {
         notifyErr("failed to build pairing payload")(e);

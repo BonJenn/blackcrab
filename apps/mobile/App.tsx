@@ -18,12 +18,9 @@ import {
   loadStoredHosts,
   type StoredPairedHost,
 } from "./src/pairingStore";
-import { LanWebSocketTransport } from "./src/transport/lanWebSocketTransport";
-import {
-  connectStoredHost,
-  firstReconnectableHost,
-} from "./src/transport/reconnect";
-import type { TransportStatus } from "./src/transport/types";
+import { connectWithFailover } from "./src/transport/failoverTransport";
+import { firstConnectableHost } from "./src/transport/reconnect";
+import type { Transport, TransportStatus } from "./src/transport/types";
 
 type TabKey = "hosts" | "pair" | "sessions" | "transcript" | "approval";
 
@@ -39,8 +36,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
-  const [activeTransport, setActiveTransport] =
-    useState<LanWebSocketTransport | null>(null);
+  const [activeTransport, setActiveTransport] = useState<Transport | null>(null);
   const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
   const [activeHostId, setActiveHostId] = useState<HostId | null>(null);
   const [liveSessions, setLiveSessions] = useState<SessionSummary[] | null>(null);
@@ -56,10 +52,11 @@ export default function App() {
       .then((hosts) => {
         if (!mounted) return;
         setStoredHosts(hosts);
-        // Re-establish the most-recent reconnectable host without re-pairing.
-        const host = firstReconnectableHost(hosts);
+        // Re-establish the most-recent connectable host without re-pairing,
+        // preferring LAN and falling back to the relay off-network.
+        const host = firstConnectableHost(hosts);
         if (!host) return;
-        const transport = connectStoredHost(host, {
+        const transport = connectWithFailover(host, {
           onFatalReject: () => {
             setActiveTransport((current) => {
               current?.close();
@@ -134,7 +131,7 @@ export default function App() {
   function handlePaired(
     hosts: StoredPairedHost[],
     host: StoredPairedHost,
-    transport: LanWebSocketTransport | null,
+    transport: Transport | null,
   ) {
     setStoredHosts(hosts);
     if (transport) {

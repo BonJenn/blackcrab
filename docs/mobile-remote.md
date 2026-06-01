@@ -180,16 +180,23 @@ foundation is in place:
   `DesktopPairingPayload` field), and `connectViaRelay` builds the transport
   from a stored host.
 
-Still to come: the desktop advertising its `relayUrl` in the pairing QR, and
-automatic LAN↔relay selection/failover (try LAN, fall back to relay off‑LAN),
-plus push notifications.
+- **Wiring it together.** The desktop bakes its configured `relayUrl` into the
+  pairing QR (`remote_relay_url` command → `buildPairingPayload`). On the phone,
+  `FailoverTransport` prefers LAN and falls back to the relay if LAN doesn't
+  connect within a grace window or fails — the relay reaches the host on *or*
+  off LAN, so once it's connected the phone stays there. Auto-reconnect on
+  launch uses this, so a returning user lands connected whichever network
+  they're on.
+
+The full off‑LAN loop now works: pair on LAN → walk away → the phone reconnects
+through the relay, end‑to‑end encrypted. Still to come: push notifications and
+relay rate‑limiting/replay hardening.
 
 ## Non-goals for this branch
 
-- The app doesn't yet *auto-select* the relay — all three pieces exist (relay,
-  desktop client, mobile `RelayTransport`, each tested), but the desktop doesn't
-  advertise its `relayUrl` in the QR yet and the app still always reconnects
-  over LAN. Wiring the QR + automatic LAN↔relay selection/failover is next.
+- No push notifications yet — the phone only receives updates while connected
+  and foregrounded. Waking it for attention requests (APNs/FCM) is future work.
+- No relay rate-limiting or replay hardening yet.
 - Session focus is global, not per-device — with multiple phones paired, a
   `focus_session` from one changes the followed transcript for all of them.
 - No transcript sync to the cloud. Transcripts continue to live only on the

@@ -43,3 +43,15 @@ export async function fetchTransportEndpoint(
 ): Promise<TransportEndpoint> {
   return normalizeTransportInfo(await invoker());
 }
+
+export type RelayUrlInvoker = () => Promise<unknown>;
+
+const defaultRelayUrlInvoker: RelayUrlInvoker = () => invoke("remote_relay_url");
+
+/** The relay URL the desktop is configured with, or "" when none. */
+export async function fetchRelayUrl(
+  invoker: RelayUrlInvoker = defaultRelayUrlInvoker,
+): Promise<string> {
+  const value = await invoker();
+  return typeof value === "string" ? value : "";
+}

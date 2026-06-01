@@ -28,11 +28,23 @@ export function canReconnect(host: StoredPairedHost): boolean {
   );
 }
 
-/** The most-recently-paired host that can reconnect, if any. */
+/** The most-recently-paired host that can reconnect over LAN, if any. */
 export function firstReconnectableHost(
   hosts: StoredPairedHost[],
 ): StoredPairedHost | undefined {
   return hosts.find(canReconnect);
+}
+
+/** A host is connectable if it can reach the desktop over LAN or the relay. */
+export function isConnectable(host: StoredPairedHost): boolean {
+  return canReconnect(host) || canUseRelay(host);
+}
+
+/** The most-recently-paired host reachable over LAN or relay, if any. */
+export function firstConnectableHost(
+  hosts: StoredPairedHost[],
+): StoredPairedHost | undefined {
+  return hosts.find(isConnectable);
 }
 
 export interface ConnectStoredHostOptions {

@@ -24,6 +24,7 @@ export async function buildPairingPayload(
   start: PairingStartResponse,
   lan: TransportEndpoint,
   invoker?: HostInfoInvoker,
+  relayUrl?: string,
 ): Promise<BuiltPairingPayload> {
   const host = await fetchDesktopHostInfo(invoker);
   const payload = createDesktopPairingPayload({
@@ -35,6 +36,8 @@ export async function buildPairingPayload(
     expiresAtMs: start.expiresAtMs,
     lanHost: lan.host,
     lanPort: lan.port,
+    // Only advertise a relay when the desktop has one configured.
+    ...(relayUrl ? { relayUrl } : {}),
   });
   return { payload, serialized: serializeDesktopPairingPayload(payload) };
 }

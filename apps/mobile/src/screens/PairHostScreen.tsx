@@ -25,8 +25,8 @@ import {
   type PairHostFromInputResult,
   type StoredPairedHost,
 } from "../pairingStore";
-import type { LanWebSocketTransport } from "../transport/lanWebSocketTransport";
 import { pairOverLan } from "../transport/pairOverLan";
+import type { Transport } from "../transport/types";
 import { screenStyles } from "./styles";
 
 type PairMode = "manual" | "scan";
@@ -35,7 +35,7 @@ interface PairHostScreenProps {
   onPaired: (
     hosts: StoredPairedHost[],
     host: StoredPairedHost,
-    transport: LanWebSocketTransport | null,
+    transport: Transport | null,
   ) => void;
 }
 

@@ -8,10 +8,14 @@ import type {
   ConnectionStatusState,
   HostId,
   RemoteAction,
+  RemoteEvent,
   RemoteWireMessage,
 } from "@blackcrab/remote-protocol";
 
 export type TransportState = ConnectionStatusState;
+
+/** Listener for host->mobile events (sessions, transcript tail, approvals). */
+export type TransportEventListener = (event: RemoteEvent) => void;
 
 export interface TransportStatus {
   state: TransportState;
@@ -25,6 +29,8 @@ export type TransportListener = (status: TransportStatus) => void;
 export interface Transport {
   status(): TransportStatus;
   subscribe(listener: TransportListener): () => void;
+  /** Subscribe to host->mobile events. Returns an unsubscribe function. */
+  subscribeEvents(listener: TransportEventListener): () => void;
   send(msg: RemoteWireMessage): void;
   /**
    * Send an action to the paired host. Only delivered when the connection is

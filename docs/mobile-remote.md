@@ -90,7 +90,15 @@ target Claude `sessionId` to the panel that currently owns its live subprocess
 own `send_message`/`stop_session` commands. Actions targeting a session no
 panel is resuming are dropped with a log line. `approve`/`deny` are still not
 handled — they need the desktop to first forward pending approvals to the
-phone, which lands with live session sync.
+phone.
+
+The desktop also pushes a `sessions` event (host → mobile): the transport
+asks `lib.rs` for a snapshot built from `list_sessions()` — the most-recent
+50 sessions mapped to the protocol's `SessionSummary` shape — and sends it
+right after authentication and again on each heartbeat tick. The state field
+is coarse (idle / completed / errored), since the snapshot is read from the
+JSONL files on disk, not from a live subprocess. `transcript_tail` and
+approval events are not pushed yet.
 
 The mobile app's Pair screen now performs the real pairing handshake when it
 sees a scanned/pasted payload with `lanHost`/`lanPort`: it opens
@@ -107,9 +115,10 @@ demo-only path, since they carry no transport address.
 - No automatic reconnect on app launch yet — the active transport is only
   established at pairing time. Future work persists the token and reconnects
   on startup.
-- No real-time session, transcript, or approval data over the wire — those
-  screens still render mock fixtures, so the Sessions screen sends actions
-  against mock `sessionId`s until live session sync lands.
+- No live transcript or approval data over the wire yet — the Sessions screen
+  now renders the host's real session list (and sends actions against real
+  `sessionId`s), but the Transcript and Attention screens still render mock
+  fixtures.
 - No `approve`/`deny` over the wire yet — only `send_message` and
   `stop_session` are dispatched. Approvals are still answered on the desktop.
 - No transcript sync to the cloud. Transcripts continue to live only on the

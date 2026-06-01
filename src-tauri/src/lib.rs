@@ -473,6 +473,19 @@ mod tests {
         assert!(owners.lock().await.is_empty());
     }
 
+    #[test]
+    fn epoch_ms_to_iso8601_formats_known_instants() {
+        assert_eq!(epoch_ms_to_iso8601(0), "1970-01-01T00:00:00.000Z");
+        assert_eq!(
+            epoch_ms_to_iso8601(1_609_459_200_000),
+            "2021-01-01T00:00:00.000Z"
+        );
+        assert_eq!(
+            epoch_ms_to_iso8601(1_700_000_000_123),
+            "2023-11-14T22:13:20.123Z"
+        );
+    }
+
     #[tokio::test]
     async fn deliver_user_message_errors_without_a_session() {
         let sessions = Arc::new(Mutex::new(HashMap::new()));
@@ -2703,6 +2716,91 @@ async fn run_remote_command_consumer(
     }
 }
 
+/// Convert a Unix epoch millisecond timestamp to an RFC-3339 / ISO-8601 UTC
+/// string (e.g. `2026-05-31T16:00:00.000Z`). Avoids pulling in `chrono` just
+/// to format the `updatedAt` field the mobile companion displays.
+fn epoch_ms_to_iso8601(ms: u128) -> String {
+    let secs = (ms / 1000) as i64;
+    let millis = (ms % 1000) as u32;
+    let days = secs.div_euclid(86_400);
+    let tod = secs.rem_euclid(86_400);
+    let (hour, minute, second) = (tod / 3600, (tod % 3600) / 60, tod % 60);
+    let (year, month, day) = civil_from_days(days);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{millis:03}Z"
+    )
+}
+
+/// Days since 1970-01-01 to a (year, month, day) civil date. Howard Hinnant's
+/// well-known algorithm, valid across the full range we care about.
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u32; // [1, 31]
+    let month = (if mp < 10 { mp + 3 } else { mp - 9 }) as u32; // [1, 12]
+    let year = if month <= 2 { year + 1 } else { year };
+    (year, month, day)
+}
+
+/// The most-recent sessions the mobile companion should see. Capped so the
+/// snapshot we push on every heartbeat stays small.
+const REMOTE_SESSION_LIMIT: usize = 50;
+
+/// Coarse session state for a disk-backed session summary. These are read from
+/// JSONL, not from a live subprocess, so "running" is not inferable here.
+fn session_state_label(info: &SessionInfo) -> &'static str {
+    if info.last_result_is_error {
+        "errored"
+    } else if info.last_event_type == "result" {
+        "completed"
+    } else {
+        "idle"
+    }
+}
+
+/// Build the `sessions` event body (protocol shape, camelCase) the desktop
+/// pushes to paired devices. `None` only when the session list can't be read.
+fn remote_sessions_event_value() -> Option<serde_json::Value> {
+    let sessions = list_sessions().ok()?;
+    let host_id = remote_host_id_for_pairing();
+    let mapped: Vec<serde_json::Value> = sessions
+        .iter()
+        .take(REMOTE_SESSION_LIMIT)
+        .map(|s| {
+            serde_json::json!({
+                "hostId": host_id,
+                "sessionId": s.id,
+                "title": s.title,
+                "projectPath": s.cwd,
+                "model": s.model,
+                "state": session_state_label(s),
+                "updatedAt": epoch_ms_to_iso8601(s.mtime_ms),
+                "pendingApprovalCount": 0,
+                "unreadCount": 0,
+            })
+        })
+        .collect();
+    Some(serde_json::json!({
+        "type": "sessions",
+        "hostId": host_id,
+        "sessions": mapped,
+    }))
+}
+
+/// Side channels the transport uses to reach the rest of the app. Rebuilt per
+/// `start` call; the action sender comes from the global set up in `setup`.
+fn remote_hooks() -> crate::transport::RemoteHooks {
+    crate::transport::RemoteHooks {
+        commands: REMOTE_CMD_TX.get().cloned(),
+        sessions: Some(Arc::new(remote_sessions_event_value)),
+    }
+}
+
 #[tauri::command]
 async fn remote_transport_info() -> Result<TransportEndpoint, String> {
     let server = transport_server();
@@ -2710,7 +2808,7 @@ async fn remote_transport_info() -> Result<TransportEndpoint, String> {
         return Ok(endpoint);
     }
     let pairing = pairing_service()?;
-    server.start(pairing, REMOTE_CMD_TX.get().cloned()).await
+    server.start(pairing, remote_hooks()).await
 }
 
 pub(crate) fn remote_host_id_for_pairing() -> String {
@@ -2796,7 +2894,7 @@ pub fn run() {
             let sessions = state.sessions.clone();
             let session_owners = state.session_owners.clone();
             let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
-            let _ = REMOTE_CMD_TX.set(tx.clone());
+            let _ = REMOTE_CMD_TX.set(tx);
             tauri::async_runtime::spawn(run_remote_command_consumer(rx, sessions, session_owners));
 
             tauri::async_runtime::spawn(async move {
@@ -2807,7 +2905,7 @@ pub fn run() {
                         return;
                     }
                 };
-                if let Err(e) = server.start(pairing, Some(tx)).await {
+                if let Err(e) = server.start(pairing, remote_hooks()).await {
                     eprintln!("transport: failed to start: {e}");
                 }
             });

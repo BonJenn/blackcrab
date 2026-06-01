@@ -24,7 +24,16 @@ import {
   type RemoteWireMessage,
 } from "@blackcrab/remote-protocol";
 
-import type { Transport, TransportListener, TransportStatus } from "./types";
+import type {
+  RemoteEvent,
+} from "@blackcrab/remote-protocol";
+
+import type {
+  Transport,
+  TransportEventListener,
+  TransportListener,
+  TransportStatus,
+} from "./types";
 
 export interface LanWebSocketTransportConfig {
   url: string;
@@ -82,6 +91,7 @@ export class LanWebSocketTransport implements Transport {
   private readonly timers: TimerProvider;
   private readonly wsFactory: (url: string) => MinimalWebSocket;
   private readonly listeners = new Set<TransportListener>();
+  private readonly eventListeners = new Set<TransportEventListener>();
   private ws: MinimalWebSocket | null = null;
   private statusValue: TransportStatus;
   private retryIndex = 0;
@@ -113,6 +123,13 @@ export class LanWebSocketTransport implements Transport {
     listener(this.statusValue);
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  subscribeEvents(listener: TransportEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => {
+      this.eventListeners.delete(listener);
     };
   }
 
@@ -240,8 +257,20 @@ export class LanWebSocketTransport implements Transport {
         return;
       case "connection_status":
         return;
+      case "sessions":
+      case "transcript_tail":
+      case "approval_requested":
+      case "approval_resolved":
+        this.emitEvent(msg);
+        return;
       default:
         return;
+    }
+  }
+
+  private emitEvent(event: RemoteEvent): void {
+    for (const listener of this.eventListeners) {
+      listener(event);
     }
   }
 

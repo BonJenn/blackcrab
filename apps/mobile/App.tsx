@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import type { HostId } from "@blackcrab/remote-protocol";
+import type { HostId, SessionSummary } from "@blackcrab/remote-protocol";
 
 import { ApprovalScreen } from "./src/screens/ApprovalScreen";
 import { PairedHostsScreen } from "./src/screens/PairedHostsScreen";
@@ -34,6 +34,7 @@ export default function App() {
     useState<LanWebSocketTransport | null>(null);
   const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
   const [activeHostId, setActiveHostId] = useState<HostId | null>(null);
+  const [liveSessions, setLiveSessions] = useState<SessionSummary[] | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -58,12 +59,21 @@ export default function App() {
   useEffect(() => {
     if (!activeTransport) {
       setActiveStatus(null);
+      setLiveSessions(null);
       return;
     }
-    const unsub = activeTransport.subscribe((status) => {
+    const unsubStatus = activeTransport.subscribe((status) => {
       setActiveStatus(status);
     });
-    return unsub;
+    const unsubEvents = activeTransport.subscribeEvents((event) => {
+      if (event.type === "sessions") {
+        setLiveSessions(event.sessions);
+      }
+    });
+    return () => {
+      unsubStatus();
+      unsubEvents();
+    };
   }, [activeTransport]);
 
   useEffect(() => () => activeTransport?.close(), [activeTransport]);
@@ -132,7 +142,11 @@ export default function App() {
         )}
         {tab === "pair" && <PairHostScreen onPaired={handlePaired} />}
         {tab === "sessions" && (
-          <SessionsScreen transport={activeTransport} status={activeStatus} />
+          <SessionsScreen
+            transport={activeTransport}
+            status={activeStatus}
+            sessions={liveSessions}
+          />
         )}
         {tab === "transcript" && <TranscriptScreen />}
         {tab === "approval" && <ApprovalScreen />}

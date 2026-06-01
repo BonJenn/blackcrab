@@ -17,21 +17,31 @@ export interface SessionsScreenProps {
   transport?: Transport | null;
   /** Status of the active transport, used to enable/disable controls. */
   status?: TransportStatus | null;
+  /** Live sessions pushed by the host. Falls back to mock fixtures when null. */
+  sessions?: SessionSummary[] | null;
 }
 
-export function SessionsScreen({ transport, status }: SessionsScreenProps) {
+export function SessionsScreen({
+  transport,
+  status,
+  sessions,
+}: SessionsScreenProps) {
   const connected = status?.state === "connected" && Boolean(transport);
+  const live = sessions != null;
+  const data = live ? sessions : MOCK_SESSIONS;
 
   return (
     <View style={screenStyles.container}>
       <Text style={screenStyles.heading}>Sessions</Text>
       <Text style={screenStyles.note}>
-        {connected
-          ? "Mocked sessions — actions are sent over the live connection. Real session data lands next."
-          : "Mocked sessions. Connect to a host to send messages or stop a session."}
+        {live
+          ? "Live sessions from the connected host."
+          : connected
+            ? "Waiting for the host's session list…"
+            : "Mocked sessions. Connect to a host to send messages or stop a session."}
       </Text>
       <FlatList
-        data={MOCK_SESSIONS}
+        data={data}
         keyExtractor={(item) => `${item.hostId}:${item.sessionId}`}
         renderItem={({ item }) => (
           <SessionRow

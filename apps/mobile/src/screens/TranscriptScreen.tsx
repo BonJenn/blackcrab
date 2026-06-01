@@ -3,19 +3,31 @@ import { MOCK_TRANSCRIPT_TAIL, type TranscriptEntry } from "@blackcrab/remote-pr
 
 import { screenStyles } from "./styles";
 
-export function TranscriptScreen() {
+export interface TranscriptScreenProps {
+  /** Live transcript tail pushed by the host. Falls back to mock when null. */
+  entries?: TranscriptEntry[] | null;
+}
+
+export function TranscriptScreen({ entries }: TranscriptScreenProps) {
+  const live = entries != null;
+  const data = live ? entries : MOCK_TRANSCRIPT_TAIL;
+
   return (
     <View style={screenStyles.container}>
       <Text style={screenStyles.heading}>Transcript tail</Text>
       <Text style={screenStyles.note}>
-        Read-only previews are intentional. Full transcripts stay on the
-        desktop host.
+        {live
+          ? "Live tail of the host's most recently active session. Full transcripts stay on the desktop."
+          : "Read-only previews are intentional. Full transcripts stay on the desktop host."}
       </Text>
       <FlatList
-        data={MOCK_TRANSCRIPT_TAIL}
+        data={data}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TranscriptRow entry={item} />}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
+        ListEmptyComponent={
+          <Text style={screenStyles.note}>No transcript entries yet.</Text>
+        }
       />
     </View>
   );

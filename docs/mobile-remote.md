@@ -92,13 +92,23 @@ panel is resuming are dropped with a log line. `approve`/`deny` are still not
 handled — they need the desktop to first forward pending approvals to the
 phone.
 
-The desktop also pushes a `sessions` event (host → mobile): the transport
-asks `lib.rs` for a snapshot built from `list_sessions()` — the most-recent
-50 sessions mapped to the protocol's `SessionSummary` shape — and sends it
-right after authentication and again on each heartbeat tick. The state field
-is coarse (idle / completed / errored), since the snapshot is read from the
-JSONL files on disk, not from a live subprocess. `transcript_tail` and
-approval events are not pushed yet.
+The desktop also pushes host → mobile events: the transport asks `lib.rs` for
+an event snapshot right after authentication and again on each heartbeat tick.
+The snapshot currently contains:
+
+- A `sessions` event built from `list_sessions()` — the most-recent 50
+  sessions mapped to the protocol's `SessionSummary` shape. The state field is
+  coarse (idle / completed / errored), since it's read from the JSONL files on
+  disk, not from a live subprocess.
+- A `transcript_tail` event for the most-recently-active session (the top of
+  the session list), built from `load_session_tail`. Each record is classified
+  into a protocol `TranscriptEntry` kind (user_message / assistant_message /
+  tool_call / tool_result / thinking / system_notice) with a whitespace-
+  collapsed, length-clipped preview. There is no per-device session focus yet,
+  so the phone follows whichever session changed most recently; a future
+  `focus_session` action will let the user pick.
+
+Approval events are not pushed yet.
 
 The mobile app's Pair screen now performs the real pairing handshake when it
 sees a scanned/pasted payload with `lanHost`/`lanPort`: it opens
@@ -115,10 +125,9 @@ demo-only path, since they carry no transport address.
 - No automatic reconnect on app launch yet — the active transport is only
   established at pairing time. Future work persists the token and reconnects
   on startup.
-- No live transcript or approval data over the wire yet — the Sessions screen
-  now renders the host's real session list (and sends actions against real
-  `sessionId`s), but the Transcript and Attention screens still render mock
-  fixtures.
+- No live approval data over the wire yet — the Sessions and Transcript
+  screens now render the host's real data, but the Attention screen still
+  renders mock fixtures.
 - No `approve`/`deny` over the wire yet — only `send_message` and
   `stop_session` are dispatched. Approvals are still answered on the desktop.
 - No transcript sync to the cloud. Transcripts continue to live only on the

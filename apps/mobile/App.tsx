@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import type { HostId, SessionSummary } from "@blackcrab/remote-protocol";
+import type {
+  HostId,
+  SessionSummary,
+  TranscriptEntry,
+} from "@blackcrab/remote-protocol";
 
 import { ApprovalScreen } from "./src/screens/ApprovalScreen";
 import { PairedHostsScreen } from "./src/screens/PairedHostsScreen";
@@ -35,6 +39,9 @@ export default function App() {
   const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
   const [activeHostId, setActiveHostId] = useState<HostId | null>(null);
   const [liveSessions, setLiveSessions] = useState<SessionSummary[] | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState<TranscriptEntry[] | null>(
+    null,
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -60,6 +67,7 @@ export default function App() {
     if (!activeTransport) {
       setActiveStatus(null);
       setLiveSessions(null);
+      setLiveTranscript(null);
       return;
     }
     const unsubStatus = activeTransport.subscribe((status) => {
@@ -68,6 +76,8 @@ export default function App() {
     const unsubEvents = activeTransport.subscribeEvents((event) => {
       if (event.type === "sessions") {
         setLiveSessions(event.sessions);
+      } else if (event.type === "transcript_tail") {
+        setLiveTranscript(event.entries);
       }
     });
     return () => {
@@ -148,7 +158,7 @@ export default function App() {
             sessions={liveSessions}
           />
         )}
-        {tab === "transcript" && <TranscriptScreen />}
+        {tab === "transcript" && <TranscriptScreen entries={liveTranscript} />}
         {tab === "approval" && <ApprovalScreen />}
       </View>
     </SafeAreaView>

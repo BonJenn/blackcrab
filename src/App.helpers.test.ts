@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  describePanelLocation,
   findPanelForSession,
   formatPairingTimeLeft,
   normalizeModelValue,
+  parseSessionBusyError,
   resolvePanelSession,
+  SESSION_BUSY_PREFIX,
 } from "./App";
 
 describe("grid panel session helpers", () => {
@@ -37,6 +40,37 @@ describe("model helpers", () => {
     expect(normalizeModelValue("")).toBeNull();
     expect(normalizeModelValue("  \t  ")).toBeNull();
     expect(normalizeModelValue(" sonnet ")).toBe("sonnet");
+  });
+});
+
+describe("session conflict helpers", () => {
+  it("parses the backend single-writer error into the owning panel id", () => {
+    const err = `${SESSION_BUSY_PREFIX}new:abc:123 — session session-9 is already open there; close it first`;
+    expect(parseSessionBusyError(err)).toEqual({ ownerPanelId: "new:abc:123" });
+    // Also accept Error objects whose message carries the sentinel.
+    expect(parseSessionBusyError(new Error(err))).toEqual({
+      ownerPanelId: "new:abc:123",
+    });
+  });
+
+  it("returns null for unrelated start failures", () => {
+    expect(parseSessionBusyError("claude binary not found")).toBeNull();
+    expect(parseSessionBusyError(undefined)).toBeNull();
+    expect(parseSessionBusyError({})).toBeNull();
+  });
+
+  it("describes where a session is already open", () => {
+    const gridPanels = ["session-1", "new:abc:123"];
+    const mappings = { "new:abc:123": "session-2" };
+    expect(describePanelLocation("new:abc:123", gridPanels, mappings)).toBe(
+      "panel 2 of the grid",
+    );
+    expect(describePanelLocation("single-panel-x", [], mappings)).toBe(
+      "the main view",
+    );
+    expect(describePanelLocation("new:gone:9", [], mappings)).toBe(
+      "another view",
+    );
   });
 });
 

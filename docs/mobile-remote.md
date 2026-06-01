@@ -100,13 +100,14 @@ The snapshot currently contains:
   sessions mapped to the protocol's `SessionSummary` shape. The state field is
   coarse (idle / completed / errored), since it's read from the JSONL files on
   disk, not from a live subprocess.
-- A `transcript_tail` event for the most-recently-active session (the top of
-  the session list), built from `load_session_tail`. Each record is classified
-  into a protocol `TranscriptEntry` kind (user_message / assistant_message /
-  tool_call / tool_result / thinking / system_notice) with a whitespace-
-  collapsed, length-clipped preview. There is no per-device session focus yet,
-  so the phone follows whichever session changed most recently; a future
-  `focus_session` action will let the user pick.
+- A `transcript_tail` event for the focused session, built from
+  `load_session_tail`. Each record is classified into a protocol
+  `TranscriptEntry` kind (user_message / assistant_message / tool_call /
+  tool_result / thinking / system_notice) with a whitespace-collapsed,
+  length-clipped preview. The phone chooses which session to follow with a
+  `focus_session` action (tapping "Transcript" on a session); with no focus
+  set it follows whichever session changed most recently. Setting a focus
+  pushes the new tail immediately rather than waiting for the next heartbeat.
 
 Approvals use a **real-time push** instead of the snapshot cadence, since a
 permission prompt needs to reach the phone immediately and clear the moment
@@ -142,8 +143,8 @@ stops and the active connection is cleared.
 
 - No relay implementation. There is no server-side relay component yet — only
   a local LAN WebSocket.
-- No per-device session focus yet — the phone follows the most-recently-active
-  session's transcript; a future `focus_session` action will let it choose.
+- Session focus is global, not per-device — with multiple phones paired, a
+  `focus_session` from one changes the followed transcript for all of them.
 - No transcript sync to the cloud. Transcripts continue to live only on the
   desktop host's disk.
 - No remote terminal, no remote file browser, no remote shell execution.

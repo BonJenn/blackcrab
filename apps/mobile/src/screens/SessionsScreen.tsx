@@ -19,12 +19,15 @@ export interface SessionsScreenProps {
   status?: TransportStatus | null;
   /** Live sessions pushed by the host. Falls back to mock fixtures when null. */
   sessions?: SessionSummary[] | null;
+  /** Follow a session's transcript (sends focus_session, opens Transcript). */
+  onViewTranscript?: (session: SessionSummary) => void;
 }
 
 export function SessionsScreen({
   transport,
   status,
   sessions,
+  onViewTranscript,
 }: SessionsScreenProps) {
   const connected = status?.state === "connected" && Boolean(transport);
   const live = sessions != null;
@@ -48,6 +51,7 @@ export function SessionsScreen({
             session={item}
             transport={transport ?? null}
             connected={connected}
+            onViewTranscript={onViewTranscript}
           />
         )}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
@@ -60,10 +64,12 @@ function SessionRow({
   session,
   transport,
   connected,
+  onViewTranscript,
 }: {
   session: SessionSummary;
   transport: Transport | null;
   connected: boolean;
+  onViewTranscript?: (session: SessionSummary) => void;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -100,6 +106,18 @@ function SessionRow({
           <Text style={localStyles.badge}>
             {session.pendingApprovalCount} pending
           </Text>
+        )}
+        {connected && onViewTranscript && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onViewTranscript(session)}
+            style={({ pressed }) => [
+              localStyles.viewButton,
+              pressed && localStyles.buttonPressed,
+            ]}
+          >
+            <Text style={localStyles.viewText}>Transcript</Text>
+          </Pressable>
         )}
       </View>
       <View style={localStyles.actions}>
@@ -171,6 +189,19 @@ const localStyles = StyleSheet.create({
   },
   badge: {
     color: "#e26a4b",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  viewButton: {
+    marginLeft: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#2a2f37",
+  },
+  viewText: {
+    color: "#9aa3ad",
     fontSize: 12,
     fontWeight: "600",
   },

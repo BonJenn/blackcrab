@@ -2806,6 +2806,20 @@ async fn run_remote_command_consumer(
             RemoteCommand::Deny { approval_id, reason } => {
                 resolve_remote_approval(&sessions, &app, &approval_id, false, reason).await
             }
+            RemoteCommand::FocusSession { session_id } => {
+                let next = if session_id.trim().is_empty() {
+                    None
+                } else {
+                    Some(session_id)
+                };
+                set_focused_session(next);
+                // Push the focused transcript now so the phone updates
+                // immediately instead of waiting for the next heartbeat.
+                if let Some(transcript) = remote_transcript_event_value() {
+                    push_remote_event(transcript);
+                }
+                Ok(())
+            }
         };
         if let Err(e) = result {
             eprintln!("remote action dropped: {e}");
@@ -2980,15 +2994,38 @@ fn classify_transcript_record(record: &serde_json::Value) -> (&'static str, Stri
     }
 }
 
-/// Build the `transcript_tail` event for the most-recently-active session.
-/// There is no per-device session focus yet, so the phone follows whichever
-/// session changed most recently; a future `focus_session` action will let the
-/// user pick.
+/// The session the phone asked to follow for `transcript_tail`, or `None` to
+/// follow the most-recently-active session. Global (single user), set by a
+/// `focus_session` action.
+static FOCUSED_SESSION: OnceLock<StdMutex<Option<String>>> = OnceLock::new();
+
+fn set_focused_session(session_id: Option<String>) {
+    *FOCUSED_SESSION
+        .get_or_init(|| StdMutex::new(None))
+        .lock()
+        .unwrap() = session_id;
+}
+
+fn focused_session_id() -> Option<String> {
+    FOCUSED_SESSION
+        .get_or_init(|| StdMutex::new(None))
+        .lock()
+        .unwrap()
+        .clone()
+}
+
+/// Build the `transcript_tail` event for the focused session, or — when no
+/// focus is set or it's no longer present — the most-recently-active session.
 fn remote_transcript_event_value() -> Option<serde_json::Value> {
     let sessions = list_sessions().ok()?;
-    let top = sessions.first()?;
+    let focused = focused_session_id();
+    let target = focused
+        .as_deref()
+        .filter(|id| !id.is_empty())
+        .and_then(|id| sessions.iter().find(|s| s.id == id))
+        .or_else(|| sessions.first())?;
     let records =
-        load_session_tail(top.id.clone(), top.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
     let host_id = remote_host_id_for_pairing();
     let entries: Vec<serde_json::Value> = records
         .iter()
@@ -3000,7 +3037,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
                 .get("uuid")
                 .and_then(|u| u.as_str())
                 .map(|s| s.to_string())
-                .unwrap_or_else(|| format!("{}-{i}", top.id));
+                .unwrap_or_else(|| format!("{}-{i}", target.id));
             let created_at = record
                 .get("timestamp")
                 .and_then(|t| t.as_str())
@@ -3008,7 +3045,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
                 .to_string();
             serde_json::json!({
                 "id": id,
-                "sessionId": top.id,
+                "sessionId": target.id,
                 "kind": kind,
                 "createdAt": created_at,
                 "preview": preview,
@@ -3019,7 +3056,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
     Some(serde_json::json!({
         "type": "transcript_tail",
         "hostId": host_id,
-        "sessionId": top.id,
+        "sessionId": target.id,
         "entries": entries,
     }))
 }

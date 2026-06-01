@@ -40,6 +40,7 @@ pub(crate) enum RemoteCommand {
     StopSession { session_id: String },
     Approve { approval_id: String },
     Deny { approval_id: String, reason: Option<String> },
+    FocusSession { session_id: String },
 }
 
 /// Builds the host->mobile event bodies (each already in protocol shape) the
@@ -335,6 +336,12 @@ async fn handle_connection(
                                         RemoteCommand::Deny { approval_id, reason },
                                     );
                                 }
+                                WireMessage::FocusSession { session_id, .. } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::FocusSession { session_id },
+                                    );
+                                }
                                 // Pong and host->mobile events are ignored here.
                                 _ => {}
                             },
@@ -547,6 +554,13 @@ enum WireMessage {
         #[serde(default)]
         reason: Option<String>,
     },
+    FocusSession {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -609,6 +623,10 @@ fn _wire_uses() {
         host_id: String::new(),
         approval_id: String::new(),
         reason: None,
+    };
+    let _ = WireMessage::FocusSession {
+        host_id: String::new(),
+        session_id: String::new(),
     };
     let _ = ConnectionState::Disconnected;
     let _ = ConnectionState::Connecting;
@@ -1005,6 +1023,16 @@ mod tests {
         match env.msg {
             WireMessage::Approve { approval_id, .. } => assert_eq!(approval_id, "appr-1"),
             other => panic!("expected approve, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn envelope_round_trips_focus_session_action() {
+        let text = r#"{"v":1,"msg":{"type":"focus_session","hostId":"h","sessionId":"sess-9"}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::FocusSession { session_id, .. } => assert_eq!(session_id, "sess-9"),
+            other => panic!("expected focus_session, got {other:?}"),
         }
     }
 }

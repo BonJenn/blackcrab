@@ -196,6 +196,19 @@ impl PairingService {
         Ok(state.devices.iter().map(StoredDevice::to_public).collect())
     }
 
+    /// The base64 E2E key shared with a paired device, used to decrypt its
+    /// relay traffic. `None` if the device is unknown or was paired before
+    /// relay support (no key on record).
+    pub fn e2e_key_for_device(&self, device_id: &str) -> Option<String> {
+        let state = self.state.lock().ok()?;
+        state
+            .devices
+            .iter()
+            .find(|d| d.device_id == device_id)
+            .map(|d| d.e2e_key.clone())
+            .filter(|k| !k.is_empty())
+    }
+
     pub fn revoke_device(&self, device_id: &str) -> Result<bool, String> {
         let mut state = self.state.lock().map_err(|_| "lock poisoned".to_string())?;
         let before = state.devices.len();

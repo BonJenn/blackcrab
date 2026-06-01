@@ -185,6 +185,8 @@ export interface PairingResponse {
    * over the trusted LAN pairing channel. Present only on accept.
    */
   e2eKey?: string;
+  /** This device's id, used to address it through the relay. Accept only. */
+  deviceId?: string;
   rejectedReason?: string;
 }
 

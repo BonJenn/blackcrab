@@ -62,8 +62,26 @@ enum RelayFrame {
         /// Target device for host→device frames; ignored device→host.
         #[serde(rename = "to", default, skip_serializing_if = "Option::is_none")]
         to: Option<String>,
+        /// Source device, stamped by the relay on device→host frames so the
+        /// host knows which device's E2E key to use.
+        #[serde(rename = "from", default, skip_serializing_if = "Option::is_none")]
+        from: Option<String>,
         payload: serde_json::Value,
     },
+    /// Host-only: a device joined or left its room. Lets the host track which
+    /// devices to encrypt outbound events for.
+    Presence {
+        event: PresenceEvent,
+        #[serde(rename = "deviceId")]
+        device_id: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum PresenceEvent {
+    Joined,
+    Left,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +168,8 @@ async fn handle_connection(
     // Register into the room under the lock, then await outside it (a std
     // MutexGuard is !Send and must not cross an await). Hosts claim a room
     // exclusively; a second host for the same id is rejected (anti-squatting).
+    // We also collect presence frames to emit so the host tracks live devices.
+    let mut presence: Vec<(Tx, RelayFrame)> = Vec::new();
     let registered = {
         let mut guard = rooms.lock().unwrap();
         let room = guard.entry(host_id.clone()).or_default();
@@ -157,10 +177,17 @@ async fn handle_connection(
             Role::Host if room.host.is_some() => false,
             Role::Host => {
                 room.host = Some(tx.clone());
+                // Tell the freshly-connected host about devices already present.
+                for dev in room.devices.keys() {
+                    presence.push((tx.clone(), presence_frame(PresenceEvent::Joined, dev)));
+                }
                 true
             }
             Role::Device => {
                 room.devices.insert(device_key.clone(), tx.clone());
+                if let Some(host) = room.host.clone() {
+                    presence.push((host, presence_frame(PresenceEvent::Joined, &device_key)));
+                }
                 true
             }
         }
@@ -170,6 +197,9 @@ async fn handle_connection(
         return Ok(());
     }
     send_frame(&tx, &RelayFrame::HelloAck);
+    for (target, frame) in presence {
+        send_frame(&target, &frame);
+    }
 
     // Writer task: outbound channel -> socket.
     let writer = tokio::spawn(async move {
@@ -190,69 +220,88 @@ async fn handle_connection(
                 continue
             }
         };
-        let Ok(RelayFrame::Data { to, payload }) = serde_json::from_str::<RelayFrame>(&text) else {
+        let Ok(RelayFrame::Data { to, payload, .. }) = serde_json::from_str::<RelayFrame>(&text)
+        else {
             continue;
         };
-        route_data(&rooms, &host_id, role, to.as_deref(), payload);
+        let from_device = if role == Role::Device {
+            Some(device_key.as_str())
+        } else {
+            None
+        };
+        route_data(&rooms, &host_id, role, from_device, to.as_deref(), payload);
     }
 
-    // Deregister on disconnect.
-    {
+    // Deregister on disconnect; tell the host if a device left.
+    let left_notice = {
         let mut guard = rooms.lock().unwrap();
+        let mut notice: Option<Tx> = None;
         if let Some(room) = guard.get_mut(&host_id) {
             match role {
                 Role::Host => room.host = None,
                 Role::Device => {
                     room.devices.remove(&device_key);
+                    notice = room.host.clone();
                 }
             }
             if room.host.is_none() && room.devices.is_empty() {
                 guard.remove(&host_id);
             }
         }
+        notice
+    };
+    if let Some(host) = left_notice {
+        send_frame(&host, &presence_frame(PresenceEvent::Left, &device_key));
     }
     drop(tx);
     let _ = writer.await;
     Ok(())
 }
 
+fn presence_frame(event: PresenceEvent, device_id: &str) -> RelayFrame {
+    RelayFrame::Presence {
+        event,
+        device_id: device_id.to_string(),
+    }
+}
+
 /// Forward a `data` frame to its counterpart(s), preserving the opaque payload.
+/// Device→host frames are stamped with `from` so the host can pick the right
+/// E2E key.
 fn route_data(
     rooms: &Rooms,
     host_id: &str,
-    from: Role,
+    sender: Role,
+    from_device: Option<&str>,
     to: Option<&str>,
     payload: serde_json::Value,
 ) {
     // Collect target senders under the lock, send after releasing it.
-    let targets: Vec<(Option<String>, Tx)> = {
+    let targets: Vec<Tx> = {
         let guard = rooms.lock().unwrap();
         let Some(room) = guard.get(host_id) else {
             return;
         };
-        match from {
+        match sender {
             // device -> host
-            Role::Device => room.host.iter().map(|tx| (None, tx.clone())).collect(),
+            Role::Device => room.host.iter().cloned().collect(),
             // host -> a specific device (or every device if unaddressed)
             Role::Host => match to {
-                Some(dev) => room
-                    .devices
-                    .get(dev)
-                    .map(|tx| vec![(None, tx.clone())])
-                    .unwrap_or_default(),
-                None => room
-                    .devices
-                    .values()
-                    .map(|tx| (None, tx.clone()))
-                    .collect(),
+                Some(dev) => room.devices.get(dev).cloned().into_iter().collect(),
+                None => room.devices.values().cloned().collect(),
             },
         }
     };
-    for (_, tx) in targets {
-        send_frame(&tx, &RelayFrame::Data {
-            to: None,
-            payload: payload.clone(),
-        });
+    let from = from_device.map(|d| d.to_string());
+    for tx in targets {
+        send_frame(
+            &tx,
+            &RelayFrame::Data {
+                to: None,
+                from: from.clone(),
+                payload: payload.clone(),
+            },
+        );
     }
 }
 
@@ -322,6 +371,12 @@ mod tests {
         send(&mut device, hello_device("dev-1")).await;
         assert_eq!(next_text(&mut device).await["type"], "hello_ack");
 
+        // host learns the device joined
+        let presence = next_text(&mut host).await;
+        assert_eq!(presence["type"], "presence");
+        assert_eq!(presence["event"], "joined");
+        assert_eq!(presence["deviceId"], "dev-1");
+
         // host -> device, addressed
         send(
             &mut host,
@@ -332,7 +387,7 @@ mod tests {
         assert_eq!(got["type"], "data");
         assert_eq!(got["payload"]["ciphertext"], "c");
 
-        // device -> host
+        // device -> host, stamped with the source device id
         send(
             &mut device,
             serde_json::json!({"type":"data","payload":{"nonce":"n2","ciphertext":"c2"}}),
@@ -340,6 +395,26 @@ mod tests {
         .await;
         let got = next_text(&mut host).await;
         assert_eq!(got["payload"]["ciphertext"], "c2");
+        assert_eq!(got["from"], "dev-1");
+    }
+
+    #[tokio::test]
+    async fn host_is_notified_when_a_device_leaves() {
+        let port = start_relay("secret").await;
+        let mut host = connect(port).await;
+        send(&mut host, hello_host("secret")).await;
+        assert_eq!(next_text(&mut host).await["type"], "hello_ack");
+
+        let mut device = connect(port).await;
+        send(&mut device, hello_device("dev-9")).await;
+        assert_eq!(next_text(&mut device).await["type"], "hello_ack");
+        assert_eq!(next_text(&mut host).await["event"], "joined");
+
+        drop(device); // disconnect
+        let left = next_text(&mut host).await;
+        assert_eq!(left["type"], "presence");
+        assert_eq!(left["event"], "left");
+        assert_eq!(left["deviceId"], "dev-9");
     }
 
     #[tokio::test]

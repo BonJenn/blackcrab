@@ -48,6 +48,7 @@ export interface LanWebSocketTransportConfig {
     remoteToken: string;
     hostId: HostId;
     e2eKey?: string;
+    deviceId?: string;
   }) => void;
   /** Fired when the desktop rejects either handshake. Transport stops. */
   onFatalReject?: (reason: string) => void;
@@ -285,6 +286,7 @@ export class LanWebSocketTransport implements Transport {
         remoteToken: msg.remoteToken,
         hostId: msg.hostId,
         e2eKey: msg.e2eKey,
+        deviceId: msg.deviceId,
       });
       this.onAuthenticated(msg.hostId);
       return;

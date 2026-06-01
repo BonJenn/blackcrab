@@ -11,6 +11,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
+use tokio::sync::broadcast;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 
@@ -533,6 +534,21 @@ mod tests {
 
         let result = serde_json::json!({ "type": "result", "subtype": "success" });
         assert_eq!(classify_transcript_record(&result).0, "system_notice");
+    }
+
+    #[test]
+    fn approval_kind_and_summary_map_tools() {
+        assert_eq!(approval_kind_for_tool("Bash"), "shell_command");
+        assert_eq!(approval_kind_for_tool("Edit"), "file_write");
+        assert_eq!(approval_kind_for_tool("WebFetch"), "network_request");
+        assert_eq!(approval_kind_for_tool("Grep"), "tool_call");
+
+        let input = serde_json::json!({ "command": "npm test" });
+        assert_eq!(approval_summary("Bash", &input), "Bash: npm test");
+        assert_eq!(
+            approval_summary("Read", &serde_json::json!({})),
+            "Read".to_string()
+        );
     }
 
     #[tokio::test]
@@ -1119,6 +1135,8 @@ async fn start_session(
                     }
                 }
             }
+            // Surface permission prompts to any paired phone.
+            register_remote_approval(&pid_out, claimed.as_deref(), &line);
             let _ = app_out.emit(
                 "claude-event",
                 serde_json::json!({ "panel_id": pid_out, "line": line }),
@@ -1214,21 +1232,19 @@ async fn send_message(
     deliver_user_message(&state.sessions, &panel_id, &text).await
 }
 
-/// Writes an arbitrary JSON line to the panel's subprocess stdin. Used
-/// for control_response (answering Claude's permission prompts) and for
-/// control_request (e.g. mid-session set_permission_mode changes).
-#[tauri::command]
-async fn send_raw(
-    state: State<'_, AppState>,
-    panel_id: String,
-    line: String,
+/// Write an arbitrary (already-framed) line to a panel's subprocess stdin.
+/// Shared by the `send_raw` command and the remote approval consumer.
+async fn deliver_raw_line(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: &str,
+    line: &str,
 ) -> Result<(), String> {
-    let mut guard = state.sessions.lock().await;
+    let mut guard = sessions.lock().await;
     let session = guard
-        .get_mut(&panel_id)
+        .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
     let body = if line.ends_with('\n') {
-        line
+        line.to_string()
     } else {
         format!("{}\n", line)
     };
@@ -1238,6 +1254,22 @@ async fn send_raw(
         .await
         .map_err(|e| e.to_string())?;
     session.stdin.flush().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Writes an arbitrary JSON line to the panel's subprocess stdin. Used
+/// for control_response (answering Claude's permission prompts) and for
+/// control_request (e.g. mid-session set_permission_mode changes).
+#[tauri::command]
+async fn send_raw(
+    state: State<'_, AppState>,
+    panel_id: String,
+    line: String,
+) -> Result<(), String> {
+    deliver_raw_line(&state.sessions, &panel_id, &line).await?;
+    // If the desktop just answered a permission prompt, drop it from the
+    // remote registry and tell paired phones so their list stays in sync.
+    note_local_control_response(&line);
     Ok(())
 }
 
@@ -2740,6 +2772,7 @@ async fn run_remote_command_consumer(
     mut rx: UnboundedReceiver<RemoteCommand>,
     sessions: Arc<Mutex<HashMap<String, Session>>>,
     session_owners: Arc<Mutex<HashMap<String, String>>>,
+    app: AppHandle,
 ) {
     while let Some(command) = rx.recv().await {
         let result = match command {
@@ -2757,6 +2790,12 @@ async fn run_remote_command_consumer(
                     }
                     None => Err(format!("no live session for {session_id}")),
                 }
+            }
+            RemoteCommand::Approve { approval_id } => {
+                resolve_remote_approval(&sessions, &app, &approval_id, true, None).await
+            }
+            RemoteCommand::Deny { approval_id, reason } => {
+                resolve_remote_approval(&sessions, &app, &approval_id, false, reason).await
             }
         };
         if let Err(e) = result {
@@ -2976,6 +3015,197 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
     }))
 }
 
+// ---------------------------------------------------------------------------
+// Remote approvals: forward Claude's permission prompts to paired phones and
+// answer them from a phone's approve/deny, reusing the desktop's existing
+// control_response path. Works whether or not the desktop window is focused.
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+struct PendingApproval {
+    panel_id: String,
+    session_id: String,
+    request_id: String,
+    tool_name: String,
+    input: serde_json::Value,
+    requested_at_ms: u128,
+}
+
+/// Permission prompts awaiting an answer, keyed by Claude's `request_id` (which
+/// we also use as the protocol `approvalId`).
+static PENDING_APPROVALS: OnceLock<Arc<StdMutex<HashMap<String, PendingApproval>>>> =
+    OnceLock::new();
+/// Real-time host->mobile push channel; transport connections subscribe to it.
+static REMOTE_BROADCAST: OnceLock<broadcast::Sender<serde_json::Value>> = OnceLock::new();
+
+fn pending_approvals() -> Arc<StdMutex<HashMap<String, PendingApproval>>> {
+    PENDING_APPROVALS
+        .get_or_init(|| Arc::new(StdMutex::new(HashMap::new())))
+        .clone()
+}
+
+/// Push a host->mobile event to all connected phones. A send error only means
+/// no phone is currently listening, which is fine.
+fn push_remote_event(value: serde_json::Value) {
+    if let Some(tx) = REMOTE_BROADCAST.get() {
+        let _ = tx.send(value);
+    }
+}
+
+fn approval_kind_for_tool(tool: &str) -> &'static str {
+    match tool {
+        "Bash" => "shell_command",
+        "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => "file_write",
+        "WebFetch" | "WebSearch" => "network_request",
+        _ => "tool_call",
+    }
+}
+
+/// A short, phone-friendly description of what's being approved.
+fn approval_summary(tool: &str, input: &serde_json::Value) -> String {
+    let detail = ["command", "file_path", "path", "url"]
+        .iter()
+        .find_map(|key| input.get(*key).and_then(|v| v.as_str()));
+    match detail {
+        Some(d) => {
+            let (preview, _) = truncate_preview(d);
+            format!("{tool}: {preview}")
+        }
+        None => tool.to_string(),
+    }
+}
+
+fn approval_requested_value(approval: &PendingApproval) -> serde_json::Value {
+    serde_json::json!({
+        "type": "approval_requested",
+        "approval": {
+            "id": approval.request_id,
+            "hostId": remote_host_id_for_pairing(),
+            "sessionId": approval.session_id,
+            "kind": approval_kind_for_tool(&approval.tool_name),
+            "summary": approval_summary(&approval.tool_name, &approval.input),
+            "requestedAt": epoch_ms_to_iso8601(approval.requested_at_ms),
+        }
+    })
+}
+
+fn approval_resolved_value(approval_id: &str, resolution: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "approval_resolved",
+        "approvalId": approval_id,
+        "resolution": resolution,
+    })
+}
+
+/// Record a `can_use_tool` control-request seen on a session's stdout and push
+/// it to paired phones. No-op for any other line.
+fn register_remote_approval(panel_id: &str, session_id: Option<&str>, line: &str) {
+    if !line.contains("\"can_use_tool\"") {
+        return;
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return;
+    };
+    if v.get("type").and_then(|x| x.as_str()) != Some("control_request") {
+        return;
+    }
+    let Some(req) = v.get("request") else { return };
+    if req.get("subtype").and_then(|x| x.as_str()) != Some("can_use_tool") {
+        return;
+    }
+    let request_id = match v.get("request_id").and_then(|x| x.as_str()) {
+        Some(id) if !id.is_empty() => id.to_string(),
+        _ => return,
+    };
+    let approval = PendingApproval {
+        panel_id: panel_id.to_string(),
+        session_id: session_id.unwrap_or("").to_string(),
+        request_id: request_id.clone(),
+        tool_name: req
+            .get("tool_name")
+            .and_then(|x| x.as_str())
+            .unwrap_or("unknown")
+            .to_string(),
+        input: req.get("input").cloned().unwrap_or_else(|| serde_json::json!({})),
+        requested_at_ms: now_unix_ms(),
+    };
+    pending_approvals()
+        .lock()
+        .unwrap()
+        .insert(request_id, approval.clone());
+    push_remote_event(approval_requested_value(&approval));
+}
+
+/// Answer a pending approval from a phone: write the control_response the same
+/// way the desktop UI does, drop it from the registry, tell phones it's gone,
+/// and dismiss the desktop's prompt for it.
+async fn resolve_remote_approval(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    app: &AppHandle,
+    approval_id: &str,
+    allow: bool,
+    reason: Option<String>,
+) -> Result<(), String> {
+    let approval = pending_approvals()
+        .lock()
+        .unwrap()
+        .remove(approval_id)
+        .ok_or_else(|| format!("no pending approval {approval_id}"))?;
+    let response = if allow {
+        serde_json::json!({ "behavior": "allow", "updated_input": approval.input })
+    } else {
+        serde_json::json!({
+            "behavior": "deny",
+            "message": reason.unwrap_or_else(|| "denied from mobile".to_string()),
+        })
+    };
+    let control = serde_json::json!({
+        "type": "control_response",
+        "response": {
+            "request_id": approval.request_id,
+            "subtype": "success",
+            "response": response,
+        }
+    });
+    deliver_raw_line(sessions, &approval.panel_id, &control.to_string()).await?;
+    push_remote_event(approval_resolved_value(
+        approval_id,
+        if allow { "approved" } else { "denied" },
+    ));
+    let _ = app.emit(
+        "blackcrab-remote-permission-resolved",
+        serde_json::json!({ "panel_id": approval.panel_id, "request_id": approval.request_id }),
+    );
+    Ok(())
+}
+
+/// When the desktop UI answers a prompt via `send_raw`, mirror that into the
+/// remote registry so paired phones see the approval disappear too.
+fn note_local_control_response(line: &str) {
+    if !line.contains("control_response") {
+        return;
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return;
+    };
+    if v.get("type").and_then(|x| x.as_str()) != Some("control_response") {
+        return;
+    }
+    let response = v.get("response");
+    let request_id = match response.and_then(|r| r.get("request_id")).and_then(|x| x.as_str()) {
+        Some(id) => id.to_string(),
+        None => return,
+    };
+    if pending_approvals().lock().unwrap().remove(&request_id).is_some() {
+        let behavior = response
+            .and_then(|r| r.get("response"))
+            .and_then(|x| x.get("behavior"))
+            .and_then(|x| x.as_str());
+        let resolution = if behavior == Some("deny") { "denied" } else { "approved" };
+        push_remote_event(approval_resolved_value(&request_id, resolution));
+    }
+}
+
 /// The host->mobile events pushed on connect and each heartbeat tick.
 fn remote_event_snapshot() -> Vec<serde_json::Value> {
     let mut events = Vec::new();
@@ -2984,6 +3214,12 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
     }
     if let Some(transcript) = remote_transcript_event_value() {
         events.push(transcript);
+    }
+    // Outstanding approvals, so a phone that connects mid-prompt catches up.
+    let pending: Vec<PendingApproval> =
+        pending_approvals().lock().unwrap().values().cloned().collect();
+    for approval in &pending {
+        events.push(approval_requested_value(approval));
     }
     events
 }
@@ -2994,6 +3230,7 @@ fn remote_hooks() -> crate::transport::RemoteHooks {
     crate::transport::RemoteHooks {
         commands: REMOTE_CMD_TX.get().cloned(),
         events: Some(Arc::new(remote_event_snapshot)),
+        broadcast: REMOTE_BROADCAST.get().cloned(),
     }
 }
 
@@ -3091,7 +3328,17 @@ pub fn run() {
             let session_owners = state.session_owners.clone();
             let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
             let _ = REMOTE_CMD_TX.set(tx);
-            tauri::async_runtime::spawn(run_remote_command_consumer(rx, sessions, session_owners));
+            // Real-time host->mobile push channel (approvals); the initial
+            // receiver is dropped — connections subscribe to the sender.
+            let (bcast, _bcast_rx) = broadcast::channel::<serde_json::Value>(64);
+            let _ = REMOTE_BROADCAST.set(bcast);
+            let consumer_app = app.handle().clone();
+            tauri::async_runtime::spawn(run_remote_command_consumer(
+                rx,
+                sessions,
+                session_owners,
+                consumer_app,
+            ));
 
             tauri::async_runtime::spawn(async move {
                 let pairing = match pairing_service() {

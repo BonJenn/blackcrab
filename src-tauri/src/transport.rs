@@ -18,6 +18,7 @@ use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
+use tokio::sync::broadcast;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 use tokio::time::{interval, timeout};
@@ -37,6 +38,8 @@ const PING_INTERVAL: Duration = Duration::from_secs(15);
 pub(crate) enum RemoteCommand {
     SendMessage { session_id: String, body: String },
     StopSession { session_id: String },
+    Approve { approval_id: String },
+    Deny { approval_id: String, reason: Option<String> },
 }
 
 /// Builds the host->mobile event bodies (each already in protocol shape) the
@@ -53,6 +56,9 @@ pub(crate) struct RemoteHooks {
     pub commands: Option<UnboundedSender<RemoteCommand>>,
     /// Produces the event bodies to push on connect and each tick.
     pub events: Option<EventSnapshot>,
+    /// Real-time host->mobile events (e.g. approvals). Each connection
+    /// subscribes and forwards received bodies to its socket.
+    pub broadcast: Option<broadcast::Sender<serde_json::Value>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -240,6 +246,10 @@ async fn handle_connection(
         return Ok(());
     }
 
+    // Subscribe before sending the snapshot so a real-time push that races the
+    // snapshot is buffered on the receiver rather than dropped.
+    let mut pushes = hooks.broadcast.as_ref().map(|tx| tx.subscribe());
+
     // Announce connection state to the client.
     send_envelope(
         &mut sink,
@@ -265,6 +275,13 @@ async fn handle_connection(
     let mut next_seq: u64 = 1;
     loop {
         tokio::select! {
+            pushed = next_broadcast(&mut pushes) => {
+                if let Some(body) = pushed {
+                    if send_event_value(&mut sink, body).await.is_err() {
+                        break;
+                    }
+                }
+            }
             _ = heartbeat.tick() => {
                 let seq = next_seq;
                 next_seq += 1;
@@ -306,8 +323,19 @@ async fn handle_connection(
                                         RemoteCommand::StopSession { session_id },
                                     );
                                 }
-                                // Pong, host->mobile events, and not-yet-handled
-                                // actions (approve/deny) are ignored here.
+                                WireMessage::Approve { approval_id, .. } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::Approve { approval_id },
+                                    );
+                                }
+                                WireMessage::Deny { approval_id, reason, .. } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::Deny { approval_id, reason },
+                                    );
+                                }
+                                // Pong and host->mobile events are ignored here.
                                 _ => {}
                             },
                             _ => continue,
@@ -325,6 +353,22 @@ async fn handle_connection(
 
     let _ = sink.close().await;
     Ok(())
+}
+
+/// Await the next broadcast push, if this connection has a receiver. Lagged
+/// receivers skip the dropped messages (returns `None`, loop continues); a
+/// closed channel or absent receiver parks forever so `select!` ignores it.
+async fn next_broadcast(
+    rx: &mut Option<broadcast::Receiver<serde_json::Value>>,
+) -> Option<serde_json::Value> {
+    match rx {
+        Some(r) => match r.recv().await {
+            Ok(value) => Some(value),
+            Err(broadcast::error::RecvError::Lagged(_)) => None,
+            Err(broadcast::error::RecvError::Closed) => std::future::pending().await,
+        },
+        None => std::future::pending().await,
+    }
 }
 
 /// Ask the host for the current host->mobile event snapshot, if a provider is
@@ -487,6 +531,22 @@ enum WireMessage {
         #[serde(rename = "sessionId")]
         session_id: String,
     },
+    Approve {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "approvalId")]
+        approval_id: String,
+    },
+    Deny {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "approvalId")]
+        approval_id: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -540,6 +600,15 @@ fn _wire_uses() {
     let _ = WireMessage::StopSession {
         host_id: String::new(),
         session_id: String::new(),
+    };
+    let _ = WireMessage::Approve {
+        host_id: String::new(),
+        approval_id: String::new(),
+    };
+    let _ = WireMessage::Deny {
+        host_id: String::new(),
+        approval_id: String::new(),
+        reason: None,
     };
     let _ = ConnectionState::Disconnected;
     let _ = ConnectionState::Connecting;
@@ -867,5 +936,75 @@ mod tests {
         assert_eq!(body["msg"]["sessions"][0]["sessionId"], "sess-1");
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn broadcast_pushes_reach_authenticated_clients() {
+        let path = tmp_path();
+        let _ = std::fs::remove_file(&path);
+        let pairing = Arc::new(PairingService::load(path.clone()).unwrap());
+        let start = pairing
+            .start_pairing(crate::pairing::now_unix_ms(), PAIRING_DEFAULT_TTL_SECS)
+            .unwrap();
+
+        let (bcast, _keep) = broadcast::channel::<serde_json::Value>(16);
+        let server = Arc::new(TransportServer::new());
+        let hooks = RemoteHooks {
+            broadcast: Some(bcast.clone()),
+            ..Default::default()
+        };
+        let endpoint = server.start(pairing.clone(), hooks).await.unwrap();
+        let url = format!("ws://127.0.0.1:{}/", endpoint.port);
+        let req = url.into_client_request().unwrap();
+        let (mut ws, _resp) = tokio_tungstenite::connect_async(req).await.unwrap();
+
+        use futures_util::{SinkExt, StreamExt};
+        let pair_req = serde_json::to_string(&Envelope {
+            v: PROTOCOL_VERSION,
+            msg: WireMessage::PairingRequest {
+                code: start.code.clone(),
+                device_name: "Phone".into(),
+                requested_at: "2026-05-18T18:00:00Z".into(),
+            },
+        })
+        .unwrap();
+        ws.send(WsMessage::Text(pair_req.into())).await.unwrap();
+
+        // Drain pairing_response + connection_status, then broadcast.
+        for _ in 0..2 {
+            let _ = ws.next().await.unwrap().unwrap();
+        }
+        bcast
+            .send(serde_json::json!({
+                "type": "approval_requested",
+                "approval": { "id": "appr-1" }
+            }))
+            .unwrap();
+
+        let body = timeout(Duration::from_secs(2), async {
+            loop {
+                if let WsMessage::Text(t) = ws.next().await.unwrap().unwrap() {
+                    let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                    if v["msg"]["type"] == "approval_requested" {
+                        return v;
+                    }
+                }
+            }
+        })
+        .await
+        .expect("broadcast should arrive");
+        assert_eq!(body["msg"]["approval"]["id"], "appr-1");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn envelope_round_trips_approve_action() {
+        let text = r#"{"v":1,"msg":{"type":"approve","hostId":"h","approvalId":"appr-1"}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::Approve { approval_id, .. } => assert_eq!(approval_id, "appr-1"),
+            other => panic!("expected approve, got {other:?}"),
+        }
     }
 }

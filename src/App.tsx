@@ -74,6 +74,7 @@ import {
   type SavedLayout,
 } from "./layouts";
 import { commandMatchesQuery, type PaletteCommand } from "./palette";
+import { entriesSignature, sessionStatusLabel } from "./sessionStatus";
 import "./App.css";
 
 const TerminalPanel = lazy(() =>
@@ -1486,6 +1487,14 @@ function App() {
     sessionCwd: string;
     ownerPanelId: string;
   } | null>(null);
+  // When set, the active view is observing a session that another panel owns —
+  // transcript is live-tailed from disk, no subprocess is started, and the
+  // composer is disabled. Cleared on any live resume / new session.
+  const [readOnlySession, setReadOnlySession] = useState<{
+    sessionId: string;
+    cwd: string;
+    ownerPanelId: string;
+  } | null>(null);
   const [stderrLines, setStderrLines] = useState<string[]>([]);
   const [showStderr, setShowStderr] = useState(false);
   const appendDiagnosticLine = useCallback((line: string) => {
@@ -1547,6 +1556,10 @@ function App() {
     setSidebarSelectedSessionId(id);
     _setActiveSessionIdState(id);
   }, []);
+  // True while the active view is observing a read-only session. Tied to the
+  // active session id so navigating away from it implicitly ends read-only.
+  const readOnly =
+    !!readOnlySession && readOnlySession.sessionId === activeSessionId;
   const markSessionActivity = useCallback(
     (id: string | undefined, state: SessionActivityState, text?: string) => {
       if (!id) return;
@@ -4053,6 +4066,7 @@ function App() {
   }
 
   function resetSessionState() {
+    setReadOnlySession(null);
     // Switch to the scratch slot first so the ref mirrored inside
     // setEntries doesn't still point at the session we're leaving —
     // otherwise setEntries([]) below would wipe the kept-alive copy.
@@ -4390,7 +4404,16 @@ function App() {
     }
   }
 
-  async function resumeSession(sessionId: string, sessionCwd: string) {
+  async function resumeSession(
+    sessionId: string,
+    sessionCwd: string,
+    opts: { readOnly?: boolean; ownerPanelId?: string } = {},
+  ) {
+    setReadOnlySession(
+      opts.readOnly
+        ? { sessionId, cwd: sessionCwd, ownerPanelId: opts.ownerPanelId ?? "" }
+        : null,
+    );
     const panelId =
       sessionPanelIdsRef.current.get(sessionId) ??
       singlePanelIdForSession(sessionId);
@@ -4501,21 +4524,58 @@ function App() {
       : new Promise<void>((resolve) => {
           releaseStartGate = resolve;
         });
-    const activeStartPromise = (async () => {
-      await startGate;
-      if (!isLatest()) return;
-      // setPermissionMode above hasn't flushed yet, so send the
-      // session's own permission mode to start_session directly.
-      await startPanelSession({
-        panelId,
-        panelCwd: useCwd,
-        panelPermissionMode: sessionPermissionMode || permissionMode,
-        panelModel: normalizeModelValue(sessionModel) ?? normalizeModelValue(model),
-        resumeId: sessionId,
+    // Read-only observers render and live-tail the transcript but never start a
+    // subprocess or reserve ownership — so the backend single-writer lock and
+    // the owning panel are left untouched.
+    if (!opts.readOnly) {
+      const activeStartPromise = (async () => {
+        await startGate;
+        if (!isLatest()) return;
+        // setPermissionMode above hasn't flushed yet, so send the
+        // session's own permission mode to start_session directly.
+        await startPanelSession({
+          panelId,
+          panelCwd: useCwd,
+          panelPermissionMode: sessionPermissionMode || permissionMode,
+          panelModel:
+            normalizeModelValue(sessionModel) ?? normalizeModelValue(model),
+          resumeId: sessionId,
+        });
+      })();
+      if (activePanelIdRef.current === panelId) {
+        startPromiseRef.current = activeStartPromise;
+      }
+      activeStartPromise.then(() => {
+        if (isLatest()) log("subprocess ready");
       });
-    })();
-    if (activePanelIdRef.current === panelId) {
-      startPromiseRef.current = activeStartPromise;
+      activeStartPromise
+        .catch((e) => {
+          if (!isLatest()) return;
+          setPanelOn(panelId, false);
+          // A single-writer rejection isn't a failure to surface as an error —
+          // the session is alive elsewhere. Roll back the optimistic local panel
+          // state (done above) and let the conflict dialog offer a safe action.
+          const busyConflict = parseSessionBusyError(e);
+          if (busyConflict) {
+            setConflict({
+              sessionId,
+              sessionCwd,
+              ownerPanelId: busyConflict.ownerPanelId,
+            });
+            return;
+          }
+          markSessionActivity(sessionId, "error", "failed to start");
+          setEntriesForTranscript(sessionId, (es) => [
+            ...es,
+            { kind: "system", id: randomId(), text: `failed to start: ${e}` },
+          ]);
+          notifyErr("failed to start session")(e);
+        })
+        .finally(() => {
+          if (startPromiseRef.current === activeStartPromise) {
+            startPromiseRef.current = null;
+          }
+        });
     }
     setTimeout(() => inputRef.current?.focus(), 0);
     log(
@@ -4524,37 +4584,6 @@ function App() {
         : "synchronous-batch done; loading history before start",
     );
     requestAnimationFrame(() => log("first paint after click"));
-    activeStartPromise.then(() => {
-      if (isLatest()) log("subprocess ready");
-    });
-    activeStartPromise
-      .catch((e) => {
-        if (!isLatest()) return;
-        setPanelOn(panelId, false);
-        // A single-writer rejection isn't a failure to surface as an error —
-        // the session is alive elsewhere. Roll back the optimistic local panel
-        // state (done above) and let the conflict dialog offer a safe action.
-        const busyConflict = parseSessionBusyError(e);
-        if (busyConflict) {
-          setConflict({
-            sessionId,
-            sessionCwd,
-            ownerPanelId: busyConflict.ownerPanelId,
-          });
-          return;
-        }
-        markSessionActivity(sessionId, "error", "failed to start");
-        setEntriesForTranscript(sessionId, (es) => [
-          ...es,
-          { kind: "system", id: randomId(), text: `failed to start: ${e}` },
-        ]);
-        notifyErr("failed to start session")(e);
-      })
-      .finally(() => {
-        if (startPromiseRef.current === activeStartPromise) {
-          startPromiseRef.current = null;
-        }
-      });
 
     if (!cacheHit) {
       try {
@@ -4609,6 +4638,60 @@ function App() {
     }
 
   }
+
+  // Live-tail a read-only session by polling its on-disk transcript. The owning
+  // Claude CLI appends to the .jsonl as it runs, so re-reading the tail surfaces
+  // new turns without a subprocess or ownership here. Only re-renders when the
+  // tail actually changed (entriesSignature).
+  const readOnlyTailSigRef = useRef("");
+  useEffect(() => {
+    if (!readOnly || !readOnlySession || !activeSessionId) return;
+    const { sessionId, cwd } = readOnlySession;
+    let cancelled = false;
+    let inFlight = false;
+    readOnlyTailSigRef.current = "";
+    const poll = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const [events, repo] = await Promise.all([
+          invoke<Array<Record<string, unknown>>>("load_session_tail", {
+            sessionId,
+            cwd,
+            limit: SESSION_TAIL_LIMIT,
+          }),
+          getGithubRepo(cwd),
+        ]);
+        if (cancelled) return;
+        const { entries: history, toolUseMap } = buildHistory(events, repo, {
+          precompileMarkdown: false,
+        });
+        const sig = entriesSignature(history);
+        if (sig === readOnlyTailSigRef.current) return;
+        readOnlyTailSigRef.current = sig;
+        const map = new Map(toolUseMap);
+        transcriptToolUseMapsRef.current.set(sessionId, map);
+        setToolUseMapForPanel(sessionId, map);
+        setEntriesForTranscript(sessionId, history);
+      } catch {
+        // Best-effort; keep polling. A transient read error shouldn't kill the tail.
+      } finally {
+        inFlight = false;
+      }
+    };
+    void poll();
+    const handle = window.setInterval(poll, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [
+    readOnly,
+    readOnlySession,
+    activeSessionId,
+    setEntriesForTranscript,
+    setToolUseMapForPanel,
+  ]);
 
   async function stopSession() {
     const panelId = activePanelIdRef.current;
@@ -4721,6 +4804,7 @@ function App() {
   async function send() {
     const text = input.trim();
     if ((!text && attachments.length === 0) || busy) return;
+    if (readOnly) return; // observing another panel's session; can't reply here
     const panelId = activePanelIdRef.current;
     requestSidebarEngagementTop(activeSessionIdRef.current);
 
@@ -5604,6 +5688,13 @@ function App() {
                 );
                 setConflict(null);
               }}
+              onObserve={() => {
+                void resumeSession(conflict.sessionId, conflict.sessionCwd, {
+                  readOnly: true,
+                  ownerPanelId,
+                });
+                setConflict(null);
+              }}
               onCancel={() => setConflict(null)}
             />
           );
@@ -6175,6 +6266,32 @@ function App() {
               ))}
             </div>
           )}
+          {readOnly && readOnlySession && (
+            <div className="readonly-banner">
+              <span>
+                Read-only — this conversation is running in{" "}
+                {describePanelLocation(
+                  readOnlySession.ownerPanelId,
+                  gridPanels,
+                  panelSessionIds,
+                )}
+                . Updates appear automatically.
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() =>
+                  openSessionInSingleMode(
+                    readOnlySession.sessionId,
+                    readOnlySession.cwd,
+                    readOnlySession.ownerPanelId,
+                  )
+                }
+              >
+                Take over here
+              </button>
+            </div>
+          )}
           <div className="composer-row">
             <textarea
               ref={inputRef}
@@ -6194,8 +6311,12 @@ function App() {
               }}
               onBlur={() => setMentionQuery(null)}
               onKeyDown={onKeyDown}
-              placeholder="message Claude…  (Enter to send, Shift+Enter for newline; drop files anywhere; type @ for file autocomplete)"
-              disabled={busy}
+              placeholder={
+                readOnly
+                  ? "Read-only — take over this conversation to reply."
+                  : "message Claude…  (Enter to send, Shift+Enter for newline; drop files anywhere; type @ for file autocomplete)"
+              }
+              disabled={busy || readOnly}
               rows={3}
             />
             {busy ? (
@@ -6207,7 +6328,9 @@ function App() {
                 <button
                   className="btn btn-handoff"
                   onClick={() => void startInlineComputerUse()}
-                  disabled={!input.trim() && attachments.length === 0}
+                  disabled={
+                    readOnly || (!input.trim() && attachments.length === 0)
+                  }
                   title="hand off this task to an interactive computer-use session"
                 >
                   GUI
@@ -6215,7 +6338,9 @@ function App() {
                 <button
                   className="btn btn-send"
                   onClick={send}
-                  disabled={!input.trim() && attachments.length === 0}
+                  disabled={
+                    readOnly || (!input.trim() && attachments.length === 0)
+                  }
                 >
                   send
                 </button>
@@ -6388,8 +6513,12 @@ function App() {
 
         <div className="statusbar">
           <div className="status-left">
-            <span className={`dot ${sessionOn ? "on" : "off"}`} />
-            <span className="status-primary">{busy ? "running" : sessionOn ? "connected" : "idle"}</span>
+            <span
+              className={`dot ${readOnly ? "readonly" : sessionOn ? "on" : "off"}`}
+            />
+            <span className="status-primary">
+              {sessionStatusLabel({ busy, sessionOn, readOnly })}
+            </span>
             {sessionMeta?.sessionId && (
               <span className="status-chip">{sessionMeta.sessionId.slice(0, 8)}</span>
             )}
@@ -11133,6 +11262,7 @@ function SessionConflictDialog({
   canFocus,
   onFocus,
   onHandoff,
+  onObserve,
   onCancel,
 }: {
   sessionTitle: string;
@@ -11140,6 +11270,7 @@ function SessionConflictDialog({
   canFocus: boolean;
   onFocus: () => void;
   onHandoff: () => void;
+  onObserve: () => void;
   onCancel: () => void;
 }) {
   useEffect(() => {
@@ -11168,12 +11299,15 @@ function SessionConflictDialog({
         </p>
         <p>
           {canFocus
-            ? "Go to where it's open, or take it over in this view."
-            : "Take it over to move it into this view."}
+            ? "Go to where it's open, view it read-only here, or take it over."
+            : "View it read-only here, or take it over to move it into this view."}
         </p>
         <div className="auth-error-actions">
           <button type="button" className="btn btn-secondary" onClick={onCancel}>
             Cancel
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={onObserve}>
+            View read-only
           </button>
           {canFocus && (
             <button type="button" className="btn btn-primary" onClick={onFocus}>

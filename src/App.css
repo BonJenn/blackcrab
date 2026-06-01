@@ -4649,6 +4649,25 @@ details[open] > .tool-result-fold-summary .tool-result-fold-preview {
 
 .dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 .dot.off { background: var(--text-faint); }
+.dot.readonly { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+.readonly-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.readonly-banner .btn {
+  flex-shrink: 0;
+}
 
 .meta {
   margin-left: 2px;

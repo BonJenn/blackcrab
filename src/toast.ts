@@ -2,6 +2,8 @@
 // without threading a context through every component tree. A single
 // ToastHost mounted near the app root subscribes and renders.
 
+import { recordCommandFailure } from "./commandFailures";
+
 export type ToastKind = "error" | "info" | "success";
 
 export type Toast = {
@@ -41,6 +43,8 @@ export function notifyErr(prefix: string): (e: unknown) => void {
           ? e.message
           : String(e);
     notify(`${prefix}: ${detail}`, "error");
+    // Keep a copyable record for the Diagnostics view; the toast is transient.
+    recordCommandFailure(prefix, detail);
     console.error(prefix, e);
   };
 }

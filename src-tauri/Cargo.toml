@@ -36,3 +36,7 @@ getrandom = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+
+[dev-dependencies]
+# Used only by the relay-client integration test to spin up a real relay.
+blackcrab-relay = { path = "../apps/relay" }

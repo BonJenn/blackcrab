@@ -1,5 +1,6 @@
 mod crypto;
 mod pairing;
+mod relay_client;
 mod transport;
 
 use std::collections::HashMap;
@@ -3419,6 +3420,36 @@ fn remote_hooks() -> crate::transport::RemoteHooks {
     }
 }
 
+/// Start the outbound relay client when `BLACKCRAB_RELAY_URL` and
+/// `BLACKCRAB_RELAY_TOKEN` are both set. No-op otherwise (LAN-only).
+fn maybe_start_relay_client() {
+    let url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+    let token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
+    if url.is_empty() || token.is_empty() {
+        return;
+    }
+    let (Some(commands), Some(broadcast)) =
+        (REMOTE_CMD_TX.get().cloned(), REMOTE_BROADCAST.get().cloned())
+    else {
+        eprintln!("relay client: channels not ready; skipping");
+        return;
+    };
+    let client = relay_client::RelayClient {
+        url,
+        token,
+        host_id: remote_host_id_for_pairing(),
+        commands,
+        key_for_device: Arc::new(|device_id: &str| {
+            pairing_service()
+                .ok()
+                .and_then(|svc| svc.e2e_key_for_device(device_id))
+        }),
+        events: Arc::new(remote_event_snapshot),
+        broadcast,
+    };
+    tauri::async_runtime::spawn(client.run());
+}
+
 #[tauri::command]
 async fn remote_transport_info() -> Result<TransportEndpoint, String> {
     let server = transport_server();
@@ -3539,6 +3570,11 @@ pub fn run() {
                     eprintln!("transport: failed to start: {e}");
                 }
             });
+
+            // Optional outbound relay client: only when both env vars are set.
+            // Lets paired phones reach this host off-LAN; the LAN server is
+            // unaffected.
+            maybe_start_relay_client();
             Ok(())
         })
         .run(tauri::generate_context!())

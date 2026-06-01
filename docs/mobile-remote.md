@@ -159,16 +159,28 @@ foundation is in place:
   and the relay forwards opaque `data` frames host↔device. It only sees
   `{hostId, deviceId, nonce, ciphertext}` routing metadata. A `RELAY_TOKEN`
   gates room creation (anti‑squatting); end‑to‑end encryption is the real
-  access control. Deploy it behind a `wss://` TLS proxy.
+  access control. It stamps device→host frames with the source `deviceId` (so
+  the host knows which key to use) and notifies the host of device join/leave.
+  Deploy it behind a `wss://` TLS proxy.
+- **The desktop relay client** (`src-tauri/src/relay_client.rs`) connects out to
+  the relay when `BLACKCRAB_RELAY_URL` and `BLACKCRAB_RELAY_TOKEN` are set
+  (off by default; the LAN server is unaffected). It claims its room, then
+  bridges the relay into the *same* in‑process machinery the LAN transport
+  uses: it decrypts each device's actions (keyed by the `from` deviceId via the
+  pairing service) into the shared `RemoteCommand` channel, and encrypts the
+  snapshot/broadcast events per device — so one desktop serves LAN and relay
+  clients through one set of session/approval logic.
 
-Still to come: the desktop/mobile relay **clients** and off‑LAN connect UX,
-then reconnect/failover between LAN and relay plus push notifications.
+Still to come: the mobile relay transport + off‑LAN connect UX (`RELAY_URL`
+config, QR carrying the relay address), then reconnect/failover between LAN and
+relay plus push notifications.
 
 ## Non-goals for this branch
 
-- The desktop and mobile relay clients are not wired yet — the relay crate runs
-  and the E2E envelope works, but the apps still connect only over LAN. Off‑LAN
-  connect, `RELAY_URL` config, and the QR carrying a relay address come next.
+- The mobile relay transport is not wired yet — the desktop relay client and
+  relay crate work (proven by an end‑to‑end integration test), but the phone
+  still connects only over LAN. The mobile off‑LAN transport, `RELAY_URL`
+  config, and the QR carrying a relay address come next.
 - Session focus is global, not per-device — with multiple phones paired, a
   `focus_session` from one changes the followed transcript for all of them.
 - No transcript sync to the cloud. Transcripts continue to live only on the

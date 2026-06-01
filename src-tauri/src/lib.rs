@@ -1,3 +1,4 @@
+mod crypto;
 mod pairing;
 mod transport;
 

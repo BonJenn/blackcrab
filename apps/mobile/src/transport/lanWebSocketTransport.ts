@@ -44,7 +44,11 @@ export interface LanWebSocketTransportConfig {
   deviceName: string;
   hostId?: HostId;
   /** Fired once when a pairing handshake succeeds. */
-  onPaired?: (info: { remoteToken: string; hostId: HostId }) => void;
+  onPaired?: (info: {
+    remoteToken: string;
+    hostId: HostId;
+    e2eKey?: string;
+  }) => void;
   /** Fired when the desktop rejects either handshake. Transport stops. */
   onFatalReject?: (reason: string) => void;
   /** Override the WebSocket implementation for tests. */
@@ -280,6 +284,7 @@ export class LanWebSocketTransport implements Transport {
       this.config.onPaired?.({
         remoteToken: msg.remoteToken,
         hostId: msg.hostId,
+        e2eKey: msg.e2eKey,
       });
       this.onAuthenticated(msg.hostId);
       return;

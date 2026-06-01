@@ -180,6 +180,11 @@ export interface PairingResponse {
   hostId?: HostId;
   /** Token the mobile client uses on subsequent connections. Present only on accept. */
   remoteToken?: string;
+  /**
+   * base64 32-byte end-to-end key for relay traffic, minted by the desktop
+   * over the trusted LAN pairing channel. Present only on accept.
+   */
+  e2eKey?: string;
   rejectedReason?: string;
 }
 

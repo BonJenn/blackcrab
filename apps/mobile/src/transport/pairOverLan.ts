@@ -72,12 +72,13 @@ export async function pairOverLan(
       hostId: payload.hostId,
       webSocketFactory: options.webSocketFactory,
       timers: options.timers,
-      onPaired: ({ remoteToken }) => {
+      onPaired: ({ remoteToken, e2eKey }) => {
         finalize(async () => {
           clearTimeout(timeoutHandle);
           const host: StoredPairedHost = {
             ...storedHostFromPayload(payload),
             remoteToken,
+            e2eKey,
             online: true,
             lastSeenAt: new Date().toISOString(),
           };

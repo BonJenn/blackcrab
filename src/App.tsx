@@ -54,6 +54,13 @@ import {
 } from "./remote/transport";
 import { QRCodeSVG } from "qrcode.react";
 import { subscribeToasts, type Toast, notify, notifyErr } from "./toast";
+import {
+  BACKUP_KEYS,
+  backupFilename,
+  buildBackup,
+  parseBackup,
+  type SessionOverride,
+} from "./backup";
 import "./App.css";
 
 const TerminalPanel = lazy(() =>
@@ -4200,6 +4207,107 @@ function App() {
     }
   }
 
+  async function exportBackup() {
+    try {
+      const settings: Record<string, string> = {};
+      for (const key of BACKUP_KEYS) {
+        const value = localStorage.getItem(key);
+        if (value !== null) settings[key] = value;
+      }
+      const overrides = await invoke<SessionOverride[]>(
+        "list_session_overrides",
+      );
+      const generatedAt = new Date().toISOString();
+      const appVersion = await getAppVersion();
+      const backup = buildBackup(settings, overrides, {
+        generatedAt,
+        appVersion,
+      });
+      const chosen = await saveDialog({
+        defaultPath: backupFilename(generatedAt),
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!chosen) return;
+      await invoke("write_text_file", {
+        path: chosen,
+        content: `${JSON.stringify(backup, null, 2)}\n`,
+      });
+      notify("Backup exported", "success");
+    } catch (e) {
+      notifyErr("backup export failed")(e);
+    }
+  }
+
+  async function importBackup() {
+    try {
+      const chosen = await openDialog({
+        multiple: false,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!chosen || typeof chosen !== "string") return;
+      const text = await invoke<string>("read_text_file", { path: chosen });
+      const backup = parseBackup(text);
+
+      const when = backup.generatedAt
+        ? new Date(backup.generatedAt).toLocaleString()
+        : "an unknown date";
+      const settingsCount = Object.keys(backup.settings).length;
+      const ok = window.confirm(
+        `Restore this Blackcrab backup from ${when}?\n\n` +
+          `This replaces your current settings, layout, usage history, and ` +
+          `drafts (${settingsCount} item${settingsCount === 1 ? "" : "s"}) and ` +
+          `re-applies titles/archived state to ${backup.sessionOverrides.length} ` +
+          `session${backup.sessionOverrides.length === 1 ? "" : "s"} that still ` +
+          `exist. The app will reload.`,
+      );
+      if (!ok) return;
+
+      // Restore settings: set keys present in the backup; leave unlisted keys.
+      for (const [key, value] of Object.entries(backup.settings)) {
+        localStorage.setItem(key, value);
+      }
+
+      // Re-apply session overrides only to sessions that still exist locally.
+      const existing = await invoke<SessionInfo[]>("list_sessions");
+      const byId = new Map(existing.map((s) => [s.id, s]));
+      let applied = 0;
+      let skipped = 0;
+      for (const over of backup.sessionOverrides) {
+        if (!byId.has(over.id)) {
+          skipped++;
+          continue;
+        }
+        try {
+          if (over.customTitle) {
+            await invoke("set_session_title", {
+              sessionId: over.id,
+              cwd: over.cwd,
+              title: over.customTitle,
+            });
+          }
+          await invoke("set_session_archived", {
+            sessionId: over.id,
+            cwd: over.cwd,
+            archived: over.archived,
+          });
+          applied++;
+        } catch {
+          skipped++;
+        }
+      }
+
+      notify(
+        `Backup restored — ${applied} session${applied === 1 ? "" : "s"} updated` +
+          (skipped > 0 ? `, ${skipped} skipped` : ""),
+        "success",
+      );
+      // Most restored state is read once at mount, so reload to apply it.
+      setTimeout(() => window.location.reload(), 600);
+    } catch (e) {
+      notifyErr("backup import failed")(e);
+    }
+  }
+
   async function resumeSession(sessionId: string, sessionCwd: string) {
     const panelId =
       sessionPanelIdsRef.current.get(sessionId) ??
@@ -5178,6 +5286,8 @@ function App() {
             setSettingsOpen(false);
             openClaudeSetup();
           }}
+          onExportBackup={exportBackup}
+          onImportBackup={importBackup}
         />
       )}
       {diagnosticsOpen && (
@@ -6229,6 +6339,8 @@ function SettingsModal({
   onClearStartupCwd,
   onOpenUsage,
   onOpenClaudeSetup,
+  onExportBackup,
+  onImportBackup,
 }: {
   settings: AppSettings;
   theme: AppTheme;
@@ -6242,6 +6354,8 @@ function SettingsModal({
   onClearStartupCwd: () => void;
   onOpenUsage: () => void;
   onOpenClaudeSetup: () => void;
+  onExportBackup: () => void;
+  onImportBackup: () => void;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -6460,6 +6574,35 @@ function SettingsModal({
                 </button>
               </div>
             </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>Backup &amp; Restore</h3>
+            <div className="settings-row">
+              <span className="settings-label">Local data</span>
+              <div className="settings-control">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onExportBackup}
+                >
+                  Export backup…
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onImportBackup}
+                >
+                  Import backup…
+                </button>
+              </div>
+            </div>
+            <p className="settings-hint">
+              Includes settings, layout, usage history, drafts, and per-session
+              custom titles and archived state. Excludes conversation
+              transcripts (managed by Claude Code) and your sign-in token.
+              Importing replaces current settings and reloads the app.
+            </p>
           </section>
 
           <section className="settings-section">

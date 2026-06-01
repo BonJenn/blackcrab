@@ -50,6 +50,8 @@ export type DiagnosticReportInput = {
   userAgent: string;
   activityCounts: Record<string, number>;
   latestStderr: string[];
+  // Pre-formatted recent error lines (see formatCommandFailure).
+  recentFailures: string[];
 };
 
 const SECRET_ENV_NAMES = [
@@ -82,6 +84,9 @@ export function buildDiagnosticsReport(input: DiagnosticReportInput): string {
     `active cwd: ${input.activeCwd || "(unset)"}`,
     `user agent: ${input.userAgent || "(unknown)"}`,
     `activity: ${activityText || "(none)"}`,
+    "",
+    "recent errors:",
+    input.recentFailures.length ? input.recentFailures.join("\n") : "(none)",
     "",
     "recent stderr:",
     input.latestStderr.length ? input.latestStderr.join("\n") : "(none)",

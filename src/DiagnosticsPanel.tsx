@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { notify, notifyErr } from "./toast";
 import {
+  formatCommandFailure,
+  getRecentCommandFailures,
+  subscribeCommandFailures,
+  type CommandFailure,
+} from "./commandFailures";
+import {
   buildDiagnosticsReport,
   diagnosticActivityState,
   redactDiagnosticText,
@@ -46,12 +52,25 @@ export function DiagnosticsPanel({
   onClose,
 }: DiagnosticsPanelProps) {
   const [appVersion, setAppVersion] = useState("");
+  const [failures, setFailures] = useState<CommandFailure[]>(() =>
+    getRecentCommandFailures(),
+  );
 
   useEffect(() => {
     getVersion()
       .then(setAppVersion)
       .catch(() => setAppVersion(""));
   }, []);
+
+  useEffect(() => {
+    setFailures(getRecentCommandFailures());
+    return subscribeCommandFailures(setFailures);
+  }, []);
+
+  const recentFailures = useMemo(
+    () => failures.map(formatCommandFailure),
+    [failures],
+  );
 
   const activityCounts = useMemo(
     () =>
@@ -81,6 +100,7 @@ export function DiagnosticsPanel({
       ["archived", String(archivedCount)],
       ["permission", pendingPermission ? pendingPermission.toolName : "none"],
       ["denials", pendingDenials ? String(pendingDenials.length) : "0"],
+      ["errors", String(failures.length)],
       ["stderr", String(stderrLines.length)],
       ["claude", claudePreflight?.version || "(unknown)"],
       ["claude path", claudePreflight?.path || "(unknown)"],
@@ -99,6 +119,7 @@ export function DiagnosticsPanel({
       busy,
       claudePreflight,
       cwd,
+      failures.length,
       gridMode,
       pendingDenials,
       pendingPermission,
@@ -120,8 +141,17 @@ export function DiagnosticsPanel({
         userAgent: navigator.userAgent || "(unknown)",
         activityCounts,
         latestStderr,
+        recentFailures,
       }),
-    [activeSession, activityCounts, claudePreflight, cwd, latestStderr, rows],
+    [
+      activeSession,
+      activityCounts,
+      claudePreflight,
+      cwd,
+      latestStderr,
+      recentFailures,
+      rows,
+    ],
   );
 
   const copyReport = () => {
@@ -200,6 +230,16 @@ export function DiagnosticsPanel({
               </span>
             ))}
           </div>
+        </section>
+        <section className="diagnostics-section">
+          <div className="diagnostics-section-title">Recent errors</div>
+          {recentFailures.length === 0 ? (
+            <div className="diagnostics-empty">no errors recorded</div>
+          ) : (
+            <pre className="diagnostics-stderr">
+              {redactDiagnosticText(recentFailures.join("\n"))}
+            </pre>
+          )}
         </section>
         <section className="diagnostics-section">
           <div className="diagnostics-section-title">Recent stderr</div>

@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   frontend:
-    name: frontend (tsc + vite build)
+    name: frontend (tsc + test + vite build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,10 +29,12 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm test
+
       - run: npm run build
 
   rust:
-    name: rust (cargo check)
+    name: rust (cargo check + test)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -59,3 +61,7 @@ jobs:
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --locked
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test --locked

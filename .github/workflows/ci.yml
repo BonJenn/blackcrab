@@ -31,6 +31,8 @@ jobs:
 
       - run: npm test
 
+      - run: npm test --workspaces
+
       - run: npm run build
 
   rust:
@@ -56,7 +58,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            apps/relay
 
       - name: cargo check
         working-directory: src-tauri
@@ -64,4 +68,12 @@ jobs:
 
       - name: cargo test
         working-directory: src-tauri
+        run: cargo test --locked
+
+      - name: relay cargo check
+        working-directory: apps/relay
+        run: cargo check --locked
+
+      - name: relay cargo test
+        working-directory: apps/relay
         run: cargo test --locked

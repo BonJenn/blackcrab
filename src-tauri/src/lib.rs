@@ -3478,6 +3478,13 @@ fn remote_host_info() -> RemoteHostInfo {
     }
 }
 
+/// The relay URL this host is configured to use, baked into the pairing QR so
+/// a phone can reach it off-LAN. Empty when no relay is configured.
+#[tauri::command]
+fn remote_relay_url() -> String {
+    std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(all(unix, not(debug_assertions)))]
@@ -3529,6 +3536,7 @@ pub fn run() {
             terminal_resize,
             terminal_kill,
             remote_host_info,
+            remote_relay_url,
             remote_transport_info,
             pairing_start,
             pairing_accept,

@@ -39,10 +39,10 @@ pub(crate) enum RemoteCommand {
     StopSession { session_id: String },
 }
 
-/// Builds the `sessions` event body (in protocol shape) the desktop pushes to
-/// authenticated clients. Returns `None` when no snapshot is available.
-pub(crate) type SessionSnapshot =
-    Arc<dyn Fn() -> Option<serde_json::Value> + Send + Sync>;
+/// Builds the host->mobile event bodies (each already in protocol shape) the
+/// desktop pushes to authenticated clients on connect and each heartbeat —
+/// e.g. `sessions` and `transcript_tail`. Empty when nothing is available.
+pub(crate) type EventSnapshot = Arc<dyn Fn() -> Vec<serde_json::Value> + Send + Sync>;
 
 /// Side channels the transport uses to talk to the rest of the app, kept
 /// behind this bundle so `start`'s signature stays stable as more host->mobile
@@ -51,8 +51,8 @@ pub(crate) type SessionSnapshot =
 pub(crate) struct RemoteHooks {
     /// Sink for actions decoded off authenticated connections.
     pub commands: Option<UnboundedSender<RemoteCommand>>,
-    /// Produces the current session list to push on connect and each tick.
-    pub sessions: Option<SessionSnapshot>,
+    /// Produces the event bodies to push on connect and each tick.
+    pub events: Option<EventSnapshot>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -254,9 +254,9 @@ async fn handle_connection(
     )
     .await?;
 
-    // Push an initial session snapshot so the client renders real sessions
-    // immediately rather than waiting a full heartbeat interval.
-    if let Some(body) = snapshot_sessions(&hooks) {
+    // Push an initial snapshot so the client renders real data immediately
+    // rather than waiting a full heartbeat interval.
+    for body in snapshot_events(&hooks) {
         send_event_value(&mut sink, body).await?;
     }
 
@@ -271,10 +271,12 @@ async fn handle_connection(
                 if send_envelope(&mut sink, WireMessage::Ping { seq }).await.is_err() {
                     break;
                 }
-                // Refresh the session list alongside the heartbeat. A send
+                // Refresh host->mobile data alongside the heartbeat. A send
                 // failure here means the socket is gone; the next ping breaks.
-                if let Some(body) = snapshot_sessions(&hooks) {
-                    let _ = send_event_value(&mut sink, body).await;
+                for body in snapshot_events(&hooks) {
+                    if send_event_value(&mut sink, body).await.is_err() {
+                        break;
+                    }
                 }
             }
             incoming = stream.next() => {
@@ -325,9 +327,14 @@ async fn handle_connection(
     Ok(())
 }
 
-/// Ask the host for the current session list, if a provider is wired up.
-fn snapshot_sessions(hooks: &RemoteHooks) -> Option<serde_json::Value> {
-    hooks.sessions.as_ref().and_then(|provider| provider())
+/// Ask the host for the current host->mobile event snapshot, if a provider is
+/// wired up.
+fn snapshot_events(hooks: &RemoteHooks) -> Vec<serde_json::Value> {
+    hooks
+        .events
+        .as_ref()
+        .map(|provider| provider())
+        .unwrap_or_default()
 }
 
 /// Wrap an already-protocol-shaped event body in the versioned envelope and
@@ -811,16 +818,16 @@ mod tests {
             .start_pairing(crate::pairing::now_unix_ms(), PAIRING_DEFAULT_TTL_SECS)
             .unwrap();
 
-        let snapshot: SessionSnapshot = Arc::new(|| {
-            Some(serde_json::json!({
+        let snapshot: EventSnapshot = Arc::new(|| {
+            vec![serde_json::json!({
                 "type": "sessions",
                 "hostId": "host-1",
                 "sessions": [{ "sessionId": "sess-1", "title": "Demo" }],
-            }))
+            })]
         });
         let server = Arc::new(TransportServer::new());
         let hooks = RemoteHooks {
-            sessions: Some(snapshot),
+            events: Some(snapshot),
             ..Default::default()
         };
         let endpoint = server.start(pairing.clone(), hooks).await.unwrap();

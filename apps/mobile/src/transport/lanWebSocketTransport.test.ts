@@ -316,6 +316,46 @@ describe("LanWebSocketTransport", () => {
     transport.close();
   });
 
+  it("delivers transcript_tail entries to event subscribers", () => {
+    const ws = new FakeWebSocket();
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => ws,
+      timers: fakeTimers(),
+    });
+    const received: unknown[] = [];
+    transport.subscribeEvents((event) => {
+      if (event.type === "transcript_tail") received.push(event.entries);
+    });
+
+    ws.openConnection();
+    ws.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: {
+          type: "transcript_tail",
+          hostId: "desktop-studio",
+          sessionId: "sess-1",
+          entries: [
+            {
+              id: "m1",
+              sessionId: "sess-1",
+              kind: "assistant_message",
+              createdAt: "2026-05-31T16:00:00.000Z",
+              preview: "On it",
+              truncated: false,
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(received).toHaveLength(1);
+    transport.close();
+  });
+
   it("reconnects after the socket closes", () => {
     const sockets: FakeWebSocket[] = [];
     const transport = new LanWebSocketTransport({

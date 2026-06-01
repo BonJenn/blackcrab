@@ -486,6 +486,55 @@ mod tests {
         );
     }
 
+    #[test]
+    fn truncate_preview_collapses_whitespace_and_clips() {
+        let (text, truncated) = truncate_preview("hello\n  world\t");
+        assert_eq!(text, "hello world");
+        assert!(!truncated);
+
+        let long = "x ".repeat(REMOTE_PREVIEW_MAX);
+        let (clipped, was_clipped) = truncate_preview(&long);
+        assert!(was_clipped);
+        assert!(clipped.ends_with('…'));
+        assert_eq!(clipped.chars().count(), REMOTE_PREVIEW_MAX + 1);
+    }
+
+    #[test]
+    fn classify_transcript_record_maps_kinds() {
+        let user = serde_json::json!({
+            "type": "user",
+            "message": { "content": "fix the bug" }
+        });
+        assert_eq!(classify_transcript_record(&user), ("user_message", "fix the bug".to_string()));
+
+        let assistant_text = serde_json::json!({
+            "type": "assistant",
+            "message": { "content": [{ "type": "text", "text": "On it" }] }
+        });
+        assert_eq!(
+            classify_transcript_record(&assistant_text),
+            ("assistant_message", "On it".to_string())
+        );
+
+        let tool_call = serde_json::json!({
+            "type": "assistant",
+            "message": { "content": [{ "type": "tool_use", "name": "Bash", "input": {} }] }
+        });
+        assert_eq!(
+            classify_transcript_record(&tool_call),
+            ("tool_call", "Calling Bash".to_string())
+        );
+
+        let tool_result = serde_json::json!({
+            "type": "user",
+            "message": { "content": [{ "type": "tool_result", "content": "ok" }] }
+        });
+        assert_eq!(classify_transcript_record(&tool_result).0, "tool_result");
+
+        let result = serde_json::json!({ "type": "result", "subtype": "success" });
+        assert_eq!(classify_transcript_record(&result).0, "system_notice");
+    }
+
     #[tokio::test]
     async fn deliver_user_message_errors_without_a_session() {
         let sessions = Arc::new(Mutex::new(HashMap::new()));
@@ -2792,12 +2841,159 @@ fn remote_sessions_event_value() -> Option<serde_json::Value> {
     }))
 }
 
+/// How many transcript entries to tail for the mobile companion's view.
+const REMOTE_TRANSCRIPT_LIMIT: usize = 40;
+/// Max characters in a single transcript preview pushed to a phone.
+const REMOTE_PREVIEW_MAX: usize = 280;
+
+/// Collapse whitespace and clip to `REMOTE_PREVIEW_MAX` chars so the preview is
+/// a single safe-to-render line. Returns the text and whether it was clipped.
+fn truncate_preview(raw: &str) -> (String, bool) {
+    let collapsed = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    let chars: Vec<char> = collapsed.chars().collect();
+    if chars.len() > REMOTE_PREVIEW_MAX {
+        let clipped: String = chars[..REMOTE_PREVIEW_MAX].iter().collect();
+        (format!("{clipped}…"), true)
+    } else {
+        (collapsed, false)
+    }
+}
+
+/// First text-bearing block in a message `content` (string or block array).
+fn first_text_block(content: &serde_json::Value) -> Option<String> {
+    if let Some(s) = content.as_str() {
+        return Some(s.to_string());
+    }
+    let arr = content.as_array()?;
+    for block in arr {
+        match block.get("type").and_then(|t| t.as_str()) {
+            Some("text") => {
+                if let Some(t) = block.get("text").and_then(|x| x.as_str()) {
+                    return Some(t.to_string());
+                }
+            }
+            Some("thinking") => {
+                if let Some(t) = block.get("thinking").and_then(|x| x.as_str()) {
+                    return Some(t.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Classify a tail record into a protocol transcript kind + a raw preview.
+/// `load_session_tail` has already dropped internal/system record types.
+fn classify_transcript_record(record: &serde_json::Value) -> (&'static str, String) {
+    let record_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
+    let content = record.pointer("/message/content");
+    let blocks = content.and_then(|c| c.as_array());
+
+    let has_block = |name: &str| {
+        blocks.is_some_and(|arr| {
+            arr.iter()
+                .any(|b| b.get("type").and_then(|t| t.as_str()) == Some(name))
+        })
+    };
+
+    match record_type {
+        "user" => {
+            if has_block("tool_result") {
+                ("tool_result", "Tool result".to_string())
+            } else {
+                let text = content.and_then(first_text_block).unwrap_or_default();
+                ("user_message", text)
+            }
+        }
+        "assistant" => {
+            if let Some(text) = content.and_then(|c| first_text_block(c)) {
+                let kind = if has_block("text") {
+                    "assistant_message"
+                } else {
+                    "thinking"
+                };
+                (kind, text)
+            } else if has_block("tool_use") {
+                let name = blocks
+                    .and_then(|arr| {
+                        arr.iter()
+                            .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_use"))
+                            .and_then(|b| b.get("name").and_then(|n| n.as_str()))
+                    })
+                    .unwrap_or("tool");
+                ("tool_call", format!("Calling {name}"))
+            } else {
+                ("assistant_message", String::new())
+            }
+        }
+        "result" => ("system_notice", "Turn complete".to_string()),
+        other => ("system_notice", other.to_string()),
+    }
+}
+
+/// Build the `transcript_tail` event for the most-recently-active session.
+/// There is no per-device session focus yet, so the phone follows whichever
+/// session changed most recently; a future `focus_session` action will let the
+/// user pick.
+fn remote_transcript_event_value() -> Option<serde_json::Value> {
+    let sessions = list_sessions().ok()?;
+    let top = sessions.first()?;
+    let records =
+        load_session_tail(top.id.clone(), top.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    let host_id = remote_host_id_for_pairing();
+    let entries: Vec<serde_json::Value> = records
+        .iter()
+        .enumerate()
+        .map(|(i, record)| {
+            let (kind, raw) = classify_transcript_record(record);
+            let (preview, truncated) = truncate_preview(&raw);
+            let id = record
+                .get("uuid")
+                .and_then(|u| u.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| format!("{}-{i}", top.id));
+            let created_at = record
+                .get("timestamp")
+                .and_then(|t| t.as_str())
+                .unwrap_or("")
+                .to_string();
+            serde_json::json!({
+                "id": id,
+                "sessionId": top.id,
+                "kind": kind,
+                "createdAt": created_at,
+                "preview": preview,
+                "truncated": truncated,
+            })
+        })
+        .collect();
+    Some(serde_json::json!({
+        "type": "transcript_tail",
+        "hostId": host_id,
+        "sessionId": top.id,
+        "entries": entries,
+    }))
+}
+
+/// The host->mobile events pushed on connect and each heartbeat tick.
+fn remote_event_snapshot() -> Vec<serde_json::Value> {
+    let mut events = Vec::new();
+    if let Some(sessions) = remote_sessions_event_value() {
+        events.push(sessions);
+    }
+    if let Some(transcript) = remote_transcript_event_value() {
+        events.push(transcript);
+    }
+    events
+}
+
 /// Side channels the transport uses to reach the rest of the app. Rebuilt per
 /// `start` call; the action sender comes from the global set up in `setup`.
 fn remote_hooks() -> crate::transport::RemoteHooks {
     crate::transport::RemoteHooks {
         commands: REMOTE_CMD_TX.get().cloned(),
-        sessions: Some(Arc::new(remote_sessions_event_value)),
+        events: Some(Arc::new(remote_event_snapshot)),
     }
 }
 

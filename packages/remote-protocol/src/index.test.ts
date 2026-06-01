@@ -161,6 +161,9 @@ describe("remote-protocol", () => {
       expect(isRemoteAction({ type: "deny", hostId: "h", approvalId: "a" })).toBe(
         true,
       );
+      expect(
+        isRemoteAction({ type: "focus_session", hostId: "h", sessionId: "s" }),
+      ).toBe(true);
     });
 
     it("rejects unknown or malformed payloads", () => {

@@ -140,11 +140,22 @@ export interface DenyAction {
   reason?: string;
 }
 
+export interface FocusSessionAction {
+  type: "focus_session";
+  hostId: HostId;
+  /**
+   * Session the host should stream `transcript_tail` for. An empty string
+   * clears the focus, returning to the most-recently-active session.
+   */
+  sessionId: SessionId;
+}
+
 export type RemoteAction =
   | SendMessageAction
   | StopSessionAction
   | ApproveAction
-  | DenyAction;
+  | DenyAction
+  | FocusSessionAction;
 
 // ---------------------------------------------------------------------------
 // Pairing
@@ -412,6 +423,7 @@ export function isRemoteAction(value: unknown): value is RemoteAction {
     case "stop_session":
     case "approve":
     case "deny":
+    case "focus_session":
       return true;
     default:
       return false;

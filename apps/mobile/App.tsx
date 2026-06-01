@@ -189,6 +189,17 @@ export default function App() {
             transport={activeTransport}
             status={activeStatus}
             sessions={liveSessions}
+            onViewTranscript={(session) => {
+              if (!activeTransport) return;
+              activeTransport.sendAction({
+                type: "focus_session",
+                hostId: session.hostId,
+                sessionId: session.sessionId,
+              });
+              // Clear stale entries; the host pushes the focused tail at once.
+              setLiveTranscript(null);
+              setTab("transcript");
+            }}
           />
         )}
         {tab === "transcript" && <TranscriptScreen entries={liveTranscript} />}

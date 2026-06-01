@@ -19,6 +19,10 @@ import {
   type StoredPairedHost,
 } from "./src/pairingStore";
 import { LanWebSocketTransport } from "./src/transport/lanWebSocketTransport";
+import {
+  connectStoredHost,
+  firstReconnectableHost,
+} from "./src/transport/reconnect";
 import type { TransportStatus } from "./src/transport/types";
 
 type TabKey = "hosts" | "pair" | "sessions" | "transcript" | "approval";
@@ -50,8 +54,23 @@ export default function App() {
 
     loadStoredHosts()
       .then((hosts) => {
-        if (mounted) {
-          setStoredHosts(hosts);
+        if (!mounted) return;
+        setStoredHosts(hosts);
+        // Re-establish the most-recent reconnectable host without re-pairing.
+        const host = firstReconnectableHost(hosts);
+        if (!host) return;
+        const transport = connectStoredHost(host, {
+          onFatalReject: () => {
+            setActiveTransport((current) => {
+              current?.close();
+              return null;
+            });
+            setActiveHostId(null);
+          },
+        });
+        if (transport) {
+          setActiveTransport(transport);
+          setActiveHostId(host.hostId);
         }
       })
       .finally(() => {

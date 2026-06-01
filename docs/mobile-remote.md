@@ -132,13 +132,16 @@ Paired Hosts screen surfaces live transport state for the active host
 (connecting / connected / reconnecting / error). Raw codes still take the
 demo-only path, since they carry no transport address.
 
+On launch the app auto-reconnects: it picks the most-recently-paired host that
+kept a remote token and LAN endpoint and opens a token-authenticated transport
+(the `auth` handshake), so a returning user lands connected without re-pairing.
+If the stored token is rejected (e.g. revoked on the desktop) the transport
+stops and the active connection is cleared.
+
 ## Non-goals for this branch
 
 - No relay implementation. There is no server-side relay component yet — only
   a local LAN WebSocket.
-- No automatic reconnect on app launch yet — the active transport is only
-  established at pairing time. Future work persists the token and reconnects
-  on startup.
 - No per-device session focus yet — the phone follows the most-recently-active
   session's transcript; a future `focus_session` action will let it choose.
 - No transcript sync to the cloud. Transcripts continue to live only on the

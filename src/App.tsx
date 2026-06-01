@@ -72,6 +72,7 @@ import {
   upsertLayout,
   type SavedLayout,
 } from "./layouts";
+import { commandMatchesQuery, type PaletteCommand } from "./palette";
 import "./App.css";
 
 const TerminalPanel = lazy(() =>
@@ -2007,6 +2008,12 @@ function App() {
   const [gridInstanceKey, setGridInstanceKey] = useState(0);
   // Drives the "name this layout" modal; null when closed.
   const [layoutNamePrompt, setLayoutNamePrompt] = useState<string | null>(null);
+  // Drives the "rename conversation" modal; null when closed.
+  const [renamePrompt, setRenamePrompt] = useState<{
+    id: string;
+    cwd: string;
+    current: string;
+  } | null>(null);
   const [selectedGridPanelId, setSelectedGridPanelId] = useState<string | null>(
     null,
   );
@@ -5264,6 +5271,7 @@ function App() {
               id: "diagnostics",
               title: diagnosticsOpen ? "Close diagnostics" : "Open diagnostics",
               hint: "⌘⇧I",
+              keywords: ["diagnostics", "logs", "debug", "errors"],
               run: () => {
                 setDiagnosticsOpen((v) => !v);
                 setPaletteOpen(false);
@@ -5273,6 +5281,7 @@ function App() {
               id: "usage-dashboard",
               title: usageOpen ? "Close usage dashboard" : "Open usage dashboard",
               hint: "usage",
+              keywords: ["usage", "cost", "spend", "tokens", "budget"],
               run: () => {
                 if (usageOpen) {
                   setUsageOpen(false);
@@ -5312,6 +5321,77 @@ function App() {
                 setPaletteOpen(false);
               },
             },
+            {
+              id: "export-backup",
+              title: "Export backup…",
+              hint: "backup",
+              keywords: ["backup", "export", "save", "restore"],
+              run: () => {
+                setPaletteOpen(false);
+                void exportBackup();
+              },
+            },
+            {
+              id: "import-backup",
+              title: "Import backup…",
+              hint: "restore",
+              keywords: ["backup", "import", "restore", "recover"],
+              run: () => {
+                setPaletteOpen(false);
+                void importBackup();
+              },
+            },
+            ...(gridMode && selectedGridPanelId && gridPanels.length < 6
+              ? [
+                  {
+                    id: "duplicate-panel",
+                    title: "Duplicate the selected panel",
+                    hint: "⇧D",
+                    keywords: ["duplicate", "panel", "split", "grid", "clone"],
+                    run: () => {
+                      setPaletteOpen(false);
+                      const info = sessions.find(
+                        (s) => s.id === selectedGridPanelId,
+                      );
+                      const sourceCwd =
+                        newPanelCwds[selectedGridPanelId] ?? info?.cwd ?? cwd;
+                      const key = `new:${randomId()}:${Date.now()}`;
+                      setNewPanelCwds((m) => ({ ...m, [key]: sourceCwd }));
+                      if (newPanelWorktree[selectedGridPanelId]) {
+                        setNewPanelWorktree((m) => ({ ...m, [key]: true }));
+                      }
+                      setGridPanels((prev) => [...prev, key]);
+                      setSelectedGridPanelId(key);
+                    },
+                  },
+                ]
+              : []),
+            ...(projectFilter
+              ? [
+                  {
+                    id: "clear-project-filter",
+                    title: "Clear project filter",
+                    hint: "projects",
+                    keywords: ["project", "filter", "clear", "all"],
+                    run: () => {
+                      setProjectFilter("");
+                      setPaletteOpen(false);
+                    },
+                  },
+                ]
+              : []),
+            ...buildProjectDashboardProjects(sessions, sessionActivity)
+              .slice(0, 12)
+              .map((project) => ({
+                id: `switch-project-${project.cwd}`,
+                title: `Switch to project: ${project.name}`,
+                hint: "project",
+                keywords: ["project", "switch", "workspace", project.name],
+                run: () => {
+                  setPaletteOpen(false);
+                  void startNewSessionInProject(project.cwd);
+                },
+              })),
             ...(activeSessionId && entries.length > 0
               ? [
                   ...(activeSessionInfo
@@ -5328,6 +5408,35 @@ function App() {
                               activeSessionInfo.id,
                               activeSessionInfo.cwd,
                               !activeSessionInfo.archived,
+                            );
+                          },
+                        },
+                        {
+                          id: "rename-current",
+                          title: "Rename this conversation…",
+                          hint: "rename",
+                          keywords: ["rename", "title", "name"],
+                          run: () => {
+                            setPaletteOpen(false);
+                            setRenamePrompt({
+                              id: activeSessionInfo.id,
+                              cwd: activeSessionInfo.cwd,
+                              current: activeSessionInfo.title,
+                            });
+                          },
+                        },
+                        {
+                          id: "delete-current",
+                          title: "Delete this conversation",
+                          hint: "trash",
+                          keywords: ["delete", "trash", "remove"],
+                          run: () => {
+                            setPaletteOpen(false);
+                            // deleteSession is window.confirm-gated.
+                            deleteSession(
+                              activeSessionInfo.id,
+                              activeSessionInfo.cwd,
+                              activeSessionInfo.title,
                             );
                           },
                         },
@@ -5499,13 +5608,30 @@ function App() {
           );
         })()}
       {layoutNamePrompt !== null && (
-        <LayoutNameModal
-          initialName={layoutNamePrompt}
-          onSave={(name) => {
+        <TextPromptModal
+          title="Save layout"
+          message="Name this grid arrangement so you can restore it later."
+          placeholder="Layout name"
+          submitLabel="Save layout"
+          initialValue={layoutNamePrompt}
+          onSubmit={(name) => {
             saveCurrentLayout(name);
             setLayoutNamePrompt(null);
           }}
           onCancel={() => setLayoutNamePrompt(null)}
+        />
+      )}
+      {renamePrompt !== null && (
+        <TextPromptModal
+          title="Rename conversation"
+          placeholder="Conversation title"
+          submitLabel="Rename"
+          initialValue={renamePrompt.current}
+          onSubmit={(title) => {
+            void renameSession(renamePrompt.id, renamePrompt.cwd, title);
+            setRenamePrompt(null);
+          }}
+          onCancel={() => setRenamePrompt(null)}
         />
       )}
       <Sidebar
@@ -10723,13 +10849,6 @@ function nextTheme(t: AppTheme): AppTheme {
   return "light";
 }
 
-type PaletteCommand = {
-  id: string;
-  title: string;
-  hint?: string;
-  run: () => void | Promise<void>;
-};
-
 function CommandPalette({
   sessions,
   commands,
@@ -10795,7 +10914,7 @@ function CommandPalette({
   const results = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     const cmdHits = commands
-      .filter((c) => !q || c.title.toLowerCase().includes(q))
+      .filter((c) => commandMatchesQuery(c, q))
       .map((c) => ({ type: "command" as const, command: c, score: 0 }));
     const sessionHits: Array<{
       type: "session";
@@ -11072,16 +11191,24 @@ function SessionConflictDialog({
   );
 }
 
-function LayoutNameModal({
-  initialName,
-  onSave,
+function TextPromptModal({
+  title,
+  message,
+  placeholder,
+  initialValue,
+  submitLabel,
+  onSubmit,
   onCancel,
 }: {
-  initialName: string;
-  onSave: (name: string) => void;
+  title: string;
+  message?: string;
+  placeholder?: string;
+  initialValue: string;
+  submitLabel: string;
+  onSubmit: (value: string) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(initialName);
+  const [value, setValue] = useState(initialValue);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel();
@@ -11091,8 +11218,8 @@ function LayoutNameModal({
   }, [onCancel]);
 
   const submit = () => {
-    const trimmed = name.trim();
-    if (trimmed) onSave(trimmed);
+    const trimmed = value.trim();
+    if (trimmed) onSubmit(trimmed);
   };
 
   return (
@@ -11105,14 +11232,14 @@ function LayoutNameModal({
       }}
     >
       <div className="auth-error-card">
-        <h2>Save layout</h2>
-        <p>Name this grid arrangement so you can restore it later.</p>
+        <h2>{title}</h2>
+        {message && <p>{message}</p>}
         <input
           autoFocus
-          value={name}
-          placeholder="Layout name"
+          value={value}
+          placeholder={placeholder}
           style={{ width: "100%", boxSizing: "border-box" }}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") submit();
           }}
@@ -11124,10 +11251,10 @@ function LayoutNameModal({
           <button
             type="button"
             className="btn btn-primary"
-            disabled={!name.trim()}
+            disabled={!value.trim()}
             onClick={submit}
           >
-            Save layout
+            {submitLabel}
           </button>
         </div>
       </div>

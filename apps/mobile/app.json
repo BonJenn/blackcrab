@@ -11,11 +11,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "dev.blackcrab.remote",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Blackcrab Remote connects to your desktop on the same Wi-Fi to control Claude Code sessions."
+        "NSLocalNetworkUsageDescription": "Blackcrab Remote connects to your desktop on the same Wi-Fi to control Claude Code sessions.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "dev.blackcrab.remote"
+      "package": "dev.blackcrab.remote",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -32,6 +37,18 @@
           "cameraPermission": "Blackcrab Remote uses the camera to scan pairing QR codes from your desktop."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "33fb14fd-4b87-4e85-920c-b6d4204e4567"
+      }
+    },
+    "owner": "bonjenn",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/33fb14fd-4b87-4e85-920c-b6d4204e4567"
+    }
   }
 }

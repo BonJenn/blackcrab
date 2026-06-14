@@ -142,7 +142,7 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
             <Text style={localStyles.label}>Pairing code or payload</Text>
             <TextInput
               accessibilityLabel="Pairing code or payload"
-              autoCapitalize="characters"
+              autoCapitalize="none"
               autoCorrect={false}
               multiline
               onChangeText={(value) => {

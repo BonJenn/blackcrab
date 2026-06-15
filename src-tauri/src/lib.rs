@@ -29,6 +29,9 @@ struct Session {
 }
 
 const OPEN_SETTINGS_EVENT: &str = "blackcrab-open-settings";
+/// Frontend event fired when a paired phone advances a session's read cursor,
+/// so the desktop window (not a transport client) can update its UI to match.
+const READ_CURSOR_EVENT: &str = "blackcrab-read-cursor";
 
 // Live PTY-backed terminal. The master writer is wrapped in a std Mutex
 // because portable_pty's writer isn't Send+Sync-friendly for tokio's
@@ -3012,11 +3015,13 @@ async fn run_remote_command_consumer(
                 read_at_ms,
             } => {
                 // Advance the host cursor and, when it actually moved, fan the
-                // new position out to every connected client (this one included)
-                // so desktop and phone converge on where the user left off.
+                // new position out to every connected phone *and* notify the
+                // desktop window (which isn't a transport client) so all
+                // surfaces converge on where the user left off.
                 if advance_read_cursor(&session_id, &last_read_message_id, read_at_ms) {
                     if let Some(event) = read_cursor_event_value(&session_id) {
-                        push_remote_event(event);
+                        push_remote_event(event.clone());
+                        let _ = app.emit(READ_CURSOR_EVENT, event);
                     }
                 }
                 Ok(())
@@ -3429,6 +3434,45 @@ fn session_read_cursors() -> Vec<serde_json::Value> {
     read_cursor_snapshot_values()
 }
 
+/// The newest transcript record id for a session, in the same id space the
+/// `transcript_tail` event uses (JSONL `uuid`, with the `{sessionId}-{i}`
+/// fallback). `None` when the session or its tail can't be read.
+fn latest_message_id(session_id: &str) -> Option<String> {
+    let sessions = list_sessions().ok()?;
+    let target = sessions.iter().find(|s| s.id == session_id)?;
+    let records =
+        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    let last = records.len().checked_sub(1)?;
+    let record = records.get(last)?;
+    Some(
+        record
+            .get("uuid")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("{}-{last}", target.id)),
+    )
+}
+
+/// Desktop UI entry point: mark a session read up to its newest message. Used
+/// when the desktop user opens/views a conversation — it resolves the latest
+/// message id host-side (the desktop renders entries with a different id space)
+/// and advances the shared cursor, syncing "all read" to paired phones.
+/// Returns the message id the cursor now points at, if any.
+#[tauri::command]
+fn mark_session_read_latest(session_id: String) -> Option<String> {
+    let latest = latest_message_id(&session_id)?;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    if advance_read_cursor(&session_id, &latest, now_ms) {
+        if let Some(event) = read_cursor_event_value(&session_id) {
+            push_remote_event(event);
+        }
+    }
+    Some(latest)
+}
+
 // ---------------------------------------------------------------------------
 // Remote approvals: forward Claude's permission prompts to paired phones and
 // answer them from a phone's approve/deny, reusing the desktop's existing
@@ -3772,6 +3816,7 @@ pub fn run() {
             remote_transport_info,
             set_session_read_cursor,
             session_read_cursors,
+            mark_session_read_latest,
             pairing_start,
             pairing_accept,
             pairing_cancel,

@@ -402,11 +402,21 @@ type SessionActivity = {
   unread: boolean;
   updated_ms: number;
   text?: string;
+  /**
+   * Host-canonical read cursor mirrored here for the sidebar/transcript to
+   * render "where you left off". `read_cursor_id` is the newest transcript
+   * entry id the user has read; `read_at_ms` is when, used as a sync tiebreaker.
+   */
+  read_cursor_id?: string;
+  read_at_ms?: number;
 };
 
 type SessionActivityStore = Record<string, SessionActivity>;
 
 const SESSION_ACTIVITY_STORAGE_KEY = "sidebar.sessionActivity";
+
+/** Tauri event the host fires when a paired phone advances a read cursor. */
+const READ_CURSOR_EVENT = "blackcrab-read-cursor";
 
 function isSessionActivityState(v: unknown): v is SessionActivityState {
   return (
@@ -552,6 +562,12 @@ function loadSessionActivity(): SessionActivityStore {
             : state === "interrupted"
             ? "needs recovery"
             : undefined,
+        read_cursor_id:
+          typeof item.read_cursor_id === "string"
+            ? item.read_cursor_id
+            : undefined,
+        read_at_ms:
+          typeof item.read_at_ms === "number" ? item.read_at_ms : undefined,
       };
     }
     return out;
@@ -1573,6 +1589,9 @@ function App() {
       setSessionActivity((prev) => ({
         ...prev,
         [id]: {
+          // Preserve the read cursor (and any other carried fields) across
+          // state changes — only state/unread/updated_ms/text are recomputed.
+          ...prev[id],
           state,
           unread: shouldUnread && !isCurrent,
           updated_ms: Date.now(),
@@ -1582,8 +1601,16 @@ function App() {
     },
     [],
   );
+  // Assigned once `markSessionReadLatest` is defined below; lets ack advance the
+  // shared read cursor without a declaration-order dependency.
+  const markSessionReadLatestRef = useRef<(id: string | undefined) => void>(
+    () => {},
+  );
   const ackSessionActivity = useCallback((id: string | undefined) => {
     if (!id) return;
+    // Viewing a session means the user has seen its latest message — advance
+    // the host-canonical read cursor so the "read" state syncs to paired phones.
+    markSessionReadLatestRef.current(id);
     setSessionActivity((prev) => {
       const current = prev[id];
       if (!current) return prev;
@@ -1603,6 +1630,114 @@ function App() {
       return { ...prev, [id]: next };
     });
   }, []);
+  // Mirror a host-reported read cursor into local activity. The host is the
+  // authority (it arbitrates monotonic advancement), so we store what it
+  // reports. `clearUnread` is set when the advance came from a real read (this
+  // device opening the session, or a phone-driven advance pushed by the host).
+  const applyRemoteReadCursor = useCallback(
+    (sessionId: string, messageId: string, atMs: number, clearUnread = true) => {
+      if (!sessionId || !messageId) return;
+      setSessionActivity((prev) => {
+        const current = prev[sessionId];
+        if (
+          current?.read_cursor_id === messageId &&
+          current?.read_at_ms === atMs &&
+          (!clearUnread || !current?.unread)
+        ) {
+          return prev;
+        }
+        const base: SessionActivity = current ?? {
+          state: "idle",
+          unread: false,
+          updated_ms: atMs,
+        };
+        return {
+          ...prev,
+          [sessionId]: {
+            ...base,
+            unread: clearUnread ? false : base.unread,
+            read_cursor_id: messageId,
+            read_at_ms: atMs,
+          },
+        };
+      });
+    },
+    [],
+  );
+  // Mark a session read up to its newest message (called when the desktop user
+  // opens/views it). The host resolves the latest message id — the desktop
+  // renders entries with a different id space — persists the cursor, and syncs
+  // "all read" to paired phones.
+  const markSessionReadLatest = useCallback(
+    (sessionId: string | undefined) => {
+      if (!sessionId) return;
+      void invoke<string | null>("mark_session_read_latest", { sessionId })
+        .then((messageId) => {
+          if (typeof messageId === "string" && messageId) {
+            applyRemoteReadCursor(sessionId, messageId, Date.now());
+          }
+        })
+        .catch(() => {
+          // Best effort — local unread handling already covers this device.
+        });
+    },
+    [applyRemoteReadCursor],
+  );
+  markSessionReadLatestRef.current = markSessionReadLatest;
+  // Load any persisted cursors on mount and keep in sync with phone-driven
+  // advances pushed from the host.
+  useEffect(() => {
+    let cancelled = false;
+    void invoke<unknown[]>("session_read_cursors")
+      .then((cursors) => {
+        if (cancelled || !Array.isArray(cursors)) return;
+        for (const c of cursors) {
+          if (!c || typeof c !== "object") continue;
+          const v = c as {
+            sessionId?: unknown;
+            lastReadMessageId?: unknown;
+            readAtMs?: unknown;
+          };
+          if (
+            typeof v.sessionId === "string" &&
+            typeof v.lastReadMessageId === "string" &&
+            typeof v.readAtMs === "number"
+          ) {
+            // Initial restore: don't wipe unread computed from session state.
+            applyRemoteReadCursor(
+              v.sessionId,
+              v.lastReadMessageId,
+              v.readAtMs,
+              false,
+            );
+          }
+        }
+      })
+      .catch(() => {});
+    let unlisten: (() => void) | undefined;
+    void listen<{
+      sessionId?: string;
+      lastReadMessageId?: string;
+      readAtMs?: number;
+    }>(READ_CURSOR_EVENT, (event) => {
+      const p = event.payload;
+      if (
+        p &&
+        typeof p.sessionId === "string" &&
+        typeof p.lastReadMessageId === "string" &&
+        typeof p.readAtMs === "number"
+      ) {
+        applyRemoteReadCursor(p.sessionId, p.lastReadMessageId, p.readAtMs);
+      }
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [applyRemoteReadCursor]);
   useEffect(() => {
     saveAppSettings(appSettings);
   }, [appSettings]);

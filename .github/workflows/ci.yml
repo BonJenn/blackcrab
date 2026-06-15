@@ -77,3 +77,23 @@ jobs:
       - name: relay cargo test
         working-directory: apps/relay
         run: cargo test --locked
+
+  # The release builds for Windows too, but the Linux job above can't catch
+  # Windows-only compile breaks (e.g. platform-specific libc APIs). A cheap
+  # cargo check on Windows catches them at PR time instead of at release.
+  windows-check:
+    name: windows (cargo check)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: cargo check (windows)
+        working-directory: src-tauri
+        run: cargo check --locked

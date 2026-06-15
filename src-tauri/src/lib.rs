@@ -2901,20 +2901,36 @@ fn remote_host_platform() -> &'static str {
 }
 
 fn read_hostname() -> String {
-    let mut buf = [0u8; 256];
-    // SAFETY: writing into our own stack buffer with a known length.
-    let result =
-        unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
-    if result != 0 {
-        return "blackcrab-host".into();
+    // libc::gethostname is Unix-only; on Windows read COMPUTERNAME instead.
+    #[cfg(unix)]
+    fn platform_hostname() -> Option<String> {
+        let mut buf = [0u8; 256];
+        // SAFETY: writing into our own stack buffer with a known length.
+        let result =
+            unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
+        if result != 0 {
+            return None;
+        }
+        let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+        let raw = String::from_utf8_lossy(&buf[..len]).to_string();
+        if raw.trim().is_empty() {
+            None
+        } else {
+            Some(raw)
+        }
     }
-    let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
-    let raw = String::from_utf8_lossy(&buf[..len]).to_string();
-    if raw.trim().is_empty() {
-        "blackcrab-host".into()
-    } else {
-        raw
+    #[cfg(windows)]
+    fn platform_hostname() -> Option<String> {
+        std::env::var("COMPUTERNAME")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
     }
+    #[cfg(not(any(unix, windows)))]
+    fn platform_hostname() -> Option<String> {
+        None
+    }
+
+    platform_hostname().unwrap_or_else(|| "blackcrab-host".into())
 }
 
 fn remote_host_id(hostname: &str) -> String {

@@ -29,6 +29,16 @@ struct Session {
 }
 
 const OPEN_SETTINGS_EVENT: &str = "blackcrab-open-settings";
+/// Frontend event fired when a paired phone advances a session's read cursor,
+/// so the desktop window (not a transport client) can update its UI to match.
+const READ_CURSOR_EVENT: &str = "blackcrab-read-cursor";
+/// Frontend event fired when a paired phone asks to start a new session, so the
+/// desktop creates it through its normal session machinery (panel, streaming,
+/// sidebar) and the new session flows back to the phone.
+const REMOTE_START_SESSION_EVENT: &str = "blackcrab-remote-start-session";
+/// Frontend event fired when a paired phone messages a session that has no live
+/// subprocess, so the desktop resumes it and delivers the message.
+const REMOTE_RESUME_SEND_EVENT: &str = "blackcrab-remote-resume-and-send";
 
 // Live PTY-backed terminal. The master writer is wrapped in a std Mutex
 // because portable_pty's writer isn't Send+Sync-friendly for tokio's
@@ -313,6 +323,52 @@ fn resolve_claude_auth_status(
 mod tests {
     use super::*;
 
+    fn cursor(id: &str, at_ms: i64) -> ReadCursor {
+        ReadCursor {
+            last_read_message_id: id.to_string(),
+            read_at_ms: at_ms,
+        }
+    }
+
+    #[test]
+    fn read_cursor_advances_from_unset() {
+        assert!(cursor_should_advance(None, "msg-3", Some(2), None, 100));
+    }
+
+    #[test]
+    fn read_cursor_advances_forward_by_transcript_order() {
+        let current = cursor("msg-2", 100);
+        // msg-5 is later in the transcript than msg-2 → advance.
+        assert!(cursor_should_advance(Some(&current), "msg-5", Some(5), Some(2), 50));
+    }
+
+    #[test]
+    fn read_cursor_does_not_regress_to_an_earlier_message() {
+        let current = cursor("msg-5", 100);
+        // msg-2 is earlier even though it carries a newer timestamp → ignore.
+        assert!(!cursor_should_advance(Some(&current), "msg-2", Some(2), Some(5), 999));
+    }
+
+    #[test]
+    fn read_cursor_advances_when_stored_fell_off_the_window() {
+        let current = cursor("msg-old", 100);
+        // Stored id is older than the loaded tail (None); new id is in it → advance.
+        assert!(cursor_should_advance(Some(&current), "msg-9", Some(9), None, 50));
+    }
+
+    #[test]
+    fn read_cursor_is_noop_for_same_message() {
+        let current = cursor("msg-3", 100);
+        assert!(!cursor_should_advance(Some(&current), "msg-3", Some(3), Some(3), 200));
+    }
+
+    #[test]
+    fn read_cursor_falls_back_to_newest_when_order_unknown() {
+        let current = cursor("msg-a", 100);
+        assert!(cursor_should_advance(Some(&current), "msg-b", None, None, 200));
+        assert!(!cursor_should_advance(Some(&current), "msg-b", None, None, 50));
+    }
+
     #[test]
     fn prefers_cli_login_when_legacy_env_shadows_it() {
         let current = auth_status(true, "api_key", "firstParty", Some("ANTHROPIC_API_KEY"));
@@ -493,12 +549,14 @@ mod tests {
     }
 
     #[test]
-    fn truncate_preview_collapses_whitespace_and_clips() {
-        let (text, truncated) = truncate_preview("hello\n  world\t");
-        assert_eq!(text, "hello world");
+    fn truncate_preview_preserves_newlines_and_clips() {
+        // Line breaks are preserved so multi-line replies stay readable; only
+        // the outer whitespace is trimmed.
+        let (text, truncated) = truncate_preview("  hello\nworld  ");
+        assert_eq!(text, "hello\nworld");
         assert!(!truncated);
 
-        let long = "x ".repeat(REMOTE_PREVIEW_MAX);
+        let long = "x".repeat(REMOTE_PREVIEW_MAX + 100);
         let (clipped, was_clipped) = truncate_preview(&long);
         assert!(was_clipped);
         assert!(clipped.ends_with('…'));
@@ -511,7 +569,10 @@ mod tests {
             "type": "user",
             "message": { "content": "fix the bug" }
         });
-        assert_eq!(classify_transcript_record(&user), ("user_message", "fix the bug".to_string()));
+        assert_eq!(
+            classify_transcript_record(&user),
+            ("user_message", "fix the bug".to_string(), None)
+        );
 
         let assistant_text = serde_json::json!({
             "type": "assistant",
@@ -519,23 +580,28 @@ mod tests {
         });
         assert_eq!(
             classify_transcript_record(&assistant_text),
-            ("assistant_message", "On it".to_string())
+            ("assistant_message", "On it".to_string(), None)
         );
 
+        // Tool calls carry the tool name and its key detail (the command).
         let tool_call = serde_json::json!({
             "type": "assistant",
-            "message": { "content": [{ "type": "tool_use", "name": "Bash", "input": {} }] }
+            "message": { "content": [{
+                "type": "tool_use", "name": "Bash", "input": { "command": "npm test" }
+            }] }
         });
         assert_eq!(
             classify_transcript_record(&tool_call),
-            ("tool_call", "Calling Bash".to_string())
+            ("tool_call", "npm test".to_string(), Some("Bash".to_string()))
         );
 
         let tool_result = serde_json::json!({
             "type": "user",
             "message": { "content": [{ "type": "tool_result", "content": "ok" }] }
         });
-        assert_eq!(classify_transcript_record(&tool_result).0, "tool_result");
+        let (kind, text, _) = classify_transcript_record(&tool_result);
+        assert_eq!(kind, "tool_result");
+        assert_eq!(text, "ok");
 
         let result = serde_json::json!({ "type": "result", "subtype": "success" });
         assert_eq!(classify_transcript_record(&result).0, "system_notice");
@@ -1021,11 +1087,19 @@ async fn start_session(
         cmd.arg("--add-dir").arg(home);
     }
 
-    if let Some(m) = normalize_model_arg(model) {
-        cmd.arg("--model").arg(m);
+    let is_resume = resume_id.is_some();
+
+    // Pin the requested model only for fresh sessions. On --resume we omit
+    // --model: the conversation is restored on the user's current default
+    // model, and forcing the session's *historical* model id breaks resume
+    // once that model has been retired — the CLI rejects it with "the selected
+    // model may not exist". (Claude Code's normal resume doesn't pass --model.)
+    if !is_resume {
+        if let Some(m) = normalize_model_arg(model) {
+            cmd.arg("--model").arg(m);
+        }
     }
 
-    let is_resume = resume_id.is_some();
     if let Some(rid) = resume_id.as_deref() {
         cmd.arg("--resume").arg(rid);
     }
@@ -2927,8 +3001,56 @@ async fn run_remote_command_consumer(
         let result = match command {
             RemoteCommand::SendMessage { session_id, body } => {
                 match panel_for_session(&session_owners, &session_id).await {
-                    Some(panel_id) => deliver_user_message(&sessions, &panel_id, &body).await,
-                    None => Err(format!("no live session for {session_id}")),
+                    Some(panel_id) => {
+                        let result = deliver_user_message(&sessions, &panel_id, &body).await;
+                        if result.is_ok() {
+                            // Mirror the user message into the desktop transcript.
+                            // The local composer appends user bubbles itself, so a
+                            // phone-originated send would otherwise show only the
+                            // assistant's reply on the desktop. Reuse the
+                            // claude-event path so handleEvent renders it identically
+                            // and both threads stay in sync.
+                            let line = serde_json::json!({
+                                "type": "user",
+                                "message": { "role": "user", "content": body }
+                            })
+                            .to_string();
+                            let _ = app.emit(
+                                "claude-event",
+                                serde_json::json!({ "panel_id": panel_id, "line": line }),
+                            );
+                        }
+                        result
+                    }
+                    None => {
+                        // The session has no live subprocess (e.g. the desktop
+                        // restarted, or it was never opened). Ask the desktop to
+                        // resume it and deliver the message, so the phone can
+                        // continue any past conversation — not only live ones.
+                        match session_cwd(&session_id) {
+                            Some(cwd) => {
+                                if session_recently_active(&session_id, &cwd) {
+                                    // Live in another process (e.g. a terminal):
+                                    // don't hijack it with a conflicting resume.
+                                    push_remote_event(action_failed_value(
+                                        &session_id,
+                                        "This conversation is active in another window right now. Continue it there, or try again once it's idle.",
+                                    ));
+                                } else {
+                                    let _ = app.emit(
+                                        REMOTE_RESUME_SEND_EVENT,
+                                        serde_json::json!({
+                                            "sessionId": session_id,
+                                            "cwd": cwd,
+                                            "body": body,
+                                        }),
+                                    );
+                                }
+                                Ok(())
+                            }
+                            None => Err(format!("unknown session {session_id}")),
+                        }
+                    }
                 }
             }
             RemoteCommand::StopSession { session_id } => {
@@ -2959,6 +3081,39 @@ async fn run_remote_command_consumer(
                     push_remote_event(transcript);
                 }
                 Ok(())
+            }
+            RemoteCommand::SetReadCursor {
+                session_id,
+                last_read_message_id,
+                read_at_ms,
+            } => {
+                // Advance the host cursor and, when it actually moved, fan the
+                // new position out to every connected phone *and* notify the
+                // desktop window (which isn't a transport client) so all
+                // surfaces converge on where the user left off.
+                if advance_read_cursor(&session_id, &last_read_message_id, read_at_ms) {
+                    if let Some(event) = read_cursor_event_value(&session_id) {
+                        push_remote_event(event.clone());
+                        let _ = app.emit(READ_CURSOR_EVENT, event);
+                    }
+                }
+                Ok(())
+            }
+            RemoteCommand::StartSession { cwd, body } => {
+                // Hand off to the desktop window, which starts the session via
+                // its normal new-session path (so it gets a panel, live
+                // streaming, and sidebar entry) and reports the new id back for
+                // the phone to follow.
+                let trimmed = cwd.trim();
+                if trimmed.is_empty() {
+                    Err("start_session: empty cwd".to_string())
+                } else {
+                    let _ = app.emit(
+                        REMOTE_START_SESSION_EVENT,
+                        serde_json::json!({ "cwd": trimmed, "body": body }),
+                    );
+                    Ok(())
+                }
             }
         };
         if let Err(e) = result {
@@ -3032,7 +3187,8 @@ fn remote_sessions_event_value() -> Option<serde_json::Value> {
                 "state": session_state_label(s),
                 "updatedAt": epoch_ms_to_iso8601(s.mtime_ms),
                 "pendingApprovalCount": 0,
-                "unreadCount": 0,
+                "unreadCount": session_unread_count(&s.id),
+                "liveElsewhere": session_live_elsewhere(&s.id, &s.cwd),
             })
         })
         .collect();
@@ -3043,21 +3199,65 @@ fn remote_sessions_event_value() -> Option<serde_json::Value> {
     }))
 }
 
+/// Distinct recent project directories (most-recent first), offered to the
+/// phone when starting a new session. Derived from existing sessions' cwds.
+fn remote_project_dirs_event_value() -> Option<serde_json::Value> {
+    let sessions = list_sessions().ok()?;
+    let host_id = remote_host_id_for_pairing();
+    let mut seen = std::collections::HashSet::new();
+    let mut dirs: Vec<String> = Vec::new();
+    for s in &sessions {
+        if !s.cwd.is_empty() && seen.insert(s.cwd.clone()) {
+            dirs.push(s.cwd.clone());
+        }
+        if dirs.len() >= 30 {
+            break;
+        }
+    }
+    Some(serde_json::json!({
+        "type": "project_dirs",
+        "hostId": host_id,
+        "dirs": dirs,
+    }))
+}
+
+/// Desktop UI entry point: after a phone-initiated session spawns and the
+/// desktop learns its id, push it to paired phones so they can open it.
+#[tauri::command]
+fn remote_notify_session_started(session_id: String, cwd: String) {
+    if session_id.trim().is_empty() {
+        return;
+    }
+    push_remote_event(serde_json::json!({
+        "type": "session_started",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "cwd": cwd,
+    }));
+    // Refresh the session list too, so the new conversation appears right away
+    // rather than on the next heartbeat.
+    if let Some(sessions) = remote_sessions_event_value() {
+        push_remote_event(sessions);
+    }
+}
+
 /// How many transcript entries to tail for the mobile companion's view.
 const REMOTE_TRANSCRIPT_LIMIT: usize = 40;
 /// Max characters in a single transcript preview pushed to a phone.
-const REMOTE_PREVIEW_MAX: usize = 280;
+const REMOTE_PREVIEW_MAX: usize = 8000;
 
-/// Collapse whitespace and clip to `REMOTE_PREVIEW_MAX` chars so the preview is
-/// a single safe-to-render line. Returns the text and whether it was clipped.
+/// Prepare a transcript entry's text for the phone: keep line breaks (so
+/// multi-line replies and code stay readable) and clip only very long entries
+/// to `REMOTE_PREVIEW_MAX` chars to bound payload size. Returns the text and
+/// whether it was clipped.
 fn truncate_preview(raw: &str) -> (String, bool) {
-    let collapsed = raw.split_whitespace().collect::<Vec<_>>().join(" ");
-    let chars: Vec<char> = collapsed.chars().collect();
+    let trimmed = raw.trim();
+    let chars: Vec<char> = trimmed.chars().collect();
     if chars.len() > REMOTE_PREVIEW_MAX {
         let clipped: String = chars[..REMOTE_PREVIEW_MAX].iter().collect();
         (format!("{clipped}…"), true)
     } else {
-        (collapsed, false)
+        (trimmed.to_string(), false)
     }
 }
 
@@ -3087,25 +3287,73 @@ fn first_text_block(content: &serde_json::Value) -> Option<String> {
 
 /// Classify a tail record into a protocol transcript kind + a raw preview.
 /// `load_session_tail` has already dropped internal/system record types.
-fn classify_transcript_record(record: &serde_json::Value) -> (&'static str, String) {
+/// A tool call's key detail to show on the phone (the bash command, the file
+/// path, the search pattern, the URL) — empty when there's nothing concise.
+fn tool_detail(name: &str, input: Option<&serde_json::Value>) -> String {
+    let Some(input) = input else {
+        return String::new();
+    };
+    let get = |k: &str| {
+        input
+            .get(k)
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    };
+    match name {
+        "Bash" => get("command").unwrap_or_default(),
+        "Read" | "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => {
+            get("file_path").or_else(|| get("path")).unwrap_or_default()
+        }
+        "Glob" | "Grep" => get("pattern").unwrap_or_default(),
+        "WebFetch" => get("url").unwrap_or_default(),
+        "WebSearch" => get("query").unwrap_or_default(),
+        "Task" => get("description").unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+/// The text of a tool_result block (string content, or joined text parts).
+fn tool_result_text(block: &serde_json::Value) -> String {
+    let Some(content) = block.get("content") else {
+        return String::new();
+    };
+    if let Some(s) = content.as_str() {
+        return s.to_string();
+    }
+    if let Some(arr) = content.as_array() {
+        return arr
+            .iter()
+            .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+    String::new()
+}
+
+/// Classify a transcript record into (kind, text, tool name). The tool name is
+/// present for tool_call entries so the phone can label them.
+fn classify_transcript_record(
+    record: &serde_json::Value,
+) -> (&'static str, String, Option<String>) {
     let record_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
     let content = record.pointer("/message/content");
     let blocks = content.and_then(|c| c.as_array());
 
-    let has_block = |name: &str| {
-        blocks.is_some_and(|arr| {
+    let find_block = |name: &str| {
+        blocks.and_then(|arr| {
             arr.iter()
-                .any(|b| b.get("type").and_then(|t| t.as_str()) == Some(name))
+                .find(|b| b.get("type").and_then(|t| t.as_str()) == Some(name))
         })
     };
+    let has_block = |name: &str| find_block(name).is_some();
 
     match record_type {
         "user" => {
-            if has_block("tool_result") {
-                ("tool_result", "Tool result".to_string())
+            if let Some(tr) = find_block("tool_result") {
+                ("tool_result", tool_result_text(tr), None)
             } else {
                 let text = content.and_then(first_text_block).unwrap_or_default();
-                ("user_message", text)
+                ("user_message", text, None)
             }
         }
         "assistant" => {
@@ -3115,22 +3363,21 @@ fn classify_transcript_record(record: &serde_json::Value) -> (&'static str, Stri
                 } else {
                     "thinking"
                 };
-                (kind, text)
-            } else if has_block("tool_use") {
-                let name = blocks
-                    .and_then(|arr| {
-                        arr.iter()
-                            .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_use"))
-                            .and_then(|b| b.get("name").and_then(|n| n.as_str()))
-                    })
-                    .unwrap_or("tool");
-                ("tool_call", format!("Calling {name}"))
+                (kind, text, None)
+            } else if let Some(tu) = find_block("tool_use") {
+                let name = tu
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("tool")
+                    .to_string();
+                let detail = tool_detail(&name, tu.get("input"));
+                ("tool_call", detail, Some(name))
             } else {
-                ("assistant_message", String::new())
+                ("assistant_message", String::new(), None)
             }
         }
-        "result" => ("system_notice", "Turn complete".to_string()),
-        other => ("system_notice", other.to_string()),
+        "result" => ("system_notice", "Turn complete".to_string(), None),
+        other => ("system_notice", other.to_string(), None),
     }
 }
 
@@ -3171,7 +3418,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
         .iter()
         .enumerate()
         .map(|(i, record)| {
-            let (kind, raw) = classify_transcript_record(record);
+            let (kind, raw, tool_name) = classify_transcript_record(record);
             let (preview, truncated) = truncate_preview(&raw);
             let id = record
                 .get("uuid")
@@ -3190,6 +3437,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
                 "createdAt": created_at,
                 "preview": preview,
                 "truncated": truncated,
+                "toolName": tool_name,
             })
         })
         .collect();
@@ -3199,6 +3447,294 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
         "sessionId": target.id,
         "entries": entries,
     }))
+}
+
+// ---------------------------------------------------------------------------
+// Read cursors: the host owns the canonical "last read message" per session so
+// desktop and phone converge on where the user left off. Both surfaces write
+// through `advance_read_cursor`, which only moves a cursor forward (by
+// transcript order, with `readAtMs` as a tiebreaker), and read it back via the
+// connect snapshot / a real-time `read_cursor` event. Persisted to disk so the
+// position survives restarts.
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct ReadCursor {
+    #[serde(rename = "lastReadMessageId")]
+    last_read_message_id: String,
+    #[serde(rename = "readAtMs")]
+    read_at_ms: i64,
+}
+
+static READ_CURSORS: OnceLock<StdMutex<HashMap<String, ReadCursor>>> = OnceLock::new();
+
+fn read_cursors_path() -> Option<PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    Some(
+        PathBuf::from(home)
+            .join(".claude")
+            .join("blackcrab")
+            .join("read_cursors.json"),
+    )
+}
+
+fn load_read_cursors_from_disk() -> HashMap<String, ReadCursor> {
+    let Some(path) = read_cursors_path() else {
+        return HashMap::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return HashMap::new();
+    };
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+fn save_read_cursors_to_disk(map: &HashMap<String, ReadCursor>) {
+    let Some(path) = read_cursors_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(text) = serde_json::to_string(map) {
+        let _ = std::fs::write(&path, text);
+    }
+}
+
+fn read_cursors() -> &'static StdMutex<HashMap<String, ReadCursor>> {
+    READ_CURSORS.get_or_init(|| StdMutex::new(load_read_cursors_from_disk()))
+}
+
+/// Order index of `message_id` within the session's loaded transcript tail, or
+/// `None` when it isn't in the window (e.g. older than the tail we keep).
+fn transcript_index_of(session_id: &str, message_id: &str) -> Option<usize> {
+    let sessions = list_sessions().ok()?;
+    let target = sessions.iter().find(|s| s.id == session_id)?;
+    let records =
+        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    records.iter().enumerate().find_map(|(i, record)| {
+        let id = record
+            .get("uuid")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("{}-{i}", target.id));
+        (id == message_id).then_some(i)
+    })
+}
+
+/// Pure monotonic-advance decision, split out from disk access so it can be
+/// tested directly. `new_idx`/`cur_idx` are the transcript-order positions of
+/// the incoming and stored message ids (None when outside the loaded window).
+fn cursor_should_advance(
+    current: Option<&ReadCursor>,
+    message_id: &str,
+    new_idx: Option<usize>,
+    cur_idx: Option<usize>,
+    at_ms: i64,
+) -> bool {
+    match current {
+        None => true,
+        Some(current) if current.last_read_message_id == message_id => false,
+        Some(current) => match (new_idx, cur_idx) {
+            (Some(n), Some(c)) => n > c,
+            (Some(_), None) => true,  // current fell off the window → new is ahead
+            (None, Some(_)) => false, // new is older than the window → behind
+            (None, None) => at_ms > current.read_at_ms, // unknown order → newest wins
+        },
+    }
+}
+
+/// Move the stored cursor for `session_id` forward to `message_id`/`at_ms` when
+/// it is ahead of the current one. Returns true when the store changed.
+fn advance_read_cursor(session_id: &str, message_id: &str, at_ms: i64) -> bool {
+    if message_id.is_empty() {
+        return false;
+    }
+    // Read the current cursor under a short lock, then do disk I/O unlocked.
+    let current = read_cursors().lock().unwrap().get(session_id).cloned();
+    let new_idx = transcript_index_of(session_id, message_id);
+    let cur_idx = current
+        .as_ref()
+        .and_then(|c| transcript_index_of(session_id, &c.last_read_message_id));
+    let changed = cursor_should_advance(current.as_ref(), message_id, new_idx, cur_idx, at_ms);
+    if changed {
+        let mut map = read_cursors().lock().unwrap();
+        map.insert(
+            session_id.to_string(),
+            ReadCursor {
+                last_read_message_id: message_id.to_string(),
+                read_at_ms: at_ms,
+            },
+        );
+        save_read_cursors_to_disk(&map);
+    }
+    changed
+}
+
+fn read_cursor_event_value(session_id: &str) -> Option<serde_json::Value> {
+    let map = read_cursors().lock().unwrap();
+    let cursor = map.get(session_id)?;
+    Some(serde_json::json!({
+        "type": "read_cursor",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "lastReadMessageId": cursor.last_read_message_id,
+        "readAtMs": cursor.read_at_ms,
+    }))
+}
+
+/// One `read_cursor` event per stored cursor, for the connect snapshot so a
+/// freshly connected client learns every session's left-off point at once.
+fn read_cursor_snapshot_values() -> Vec<serde_json::Value> {
+    let host_id = remote_host_id_for_pairing();
+    let map = read_cursors().lock().unwrap();
+    map.iter()
+        .map(|(session_id, cursor)| {
+            serde_json::json!({
+                "type": "read_cursor",
+                "hostId": host_id,
+                "sessionId": session_id,
+                "lastReadMessageId": cursor.last_read_message_id,
+                "readAtMs": cursor.read_at_ms,
+            })
+        })
+        .collect()
+}
+
+/// Desktop UI entry point: record that the local user read up to a message.
+#[tauri::command]
+fn set_session_read_cursor(session_id: String, last_read_message_id: String, read_at_ms: i64) {
+    if advance_read_cursor(&session_id, &last_read_message_id, read_at_ms) {
+        if let Some(event) = read_cursor_event_value(&session_id) {
+            push_remote_event(event);
+        }
+    }
+}
+
+/// Desktop UI entry point: read back every stored cursor (protocol shape).
+#[tauri::command]
+fn session_read_cursors() -> Vec<serde_json::Value> {
+    read_cursor_snapshot_values()
+}
+
+/// Coarse unread indicator for a session, by message identity: 1 when the
+/// session has a read cursor whose target is not the newest message, else 0.
+/// Bounded work — only sessions the user has actually read carry a cursor, and
+/// only those pay for a (cheap, tail-only) latest-message lookup.
+fn session_unread_count(session_id: &str) -> u32 {
+    let cursor = match read_cursors().lock().unwrap().get(session_id).cloned() {
+        Some(c) => c,
+        None => return 0,
+    };
+    match latest_message_id(session_id) {
+        Some(latest) if latest != cursor.last_read_message_id => 1,
+        _ => 0,
+    }
+}
+
+/// A session whose file was written within this window is treated as live in
+/// another process (e.g. a terminal) — we won't hijack it with a `--resume`.
+const REMOTE_ACTIVE_WINDOW_SECS: u64 = 12;
+
+/// True when the session's JSONL was modified very recently — a strong sign
+/// another process is actively writing it.
+fn session_recently_active(session_id: &str, cwd: &str) -> bool {
+    let Ok(path) = session_path(session_id, cwd) else {
+        return false;
+    };
+    std::fs::metadata(&path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.elapsed().ok())
+        .map(|d| d.as_secs() < REMOTE_ACTIVE_WINDOW_SECS)
+        .unwrap_or(false)
+}
+
+fn action_failed_value(session_id: &str, reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "action_failed",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "reason": reason,
+    })
+}
+
+/// Desktop UI entry point: tell the phone a start/resume/send couldn't be
+/// fulfilled (bad directory, session open elsewhere, …).
+#[tauri::command]
+fn remote_notify_action_failed(session_id: Option<String>, reason: String) {
+    push_remote_event(serde_json::json!({
+        "type": "action_failed",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "reason": reason,
+    }));
+}
+
+/// Handle to the live session→panel ownership map, for sync snapshot reads.
+static SESSION_OWNERS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+
+/// True when Blackcrab itself runs this session (so the phone can message it).
+/// Uses a non-blocking try-lock; treats contention as "not owned".
+fn session_owned_by_blackcrab(session_id: &str) -> bool {
+    SESSION_OWNERS
+        .get()
+        .and_then(|m| m.try_lock().ok())
+        .map(|owners| owners.contains_key(session_id))
+        .unwrap_or(false)
+}
+
+/// True when a session is live in a process the phone can't take over (a
+/// terminal): recently written, but not owned by Blackcrab.
+fn session_live_elsewhere(session_id: &str, cwd: &str) -> bool {
+    session_recently_active(session_id, cwd) && !session_owned_by_blackcrab(session_id)
+}
+
+/// The working directory recorded for a session, used to resume it.
+fn session_cwd(session_id: &str) -> Option<String> {
+    list_sessions()
+        .ok()?
+        .into_iter()
+        .find(|s| s.id == session_id)
+        .map(|s| s.cwd)
+}
+
+/// The newest transcript record id for a session, in the same id space the
+/// `transcript_tail` event uses (JSONL `uuid`, with the `{sessionId}-{i}`
+/// fallback). `None` when the session or its tail can't be read.
+fn latest_message_id(session_id: &str) -> Option<String> {
+    let sessions = list_sessions().ok()?;
+    let target = sessions.iter().find(|s| s.id == session_id)?;
+    let records =
+        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    let last = records.len().checked_sub(1)?;
+    let record = records.get(last)?;
+    Some(
+        record
+            .get("uuid")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("{}-{last}", target.id)),
+    )
+}
+
+/// Desktop UI entry point: mark a session read up to its newest message. Used
+/// when the desktop user opens/views a conversation — it resolves the latest
+/// message id host-side (the desktop renders entries with a different id space)
+/// and advances the shared cursor, syncing "all read" to paired phones.
+/// Returns the message id the cursor now points at, if any.
+#[tauri::command]
+fn mark_session_read_latest(session_id: String) -> Option<String> {
+    let latest = latest_message_id(&session_id)?;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    if advance_read_cursor(&session_id, &latest, now_ms) {
+        if let Some(event) = read_cursor_event_value(&session_id) {
+            push_remote_event(event);
+        }
+    }
+    Some(latest)
 }
 
 // ---------------------------------------------------------------------------
@@ -3407,6 +3943,14 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
     for approval in &pending {
         events.push(approval_requested_value(approval));
     }
+    // Read cursors, so a freshly connected client lands where the user left off.
+    for value in read_cursor_snapshot_values() {
+        events.push(value);
+    }
+    // Recent project directories, offered when starting a new session.
+    if let Some(dirs) = remote_project_dirs_event_value() {
+        events.push(dirs);
+    }
     events
 }
 
@@ -3538,6 +4082,11 @@ pub fn run() {
             remote_host_info,
             remote_relay_url,
             remote_transport_info,
+            set_session_read_cursor,
+            session_read_cursors,
+            mark_session_read_latest,
+            remote_notify_session_started,
+            remote_notify_action_failed,
             pairing_start,
             pairing_accept,
             pairing_cancel,
@@ -3552,6 +4101,9 @@ pub fn run() {
             let state = app.state::<AppState>();
             let sessions = state.sessions.clone();
             let session_owners = state.session_owners.clone();
+            // Stash a handle so the (sync) session snapshot can tell which
+            // sessions Blackcrab owns and thus are reachable for the phone.
+            let _ = SESSION_OWNERS.set(state.session_owners.clone());
             let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
             let _ = REMOTE_CMD_TX.set(tx);
             // Real-time host->mobile push channel (approvals); the initial

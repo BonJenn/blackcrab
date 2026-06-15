@@ -402,11 +402,27 @@ type SessionActivity = {
   unread: boolean;
   updated_ms: number;
   text?: string;
+  /**
+   * Host-canonical read cursor mirrored here for the sidebar/transcript to
+   * render "where you left off". `read_cursor_id` is the newest transcript
+   * entry id the user has read; `read_at_ms` is when, used as a sync tiebreaker.
+   */
+  read_cursor_id?: string;
+  read_at_ms?: number;
 };
 
 type SessionActivityStore = Record<string, SessionActivity>;
 
 const SESSION_ACTIVITY_STORAGE_KEY = "sidebar.sessionActivity";
+
+/** Tauri event the host fires when a paired phone advances a read cursor. */
+const READ_CURSOR_EVENT = "blackcrab-read-cursor";
+
+/** Tauri event the host fires when a paired phone asks to start a session. */
+const REMOTE_START_SESSION_EVENT = "blackcrab-remote-start-session";
+
+/** Tauri event fired when a phone messages a session with no live subprocess. */
+const REMOTE_RESUME_SEND_EVENT = "blackcrab-remote-resume-and-send";
 
 function isSessionActivityState(v: unknown): v is SessionActivityState {
   return (
@@ -552,6 +568,12 @@ function loadSessionActivity(): SessionActivityStore {
             : state === "interrupted"
             ? "needs recovery"
             : undefined,
+        read_cursor_id:
+          typeof item.read_cursor_id === "string"
+            ? item.read_cursor_id
+            : undefined,
+        read_at_ms:
+          typeof item.read_at_ms === "number" ? item.read_at_ms : undefined,
       };
     }
     return out;
@@ -1573,6 +1595,9 @@ function App() {
       setSessionActivity((prev) => ({
         ...prev,
         [id]: {
+          // Preserve the read cursor (and any other carried fields) across
+          // state changes — only state/unread/updated_ms/text are recomputed.
+          ...prev[id],
           state,
           unread: shouldUnread && !isCurrent,
           updated_ms: Date.now(),
@@ -1582,8 +1607,16 @@ function App() {
     },
     [],
   );
+  // Assigned once `markSessionReadLatest` is defined below; lets ack advance the
+  // shared read cursor without a declaration-order dependency.
+  const markSessionReadLatestRef = useRef<(id: string | undefined) => void>(
+    () => {},
+  );
   const ackSessionActivity = useCallback((id: string | undefined) => {
     if (!id) return;
+    // Viewing a session means the user has seen its latest message — advance
+    // the host-canonical read cursor so the "read" state syncs to paired phones.
+    markSessionReadLatestRef.current(id);
     setSessionActivity((prev) => {
       const current = prev[id];
       if (!current) return prev;
@@ -1602,6 +1635,163 @@ function App() {
       }
       return { ...prev, [id]: next };
     });
+  }, []);
+  // Mirror a host-reported read cursor into local activity. The host is the
+  // authority (it arbitrates monotonic advancement), so we store what it
+  // reports. `clearUnread` is set when the advance came from a real read (this
+  // device opening the session, or a phone-driven advance pushed by the host).
+  const applyRemoteReadCursor = useCallback(
+    (sessionId: string, messageId: string, atMs: number, clearUnread = true) => {
+      if (!sessionId || !messageId) return;
+      setSessionActivity((prev) => {
+        const current = prev[sessionId];
+        if (
+          current?.read_cursor_id === messageId &&
+          current?.read_at_ms === atMs &&
+          (!clearUnread || !current?.unread)
+        ) {
+          return prev;
+        }
+        const base: SessionActivity = current ?? {
+          state: "idle",
+          unread: false,
+          updated_ms: atMs,
+        };
+        return {
+          ...prev,
+          [sessionId]: {
+            ...base,
+            unread: clearUnread ? false : base.unread,
+            read_cursor_id: messageId,
+            read_at_ms: atMs,
+          },
+        };
+      });
+    },
+    [],
+  );
+  // Mark a session read up to its newest message (called when the desktop user
+  // opens/views it). The host resolves the latest message id — the desktop
+  // renders entries with a different id space — persists the cursor, and syncs
+  // "all read" to paired phones.
+  const markSessionReadLatest = useCallback(
+    (sessionId: string | undefined) => {
+      if (!sessionId) return;
+      void invoke<string | null>("mark_session_read_latest", { sessionId })
+        .then((messageId) => {
+          if (typeof messageId === "string" && messageId) {
+            applyRemoteReadCursor(sessionId, messageId, Date.now());
+          }
+        })
+        .catch(() => {
+          // Best effort — local unread handling already covers this device.
+        });
+    },
+    [applyRemoteReadCursor],
+  );
+  markSessionReadLatestRef.current = markSessionReadLatest;
+  // Load any persisted cursors on mount and keep in sync with phone-driven
+  // advances pushed from the host.
+  useEffect(() => {
+    let cancelled = false;
+    void invoke<unknown[]>("session_read_cursors")
+      .then((cursors) => {
+        if (cancelled || !Array.isArray(cursors)) return;
+        for (const c of cursors) {
+          if (!c || typeof c !== "object") continue;
+          const v = c as {
+            sessionId?: unknown;
+            lastReadMessageId?: unknown;
+            readAtMs?: unknown;
+          };
+          if (
+            typeof v.sessionId === "string" &&
+            typeof v.lastReadMessageId === "string" &&
+            typeof v.readAtMs === "number"
+          ) {
+            // Initial restore: don't wipe unread computed from session state.
+            applyRemoteReadCursor(
+              v.sessionId,
+              v.lastReadMessageId,
+              v.readAtMs,
+              false,
+            );
+          }
+        }
+      })
+      .catch(() => {});
+    let unlisten: (() => void) | undefined;
+    void listen<{
+      sessionId?: string;
+      lastReadMessageId?: string;
+      readAtMs?: number;
+    }>(READ_CURSOR_EVENT, (event) => {
+      const p = event.payload;
+      if (
+        p &&
+        typeof p.sessionId === "string" &&
+        typeof p.lastReadMessageId === "string" &&
+        typeof p.readAtMs === "number"
+      ) {
+        applyRemoteReadCursor(p.sessionId, p.lastReadMessageId, p.readAtMs);
+      }
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [applyRemoteReadCursor]);
+  // A paired phone asked to start a session; run it through the normal
+  // new-session path on the desktop.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ cwd?: string; body?: string }>(
+      REMOTE_START_SESSION_EVENT,
+      (event) => {
+        const cwd = event.payload?.cwd;
+        const body = event.payload?.body;
+        if (typeof cwd === "string" && cwd && typeof body === "string") {
+          startRemoteSessionRef.current(cwd, body);
+        }
+      },
+    ).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+  // A phone messaged a session that isn't live — resume it and deliver.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ sessionId?: string; cwd?: string; body?: string }>(
+      REMOTE_RESUME_SEND_EVENT,
+      (event) => {
+        const { sessionId, cwd, body } = event.payload ?? {};
+        if (
+          typeof sessionId === "string" &&
+          sessionId &&
+          typeof cwd === "string" &&
+          typeof body === "string"
+        ) {
+          resumeRemoteSessionAndSendRef.current(sessionId, cwd, body);
+        }
+      },
+    ).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
   useEffect(() => {
     saveAppSettings(appSettings);
@@ -3432,6 +3622,18 @@ function App() {
     if (atBottom) setHasNewBelow(false);
   }, []);
 
+  // Set while a phone-initiated "start session" is spawning, so that once the
+  // session gets its id (system/init) we report it back to the phone.
+  const pendingRemoteStartRef = useRef<{ cwd: string } | null>(null);
+  // Always points at the latest startRemoteSession closure, so the (once-)
+  // mounted event listener calls a non-stale version.
+  const startRemoteSessionRef = useRef<
+    (cwd: string, body: string) => void
+  >(() => {});
+  const resumeRemoteSessionAndSendRef = useRef<
+    (sessionId: string, cwd: string, body: string) => void
+  >(() => {});
+
   function scrollToBottom() {
     const el = transcriptScrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -3609,6 +3811,16 @@ function App() {
         });
       }
       if (isActivePanel) setActiveSessionId(newId);
+      // A phone-initiated session just got its id — tell the phone so it can
+      // open the new conversation.
+      if (newId && pendingRemoteStartRef.current) {
+        const remoteCwd = pendingRemoteStartRef.current.cwd;
+        pendingRemoteStartRef.current = null;
+        void invoke("remote_notify_session_started", {
+          sessionId: newId,
+          cwd: remoteCwd,
+        }).catch(() => {});
+      }
       if (newId && pendingSidebarEngagementRef.current) {
         requestSidebarEngagementTop(newId);
       }
@@ -4141,6 +4353,82 @@ function App() {
     setProjectDashboardOpen(false);
     setTimeout(() => inputRef.current?.focus(), 0);
   }
+
+  // Start a session on behalf of a paired phone: open a fresh session in the
+  // chosen directory and deliver the first message, which spawns the
+  // conversation. Mirrors the local new-session + send path but takes cwd and
+  // body explicitly (no reliance on the input/cwd React state being settled).
+  async function startRemoteSession(targetCwd: string, body: string) {
+    const cwdTrim = targetCwd.trim();
+    const text = body.trim();
+    if (!cwdTrim || !text) return;
+    if (sessionOn && !busy) {
+      switchingSessionRef.current = true;
+      try {
+        await stopSession();
+      } finally {
+        switchingSessionRef.current = false;
+      }
+    }
+    setGridMode(false);
+    resetSessionState();
+    const panelId = activePanelIdRef.current;
+    setCwd(cwdTrim);
+    setModel(appSettings.defaultModel);
+    setPermissionMode(appSettings.defaultPermissionMode);
+    pendingRemoteStartRef.current = { cwd: cwdTrim };
+    try {
+      await startPanelSession({
+        panelId,
+        panelCwd: cwdTrim,
+        panelPermissionMode: appSettings.defaultPermissionMode,
+        panelModel: normalizeModelValue(appSettings.defaultModel),
+        resumeId: null,
+      });
+    } catch (e) {
+      pendingRemoteStartRef.current = null;
+      markSessionActivity(activeSessionIdRef.current, "error", "failed to start");
+      notifyErr("failed to start session from phone")(e);
+      // Tell the phone why, so it isn't left guessing (most often a path that
+      // doesn't exist on this host).
+      void invoke("remote_notify_action_failed", {
+        sessionId: null,
+        reason: `Couldn't start a session in "${cwdTrim}" — that directory may not exist on the desktop.`,
+      }).catch(() => {});
+      return;
+    }
+    // Append to the active transcript (which init has folded onto the new
+    // session id by now) and deliver, exactly like a local send.
+    setEntries((es) => [...es, { kind: "user", id: randomId(), text: body }]);
+    setPanelBusy(panelId, true);
+    try {
+      await invoke("send_message", { panelId, text: body });
+    } catch (e) {
+      setPanelBusy(panelId, false);
+      notifyErr("failed to deliver first message from phone")(e);
+    }
+  }
+  startRemoteSessionRef.current = startRemoteSession;
+
+  // Resume a session that has no live subprocess (e.g. after a desktop
+  // restart) on behalf of a paired phone, then deliver its message — so the
+  // phone can continue any past conversation, not just currently-live ones.
+  async function resumeRemoteSessionAndSend(
+    sessionId: string,
+    sessionCwd: string,
+    body: string,
+  ) {
+    const text = body.trim();
+    if (!sessionId || !text) return;
+    try {
+      await resumeSession(sessionId, sessionCwd);
+    } catch (e) {
+      notifyErr("failed to resume session from phone")(e);
+      return;
+    }
+    await sendQuickReply(text);
+  }
+  resumeRemoteSessionAndSendRef.current = resumeRemoteSessionAndSend;
 
   async function addNewGridPanel() {
     let chosen: string | null = null;
@@ -11804,41 +12092,59 @@ const PlainTranscript = memo(function PlainTranscript({
 }) {
   const [windowSize, setWindowSize] = useState(TRANSCRIPT_WINDOW);
   const stickToBottomRef = useRef(true);
-  // Stream new turns should auto-extend the window so live replies
-  // don't get clipped by the "show older" affordance once the user
-  // has started expanding it.
-  useEffect(() => {
-    setWindowSize((w) => (entries.length <= w ? w : w));
-  }, [entries.length]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => {
+    const BOTTOM_THRESHOLD = 48;
+    let raf = 0;
+    // Batch the layout read (scrollHeight forces a reflow) to once per frame so
+    // fast scrolling / wheel storms don't thrash layout — the main cause of
+    // choppiness, especially in a windowed (non-fullscreen) compositing path.
+    const measure = (userGesture: boolean) => {
+      raf = 0;
       const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
-      const atBottom = distance < 48;
+      const atBottom = distance < BOTTOM_THRESHOLD;
+      // On a user gesture we only ever *release* the stick (so a scroll-up
+      // isn't undone by a snap racing on the shared scroll event); the plain
+      // scroll handler is free to re-pin when the user lands at the bottom.
+      if (userGesture && atBottom) return;
       stickToBottomRef.current = atBottom;
       onAtBottomChange(atBottom);
     };
+    const schedule = (userGesture: boolean) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => measure(userGesture));
+    };
+    const onScroll = () => schedule(false);
+    const onUserScroll = () => schedule(true);
     el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => el.removeEventListener("scroll", onScroll);
+    el.addEventListener("wheel", onUserScroll, { passive: true });
+    el.addEventListener("touchmove", onUserScroll, { passive: true });
+    measure(false);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("wheel", onUserScroll);
+      el.removeEventListener("touchmove", onUserScroll);
+    };
   }, [onAtBottomChange, scrollRef]);
 
+  // Follow new content only while pinned to the bottom. Unlike before, a
+  // streaming turn (`busy`) no longer force-snaps when the user has scrolled
+  // up — it only re-snaps the typing indicator height change when already
+  // at the bottom.
   useLayoutEffect(() => {
-    if (!stickToBottomRef.current && !busy) return;
+    if (!stickToBottomRef.current) return;
     let raf = 0;
     const snap = () => {
       const el = scrollRef.current;
-      if (!el) return;
-      el.scrollTop = el.scrollHeight;
-      stickToBottomRef.current = true;
-      onAtBottomChange(true);
+      if (el) el.scrollTop = el.scrollHeight;
     };
     snap();
     raf = requestAnimationFrame(snap);
     return () => cancelAnimationFrame(raf);
-  }, [entries, busy, scrollRef, onAtBottomChange]);
+  }, [entries, busy, scrollRef]);
 
   useLayoutEffect(() => {
     if (!scrollToBottomToken) return;

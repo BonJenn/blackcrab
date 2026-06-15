@@ -41,6 +41,15 @@ pub(crate) enum RemoteCommand {
     Approve { approval_id: String },
     Deny { approval_id: String, reason: Option<String> },
     FocusSession { session_id: String },
+    SetReadCursor {
+        session_id: String,
+        last_read_message_id: String,
+        read_at_ms: i64,
+    },
+    StartSession {
+        cwd: String,
+        body: String,
+    },
 }
 
 /// Builds the host->mobile event bodies (each already in protocol shape) the
@@ -97,7 +106,14 @@ impl TransportServer {
         if let Some(existing) = self.endpoint.lock().await.clone() {
             return Ok(existing);
         }
-        let listener = TcpListener::bind(SocketAddr::from(([0u8, 0, 0, 0], 0)))
+        // Bind an ephemeral port by default. Set BLACKCRAB_LAN_PORT to pin a
+        // fixed port so a paired phone reconnects across desktop restarts
+        // instead of needing to re-pair when the OS hands out a new port.
+        let port = std::env::var("BLACKCRAB_LAN_PORT")
+            .ok()
+            .and_then(|v| v.trim().parse::<u16>().ok())
+            .unwrap_or(0);
+        let listener = TcpListener::bind(SocketAddr::from(([0u8, 0, 0, 0], port)))
             .await
             .map_err(|e| format!("bind transport listener: {e}"))?;
         let local = listener
@@ -346,6 +362,27 @@ async fn handle_connection(
                                         RemoteCommand::FocusSession { session_id },
                                     );
                                 }
+                                WireMessage::SetReadCursor {
+                                    session_id,
+                                    last_read_message_id,
+                                    read_at_ms,
+                                    ..
+                                } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::SetReadCursor {
+                                            session_id,
+                                            last_read_message_id,
+                                            read_at_ms,
+                                        },
+                                    );
+                                }
+                                WireMessage::StartSession { cwd, body, .. } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::StartSession { cwd, body },
+                                    );
+                                }
                                 // Pong and host->mobile events are ignored here.
                                 _ => {}
                             },
@@ -569,6 +606,24 @@ enum WireMessage {
         #[serde(rename = "sessionId")]
         session_id: String,
     },
+    SetReadCursor {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "lastReadMessageId")]
+        last_read_message_id: String,
+        #[serde(rename = "readAtMs")]
+        read_at_ms: i64,
+    },
+    StartSession {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        cwd: String,
+        body: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -635,6 +690,17 @@ fn _wire_uses() {
     let _ = WireMessage::FocusSession {
         host_id: String::new(),
         session_id: String::new(),
+    };
+    let _ = WireMessage::SetReadCursor {
+        host_id: String::new(),
+        session_id: String::new(),
+        last_read_message_id: String::new(),
+        read_at_ms: 0,
+    };
+    let _ = WireMessage::StartSession {
+        host_id: String::new(),
+        cwd: String::new(),
+        body: String::new(),
     };
     let _ = ConnectionState::Disconnected;
     let _ = ConnectionState::Connecting;
@@ -1041,6 +1107,38 @@ mod tests {
         match env.msg {
             WireMessage::FocusSession { session_id, .. } => assert_eq!(session_id, "sess-9"),
             other => panic!("expected focus_session, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn envelope_round_trips_set_read_cursor_action() {
+        let text = r#"{"v":1,"msg":{"type":"set_read_cursor","hostId":"h","sessionId":"sess-9","lastReadMessageId":"msg-4","readAtMs":1700000000000}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::SetReadCursor {
+                session_id,
+                last_read_message_id,
+                read_at_ms,
+                ..
+            } => {
+                assert_eq!(session_id, "sess-9");
+                assert_eq!(last_read_message_id, "msg-4");
+                assert_eq!(read_at_ms, 1_700_000_000_000);
+            }
+            other => panic!("expected set_read_cursor, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn envelope_round_trips_start_session_action() {
+        let text = r#"{"v":1,"msg":{"type":"start_session","hostId":"h","cwd":"/work/proj","body":"hello there"}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::StartSession { cwd, body, .. } => {
+                assert_eq!(cwd, "/work/proj");
+                assert_eq!(body, "hello there");
+            }
+            other => panic!("expected start_session, got {other:?}"),
         }
     }
 }

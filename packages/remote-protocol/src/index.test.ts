@@ -164,6 +164,23 @@ describe("remote-protocol", () => {
       expect(
         isRemoteAction({ type: "focus_session", hostId: "h", sessionId: "s" }),
       ).toBe(true);
+      expect(
+        isRemoteAction({
+          type: "set_read_cursor",
+          hostId: "h",
+          sessionId: "s",
+          lastReadMessageId: "msg-3",
+          readAtMs: 1_700_000_000_000,
+        }),
+      ).toBe(true);
+      expect(
+        isRemoteAction({
+          type: "start_session",
+          hostId: "h",
+          cwd: "/work/proj",
+          body: "hello",
+        }),
+      ).toBe(true);
     });
 
     it("rejects unknown or malformed payloads", () => {
@@ -182,6 +199,10 @@ describe("remote-protocol", () => {
         "approval_requested",
         "approval_resolved",
         "connection_status",
+        "read_cursor",
+        "project_dirs",
+        "session_started",
+        "action_failed",
       ];
       for (const type of types) {
         expect(isRemoteEvent({ type })).toBe(true);

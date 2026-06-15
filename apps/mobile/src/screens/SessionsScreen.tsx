@@ -1,16 +1,28 @@
-import { useState } from "react";
 import {
   FlatList,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { MOCK_SESSIONS, type SessionSummary } from "@blackcrab/remote-protocol";
 
 import type { Transport, TransportStatus } from "../transport/types";
 import { screenStyles } from "./styles";
+
+/** Compact "3m"/"2h"/"5d" style age from an ISO-8601 timestamp. */
+function relativeTime(iso: string): string {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "";
+  const diff = Date.now() - ms;
+  const min = 60_000;
+  const hr = 60 * min;
+  const day = 24 * hr;
+  if (diff < min) return "now";
+  if (diff < hr) return `${Math.floor(diff / min)}m`;
+  if (diff < day) return `${Math.floor(diff / hr)}h`;
+  return `${Math.floor(diff / day)}d`;
+}
 
 export interface SessionsScreenProps {
   /** Live connection to the active host, when one is paired and connected. */
@@ -19,15 +31,18 @@ export interface SessionsScreenProps {
   status?: TransportStatus | null;
   /** Live sessions pushed by the host. Falls back to mock fixtures when null. */
   sessions?: SessionSummary[] | null;
-  /** Follow a session's transcript (sends focus_session, opens Transcript). */
-  onViewTranscript?: (session: SessionSummary) => void;
+  /** Open a session's transcript (slide-over detail). */
+  onOpenSession?: (session: SessionSummary) => void;
+  /** Start a brand-new session (opens the new-session flow). */
+  onNewSession?: () => void;
 }
 
 export function SessionsScreen({
   transport,
   status,
   sessions,
-  onViewTranscript,
+  onOpenSession,
+  onNewSession,
 }: SessionsScreenProps) {
   const connected = status?.state === "connected" && Boolean(transport);
   const live = sessions != null;
@@ -35,13 +50,27 @@ export function SessionsScreen({
 
   return (
     <View style={screenStyles.container}>
-      <Text style={screenStyles.heading}>Sessions</Text>
+      <View style={localStyles.headerRow}>
+        <Text style={screenStyles.heading}>Chats</Text>
+        {connected && onNewSession && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onNewSession}
+            style={({ pressed }) => [
+              localStyles.newButton,
+              pressed && localStyles.rowPressed,
+            ]}
+          >
+            <Text style={localStyles.newButtonText}>+ New</Text>
+          </Pressable>
+        )}
+      </View>
       <Text style={screenStyles.note}>
         {live
-          ? "Live sessions from the connected host."
+          ? "Tap a conversation to open it."
           : connected
             ? "Waiting for the host's session list…"
-            : "Mocked sessions. Connect to a host to send messages or stop a session."}
+            : "Mocked sessions. Connect to a host to open a conversation."}
       </Text>
       <FlatList
         data={data}
@@ -49,9 +78,8 @@ export function SessionsScreen({
         renderItem={({ item }) => (
           <SessionRow
             session={item}
-            transport={transport ?? null}
             connected={connected}
-            onViewTranscript={onViewTranscript}
+            onOpenSession={onOpenSession}
           />
         )}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
@@ -62,186 +90,152 @@ export function SessionsScreen({
 
 function SessionRow({
   session,
-  transport,
   connected,
-  onViewTranscript,
+  onOpenSession,
 }: {
   session: SessionSummary;
-  transport: Transport | null;
   connected: boolean;
-  onViewTranscript?: (session: SessionSummary) => void;
+  onOpenSession?: (session: SessionSummary) => void;
 }) {
-  const [draft, setDraft] = useState("");
-
-  function handleSend() {
-    const body = draft.trim();
-    if (!body || !transport) return;
-    const sent = transport.sendAction({
-      type: "send_message",
-      hostId: session.hostId,
-      sessionId: session.sessionId,
-      body,
-    });
-    if (sent) setDraft("");
-  }
-
-  function handleStop() {
-    transport?.sendAction({
-      type: "stop_session",
-      hostId: session.hostId,
-      sessionId: session.sessionId,
-    });
-  }
-
+  const openable = connected && Boolean(onOpenSession);
   return (
-    <View style={localStyles.row}>
-      <View style={localStyles.rowHeader}>
-        <View style={localStyles.rowMain}>
-          <Text style={localStyles.title}>{session.title}</Text>
-          <Text style={localStyles.meta}>
-            {session.model} · {session.state.replace("_", " ")}
+    <Pressable
+      accessibilityRole="button"
+      disabled={!openable}
+      onPress={() => onOpenSession?.(session)}
+      style={({ pressed }) => [
+        localStyles.row,
+        pressed && openable && localStyles.rowPressed,
+      ]}
+    >
+      <View style={localStyles.rowMain}>
+        <View style={localStyles.titleRow}>
+          {session.unreadCount > 0 && <View style={localStyles.unreadDot} />}
+          <Text
+            style={[
+              localStyles.title,
+              session.unreadCount > 0 && localStyles.titleUnread,
+            ]}
+            numberOfLines={1}
+          >
+            {session.title}
           </Text>
         </View>
-        {session.pendingApprovalCount > 0 && (
-          <Text style={localStyles.badge}>
-            {session.pendingApprovalCount} pending
-          </Text>
-        )}
-        {connected && onViewTranscript && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onViewTranscript(session)}
-            style={({ pressed }) => [
-              localStyles.viewButton,
-              pressed && localStyles.buttonPressed,
-            ]}
-          >
-            <Text style={localStyles.viewText}>Transcript</Text>
-          </Pressable>
+        <Text style={localStyles.meta} numberOfLines={1}>
+          {session.model} · {session.state.replace("_", " ")}
+          {session.updatedAt ? ` · ${relativeTime(session.updatedAt)}` : ""}
+        </Text>
+        {session.liveElsewhere && (
+          <View style={localStyles.liveTag}>
+            <View style={localStyles.liveDot} />
+            <Text style={localStyles.liveTagText}>active in another window</Text>
+          </View>
         )}
       </View>
-      <View style={localStyles.actions}>
-        <TextInput
-          style={localStyles.input}
-          value={draft}
-          onChangeText={setDraft}
-          editable={connected}
-          placeholder={connected ? "Send a follow-up…" : "Not connected"}
-          placeholderTextColor="#6b7480"
-          onSubmitEditing={handleSend}
-          returnKeyType="send"
-        />
-        <Pressable
-          accessibilityRole="button"
-          disabled={!connected || draft.trim().length === 0}
-          onPress={handleSend}
-          style={({ pressed }) => [
-            localStyles.button,
-            localStyles.sendButton,
-            (!connected || draft.trim().length === 0) && localStyles.buttonDisabled,
-            pressed && localStyles.buttonPressed,
-          ]}
-        >
-          <Text style={localStyles.buttonText}>Send</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!connected}
-          onPress={handleStop}
-          style={({ pressed }) => [
-            localStyles.button,
-            localStyles.stopButton,
-            !connected && localStyles.buttonDisabled,
-            pressed && localStyles.buttonPressed,
-          ]}
-        >
-          <Text style={localStyles.buttonText}>Stop</Text>
-        </Pressable>
-      </View>
-    </View>
+      {session.pendingApprovalCount > 0 && (
+        <Text style={localStyles.badge}>{session.pendingApprovalCount}</Text>
+      )}
+      {openable && <Text style={localStyles.chevron}>›</Text>}
+    </Pressable>
   );
 }
 
 const localStyles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  newButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#e26a4b",
+  },
+  newButtonText: {
+    color: "#f4f6f8",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#1f242b",
   },
   row: {
-    paddingVertical: 12,
-  },
-  rowHeader: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+  },
+  rowPressed: {
+    opacity: 0.6,
   },
   rowMain: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#e26a4b",
+  },
   title: {
+    flexShrink: 1,
     color: "#f4f6f8",
     fontSize: 15,
     fontWeight: "500",
+  },
+  titleUnread: {
+    fontWeight: "700",
   },
   meta: {
     color: "#9aa3ad",
     fontSize: 12,
     marginTop: 2,
   },
-  badge: {
-    color: "#e26a4b",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  viewButton: {
-    marginLeft: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#2a2f37",
-  },
-  viewText: {
-    color: "#9aa3ad",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  actions: {
+  liveTag: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 10,
-    gap: 8,
+    gap: 5,
+    marginTop: 5,
+    alignSelf: "flex-start",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    backgroundColor: "#2a2118",
   },
-  input: {
-    flex: 1,
-    backgroundColor: "#11151a",
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#1f242b",
-    color: "#f4f6f8",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#e6c065",
   },
-  button: {
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  sendButton: {
-    backgroundColor: "#e26a4b",
-  },
-  stopButton: {
-    backgroundColor: "#2a2f37",
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  buttonPressed: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: "#f4f6f8",
-    fontSize: 14,
+  liveTagText: {
+    color: "#e6c065",
+    fontSize: 10.5,
     fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  badge: {
+    minWidth: 20,
+    textAlign: "center",
+    color: "#0b0d10",
+    backgroundColor: "#e26a4b",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    overflow: "hidden",
+  },
+  chevron: {
+    color: "#6b7480",
+    fontSize: 20,
+    fontWeight: "400",
   },
 });

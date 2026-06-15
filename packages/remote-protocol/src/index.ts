@@ -64,6 +64,12 @@ export interface SessionSummary {
   updatedAt: string;
   pendingApprovalCount: number;
   unreadCount: number;
+  /**
+   * True when the session is being actively written by another process the
+   * phone can't take over (e.g. a terminal). Messaging it won't go through
+   * until it's idle, so the UI can flag it.
+   */
+  liveElsewhere?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,10 +89,12 @@ export interface TranscriptEntry {
   sessionId: SessionId;
   kind: TranscriptEntryKind;
   createdAt: string;
-  /** Short, already-truncated preview safe to render on a phone. */
+  /** Message text (full, line breaks preserved) or a tool's key detail. */
   preview: string;
-  /** True when the host has more content for this entry than `preview` shows. */
+  /** True when the host clipped very long content. */
   truncated: boolean;
+  /** For tool_call/tool_result: the tool name (e.g. "Bash", "Write"). */
+  toolName?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,12 +158,37 @@ export interface FocusSessionAction {
   sessionId: SessionId;
 }
 
+export interface SetReadCursorAction {
+  type: "set_read_cursor";
+  hostId: HostId;
+  sessionId: SessionId;
+  /**
+   * The newest transcript entry the user has read in this session. The host
+   * only advances the stored cursor forward (by transcript order), so an
+   * out-of-order request from a device showing an older window is ignored.
+   */
+  lastReadMessageId: MessageId;
+  /** Unix epoch milliseconds when the read happened; used as a tiebreaker. */
+  readAtMs: number;
+}
+
+export interface StartSessionAction {
+  type: "start_session";
+  hostId: HostId;
+  /** Working directory to start the session in (a path on the host). */
+  cwd: string;
+  /** First message to send, which spawns the conversation. */
+  body: string;
+}
+
 export type RemoteAction =
   | SendMessageAction
   | StopSessionAction
   | ApproveAction
   | DenyAction
-  | FocusSessionAction;
+  | FocusSessionAction
+  | SetReadCursorAction
+  | StartSessionAction;
 
 // ---------------------------------------------------------------------------
 // Pairing
@@ -332,13 +365,54 @@ export interface ConnectionStatusEvent {
   status: ConnectionStatus;
 }
 
+/**
+ * The host's canonical read cursor for a session, pushed to all connected
+ * clients whenever it advances (from any device) and in the connect snapshot.
+ */
+export interface ReadCursorEvent {
+  type: "read_cursor";
+  hostId: HostId;
+  sessionId: SessionId;
+  lastReadMessageId: MessageId;
+  readAtMs: number;
+}
+
+/** Recent working directories on a host, offered when starting a session. */
+export interface ProjectDirsEvent {
+  type: "project_dirs";
+  hostId: HostId;
+  dirs: string[];
+}
+
+/** Sent after a phone-initiated session spawns, so the phone can open it. */
+export interface SessionStartedEvent {
+  type: "session_started";
+  hostId: HostId;
+  sessionId: SessionId;
+  cwd: string;
+}
+
+/** A phone-initiated action (start/resume/send) the host couldn't fulfil. */
+export interface ActionFailedEvent {
+  type: "action_failed";
+  hostId: HostId;
+  /** The session the action targeted, when applicable. */
+  sessionId?: SessionId;
+  /** Human-readable reason to show on the phone. */
+  reason: string;
+}
+
 export type RemoteEvent =
   | PairedHostsEvent
   | SessionsEvent
   | TranscriptTailEvent
   | ApprovalRequestedEvent
   | ApprovalResolvedEvent
-  | ConnectionStatusEvent;
+  | ConnectionStatusEvent
+  | ReadCursorEvent
+  | ProjectDirsEvent
+  | SessionStartedEvent
+  | ActionFailedEvent;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -438,6 +512,8 @@ export function isRemoteAction(value: unknown): value is RemoteAction {
     case "approve":
     case "deny":
     case "focus_session":
+    case "set_read_cursor":
+    case "start_session":
       return true;
     default:
       return false;
@@ -462,6 +538,10 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
     case "approval_requested":
     case "approval_resolved":
     case "connection_status":
+    case "read_cursor":
+    case "project_dirs":
+    case "session_started":
+    case "action_failed":
       return true;
     default:
       return false;

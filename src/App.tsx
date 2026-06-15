@@ -11944,29 +11944,34 @@ const PlainTranscript = memo(function PlainTranscript({
     const el = scrollRef.current;
     if (!el) return;
     const BOTTOM_THRESHOLD = 48;
-    const recompute = () => {
+    let raf = 0;
+    // Batch the layout read (scrollHeight forces a reflow) to once per frame so
+    // fast scrolling / wheel storms don't thrash layout — the main cause of
+    // choppiness, especially in a windowed (non-fullscreen) compositing path.
+    const measure = (userGesture: boolean) => {
+      raf = 0;
       const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
       const atBottom = distance < BOTTOM_THRESHOLD;
+      // On a user gesture we only ever *release* the stick (so a scroll-up
+      // isn't undone by a snap racing on the shared scroll event); the plain
+      // scroll handler is free to re-pin when the user lands at the bottom.
+      if (userGesture && atBottom) return;
       stickToBottomRef.current = atBottom;
       onAtBottomChange(atBottom);
     };
-    // A real user gesture (wheel/touch) away from the bottom must stop the
-    // auto-follow immediately. Relying on the "scroll" event alone is racy: a
-    // programmatic snap also fires "scroll" and would re-pin us to the bottom,
-    // yanking the view back while the user is trying to scroll up.
-    const onUserScroll = () => {
-      const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
-      if (distance >= BOTTOM_THRESHOLD && stickToBottomRef.current) {
-        stickToBottomRef.current = false;
-        onAtBottomChange(false);
-      }
+    const schedule = (userGesture: boolean) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => measure(userGesture));
     };
-    el.addEventListener("scroll", recompute, { passive: true });
+    const onScroll = () => schedule(false);
+    const onUserScroll = () => schedule(true);
+    el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onUserScroll, { passive: true });
     el.addEventListener("touchmove", onUserScroll, { passive: true });
-    recompute();
+    measure(false);
     return () => {
-      el.removeEventListener("scroll", recompute);
+      if (raf) cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onUserScroll);
       el.removeEventListener("touchmove", onUserScroll);
     };

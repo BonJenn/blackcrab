@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -45,6 +45,14 @@ export function NewSessionScreen({
   const [selectedDir, setSelectedDir] = useState<string | null>(null);
   const [customDir, setCustomDir] = useState("");
   const [message, setMessage] = useState("");
+
+  // Pre-select the most recent project so Start isn't silently disabled just
+  // because no directory was tapped.
+  useEffect(() => {
+    if (!selectedDir && !customDir.trim() && projectDirs.length > 0) {
+      setSelectedDir(projectDirs[0]);
+    }
+  }, [projectDirs, selectedDir, customDir]);
 
   const connected = activeStatus?.state === "connected";
   const cwd = (customDir.trim() || selectedDir || "").trim();

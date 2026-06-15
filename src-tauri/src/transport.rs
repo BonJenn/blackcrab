@@ -106,7 +106,14 @@ impl TransportServer {
         if let Some(existing) = self.endpoint.lock().await.clone() {
             return Ok(existing);
         }
-        let listener = TcpListener::bind(SocketAddr::from(([0u8, 0, 0, 0], 0)))
+        // Bind an ephemeral port by default. Set BLACKCRAB_LAN_PORT to pin a
+        // fixed port so a paired phone reconnects across desktop restarts
+        // instead of needing to re-pair when the OS hands out a new port.
+        let port = std::env::var("BLACKCRAB_LAN_PORT")
+            .ok()
+            .and_then(|v| v.trim().parse::<u16>().ok())
+            .unwrap_or(0);
+        let listener = TcpListener::bind(SocketAddr::from(([0u8, 0, 0, 0], port)))
             .await
             .map_err(|e| format!("bind transport listener: {e}"))?;
         let local = listener

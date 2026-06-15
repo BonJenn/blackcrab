@@ -221,6 +221,27 @@ fn command_from_envelope(plaintext: &str) -> Option<RemoteCommand> {
         "send_message" => Some(RemoteCommand::SendMessage {
             session_id: session()?,
             body: msg.get("body").and_then(|b| b.as_str()).unwrap_or("").to_string(),
+            attachments: msg
+                .get("attachments")
+                .and_then(|a| a.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|a| {
+                            Some(crate::transport::RemoteAttachment {
+                                name: a.get("name")?.as_str()?.to_string(),
+                                mime_type: a
+                                    .get("mimeType")
+                                    .and_then(|m| m.as_str())
+                                    .map(String::from),
+                                data_base64: a
+                                    .get("dataBase64")?
+                                    .as_str()?
+                                    .to_string(),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
         }),
         "stop_session" => Some(RemoteCommand::StopSession {
             session_id: session()?,
@@ -414,6 +435,7 @@ mod tests {
             RemoteCommand::SendMessage {
                 session_id: "s1".into(),
                 body: "hi".into(),
+                attachments: Vec::new(),
             }
         );
 

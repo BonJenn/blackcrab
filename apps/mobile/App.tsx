@@ -15,6 +15,7 @@ import type {
   ApprovalRequest,
   HostId,
   MessageId,
+  RemoteAttachment,
   SessionId,
   SessionSummary,
   TranscriptEntry,
@@ -300,13 +301,14 @@ export default function App() {
     }).start(() => setFocusedSession(null));
   }
 
-  function sendToFocused(body: string) {
+  function sendToFocused(body: string, attachments?: RemoteAttachment[]) {
     if (!activeTransport || !focusedSession) return;
     activeTransport.sendAction({
       type: "send_message",
       hostId: focusedSession.hostId,
       sessionId: focusedSession.sessionId,
       body,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
     });
   }
 

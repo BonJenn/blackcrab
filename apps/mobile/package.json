@@ -1,6 +1,6 @@
 {
   "name": "@blackcrab/mobile",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Blackcrab mobile remote companion (experimental scaffolding).",
   "license": "Apache-2.0",

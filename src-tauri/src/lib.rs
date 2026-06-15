@@ -36,6 +36,9 @@ const READ_CURSOR_EVENT: &str = "blackcrab-read-cursor";
 /// desktop creates it through its normal session machinery (panel, streaming,
 /// sidebar) and the new session flows back to the phone.
 const REMOTE_START_SESSION_EVENT: &str = "blackcrab-remote-start-session";
+/// Frontend event fired when a paired phone messages a session that has no live
+/// subprocess, so the desktop resumes it and delivers the message.
+const REMOTE_RESUME_SEND_EVENT: &str = "blackcrab-remote-resume-and-send";
 
 // Live PTY-backed terminal. The master writer is wrapped in a std Mutex
 // because portable_pty's writer isn't Send+Sync-friendly for tokio's
@@ -566,7 +569,10 @@ mod tests {
             "type": "user",
             "message": { "content": "fix the bug" }
         });
-        assert_eq!(classify_transcript_record(&user), ("user_message", "fix the bug".to_string()));
+        assert_eq!(
+            classify_transcript_record(&user),
+            ("user_message", "fix the bug".to_string(), None)
+        );
 
         let assistant_text = serde_json::json!({
             "type": "assistant",
@@ -574,23 +580,28 @@ mod tests {
         });
         assert_eq!(
             classify_transcript_record(&assistant_text),
-            ("assistant_message", "On it".to_string())
+            ("assistant_message", "On it".to_string(), None)
         );
 
+        // Tool calls carry the tool name and its key detail (the command).
         let tool_call = serde_json::json!({
             "type": "assistant",
-            "message": { "content": [{ "type": "tool_use", "name": "Bash", "input": {} }] }
+            "message": { "content": [{
+                "type": "tool_use", "name": "Bash", "input": { "command": "npm test" }
+            }] }
         });
         assert_eq!(
             classify_transcript_record(&tool_call),
-            ("tool_call", "Calling Bash".to_string())
+            ("tool_call", "npm test".to_string(), Some("Bash".to_string()))
         );
 
         let tool_result = serde_json::json!({
             "type": "user",
             "message": { "content": [{ "type": "tool_result", "content": "ok" }] }
         });
-        assert_eq!(classify_transcript_record(&tool_result).0, "tool_result");
+        let (kind, text, _) = classify_transcript_record(&tool_result);
+        assert_eq!(kind, "tool_result");
+        assert_eq!(text, "ok");
 
         let result = serde_json::json!({ "type": "result", "subtype": "success" });
         assert_eq!(classify_transcript_record(&result).0, "system_notice");
@@ -3011,7 +3022,26 @@ async fn run_remote_command_consumer(
                         }
                         result
                     }
-                    None => Err(format!("no live session for {session_id}")),
+                    None => {
+                        // The session has no live subprocess (e.g. the desktop
+                        // restarted, or it was never opened). Ask the desktop to
+                        // resume it and deliver the message, so the phone can
+                        // continue any past conversation — not only live ones.
+                        match session_cwd(&session_id) {
+                            Some(cwd) => {
+                                let _ = app.emit(
+                                    REMOTE_RESUME_SEND_EVENT,
+                                    serde_json::json!({
+                                        "sessionId": session_id,
+                                        "cwd": cwd,
+                                        "body": body,
+                                    }),
+                                );
+                                Ok(())
+                            }
+                            None => Err(format!("unknown session {session_id}")),
+                        }
+                    }
                 }
             }
             RemoteCommand::StopSession { session_id } => {
@@ -3247,25 +3277,73 @@ fn first_text_block(content: &serde_json::Value) -> Option<String> {
 
 /// Classify a tail record into a protocol transcript kind + a raw preview.
 /// `load_session_tail` has already dropped internal/system record types.
-fn classify_transcript_record(record: &serde_json::Value) -> (&'static str, String) {
+/// A tool call's key detail to show on the phone (the bash command, the file
+/// path, the search pattern, the URL) — empty when there's nothing concise.
+fn tool_detail(name: &str, input: Option<&serde_json::Value>) -> String {
+    let Some(input) = input else {
+        return String::new();
+    };
+    let get = |k: &str| {
+        input
+            .get(k)
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    };
+    match name {
+        "Bash" => get("command").unwrap_or_default(),
+        "Read" | "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => {
+            get("file_path").or_else(|| get("path")).unwrap_or_default()
+        }
+        "Glob" | "Grep" => get("pattern").unwrap_or_default(),
+        "WebFetch" => get("url").unwrap_or_default(),
+        "WebSearch" => get("query").unwrap_or_default(),
+        "Task" => get("description").unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+/// The text of a tool_result block (string content, or joined text parts).
+fn tool_result_text(block: &serde_json::Value) -> String {
+    let Some(content) = block.get("content") else {
+        return String::new();
+    };
+    if let Some(s) = content.as_str() {
+        return s.to_string();
+    }
+    if let Some(arr) = content.as_array() {
+        return arr
+            .iter()
+            .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+    String::new()
+}
+
+/// Classify a transcript record into (kind, text, tool name). The tool name is
+/// present for tool_call entries so the phone can label them.
+fn classify_transcript_record(
+    record: &serde_json::Value,
+) -> (&'static str, String, Option<String>) {
     let record_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
     let content = record.pointer("/message/content");
     let blocks = content.and_then(|c| c.as_array());
 
-    let has_block = |name: &str| {
-        blocks.is_some_and(|arr| {
+    let find_block = |name: &str| {
+        blocks.and_then(|arr| {
             arr.iter()
-                .any(|b| b.get("type").and_then(|t| t.as_str()) == Some(name))
+                .find(|b| b.get("type").and_then(|t| t.as_str()) == Some(name))
         })
     };
+    let has_block = |name: &str| find_block(name).is_some();
 
     match record_type {
         "user" => {
-            if has_block("tool_result") {
-                ("tool_result", "Tool result".to_string())
+            if let Some(tr) = find_block("tool_result") {
+                ("tool_result", tool_result_text(tr), None)
             } else {
                 let text = content.and_then(first_text_block).unwrap_or_default();
-                ("user_message", text)
+                ("user_message", text, None)
             }
         }
         "assistant" => {
@@ -3275,22 +3353,21 @@ fn classify_transcript_record(record: &serde_json::Value) -> (&'static str, Stri
                 } else {
                     "thinking"
                 };
-                (kind, text)
-            } else if has_block("tool_use") {
-                let name = blocks
-                    .and_then(|arr| {
-                        arr.iter()
-                            .find(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_use"))
-                            .and_then(|b| b.get("name").and_then(|n| n.as_str()))
-                    })
-                    .unwrap_or("tool");
-                ("tool_call", format!("Calling {name}"))
+                (kind, text, None)
+            } else if let Some(tu) = find_block("tool_use") {
+                let name = tu
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("tool")
+                    .to_string();
+                let detail = tool_detail(&name, tu.get("input"));
+                ("tool_call", detail, Some(name))
             } else {
-                ("assistant_message", String::new())
+                ("assistant_message", String::new(), None)
             }
         }
-        "result" => ("system_notice", "Turn complete".to_string()),
-        other => ("system_notice", other.to_string()),
+        "result" => ("system_notice", "Turn complete".to_string(), None),
+        other => ("system_notice", other.to_string(), None),
     }
 }
 
@@ -3331,7 +3408,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
         .iter()
         .enumerate()
         .map(|(i, record)| {
-            let (kind, raw) = classify_transcript_record(record);
+            let (kind, raw, tool_name) = classify_transcript_record(record);
             let (preview, truncated) = truncate_preview(&raw);
             let id = record
                 .get("uuid")
@@ -3350,6 +3427,7 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
                 "createdAt": created_at,
                 "preview": preview,
                 "truncated": truncated,
+                "toolName": tool_name,
             })
         })
         .collect();
@@ -3541,6 +3619,15 @@ fn session_unread_count(session_id: &str) -> u32 {
         Some(latest) if latest != cursor.last_read_message_id => 1,
         _ => 0,
     }
+}
+
+/// The working directory recorded for a session, used to resume it.
+fn session_cwd(session_id: &str) -> Option<String> {
+    list_sessions()
+        .ok()?
+        .into_iter()
+        .find(|s| s.id == session_id)
+        .map(|s| s.cwd)
 }
 
 /// The newest transcript record id for a session, in the same id space the

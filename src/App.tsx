@@ -421,6 +421,9 @@ const READ_CURSOR_EVENT = "blackcrab-read-cursor";
 /** Tauri event the host fires when a paired phone asks to start a session. */
 const REMOTE_START_SESSION_EVENT = "blackcrab-remote-start-session";
 
+/** Tauri event fired when a phone messages a session with no live subprocess. */
+const REMOTE_RESUME_SEND_EVENT = "blackcrab-remote-resume-and-send";
+
 function isSessionActivityState(v: unknown): v is SessionActivityState {
   return (
     v === "idle" ||
@@ -1753,6 +1756,32 @@ function App() {
         const body = event.payload?.body;
         if (typeof cwd === "string" && cwd && typeof body === "string") {
           startRemoteSessionRef.current(cwd, body);
+        }
+      },
+    ).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+  // A phone messaged a session that isn't live — resume it and deliver.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ sessionId?: string; cwd?: string; body?: string }>(
+      REMOTE_RESUME_SEND_EVENT,
+      (event) => {
+        const { sessionId, cwd, body } = event.payload ?? {};
+        if (
+          typeof sessionId === "string" &&
+          sessionId &&
+          typeof cwd === "string" &&
+          typeof body === "string"
+        ) {
+          resumeRemoteSessionAndSendRef.current(sessionId, cwd, body);
         }
       },
     ).then((fn) => {
@@ -3601,6 +3630,9 @@ function App() {
   const startRemoteSessionRef = useRef<
     (cwd: string, body: string) => void
   >(() => {});
+  const resumeRemoteSessionAndSendRef = useRef<
+    (sessionId: string, cwd: string, body: string) => void
+  >(() => {});
 
   function scrollToBottom() {
     const el = transcriptScrollRef.current;
@@ -4371,6 +4403,26 @@ function App() {
     }
   }
   startRemoteSessionRef.current = startRemoteSession;
+
+  // Resume a session that has no live subprocess (e.g. after a desktop
+  // restart) on behalf of a paired phone, then deliver its message — so the
+  // phone can continue any past conversation, not just currently-live ones.
+  async function resumeRemoteSessionAndSend(
+    sessionId: string,
+    sessionCwd: string,
+    body: string,
+  ) {
+    const text = body.trim();
+    if (!sessionId || !text) return;
+    try {
+      await resumeSession(sessionId, sessionCwd);
+    } catch (e) {
+      notifyErr("failed to resume session from phone")(e);
+      return;
+    }
+    await sendQuickReply(text);
+  }
+  resumeRemoteSessionAndSendRef.current = resumeRemoteSessionAndSend;
 
   async function addNewGridPanel() {
     let chosen: string | null = null;

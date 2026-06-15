@@ -83,10 +83,12 @@ export interface TranscriptEntry {
   sessionId: SessionId;
   kind: TranscriptEntryKind;
   createdAt: string;
-  /** Short, already-truncated preview safe to render on a phone. */
+  /** Message text (full, line breaks preserved) or a tool's key detail. */
   preview: string;
-  /** True when the host has more content for this entry than `preview` shows. */
+  /** True when the host clipped very long content. */
   truncated: boolean;
+  /** For tool_call/tool_result: the tool name (e.g. "Bash", "Write"). */
+  toolName?: string;
 }
 
 // ---------------------------------------------------------------------------

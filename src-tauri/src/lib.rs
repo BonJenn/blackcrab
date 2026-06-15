@@ -1070,11 +1070,19 @@ async fn start_session(
         cmd.arg("--add-dir").arg(home);
     }
 
-    if let Some(m) = normalize_model_arg(model) {
-        cmd.arg("--model").arg(m);
+    let is_resume = resume_id.is_some();
+
+    // Pin the requested model only for fresh sessions. On --resume we omit
+    // --model: the conversation is restored on the user's current default
+    // model, and forcing the session's *historical* model id breaks resume
+    // once that model has been retired — the CLI rejects it with "the selected
+    // model may not exist". (Claude Code's normal resume doesn't pass --model.)
+    if !is_resume {
+        if let Some(m) = normalize_model_arg(model) {
+            cmd.arg("--model").arg(m);
+        }
     }
 
-    let is_resume = resume_id.is_some();
     if let Some(rid) = resume_id.as_deref() {
         cmd.arg("--resume").arg(rid);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   FlatList,
@@ -19,11 +20,13 @@ import {
 import {
   MOCK_TRANSCRIPT_TAIL,
   type MessageId,
+  type RemoteAttachment,
   type SessionId,
   type SessionState,
   type TranscriptEntry,
 } from "@blackcrab/remote-protocol";
 
+import { pickFile, pickPhoto, takePhoto } from "../attachments";
 import { Markdown } from "../components/Markdown";
 import { firstUnreadIndex, latestEntryId } from "../transcriptDivider";
 import { screenStyles } from "./styles";
@@ -59,8 +62,8 @@ export interface TranscriptScreenProps {
   lastReadMessageId?: MessageId | null;
   /** Dismiss the detail and slide back to the list. */
   onBack?: () => void;
-  /** Send a follow-up message to this session. */
-  onSend?: (body: string) => void;
+  /** Send a follow-up message (with optional attachments) to this session. */
+  onSend?: (body: string, attachments?: RemoteAttachment[]) => void;
   /** Stop this session's current turn. */
   onStop?: () => void;
   /** Bumped by the host reporting a failed action; flips stuck sends to failed. */
@@ -91,8 +94,15 @@ export function TranscriptScreen({
   const hostData = live ? entries : MOCK_TRANSCRIPT_TAIL;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
   const [draft, setDraft] = useState("");
+  // Files staged in the composer, and whether a picker is currently open.
+  const [pendingAttachments, setPendingAttachments] = useState<RemoteAttachment[]>([]);
+  const [attaching, setAttaching] = useState(false);
   // Locally-echoed sends, shown instantly until the host's tail reflects them.
   const [optimistic, setOptimistic] = useState<TranscriptEntry[]>([]);
+  // Attachment names per optimistic echo id, for the sending bubble.
+  const [optimisticAttachNames, setOptimisticAttachNames] = useState<
+    Record<string, string[]>
+  >({});
   // True from the moment of a send until the host reports the turn running, so
   // the "thinking" indicator appears immediately rather than after a round-trip.
   const [justSent, setJustSent] = useState(false);
@@ -102,8 +112,10 @@ export function TranscriptScreen({
   const optimisticSeq = useRef(0);
   const SEND_TIMEOUT_MS = 20000;
 
-  // Drop optimistic echoes once a host user_message reflects them (its preview
-  // is a prefix of the sent body, since the host truncates/collapses previews).
+  // Drop optimistic echoes once a host user_message reflects them. The host
+  // preview can be shorter (truncated) or longer (it appends an attachment
+  // list), so accept a prefix match in either direction. An attachment-only
+  // send (empty text) matches the host's "(see attached files)" placeholder.
   const pendingOptimistic = useMemo(
     () =>
       optimistic.filter((opt) => {
@@ -111,7 +123,8 @@ export function TranscriptScreen({
         return !hostData.some((e) => {
           if (e.kind !== "user_message") return false;
           const hp = collapse(e.preview).replace(/[.…]+$/, "");
-          return hp.length > 0 && body.startsWith(hp);
+          if (!body) return hp.startsWith("(see attached files)");
+          return hp.length > 0 && (body.startsWith(hp) || hp.startsWith(body));
         });
       }),
     [optimistic, hostData],
@@ -230,10 +243,15 @@ export function TranscriptScreen({
 
   function handleSend() {
     const body = draft.trim();
-    if (!body || !connected || !onSend || !sessionId) return;
+    const atts = pendingAttachments;
+    // Allow sending text, attachments, or both.
+    if ((!body && atts.length === 0) || !connected || !onSend || !sessionId) {
+      return;
+    }
     optimisticSeq.current += 1;
+    const echoId = `optimistic-${optimisticSeq.current}`;
     const echo: TranscriptEntry = {
-      id: `optimistic-${optimisticSeq.current}`,
+      id: echoId,
       sessionId,
       kind: "user_message",
       createdAt: new Date().toISOString(),
@@ -241,19 +259,54 @@ export function TranscriptScreen({
       truncated: false,
     };
     setOptimistic((prev) => [...prev, echo]);
+    if (atts.length > 0) {
+      setOptimisticAttachNames((prev) => ({
+        ...prev,
+        [echoId]: atts.map((a) => a.name),
+      }));
+    }
     setJustSent(true);
-    onSend(body);
+    onSend(body, atts.length > 0 ? atts : undefined);
     setDraft("");
+    setPendingAttachments([]);
     atBottomRef.current = true;
     scrollToEnd(true);
     // If the host never reflects this message, stop spinning and flag it.
-    const echoId = echo.id;
     setTimeout(() => {
       if (pendingIdsRef.current.has(echoId)) {
         setFailedIds((prev) => new Set(prev).add(echoId));
         setJustSent(false);
       }
     }, SEND_TIMEOUT_MS);
+  }
+
+  const canSend =
+    connected && (draft.trim().length > 0 || pendingAttachments.length > 0);
+
+  async function runPicker(fn: () => Promise<RemoteAttachment | null>) {
+    setAttaching(true);
+    try {
+      const att = await fn();
+      if (att) setPendingAttachments((prev) => [...prev, att]);
+    } catch (e) {
+      Alert.alert("Couldn't attach", e instanceof Error ? e.message : String(e));
+    } finally {
+      setAttaching(false);
+    }
+  }
+
+  function openAttachMenu() {
+    if (attaching) return;
+    Alert.alert("Add to message", undefined, [
+      { text: "Photo Library", onPress: () => runPicker(pickPhoto) },
+      { text: "Take Photo", onPress: () => runPicker(takePhoto) },
+      { text: "File", onPress: () => runPicker(pickFile) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
+  function removeAttachment(index: number) {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
   return (
@@ -300,6 +353,7 @@ export function TranscriptScreen({
               entry={item}
               pending={item.id.startsWith("optimistic-")}
               failed={failedIds.has(item.id)}
+              attachmentNames={optimisticAttachNames[item.id]}
             />
           </View>
         )}
@@ -314,7 +368,37 @@ export function TranscriptScreen({
         }
       />
 
+      {pendingAttachments.length > 0 && (
+        <View style={localStyles.attachTray}>
+          {pendingAttachments.map((a, i) => (
+            <Pressable
+              key={`${a.name}-${i}`}
+              accessibilityRole="button"
+              onPress={() => removeAttachment(i)}
+              style={localStyles.attachChip}
+            >
+              <Text style={localStyles.attachChipText} numberOfLines={1}>
+                📎 {a.name}
+              </Text>
+              <Text style={localStyles.attachChipRemove}>✕</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <View style={localStyles.composer}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={!connected || attaching}
+          onPress={openAttachMenu}
+          style={({ pressed }) => [
+            localStyles.attachButton,
+            (!connected || attaching) && localStyles.disabled,
+            pressed && localStyles.pressed,
+          ]}
+        >
+          <Text style={localStyles.attachButtonText}>+</Text>
+        </Pressable>
         <TextInput
           style={localStyles.input}
           value={draft}
@@ -328,11 +412,11 @@ export function TranscriptScreen({
         />
         <Pressable
           accessibilityRole="button"
-          disabled={!connected || draft.trim().length === 0}
+          disabled={!canSend}
           onPress={handleSend}
           style={({ pressed }) => [
             localStyles.sendButton,
-            (!connected || draft.trim().length === 0) && localStyles.disabled,
+            !canSend && localStyles.disabled,
             pressed && localStyles.pressed,
           ]}
         >
@@ -408,10 +492,12 @@ function EntryView({
   entry,
   pending,
   failed,
+  attachmentNames,
 }: {
   entry: TranscriptEntry;
   pending?: boolean;
   failed?: boolean;
+  attachmentNames?: string[];
 }) {
   if (entry.kind === "tool_call") {
     return <ToolCallCard toolName={entry.toolName} detail={entry.preview} />;
@@ -439,7 +525,16 @@ function EntryView({
         {failed ? "  ·  not delivered" : ""}
       </Text>
       <View style={isUser ? localStyles.userBody : undefined}>
-        <Markdown text={entry.preview || ""} />
+        {entry.preview ? <Markdown text={entry.preview} /> : null}
+        {attachmentNames && attachmentNames.length > 0 && (
+          <View style={localStyles.attachList}>
+            {attachmentNames.map((n, i) => (
+              <Text key={`${n}-${i}`} style={localStyles.attachListItem}>
+                📎 {n}
+              </Text>
+            ))}
+          </View>
+        )}
       </View>
       {failed && (
         <Text style={localStyles.failedNote}>
@@ -707,6 +802,58 @@ const localStyles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#1f242b",
+  },
+  attachTray: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingTop: 8,
+  },
+  attachChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: 220,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#2a2f37",
+    backgroundColor: "#11151a",
+  },
+  attachChipText: {
+    flexShrink: 1,
+    color: "#cfd5dc",
+    fontSize: 12,
+  },
+  attachChipRemove: {
+    color: "#6b7480",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  attachButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#2a2f37",
+    backgroundColor: "#11151a",
+  },
+  attachButtonText: {
+    color: "#cfd5dc",
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: "400",
+  },
+  attachList: {
+    marginTop: 6,
+    gap: 3,
+  },
+  attachListItem: {
+    color: "#9aa3ad",
+    fontSize: 12.5,
   },
   input: {
     flex: 1,

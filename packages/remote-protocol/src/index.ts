@@ -122,11 +122,23 @@ export interface ApprovalRequest {
 // Actions (mobile -> host)
 // ---------------------------------------------------------------------------
 
+/** A file the phone sends with a message; the host writes it and gives Claude its path. */
+export interface RemoteAttachment {
+  /** File name to save as, e.g. "photo.jpg". */
+  name: string;
+  /** Optional MIME type, for reference. */
+  mimeType?: string;
+  /** Base64-encoded file contents. */
+  dataBase64: string;
+}
+
 export interface SendMessageAction {
   type: "send_message";
   hostId: HostId;
   sessionId: SessionId;
   body: string;
+  /** Files captured/picked on the phone to attach to this message. */
+  attachments?: RemoteAttachment[];
 }
 
 export interface StopSessionAction {

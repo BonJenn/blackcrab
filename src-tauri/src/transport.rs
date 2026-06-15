@@ -34,9 +34,22 @@ const PING_INTERVAL: Duration = Duration::from_secs(15);
 /// the wire and forwarded to a consumer in `lib.rs` that owns the live session
 /// subprocesses. The transport intentionally knows nothing about how these are
 /// dispatched — it only resolves the connection is authenticated first.
+/// A file the phone attached to a message: name, optional MIME type, and the
+/// base64-encoded contents. The host decodes and writes it before delivering.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RemoteAttachment {
+    pub name: String,
+    pub mime_type: Option<String>,
+    pub data_base64: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RemoteCommand {
-    SendMessage { session_id: String, body: String },
+    SendMessage {
+        session_id: String,
+        body: String,
+        attachments: Vec<RemoteAttachment>,
+    },
     StopSession { session_id: String },
     Approve { approval_id: String },
     Deny { approval_id: String, reason: Option<String> },
@@ -331,11 +344,25 @@ async fn handle_connection(
                                     let _ = send_envelope(&mut sink, WireMessage::Pong { seq }).await;
                                 }
                                 WireMessage::SendMessage {
-                                    session_id, body, ..
+                                    session_id,
+                                    body,
+                                    attachments,
+                                    ..
                                 } => {
                                     forward_command(
                                         hooks.commands.as_ref(),
-                                        RemoteCommand::SendMessage { session_id, body },
+                                        RemoteCommand::SendMessage {
+                                            session_id,
+                                            body,
+                                            attachments: attachments
+                                                .into_iter()
+                                                .map(|a| RemoteAttachment {
+                                                    name: a.name,
+                                                    mime_type: a.mime_type,
+                                                    data_base64: a.data_base64,
+                                                })
+                                                .collect(),
+                                        },
                                     );
                                 }
                                 WireMessage::StopSession { session_id, .. } => {
@@ -575,6 +602,8 @@ enum WireMessage {
         #[serde(rename = "sessionId")]
         session_id: String,
         body: String,
+        #[serde(default)]
+        attachments: Vec<WireAttachment>,
     },
     StopSession {
         #[serde(rename = "hostId")]
@@ -627,6 +656,15 @@ enum WireMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct WireAttachment {
+    name: String,
+    #[serde(rename = "mimeType", default)]
+    mime_type: Option<String>,
+    #[serde(rename = "dataBase64")]
+    data_base64: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum PairingStatus {
     Accepted,
@@ -673,6 +711,7 @@ fn _wire_uses() {
         host_id: String::new(),
         session_id: String::new(),
         body: String::new(),
+        attachments: Vec::new(),
     };
     let _ = WireMessage::StopSession {
         host_id: String::new(),
@@ -950,6 +989,7 @@ mod tests {
                 host_id: "h".into(),
                 session_id: "sess-abc".into(),
                 body: "ship it".into(),
+                attachments: Vec::new(),
             },
         })
         .unwrap();
@@ -964,6 +1004,7 @@ mod tests {
             RemoteCommand::SendMessage {
                 session_id: "sess-abc".into(),
                 body: "ship it".into(),
+                attachments: Vec::new(),
             }
         );
 

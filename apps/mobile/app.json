@@ -36,6 +36,13 @@
         {
           "cameraPermission": "Blackcrab Remote uses the camera to scan pairing QR codes from your desktop."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Blackcrab Remote needs photo access to attach images to a message.",
+          "cameraPermission": "Blackcrab Remote needs camera access to take a photo to attach to a message."
+        }
       ]
     ],
     "extra": {

@@ -3015,7 +3015,15 @@ async fn run_remote_command_consumer(
 ) {
     while let Some(command) = rx.recv().await {
         let result = match command {
-            RemoteCommand::SendMessage { session_id, body } => {
+            RemoteCommand::SendMessage {
+                session_id,
+                body,
+                attachments,
+            } => {
+                // Write any phone attachments to disk and append their paths to
+                // the message so Claude can read them — same shape as desktop
+                // attachments. Used by both the live and resume paths below.
+                let body = write_remote_attachments(&session_id, &body, &attachments);
                 match panel_for_session(&session_owners, &session_id).await {
                     Some(panel_id) => {
                         let result = deliver_user_message(&sessions, &panel_id, &body).await;
@@ -3703,6 +3711,79 @@ fn session_owned_by_blackcrab(session_id: &str) -> bool {
 /// terminal): recently written, but not owned by Blackcrab.
 fn session_live_elsewhere(session_id: &str, cwd: &str) -> bool {
     session_recently_active(session_id, cwd) && !session_owned_by_blackcrab(session_id)
+}
+
+/// Reduce a phone-supplied attachment name to a safe file name (final path
+/// component only), guarding against path traversal.
+fn sanitize_attachment_name(name: &str) -> String {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or("").trim();
+    let cleaned: String = base.chars().filter(|c| *c != '\0').collect();
+    if cleaned.is_empty() || cleaned == "." || cleaned == ".." {
+        "attachment".to_string()
+    } else {
+        cleaned
+    }
+}
+
+/// Write any attachments to `~/.claude/blackcrab/attachments/<session>/` and
+/// return the message body with their paths appended (same format the desktop
+/// composer uses), so Claude can read the files by path. Returns `body`
+/// unchanged when there's nothing to attach or the write can't proceed.
+fn write_remote_attachments(
+    session_id: &str,
+    body: &str,
+    attachments: &[crate::transport::RemoteAttachment],
+) -> String {
+    use base64::Engine;
+    if attachments.is_empty() {
+        return body.to_string();
+    }
+    let Some(home) = std::env::var_os("HOME").and_then(|h| h.into_string().ok()) else {
+        return body.to_string();
+    };
+    let safe_session: String = session_id
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .collect();
+    let dir = PathBuf::from(home)
+        .join(".claude")
+        .join("blackcrab")
+        .join("attachments")
+        .join(&safe_session);
+    if std::fs::create_dir_all(&dir).is_err() {
+        return body.to_string();
+    }
+    let mut paths: Vec<String> = Vec::new();
+    for att in attachments {
+        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(att.data_base64.as_bytes())
+        else {
+            continue;
+        };
+        let name = sanitize_attachment_name(&att.name);
+        let mut path = dir.join(&name);
+        let mut n = 1;
+        while path.exists() {
+            path = dir.join(format!("{n}-{name}"));
+            n += 1;
+        }
+        if std::fs::write(&path, &bytes).is_ok() {
+            paths.push(path.to_string_lossy().to_string());
+        }
+    }
+    if paths.is_empty() {
+        return body.to_string();
+    }
+    let list = paths
+        .iter()
+        .map(|p| format!("- {p}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let head = if body.trim().is_empty() {
+        "(see attached files)"
+    } else {
+        body
+    };
+    format!("{head}\n\n[Attached files]\n{list}")
 }
 
 /// The working directory recorded for a session, used to resume it.

@@ -2976,7 +2976,27 @@ async fn run_remote_command_consumer(
         let result = match command {
             RemoteCommand::SendMessage { session_id, body } => {
                 match panel_for_session(&session_owners, &session_id).await {
-                    Some(panel_id) => deliver_user_message(&sessions, &panel_id, &body).await,
+                    Some(panel_id) => {
+                        let result = deliver_user_message(&sessions, &panel_id, &body).await;
+                        if result.is_ok() {
+                            // Mirror the user message into the desktop transcript.
+                            // The local composer appends user bubbles itself, so a
+                            // phone-originated send would otherwise show only the
+                            // assistant's reply on the desktop. Reuse the
+                            // claude-event path so handleEvent renders it identically
+                            // and both threads stay in sync.
+                            let line = serde_json::json!({
+                                "type": "user",
+                                "message": { "role": "user", "content": body }
+                            })
+                            .to_string();
+                            let _ = app.emit(
+                                "claude-event",
+                                serde_json::json!({ "panel_id": panel_id, "line": line }),
+                            );
+                        }
+                        result
+                    }
                     None => Err(format!("no live session for {session_id}")),
                 }
             }

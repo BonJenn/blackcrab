@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,6 +16,7 @@ import {
   MOCK_TRANSCRIPT_TAIL,
   type MessageId,
   type SessionId,
+  type SessionState,
   type TranscriptEntry,
 } from "@blackcrab/remote-protocol";
 
@@ -28,6 +32,8 @@ export interface TranscriptScreenProps {
   title?: string;
   /** Whether the active transport is connected (enables the composer). */
   connected?: boolean;
+  /** Live state of this session, drives the "thinking" indicator. */
+  sessionState?: SessionState;
   /** Host-canonical last-read message id for this session, if known. */
   lastReadMessageId?: MessageId | null;
   /** Dismiss the detail and slide back to the list. */
@@ -40,11 +46,17 @@ export interface TranscriptScreenProps {
   onMarkRead?: (messageId: MessageId) => void;
 }
 
+/** Collapse whitespace so an optimistic body can be matched to a host preview. */
+function collapse(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
 export function TranscriptScreen({
   entries,
   sessionId,
   title,
   connected = false,
+  sessionState,
   lastReadMessageId,
   onBack,
   onSend,
@@ -52,9 +64,37 @@ export function TranscriptScreen({
   onMarkRead,
 }: TranscriptScreenProps) {
   const live = entries != null;
-  const data = live ? entries : MOCK_TRANSCRIPT_TAIL;
+  const hostData = live ? entries : MOCK_TRANSCRIPT_TAIL;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
   const [draft, setDraft] = useState("");
+  // Locally-echoed sends, shown instantly until the host's tail reflects them.
+  const [optimistic, setOptimistic] = useState<TranscriptEntry[]>([]);
+  // True from the moment of a send until the host reports the turn running, so
+  // the "thinking" indicator appears immediately rather than after a round-trip.
+  const [justSent, setJustSent] = useState(false);
+  const optimisticSeq = useRef(0);
+
+  // Drop optimistic echoes once a host user_message reflects them (its preview
+  // is a prefix of the sent body, since the host truncates/collapses previews).
+  const pendingOptimistic = useMemo(
+    () =>
+      optimistic.filter((opt) => {
+        const body = collapse(opt.preview);
+        return !hostData.some((e) => {
+          if (e.kind !== "user_message") return false;
+          const hp = collapse(e.preview).replace(/[.…]+$/, "");
+          return hp.length > 0 && body.startsWith(hp);
+        });
+      }),
+    [optimistic, hostData],
+  );
+  const data = useMemo(
+    () => [...hostData, ...pendingOptimistic],
+    [hostData, pendingOptimistic],
+  );
+
+  const thinking =
+    live && (justSent || sessionState === "running");
 
   // Freeze the divider anchor at the cursor value captured when this session
   // was opened, so marking messages read while viewing doesn't move the line.
@@ -67,7 +107,24 @@ export function TranscriptScreen({
       messageId: lastReadMessageId ?? null,
     };
   }
-  const dividerIndex = firstUnreadIndex(data, anchorRef.current.messageId);
+  const dividerIndex = firstUnreadIndex(hostData, anchorRef.current.messageId);
+
+  // Stick to the bottom and follow new messages, unless we opened onto unread
+  // (then we land at the divider until the user scrolls down).
+  const atBottomRef = useRef(true);
+  useEffect(() => {
+    atBottomRef.current = dividerIndex < 0;
+  }, [sessionId, dividerIndex]);
+
+  function scrollToEnd(animated: boolean) {
+    requestAnimationFrame(() => {
+      try {
+        listRef.current?.scrollToEnd({ animated });
+      } catch {
+        // best effort
+      }
+    });
+  }
 
   // Land on the first unread message when opening, instead of the bottom.
   useEffect(() => {
@@ -87,23 +144,56 @@ export function TranscriptScreen({
     // Re-run when the opened session changes, not on every cursor tick.
   }, [sessionId, dividerIndex]);
 
-  // Viewing the conversation marks it read up to the newest entry.
+  // Follow streaming output when the user is already at the bottom.
+  useEffect(() => {
+    if (atBottomRef.current) scrollToEnd(true);
+  }, [data.length, thinking]);
+
+  // Once the host reports the turn running (or a reply lands), the live state
+  // drives the indicator — drop the transient just-sent bridge.
+  useEffect(() => {
+    if (sessionState === "running") return;
+    const last = hostData[hostData.length - 1];
+    if (last && last.kind === "assistant_message") setJustSent(false);
+  }, [sessionState, hostData]);
+
+  // Viewing the conversation marks it read up to the newest host entry.
   const lastMarkedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!live || !sessionId || !onMarkRead) return;
-    const latest = latestEntryId(data);
+    const latest = latestEntryId(hostData);
     if (!latest) return;
     const key = `${sessionId}:${latest}`;
     if (lastMarkedRef.current === key) return;
     lastMarkedRef.current = key;
     onMarkRead(latest);
-  }, [live, sessionId, data, onMarkRead]);
+  }, [live, sessionId, hostData, onMarkRead]);
+
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distance =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    atBottomRef.current = distance < 48;
+  }
 
   function handleSend() {
     const body = draft.trim();
-    if (!body || !connected || !onSend) return;
+    if (!body || !connected || !onSend || !sessionId) return;
+    optimisticSeq.current += 1;
+    const echo: TranscriptEntry = {
+      id: `optimistic-${optimisticSeq.current}`,
+      sessionId,
+      kind: "user_message",
+      createdAt: new Date().toISOString(),
+      preview: body,
+      truncated: false,
+    };
+    setOptimistic((prev) => [...prev, echo]);
+    setJustSent(true);
     onSend(body);
     setDraft("");
+    atBottomRef.current = true;
+    scrollToEnd(true);
   }
 
   return (
@@ -141,13 +231,16 @@ export function TranscriptScreen({
         style={localStyles.list}
         data={data}
         keyExtractor={(item) => item.id}
+        onScroll={handleScroll}
+        scrollEventThrottle={64}
         renderItem={({ item, index }) => (
           <View>
             {index === dividerIndex && <NewMessagesDivider />}
-            <TranscriptRow entry={item} />
+            <TranscriptRow entry={item} pending={item.id.startsWith("optimistic-")} />
           </View>
         )}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
+        ListFooterComponent={thinking ? <ThinkingIndicator /> : null}
         onScrollToIndexFailed={() => {
           // Window not measured yet; leave the user at the top rather than crash.
         }}
@@ -185,6 +278,15 @@ export function TranscriptScreen({
   );
 }
 
+function ThinkingIndicator() {
+  return (
+    <View style={localStyles.thinking}>
+      <ActivityIndicator size="small" color="#e26a4b" />
+      <Text style={localStyles.thinkingText}>assistant is thinking…</Text>
+    </View>
+  );
+}
+
 function NewMessagesDivider() {
   return (
     <View style={localStyles.divider}>
@@ -195,10 +297,19 @@ function NewMessagesDivider() {
   );
 }
 
-function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
+function TranscriptRow({
+  entry,
+  pending,
+}: {
+  entry: TranscriptEntry;
+  pending?: boolean;
+}) {
   return (
-    <View style={localStyles.row}>
-      <Text style={localStyles.kind}>{entry.kind.replace("_", " ")}</Text>
+    <View style={[localStyles.row, pending && localStyles.rowPending]}>
+      <Text style={localStyles.kind}>
+        {entry.kind.replace("_", " ")}
+        {pending ? " · sending…" : ""}
+      </Text>
       <Text style={localStyles.preview}>{entry.preview}</Text>
       {entry.truncated && <Text style={localStyles.truncated}>Truncated by host</Text>}
     </View>
@@ -246,6 +357,9 @@ const localStyles = StyleSheet.create({
   row: {
     paddingVertical: 12,
   },
+  rowPending: {
+    opacity: 0.6,
+  },
   kind: {
     color: "#9aa3ad",
     fontSize: 11,
@@ -261,6 +375,17 @@ const localStyles = StyleSheet.create({
     color: "#6b7480",
     fontSize: 11,
     marginTop: 4,
+  },
+  thinking: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+  },
+  thinkingText: {
+    color: "#9aa3ad",
+    fontSize: 13,
+    fontStyle: "italic",
   },
   divider: {
     flexDirection: "row",

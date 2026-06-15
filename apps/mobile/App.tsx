@@ -357,6 +357,11 @@ export default function App() {
               sessionId={focusedSession.sessionId}
               title={focusedSession.title}
               connected={connected}
+              sessionState={
+                liveSessions?.find(
+                  (s) => s.sessionId === focusedSession.sessionId,
+                )?.state ?? focusedSession.state
+              }
               lastReadMessageId={
                 activeHostId
                   ? readCursors[

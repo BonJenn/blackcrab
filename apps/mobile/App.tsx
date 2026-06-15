@@ -1,5 +1,14 @@
-import { useEffect, useState } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type {
   ApprovalRequest,
@@ -27,13 +36,11 @@ import { connectWithFailover } from "./src/transport/failoverTransport";
 import { firstConnectableHost } from "./src/transport/reconnect";
 import type { Transport, TransportStatus } from "./src/transport/types";
 
-type TabKey = "hosts" | "pair" | "sessions" | "transcript" | "approval";
+type TabKey = "hosts" | "sessions" | "approval";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "hosts", label: "Hosts" },
-  { key: "pair", label: "Pair" },
-  { key: "sessions", label: "Sessions" },
-  { key: "transcript", label: "Transcript" },
+  { key: "sessions", label: "Chats" },
   { key: "approval", label: "Attention" },
 ];
 
@@ -41,6 +48,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
+  const [pairing, setPairing] = useState(false);
   const [activeTransport, setActiveTransport] = useState<Transport | null>(null);
   const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
   const [activeHostId, setActiveHostId] = useState<HostId | null>(null);
@@ -49,15 +57,27 @@ export default function App() {
     null,
   );
   const [approvals, setApprovals] = useState<ApprovalRequest[] | null>(null);
-  // Session whose transcript is being viewed, and the host-canonical read
-  // cursors keyed by `${hostId}:${sessionId}`. The cursor drives the
-  // "new messages" divider and where the transcript lands on open.
-  const [focusedSessionId, setFocusedSessionId] = useState<SessionId | null>(
+  // The session whose transcript is open as a slide-over detail, and the
+  // host-canonical read cursors keyed by `${hostId}:${sessionId}`.
+  const [focusedSession, setFocusedSession] = useState<SessionSummary | null>(
     null,
   );
   const [readCursors, setReadCursors] = useState<
     Record<string, { lastReadMessageId: MessageId; readAtMs: number }>
   >({});
+
+  // Slide-over animation for the transcript detail.
+  const screenWidth = Dimensions.get("window").width;
+  const slideX = useRef(new Animated.Value(screenWidth)).current;
+  useEffect(() => {
+    if (focusedSession) {
+      Animated.timing(slideX, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [focusedSession, slideX]);
 
   useEffect(() => {
     let mounted = true;
@@ -217,6 +237,46 @@ export default function App() {
     }).catch(() => {});
   }
 
+  // Open a session's transcript as a slide-over detail.
+  function openSession(session: SessionSummary) {
+    if (!activeTransport) return;
+    activeTransport.sendAction({
+      type: "focus_session",
+      hostId: session.hostId,
+      sessionId: session.sessionId,
+    });
+    setLiveTranscript(null);
+    slideX.setValue(screenWidth);
+    setFocusedSession(session);
+  }
+
+  function closeTranscript() {
+    Animated.timing(slideX, {
+      toValue: screenWidth,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setFocusedSession(null));
+  }
+
+  function sendToFocused(body: string) {
+    if (!activeTransport || !focusedSession) return;
+    activeTransport.sendAction({
+      type: "send_message",
+      hostId: focusedSession.hostId,
+      sessionId: focusedSession.sessionId,
+      body,
+    });
+  }
+
+  function stopFocused() {
+    if (!activeTransport || !focusedSession) return;
+    activeTransport.sendAction({
+      type: "stop_session",
+      hostId: focusedSession.hostId,
+      sessionId: focusedSession.sessionId,
+    });
+  }
+
   function handlePaired(
     hosts: StoredPairedHost[],
     host: StoredPairedHost,
@@ -228,15 +288,18 @@ export default function App() {
       setActiveTransport(transport);
       setActiveHostId(host.hostId);
     }
+    setPairing(false);
     setTab("hosts");
   }
+
+  const connected = activeStatus?.state === "connected" && Boolean(activeTransport);
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
       <View style={styles.header}>
         <Text style={styles.title}>Blackcrab Remote</Text>
-        <Text style={styles.subtitle}>Experimental scaffold · local demo</Text>
+        <Text style={styles.subtitle}>Control your desktop Claude Code sessions</Text>
       </View>
       <ScrollView
         horizontal
@@ -264,50 +327,69 @@ export default function App() {
             loading={loadingHosts}
             storedHosts={storedHosts}
             onForgetHost={handleForgetHost}
-            onPairHost={() => setTab("pair")}
+            onPairHost={() => setPairing(true)}
             activeHostId={activeHostId}
             activeStatus={activeStatus}
           />
         )}
-        {tab === "pair" && <PairHostScreen onPaired={handlePaired} />}
         {tab === "sessions" && (
           <SessionsScreen
             transport={activeTransport}
             status={activeStatus}
             sessions={liveSessions}
-            onViewTranscript={(session) => {
-              if (!activeTransport) return;
-              activeTransport.sendAction({
-                type: "focus_session",
-                hostId: session.hostId,
-                sessionId: session.sessionId,
-              });
-              // Clear stale entries; the host pushes the focused tail at once.
-              setLiveTranscript(null);
-              setFocusedSessionId(session.sessionId);
-              setTab("transcript");
-            }}
-          />
-        )}
-        {tab === "transcript" && (
-          <TranscriptScreen
-            entries={liveTranscript}
-            sessionId={focusedSessionId}
-            lastReadMessageId={
-              focusedSessionId && activeHostId
-                ? readCursors[readCursorKey(activeHostId, focusedSessionId)]
-                    ?.lastReadMessageId ?? null
-                : null
-            }
-            onMarkRead={(messageId) => {
-              if (focusedSessionId) markRead(focusedSessionId, messageId);
-            }}
+            onOpenSession={openSession}
           />
         )}
         {tab === "approval" && (
           <ApprovalScreen transport={activeTransport} approvals={approvals} />
         )}
+
+        {/* Transcript detail slides over the active tab when a session opens. */}
+        {focusedSession && (
+          <Animated.View
+            style={[
+              styles.overlay,
+              { transform: [{ translateX: slideX }] },
+            ]}
+          >
+            <TranscriptScreen
+              entries={liveTranscript}
+              sessionId={focusedSession.sessionId}
+              title={focusedSession.title}
+              connected={connected}
+              lastReadMessageId={
+                activeHostId
+                  ? readCursors[
+                      readCursorKey(activeHostId, focusedSession.sessionId)
+                    ]?.lastReadMessageId ?? null
+                  : null
+              }
+              onBack={closeTranscript}
+              onSend={sendToFocused}
+              onStop={stopFocused}
+              onMarkRead={(messageId) =>
+                markRead(focusedSession.sessionId, messageId)
+              }
+            />
+          </Animated.View>
+        )}
       </View>
+
+      {/* Pairing is an action launched from the Hosts screen, not a tab. */}
+      {pairing && (
+        <View style={styles.pairOverlay}>
+          <View style={styles.pairHeader}>
+            <Text
+              accessibilityRole="button"
+              onPress={() => setPairing(false)}
+              style={styles.backLink}
+            >
+              ‹ Hosts
+            </Text>
+          </View>
+          <PairHostScreen onPaired={handlePaired} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -353,5 +435,23 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#0b0d10",
+  },
+  pairOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#0b0d10",
+  },
+  pairHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  backLink: {
+    color: "#e26a4b",
+    fontSize: 15,
+    fontWeight: "600",
+    paddingVertical: 6,
   },
 });

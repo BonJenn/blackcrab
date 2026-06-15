@@ -1,5 +1,14 @@
-import { useEffect, useRef } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import {
   MOCK_TRANSCRIPT_TAIL,
   type MessageId,
@@ -15,8 +24,18 @@ export interface TranscriptScreenProps {
   entries?: TranscriptEntry[] | null;
   /** The session being viewed, used to freeze the divider per conversation. */
   sessionId?: SessionId | null;
+  /** Conversation title, shown in the header. */
+  title?: string;
+  /** Whether the active transport is connected (enables the composer). */
+  connected?: boolean;
   /** Host-canonical last-read message id for this session, if known. */
   lastReadMessageId?: MessageId | null;
+  /** Dismiss the detail and slide back to the list. */
+  onBack?: () => void;
+  /** Send a follow-up message to this session. */
+  onSend?: (body: string) => void;
+  /** Stop this session's current turn. */
+  onStop?: () => void;
   /** Called to advance the read cursor as the user views the conversation. */
   onMarkRead?: (messageId: MessageId) => void;
 }
@@ -24,12 +43,18 @@ export interface TranscriptScreenProps {
 export function TranscriptScreen({
   entries,
   sessionId,
+  title,
+  connected = false,
   lastReadMessageId,
+  onBack,
+  onSend,
+  onStop,
   onMarkRead,
 }: TranscriptScreenProps) {
   const live = entries != null;
   const data = live ? entries : MOCK_TRANSCRIPT_TAIL;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
+  const [draft, setDraft] = useState("");
 
   // Freeze the divider anchor at the cursor value captured when this session
   // was opened, so marking messages read while viewing doesn't move the line.
@@ -74,16 +99,46 @@ export function TranscriptScreen({
     onMarkRead(latest);
   }, [live, sessionId, data, onMarkRead]);
 
+  function handleSend() {
+    const body = draft.trim();
+    if (!body || !connected || !onSend) return;
+    onSend(body);
+    setDraft("");
+  }
+
   return (
-    <View style={screenStyles.container}>
-      <Text style={screenStyles.heading}>Transcript</Text>
-      <Text style={screenStyles.note}>
-        {live
-          ? "Live tail of the focused session. Full transcripts stay on the desktop."
-          : "Read-only previews are intentional. Full transcripts stay on the desktop host."}
-      </Text>
+    <KeyboardAvoidingView
+      style={screenStyles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <View style={localStyles.header}>
+        <Text
+          accessibilityRole="button"
+          onPress={onBack}
+          style={localStyles.back}
+        >
+          ‹ Chats
+        </Text>
+        <Text style={localStyles.headerTitle} numberOfLines={1}>
+          {title ?? "Transcript"}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          disabled={!connected}
+          onPress={onStop}
+          style={({ pressed }) => [
+            localStyles.stopButton,
+            !connected && localStyles.disabled,
+            pressed && localStyles.pressed,
+          ]}
+        >
+          <Text style={localStyles.stopText}>Stop</Text>
+        </Pressable>
+      </View>
+
       <FlatList
         ref={listRef}
+        style={localStyles.list}
         data={data}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
@@ -100,7 +155,33 @@ export function TranscriptScreen({
           <Text style={screenStyles.note}>No transcript entries yet.</Text>
         }
       />
-    </View>
+
+      <View style={localStyles.composer}>
+        <TextInput
+          style={localStyles.input}
+          value={draft}
+          onChangeText={setDraft}
+          editable={connected}
+          placeholder={connected ? "Message…" : "Not connected"}
+          placeholderTextColor="#6b7480"
+          onSubmitEditing={handleSend}
+          returnKeyType="send"
+          multiline
+        />
+        <Pressable
+          accessibilityRole="button"
+          disabled={!connected || draft.trim().length === 0}
+          onPress={handleSend}
+          style={({ pressed }) => [
+            localStyles.sendButton,
+            (!connected || draft.trim().length === 0) && localStyles.disabled,
+            pressed && localStyles.pressed,
+          ]}
+        >
+          <Text style={localStyles.sendText}>Send</Text>
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -125,6 +206,39 @@ function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
 }
 
 const localStyles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#1f242b",
+  },
+  back: {
+    color: "#e26a4b",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  headerTitle: {
+    flex: 1,
+    color: "#f4f6f8",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  stopButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#2a2f37",
+  },
+  stopText: {
+    color: "#f4f6f8",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  list: {
+    flex: 1,
+  },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#1f242b",
@@ -165,5 +279,42 @@ const localStyles = StyleSheet.create({
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  composer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#1f242b",
+  },
+  input: {
+    flex: 1,
+    maxHeight: 120,
+    backgroundColor: "#11151a",
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#1f242b",
+    color: "#f4f6f8",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+  },
+  sendButton: {
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#e26a4b",
+  },
+  sendText: {
+    color: "#f4f6f8",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  disabled: {
+    opacity: 0.4,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

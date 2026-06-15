@@ -546,12 +546,14 @@ mod tests {
     }
 
     #[test]
-    fn truncate_preview_collapses_whitespace_and_clips() {
-        let (text, truncated) = truncate_preview("hello\n  world\t");
-        assert_eq!(text, "hello world");
+    fn truncate_preview_preserves_newlines_and_clips() {
+        // Line breaks are preserved so multi-line replies stay readable; only
+        // the outer whitespace is trimmed.
+        let (text, truncated) = truncate_preview("  hello\nworld  ");
+        assert_eq!(text, "hello\nworld");
         assert!(!truncated);
 
-        let long = "x ".repeat(REMOTE_PREVIEW_MAX);
+        let long = "x".repeat(REMOTE_PREVIEW_MAX + 100);
         let (clipped, was_clipped) = truncate_preview(&long);
         assert!(was_clipped);
         assert!(clipped.ends_with('…'));
@@ -3202,18 +3204,20 @@ fn remote_notify_session_started(session_id: String, cwd: String) {
 /// How many transcript entries to tail for the mobile companion's view.
 const REMOTE_TRANSCRIPT_LIMIT: usize = 40;
 /// Max characters in a single transcript preview pushed to a phone.
-const REMOTE_PREVIEW_MAX: usize = 280;
+const REMOTE_PREVIEW_MAX: usize = 8000;
 
-/// Collapse whitespace and clip to `REMOTE_PREVIEW_MAX` chars so the preview is
-/// a single safe-to-render line. Returns the text and whether it was clipped.
+/// Prepare a transcript entry's text for the phone: keep line breaks (so
+/// multi-line replies and code stay readable) and clip only very long entries
+/// to `REMOTE_PREVIEW_MAX` chars to bound payload size. Returns the text and
+/// whether it was clipped.
 fn truncate_preview(raw: &str) -> (String, bool) {
-    let collapsed = raw.split_whitespace().collect::<Vec<_>>().join(" ");
-    let chars: Vec<char> = collapsed.chars().collect();
+    let trimmed = raw.trim();
+    let chars: Vec<char> = trimmed.chars().collect();
     if chars.len() > REMOTE_PREVIEW_MAX {
         let clipped: String = chars[..REMOTE_PREVIEW_MAX].iter().collect();
         (format!("{clipped}…"), true)
     } else {
-        (collapsed, false)
+        (trimmed.to_string(), false)
     }
 }
 

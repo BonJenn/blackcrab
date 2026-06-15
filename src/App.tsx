@@ -418,6 +418,9 @@ const SESSION_ACTIVITY_STORAGE_KEY = "sidebar.sessionActivity";
 /** Tauri event the host fires when a paired phone advances a read cursor. */
 const READ_CURSOR_EVENT = "blackcrab-read-cursor";
 
+/** Tauri event the host fires when a paired phone asks to start a session. */
+const REMOTE_START_SESSION_EVENT = "blackcrab-remote-start-session";
+
 function isSessionActivityState(v: unknown): v is SessionActivityState {
   return (
     v === "idle" ||
@@ -1738,6 +1741,29 @@ function App() {
       unlisten?.();
     };
   }, [applyRemoteReadCursor]);
+  // A paired phone asked to start a session; run it through the normal
+  // new-session path on the desktop.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ cwd?: string; body?: string }>(
+      REMOTE_START_SESSION_EVENT,
+      (event) => {
+        const cwd = event.payload?.cwd;
+        const body = event.payload?.body;
+        if (typeof cwd === "string" && cwd && typeof body === "string") {
+          startRemoteSessionRef.current(cwd, body);
+        }
+      },
+    ).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
   useEffect(() => {
     saveAppSettings(appSettings);
   }, [appSettings]);
@@ -3567,6 +3593,15 @@ function App() {
     if (atBottom) setHasNewBelow(false);
   }, []);
 
+  // Set while a phone-initiated "start session" is spawning, so that once the
+  // session gets its id (system/init) we report it back to the phone.
+  const pendingRemoteStartRef = useRef<{ cwd: string } | null>(null);
+  // Always points at the latest startRemoteSession closure, so the (once-)
+  // mounted event listener calls a non-stale version.
+  const startRemoteSessionRef = useRef<
+    (cwd: string, body: string) => void
+  >(() => {});
+
   function scrollToBottom() {
     const el = transcriptScrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -3744,6 +3779,16 @@ function App() {
         });
       }
       if (isActivePanel) setActiveSessionId(newId);
+      // A phone-initiated session just got its id — tell the phone so it can
+      // open the new conversation.
+      if (newId && pendingRemoteStartRef.current) {
+        const remoteCwd = pendingRemoteStartRef.current.cwd;
+        pendingRemoteStartRef.current = null;
+        void invoke("remote_notify_session_started", {
+          sessionId: newId,
+          cwd: remoteCwd,
+        }).catch(() => {});
+      }
       if (newId && pendingSidebarEngagementRef.current) {
         requestSidebarEngagementTop(newId);
       }
@@ -4276,6 +4321,56 @@ function App() {
     setProjectDashboardOpen(false);
     setTimeout(() => inputRef.current?.focus(), 0);
   }
+
+  // Start a session on behalf of a paired phone: open a fresh session in the
+  // chosen directory and deliver the first message, which spawns the
+  // conversation. Mirrors the local new-session + send path but takes cwd and
+  // body explicitly (no reliance on the input/cwd React state being settled).
+  async function startRemoteSession(targetCwd: string, body: string) {
+    const cwdTrim = targetCwd.trim();
+    const text = body.trim();
+    if (!cwdTrim || !text) return;
+    if (sessionOn && !busy) {
+      switchingSessionRef.current = true;
+      try {
+        await stopSession();
+      } finally {
+        switchingSessionRef.current = false;
+      }
+    }
+    setGridMode(false);
+    resetSessionState();
+    const panelId = activePanelIdRef.current;
+    setCwd(cwdTrim);
+    setModel(appSettings.defaultModel);
+    setPermissionMode(appSettings.defaultPermissionMode);
+    pendingRemoteStartRef.current = { cwd: cwdTrim };
+    try {
+      await startPanelSession({
+        panelId,
+        panelCwd: cwdTrim,
+        panelPermissionMode: appSettings.defaultPermissionMode,
+        panelModel: normalizeModelValue(appSettings.defaultModel),
+        resumeId: null,
+      });
+    } catch (e) {
+      pendingRemoteStartRef.current = null;
+      markSessionActivity(activeSessionIdRef.current, "error", "failed to start");
+      notifyErr("failed to start session from phone")(e);
+      return;
+    }
+    // Append to the active transcript (which init has folded onto the new
+    // session id by now) and deliver, exactly like a local send.
+    setEntries((es) => [...es, { kind: "user", id: randomId(), text: body }]);
+    setPanelBusy(panelId, true);
+    try {
+      await invoke("send_message", { panelId, text: body });
+    } catch (e) {
+      setPanelBusy(panelId, false);
+      notifyErr("failed to deliver first message from phone")(e);
+    }
+  }
+  startRemoteSessionRef.current = startRemoteSession;
 
   async function addNewGridPanel() {
     let chosen: string | null = null;

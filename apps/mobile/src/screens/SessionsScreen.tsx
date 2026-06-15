@@ -33,6 +33,8 @@ export interface SessionsScreenProps {
   sessions?: SessionSummary[] | null;
   /** Open a session's transcript (slide-over detail). */
   onOpenSession?: (session: SessionSummary) => void;
+  /** Start a brand-new session (opens the new-session flow). */
+  onNewSession?: () => void;
 }
 
 export function SessionsScreen({
@@ -40,6 +42,7 @@ export function SessionsScreen({
   status,
   sessions,
   onOpenSession,
+  onNewSession,
 }: SessionsScreenProps) {
   const connected = status?.state === "connected" && Boolean(transport);
   const live = sessions != null;
@@ -47,7 +50,21 @@ export function SessionsScreen({
 
   return (
     <View style={screenStyles.container}>
-      <Text style={screenStyles.heading}>Chats</Text>
+      <View style={localStyles.headerRow}>
+        <Text style={screenStyles.heading}>Chats</Text>
+        {connected && onNewSession && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onNewSession}
+            style={({ pressed }) => [
+              localStyles.newButton,
+              pressed && localStyles.rowPressed,
+            ]}
+          >
+            <Text style={localStyles.newButtonText}>+ New</Text>
+          </Pressable>
+        )}
+      </View>
       <Text style={screenStyles.note}>
         {live
           ? "Tap a conversation to open it."
@@ -118,6 +135,22 @@ function SessionRow({
 }
 
 const localStyles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  newButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#e26a4b",
+  },
+  newButtonText: {
+    color: "#f4f6f8",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "#1f242b",

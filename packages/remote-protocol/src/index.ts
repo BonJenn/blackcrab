@@ -164,13 +164,23 @@ export interface SetReadCursorAction {
   readAtMs: number;
 }
 
+export interface StartSessionAction {
+  type: "start_session";
+  hostId: HostId;
+  /** Working directory to start the session in (a path on the host). */
+  cwd: string;
+  /** First message to send, which spawns the conversation. */
+  body: string;
+}
+
 export type RemoteAction =
   | SendMessageAction
   | StopSessionAction
   | ApproveAction
   | DenyAction
   | FocusSessionAction
-  | SetReadCursorAction;
+  | SetReadCursorAction
+  | StartSessionAction;
 
 // ---------------------------------------------------------------------------
 // Pairing
@@ -359,6 +369,21 @@ export interface ReadCursorEvent {
   readAtMs: number;
 }
 
+/** Recent working directories on a host, offered when starting a session. */
+export interface ProjectDirsEvent {
+  type: "project_dirs";
+  hostId: HostId;
+  dirs: string[];
+}
+
+/** Sent after a phone-initiated session spawns, so the phone can open it. */
+export interface SessionStartedEvent {
+  type: "session_started";
+  hostId: HostId;
+  sessionId: SessionId;
+  cwd: string;
+}
+
 export type RemoteEvent =
   | PairedHostsEvent
   | SessionsEvent
@@ -366,7 +391,9 @@ export type RemoteEvent =
   | ApprovalRequestedEvent
   | ApprovalResolvedEvent
   | ConnectionStatusEvent
-  | ReadCursorEvent;
+  | ReadCursorEvent
+  | ProjectDirsEvent
+  | SessionStartedEvent;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -467,6 +494,7 @@ export function isRemoteAction(value: unknown): value is RemoteAction {
     case "deny":
     case "focus_session":
     case "set_read_cursor":
+    case "start_session":
       return true;
     default:
       return false;
@@ -492,6 +520,8 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
     case "approval_resolved":
     case "connection_status":
     case "read_cursor":
+    case "project_dirs":
+    case "session_started":
       return true;
     default:
       return false;

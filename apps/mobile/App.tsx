@@ -20,6 +20,7 @@ import type {
 } from "@blackcrab/remote-protocol";
 
 import { ApprovalScreen } from "./src/screens/ApprovalScreen";
+import { NewSessionScreen } from "./src/screens/NewSessionScreen";
 import { PairedHostsScreen } from "./src/screens/PairedHostsScreen";
 import { PairHostScreen } from "./src/screens/PairHostScreen";
 import { SessionsScreen } from "./src/screens/SessionsScreen";
@@ -35,6 +36,12 @@ import {
 import { connectWithFailover } from "./src/transport/failoverTransport";
 import { firstConnectableHost } from "./src/transport/reconnect";
 import type { Transport, TransportStatus } from "./src/transport/types";
+
+/** Last path segment, used as a provisional title for a brand-new session. */
+function dirName(path: string): string {
+  const parts = path.replace(/\/+$/, "").split("/");
+  return parts[parts.length - 1] || path;
+}
 
 type TabKey = "hosts" | "sessions" | "approval";
 
@@ -65,6 +72,11 @@ export default function App() {
   const [readCursors, setReadCursors] = useState<
     Record<string, { lastReadMessageId: MessageId; readAtMs: number }>
   >({});
+  // New-session flow: recent project dirs pushed by the active host, the modal
+  // toggle, and the cwd of a start we're waiting to open via session_started.
+  const [projectDirs, setProjectDirs] = useState<string[]>([]);
+  const [showNewSession, setShowNewSession] = useState(false);
+  const pendingStartCwdRef = useRef<string | null>(null);
 
   // Slide-over animation for the transcript detail.
   const screenWidth = Dimensions.get("window").width;
@@ -145,6 +157,7 @@ export default function App() {
       setLiveSessions(null);
       setLiveTranscript(null);
       setApprovals(null);
+      setProjectDirs([]);
       return;
     }
     setApprovals([]);
@@ -192,6 +205,27 @@ export default function App() {
           lastReadMessageId: event.lastReadMessageId,
           readAtMs: event.readAtMs,
         }).catch(() => {});
+      } else if (event.type === "project_dirs") {
+        setProjectDirs(event.dirs);
+      } else if (event.type === "session_started") {
+        // A session we asked to start has spawned — open it.
+        if (
+          pendingStartCwdRef.current &&
+          event.cwd === pendingStartCwdRef.current
+        ) {
+          pendingStartCwdRef.current = null;
+          openSession({
+            hostId: event.hostId,
+            sessionId: event.sessionId,
+            title: dirName(event.cwd),
+            projectPath: event.cwd,
+            model: "",
+            state: "running",
+            updatedAt: new Date().toISOString(),
+            pendingApprovalCount: 0,
+            unreadCount: 0,
+          });
+        }
       }
     });
     return () => {
@@ -292,6 +326,42 @@ export default function App() {
     setTab("hosts");
   }
 
+  // Make a paired host the active connection (used by the new-session machine
+  // picker so you can start on any paired machine, not just the connected one).
+  function switchToHost(host: StoredPairedHost) {
+    if (host.hostId === activeHostId) return;
+    const transport = connectWithFailover(host, {
+      onFatalReject: () => {
+        setActiveTransport((current) => {
+          current?.close();
+          return null;
+        });
+        setActiveHostId(null);
+      },
+    });
+    if (transport) {
+      activeTransport?.close();
+      setActiveTransport(transport);
+      setActiveHostId(host.hostId);
+      setProjectDirs([]);
+    }
+  }
+
+  // Start a session on the active host in `cwd`, sending `body` as the first
+  // message. The host spawns it and replies with session_started, which opens
+  // the conversation here.
+  function handleStartSession(cwd: string, body: string) {
+    if (!activeTransport || !activeHostId) return;
+    activeTransport.sendAction({
+      type: "start_session",
+      hostId: activeHostId,
+      cwd,
+      body,
+    });
+    pendingStartCwdRef.current = cwd;
+    setShowNewSession(false);
+  }
+
   const connected = activeStatus?.state === "connected" && Boolean(activeTransport);
 
   return (
@@ -338,6 +408,7 @@ export default function App() {
             status={activeStatus}
             sessions={liveSessions}
             onOpenSession={openSession}
+            onNewSession={() => setShowNewSession(true)}
           />
         )}
         {tab === "approval" && (
@@ -379,6 +450,21 @@ export default function App() {
           </Animated.View>
         )}
       </View>
+
+      {/* Start a new session: pick machine + directory + first message. */}
+      {showNewSession && (
+        <View style={styles.pairOverlay}>
+          <NewSessionScreen
+            storedHosts={storedHosts}
+            activeHostId={activeHostId}
+            activeStatus={activeStatus}
+            projectDirs={projectDirs}
+            onSwitchHost={switchToHost}
+            onStart={handleStartSession}
+            onCancel={() => setShowNewSession(false)}
+          />
+        </View>
+      )}
 
       {/* Pairing is an action launched from the Hosts screen, not a tab. */}
       {pairing && (

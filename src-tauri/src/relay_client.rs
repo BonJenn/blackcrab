@@ -244,6 +244,10 @@ fn command_from_envelope(plaintext: &str) -> Option<RemoteCommand> {
                 .to_string(),
             read_at_ms: msg.get("readAtMs").and_then(|n| n.as_i64()).unwrap_or(0),
         }),
+        "start_session" => Some(RemoteCommand::StartSession {
+            cwd: msg.get("cwd").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+            body: msg.get("body").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+        }),
         _ => None,
     }
 }
@@ -291,6 +295,27 @@ mod tests {
                 session_id: "s1".into(),
                 last_read_message_id: "msg-7".into(),
                 read_at_ms: 1_700_000_000_000,
+            })
+        );
+    }
+
+    #[test]
+    fn decodes_start_session_action() {
+        let plaintext = serde_json::json!({
+            "v": 1,
+            "msg": {
+                "type": "start_session",
+                "hostId": "h1",
+                "cwd": "/work/proj",
+                "body": "kick off"
+            }
+        })
+        .to_string();
+        assert_eq!(
+            command_from_envelope(&plaintext),
+            Some(RemoteCommand::StartSession {
+                cwd: "/work/proj".into(),
+                body: "kick off".into(),
             })
         );
     }

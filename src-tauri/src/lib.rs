@@ -32,6 +32,10 @@ const OPEN_SETTINGS_EVENT: &str = "blackcrab-open-settings";
 /// Frontend event fired when a paired phone advances a session's read cursor,
 /// so the desktop window (not a transport client) can update its UI to match.
 const READ_CURSOR_EVENT: &str = "blackcrab-read-cursor";
+/// Frontend event fired when a paired phone asks to start a new session, so the
+/// desktop creates it through its normal session machinery (panel, streaming,
+/// sidebar) and the new session flows back to the phone.
+const REMOTE_START_SESSION_EVENT: &str = "blackcrab-remote-start-session";
 
 // Live PTY-backed terminal. The master writer is wrapped in a std Mutex
 // because portable_pty's writer isn't Send+Sync-friendly for tokio's
@@ -3054,6 +3058,22 @@ async fn run_remote_command_consumer(
                 }
                 Ok(())
             }
+            RemoteCommand::StartSession { cwd, body } => {
+                // Hand off to the desktop window, which starts the session via
+                // its normal new-session path (so it gets a panel, live
+                // streaming, and sidebar entry) and reports the new id back for
+                // the phone to follow.
+                let trimmed = cwd.trim();
+                if trimmed.is_empty() {
+                    Err("start_session: empty cwd".to_string())
+                } else {
+                    let _ = app.emit(
+                        REMOTE_START_SESSION_EVENT,
+                        serde_json::json!({ "cwd": trimmed, "body": body }),
+                    );
+                    Ok(())
+                }
+            }
         };
         if let Err(e) = result {
             eprintln!("remote action dropped: {e}");
@@ -3135,6 +3155,48 @@ fn remote_sessions_event_value() -> Option<serde_json::Value> {
         "hostId": host_id,
         "sessions": mapped,
     }))
+}
+
+/// Distinct recent project directories (most-recent first), offered to the
+/// phone when starting a new session. Derived from existing sessions' cwds.
+fn remote_project_dirs_event_value() -> Option<serde_json::Value> {
+    let sessions = list_sessions().ok()?;
+    let host_id = remote_host_id_for_pairing();
+    let mut seen = std::collections::HashSet::new();
+    let mut dirs: Vec<String> = Vec::new();
+    for s in &sessions {
+        if !s.cwd.is_empty() && seen.insert(s.cwd.clone()) {
+            dirs.push(s.cwd.clone());
+        }
+        if dirs.len() >= 30 {
+            break;
+        }
+    }
+    Some(serde_json::json!({
+        "type": "project_dirs",
+        "hostId": host_id,
+        "dirs": dirs,
+    }))
+}
+
+/// Desktop UI entry point: after a phone-initiated session spawns and the
+/// desktop learns its id, push it to paired phones so they can open it.
+#[tauri::command]
+fn remote_notify_session_started(session_id: String, cwd: String) {
+    if session_id.trim().is_empty() {
+        return;
+    }
+    push_remote_event(serde_json::json!({
+        "type": "session_started",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "cwd": cwd,
+    }));
+    // Refresh the session list too, so the new conversation appears right away
+    // rather than on the next heartbeat.
+    if let Some(sessions) = remote_sessions_event_value() {
+        push_remote_event(sessions);
+    }
 }
 
 /// How many transcript entries to tail for the mobile companion's view.
@@ -3726,6 +3788,10 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
     for value in read_cursor_snapshot_values() {
         events.push(value);
     }
+    // Recent project directories, offered when starting a new session.
+    if let Some(dirs) = remote_project_dirs_event_value() {
+        events.push(dirs);
+    }
     events
 }
 
@@ -3860,6 +3926,7 @@ pub fn run() {
             set_session_read_cursor,
             session_read_cursors,
             mark_session_read_latest,
+            remote_notify_session_started,
             pairing_start,
             pairing_accept,
             pairing_cancel,

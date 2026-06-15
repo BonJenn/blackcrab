@@ -46,6 +46,10 @@ pub(crate) enum RemoteCommand {
         last_read_message_id: String,
         read_at_ms: i64,
     },
+    StartSession {
+        cwd: String,
+        body: String,
+    },
 }
 
 /// Builds the host->mobile event bodies (each already in protocol shape) the
@@ -366,6 +370,12 @@ async fn handle_connection(
                                         },
                                     );
                                 }
+                                WireMessage::StartSession { cwd, body, .. } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::StartSession { cwd, body },
+                                    );
+                                }
                                 // Pong and host->mobile events are ignored here.
                                 _ => {}
                             },
@@ -600,6 +610,13 @@ enum WireMessage {
         #[serde(rename = "readAtMs")]
         read_at_ms: i64,
     },
+    StartSession {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        cwd: String,
+        body: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -672,6 +689,11 @@ fn _wire_uses() {
         session_id: String::new(),
         last_read_message_id: String::new(),
         read_at_ms: 0,
+    };
+    let _ = WireMessage::StartSession {
+        host_id: String::new(),
+        cwd: String::new(),
+        body: String::new(),
     };
     let _ = ConnectionState::Disconnected;
     let _ = ConnectionState::Connecting;
@@ -1097,6 +1119,19 @@ mod tests {
                 assert_eq!(read_at_ms, 1_700_000_000_000);
             }
             other => panic!("expected set_read_cursor, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn envelope_round_trips_start_session_action() {
+        let text = r#"{"v":1,"msg":{"type":"start_session","hostId":"h","cwd":"/work/proj","body":"hello there"}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::StartSession { cwd, body, .. } => {
+                assert_eq!(cwd, "/work/proj");
+                assert_eq!(body, "hello there");
+            }
+            other => panic!("expected start_session, got {other:?}"),
         }
     }
 }

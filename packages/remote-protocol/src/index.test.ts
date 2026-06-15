@@ -173,6 +173,14 @@ describe("remote-protocol", () => {
           readAtMs: 1_700_000_000_000,
         }),
       ).toBe(true);
+      expect(
+        isRemoteAction({
+          type: "start_session",
+          hostId: "h",
+          cwd: "/work/proj",
+          body: "hello",
+        }),
+      ).toBe(true);
     });
 
     it("rejects unknown or malformed payloads", () => {
@@ -192,6 +200,8 @@ describe("remote-protocol", () => {
         "approval_resolved",
         "connection_status",
         "read_cursor",
+        "project_dirs",
+        "session_started",
       ];
       for (const type of types) {
         expect(isRemoteEvent({ type })).toBe(true);

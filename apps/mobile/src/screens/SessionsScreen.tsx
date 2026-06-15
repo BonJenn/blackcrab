@@ -125,6 +125,12 @@ function SessionRow({
           {session.model} · {session.state.replace("_", " ")}
           {session.updatedAt ? ` · ${relativeTime(session.updatedAt)}` : ""}
         </Text>
+        {session.liveElsewhere && (
+          <View style={localStyles.liveTag}>
+            <View style={localStyles.liveDot} />
+            <Text style={localStyles.liveTagText}>active in another window</Text>
+          </View>
+        )}
       </View>
       {session.pendingApprovalCount > 0 && (
         <Text style={localStyles.badge}>{session.pendingApprovalCount}</Text>
@@ -191,6 +197,29 @@ const localStyles = StyleSheet.create({
     color: "#9aa3ad",
     fontSize: 12,
     marginTop: 2,
+  },
+  liveTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 5,
+    alignSelf: "flex-start",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    backgroundColor: "#2a2118",
+  },
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#e6c065",
+  },
+  liveTagText: {
+    color: "#e6c065",
+    fontSize: 10.5,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
   badge: {
     minWidth: 20,

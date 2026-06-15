@@ -64,6 +64,12 @@ export interface SessionSummary {
   updatedAt: string;
   pendingApprovalCount: number;
   unreadCount: number;
+  /**
+   * True when the session is being actively written by another process the
+   * phone can't take over (e.g. a terminal). Messaging it won't go through
+   * until it's idle, so the UI can flag it.
+   */
+  liveElsewhere?: boolean;
 }
 
 // ---------------------------------------------------------------------------

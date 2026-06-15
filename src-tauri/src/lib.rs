@@ -3188,6 +3188,7 @@ fn remote_sessions_event_value() -> Option<serde_json::Value> {
                 "updatedAt": epoch_ms_to_iso8601(s.mtime_ms),
                 "pendingApprovalCount": 0,
                 "unreadCount": session_unread_count(&s.id),
+                "liveElsewhere": session_live_elsewhere(&s.id, &s.cwd),
             })
         })
         .collect();
@@ -3669,6 +3670,25 @@ fn remote_notify_action_failed(session_id: Option<String>, reason: String) {
     }));
 }
 
+/// Handle to the live session→panel ownership map, for sync snapshot reads.
+static SESSION_OWNERS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+
+/// True when Blackcrab itself runs this session (so the phone can message it).
+/// Uses a non-blocking try-lock; treats contention as "not owned".
+fn session_owned_by_blackcrab(session_id: &str) -> bool {
+    SESSION_OWNERS
+        .get()
+        .and_then(|m| m.try_lock().ok())
+        .map(|owners| owners.contains_key(session_id))
+        .unwrap_or(false)
+}
+
+/// True when a session is live in a process the phone can't take over (a
+/// terminal): recently written, but not owned by Blackcrab.
+fn session_live_elsewhere(session_id: &str, cwd: &str) -> bool {
+    session_recently_active(session_id, cwd) && !session_owned_by_blackcrab(session_id)
+}
+
 /// The working directory recorded for a session, used to resume it.
 fn session_cwd(session_id: &str) -> Option<String> {
     list_sessions()
@@ -4081,6 +4101,9 @@ pub fn run() {
             let state = app.state::<AppState>();
             let sessions = state.sessions.clone();
             let session_owners = state.session_owners.clone();
+            // Stash a handle so the (sync) session snapshot can tell which
+            // sessions Blackcrab owns and thus are reachable for the phone.
+            let _ = SESSION_OWNERS.set(state.session_owners.clone());
             let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
             let _ = REMOTE_CMD_TX.set(tx);
             // Real-time host->mobile push channel (approvals); the initial

@@ -3064,11 +3064,6 @@ async fn run_remote_command_consumer(
                 // streaming, and sidebar entry) and reports the new id back for
                 // the phone to follow.
                 let trimmed = cwd.trim();
-                eprintln!(
-                    "[remote] start_session received: cwd={:?} body_len={}",
-                    trimmed,
-                    body.len()
-                );
                 if trimmed.is_empty() {
                     Err("start_session: empty cwd".to_string())
                 } else {

@@ -93,7 +93,11 @@ export function TranscriptScreen({
   // True from the moment of a send until the host reports the turn running, so
   // the "thinking" indicator appears immediately rather than after a round-trip.
   const [justSent, setJustSent] = useState(false);
+  // Optimistic echoes the host never reflected (failed/dropped/conflict) — so
+  // the bubble shows "not delivered" instead of spinning on "sending…" forever.
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const optimisticSeq = useRef(0);
+  const SEND_TIMEOUT_MS = 20000;
 
   // Drop optimistic echoes once a host user_message reflects them (its preview
   // is a prefix of the sent body, since the host truncates/collapses previews).
@@ -113,6 +117,13 @@ export function TranscriptScreen({
     () => [...hostData, ...pendingOptimistic],
     [hostData, pendingOptimistic],
   );
+
+  // Track which echoes are still unreflected, so the send timeout can tell a
+  // genuinely-stuck message from one the host already echoed back.
+  const pendingIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    pendingIdsRef.current = new Set(pendingOptimistic.map((o) => o.id));
+  }, [pendingOptimistic]);
 
   const thinking =
     live && (justSent || sessionState === "running");
@@ -221,6 +232,14 @@ export function TranscriptScreen({
     setDraft("");
     atBottomRef.current = true;
     scrollToEnd(true);
+    // If the host never reflects this message, stop spinning and flag it.
+    const echoId = echo.id;
+    setTimeout(() => {
+      if (pendingIdsRef.current.has(echoId)) {
+        setFailedIds((prev) => new Set(prev).add(echoId));
+        setJustSent(false);
+      }
+    }, SEND_TIMEOUT_MS);
   }
 
   return (
@@ -263,7 +282,11 @@ export function TranscriptScreen({
         renderItem={({ item, index }) => (
           <View>
             {index === dividerIndex && <NewMessagesDivider />}
-            <EntryView entry={item} pending={item.id.startsWith("optimistic-")} />
+            <EntryView
+              entry={item}
+              pending={item.id.startsWith("optimistic-")}
+              failed={failedIds.has(item.id)}
+            />
           </View>
         )}
         contentContainerStyle={localStyles.listContent}
@@ -370,9 +393,11 @@ function NewMessagesDivider() {
 function EntryView({
   entry,
   pending,
+  failed,
 }: {
   entry: TranscriptEntry;
   pending?: boolean;
+  failed?: boolean;
 }) {
   if (entry.kind === "tool_call") {
     return <ToolCallCard toolName={entry.toolName} detail={entry.preview} />;
@@ -396,11 +421,18 @@ function EntryView({
     <View style={localStyles.msgBlock}>
       <Text style={[localStyles.roleLabel, isUser && localStyles.roleLabelUser]}>
         {isUser ? "you" : "claude"}
-        {pending ? "  ·  sending…" : ""}
+        {pending && !failed ? "  ·  sending…" : ""}
+        {failed ? "  ·  not delivered" : ""}
       </Text>
       <View style={isUser ? localStyles.userBody : undefined}>
         <Markdown text={entry.preview || ""} />
       </View>
+      {failed && (
+        <Text style={localStyles.failedNote}>
+          The host didn’t confirm this message. It may be open in another window
+          or on the desktop — try again from there.
+        </Text>
+      )}
       {entry.truncated && (
         <Text style={localStyles.truncated}>… open on desktop for the full message</Text>
       )}
@@ -554,6 +586,12 @@ const localStyles = StyleSheet.create({
     fontSize: 11,
     fontStyle: "italic",
     marginTop: 6,
+  },
+  failedNote: {
+    color: "#e0896f",
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
   },
   thinking: {
     flexDirection: "row",

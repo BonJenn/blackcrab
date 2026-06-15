@@ -4,6 +4,8 @@ import { StatusBar } from "expo-status-bar";
 import type {
   ApprovalRequest,
   HostId,
+  MessageId,
+  SessionId,
   SessionSummary,
   TranscriptEntry,
 } from "@blackcrab/remote-protocol";
@@ -15,7 +17,10 @@ import { SessionsScreen } from "./src/screens/SessionsScreen";
 import { TranscriptScreen } from "./src/screens/TranscriptScreen";
 import {
   forgetStoredHost,
+  loadReadCursors,
   loadStoredHosts,
+  readCursorKey,
+  saveReadCursor,
   type StoredPairedHost,
 } from "./src/pairingStore";
 import { connectWithFailover } from "./src/transport/failoverTransport";
@@ -44,6 +49,15 @@ export default function App() {
     null,
   );
   const [approvals, setApprovals] = useState<ApprovalRequest[] | null>(null);
+  // Session whose transcript is being viewed, and the host-canonical read
+  // cursors keyed by `${hostId}:${sessionId}`. The cursor drives the
+  // "new messages" divider and where the transcript lands on open.
+  const [focusedSessionId, setFocusedSessionId] = useState<SessionId | null>(
+    null,
+  );
+  const [readCursors, setReadCursors] = useState<
+    Record<string, { lastReadMessageId: MessageId; readAtMs: number }>
+  >({});
 
   useEffect(() => {
     let mounted = true;
@@ -81,6 +95,30 @@ export default function App() {
     };
   }, []);
 
+  // Restore cached read cursors so the divider/landing point is available even
+  // before the host's snapshot arrives.
+  useEffect(() => {
+    let mounted = true;
+    loadReadCursors()
+      .then((cursors) => {
+        if (!mounted) return;
+        setReadCursors((prev) => {
+          const next = { ...prev };
+          for (const c of cursors) {
+            next[readCursorKey(c.hostId, c.sessionId)] = {
+              lastReadMessageId: c.lastReadMessageId,
+              readAtMs: c.readAtMs,
+            };
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!activeTransport) {
       setActiveStatus(null);
@@ -108,6 +146,32 @@ export default function App() {
         setApprovals((prev) =>
           (prev ?? []).filter((a) => a.id !== event.approvalId),
         );
+      } else if (event.type === "read_cursor") {
+        // The host advanced a cursor (this device or another). Mirror it and
+        // cache it; the host is authoritative on order.
+        const key = readCursorKey(event.hostId, event.sessionId);
+        setReadCursors((prev) => {
+          const current = prev[key];
+          if (
+            current?.lastReadMessageId === event.lastReadMessageId &&
+            current?.readAtMs === event.readAtMs
+          ) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [key]: {
+              lastReadMessageId: event.lastReadMessageId,
+              readAtMs: event.readAtMs,
+            },
+          };
+        });
+        void saveReadCursor({
+          hostId: event.hostId,
+          sessionId: event.sessionId,
+          lastReadMessageId: event.lastReadMessageId,
+          readAtMs: event.readAtMs,
+        }).catch(() => {});
       }
     });
     return () => {
@@ -126,6 +190,31 @@ export default function App() {
       setActiveTransport(null);
       setActiveHostId(null);
     }
+  }
+
+  // Record that the user read up to `messageId` in a session: tell the host
+  // (which persists and re-broadcasts), and update/cache locally right away.
+  function markRead(sessionId: SessionId, messageId: MessageId) {
+    if (!activeTransport || !activeHostId || !messageId) return;
+    const readAtMs = Date.now();
+    activeTransport.sendAction({
+      type: "set_read_cursor",
+      hostId: activeHostId,
+      sessionId,
+      lastReadMessageId: messageId,
+      readAtMs,
+    });
+    const key = readCursorKey(activeHostId, sessionId);
+    setReadCursors((prev) => ({
+      ...prev,
+      [key]: { lastReadMessageId: messageId, readAtMs },
+    }));
+    void saveReadCursor({
+      hostId: activeHostId,
+      sessionId,
+      lastReadMessageId: messageId,
+      readAtMs,
+    }).catch(() => {});
   }
 
   function handlePaired(
@@ -195,11 +284,26 @@ export default function App() {
               });
               // Clear stale entries; the host pushes the focused tail at once.
               setLiveTranscript(null);
+              setFocusedSessionId(session.sessionId);
               setTab("transcript");
             }}
           />
         )}
-        {tab === "transcript" && <TranscriptScreen entries={liveTranscript} />}
+        {tab === "transcript" && (
+          <TranscriptScreen
+            entries={liveTranscript}
+            sessionId={focusedSessionId}
+            lastReadMessageId={
+              focusedSessionId && activeHostId
+                ? readCursors[readCursorKey(activeHostId, focusedSessionId)]
+                    ?.lastReadMessageId ?? null
+                : null
+            }
+            onMarkRead={(messageId) => {
+              if (focusedSessionId) markRead(focusedSessionId, messageId);
+            }}
+          />
+        )}
         {tab === "approval" && (
           <ApprovalScreen transport={activeTransport} approvals={approvals} />
         )}

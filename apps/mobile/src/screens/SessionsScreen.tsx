@@ -12,6 +12,20 @@ import { MOCK_SESSIONS, type SessionSummary } from "@blackcrab/remote-protocol";
 import type { Transport, TransportStatus } from "../transport/types";
 import { screenStyles } from "./styles";
 
+/** Compact "3m"/"2h"/"5d" style age from an ISO-8601 timestamp. */
+function relativeTime(iso: string): string {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "";
+  const diff = Date.now() - ms;
+  const min = 60_000;
+  const hr = 60 * min;
+  const day = 24 * hr;
+  if (diff < min) return "now";
+  if (diff < hr) return `${Math.floor(diff / min)}m`;
+  if (diff < day) return `${Math.floor(diff / hr)}h`;
+  return `${Math.floor(diff / day)}d`;
+}
+
 export interface SessionsScreenProps {
   /** Live connection to the active host, when one is paired and connected. */
   transport?: Transport | null;
@@ -97,9 +111,21 @@ function SessionRow({
     <View style={localStyles.row}>
       <View style={localStyles.rowHeader}>
         <View style={localStyles.rowMain}>
-          <Text style={localStyles.title}>{session.title}</Text>
+          <View style={localStyles.titleRow}>
+            {session.unreadCount > 0 && <View style={localStyles.unreadDot} />}
+            <Text
+              style={[
+                localStyles.title,
+                session.unreadCount > 0 && localStyles.titleUnread,
+              ]}
+              numberOfLines={1}
+            >
+              {session.title}
+            </Text>
+          </View>
           <Text style={localStyles.meta}>
             {session.model} · {session.state.replace("_", " ")}
+            {session.updatedAt ? ` · ${relativeTime(session.updatedAt)}` : ""}
           </Text>
         </View>
         {session.pendingApprovalCount > 0 && (
@@ -177,10 +203,25 @@ const localStyles = StyleSheet.create({
   rowMain: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#e26a4b",
+  },
   title: {
+    flexShrink: 1,
     color: "#f4f6f8",
     fontSize: 15,
     fontWeight: "500",
+  },
+  titleUnread: {
+    fontWeight: "700",
   },
   meta: {
     color: "#9aa3ad",

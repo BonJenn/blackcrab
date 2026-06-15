@@ -6,10 +6,13 @@ import {
   parseDesktopPairingPayload,
   type DesktopPairingPayload,
   type HostId,
+  type MessageId,
   type PairedHostSummary,
+  type SessionId,
 } from "@blackcrab/remote-protocol";
 
 const STORAGE_KEY = "blackcrab.mobile.pairedHosts.v1";
+const READ_CURSOR_KEY = "blackcrab.mobile.readCursors.v1";
 const MANUAL_HOST_ID_PREFIX = "manual-pairing-";
 
 export type StoredPairingSource = "desktop_payload" | "manual_code";
@@ -170,6 +173,61 @@ function isStoredPairedHost(value: unknown): value is StoredPairedHost {
     (value.relayUrl === undefined || typeof value.relayUrl === "string") &&
     (value.lanHost === undefined || typeof value.lanHost === "string") &&
     (value.lanPort === undefined || typeof value.lanPort === "number")
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Read cursors: cache the host-canonical "last read message" per session so the
+// transcript can show a "new messages" divider and land where you left off even
+// before the host's snapshot arrives. The host remains authoritative; this is a
+// local cache keyed by host + session.
+// ---------------------------------------------------------------------------
+
+export interface StoredReadCursor {
+  hostId: HostId;
+  sessionId: SessionId;
+  lastReadMessageId: MessageId;
+  readAtMs: number;
+}
+
+export function readCursorKey(hostId: HostId, sessionId: SessionId): string {
+  return `${hostId}:${sessionId}`;
+}
+
+export async function loadReadCursors(): Promise<StoredReadCursor[]> {
+  const value = await readStoredValue(READ_CURSOR_KEY);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isStoredReadCursor);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveReadCursor(
+  cursor: StoredReadCursor,
+): Promise<StoredReadCursor[]> {
+  const existing = await loadReadCursors();
+  const key = readCursorKey(cursor.hostId, cursor.sessionId);
+  const next = [
+    cursor,
+    ...existing.filter(
+      (c) => readCursorKey(c.hostId, c.sessionId) !== key,
+    ),
+  ];
+  await writeStoredValue(READ_CURSOR_KEY, JSON.stringify(next));
+  return next;
+}
+
+function isStoredReadCursor(value: unknown): value is StoredReadCursor {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.hostId === "string" &&
+    typeof value.sessionId === "string" &&
+    typeof value.lastReadMessageId === "string" &&
+    typeof value.readAtMs === "number"
   );
 }
 

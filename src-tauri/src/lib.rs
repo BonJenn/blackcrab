@@ -3098,7 +3098,7 @@ fn remote_sessions_event_value() -> Option<serde_json::Value> {
                 "state": session_state_label(s),
                 "updatedAt": epoch_ms_to_iso8601(s.mtime_ms),
                 "pendingApprovalCount": 0,
-                "unreadCount": 0,
+                "unreadCount": session_unread_count(&s.id),
             })
         })
         .collect();
@@ -3432,6 +3432,21 @@ fn set_session_read_cursor(session_id: String, last_read_message_id: String, rea
 #[tauri::command]
 fn session_read_cursors() -> Vec<serde_json::Value> {
     read_cursor_snapshot_values()
+}
+
+/// Coarse unread indicator for a session, by message identity: 1 when the
+/// session has a read cursor whose target is not the newest message, else 0.
+/// Bounded work — only sessions the user has actually read carry a cursor, and
+/// only those pay for a (cheap, tail-only) latest-message lookup.
+fn session_unread_count(session_id: &str) -> u32 {
+    let cursor = match read_cursors().lock().unwrap().get(session_id).cloned() {
+        Some(c) => c,
+        None => return 0,
+    };
+    match latest_message_id(session_id) {
+        Some(latest) if latest != cursor.last_read_message_id => 1,
+        _ => 0,
+    }
 }
 
 /// The newest transcript record id for a session, in the same id space the

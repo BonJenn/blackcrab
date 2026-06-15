@@ -59,6 +59,7 @@ const RELAY_EVENT_TYPES = new Set([
   "transcript_tail",
   "approval_requested",
   "approval_resolved",
+  "read_cursor",
 ]);
 
 export class RelayTransport implements Transport {

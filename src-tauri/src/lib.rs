@@ -313,6 +313,52 @@ fn resolve_claude_auth_status(
 mod tests {
     use super::*;
 
+    fn cursor(id: &str, at_ms: i64) -> ReadCursor {
+        ReadCursor {
+            last_read_message_id: id.to_string(),
+            read_at_ms: at_ms,
+        }
+    }
+
+    #[test]
+    fn read_cursor_advances_from_unset() {
+        assert!(cursor_should_advance(None, "msg-3", Some(2), None, 100));
+    }
+
+    #[test]
+    fn read_cursor_advances_forward_by_transcript_order() {
+        let current = cursor("msg-2", 100);
+        // msg-5 is later in the transcript than msg-2 → advance.
+        assert!(cursor_should_advance(Some(&current), "msg-5", Some(5), Some(2), 50));
+    }
+
+    #[test]
+    fn read_cursor_does_not_regress_to_an_earlier_message() {
+        let current = cursor("msg-5", 100);
+        // msg-2 is earlier even though it carries a newer timestamp → ignore.
+        assert!(!cursor_should_advance(Some(&current), "msg-2", Some(2), Some(5), 999));
+    }
+
+    #[test]
+    fn read_cursor_advances_when_stored_fell_off_the_window() {
+        let current = cursor("msg-old", 100);
+        // Stored id is older than the loaded tail (None); new id is in it → advance.
+        assert!(cursor_should_advance(Some(&current), "msg-9", Some(9), None, 50));
+    }
+
+    #[test]
+    fn read_cursor_is_noop_for_same_message() {
+        let current = cursor("msg-3", 100);
+        assert!(!cursor_should_advance(Some(&current), "msg-3", Some(3), Some(3), 200));
+    }
+
+    #[test]
+    fn read_cursor_falls_back_to_newest_when_order_unknown() {
+        let current = cursor("msg-a", 100);
+        assert!(cursor_should_advance(Some(&current), "msg-b", None, None, 200));
+        assert!(!cursor_should_advance(Some(&current), "msg-b", None, None, 50));
+    }
+
     #[test]
     fn prefers_cli_login_when_legacy_env_shadows_it() {
         let current = auth_status(true, "api_key", "firstParty", Some("ANTHROPIC_API_KEY"));
@@ -2960,6 +3006,21 @@ async fn run_remote_command_consumer(
                 }
                 Ok(())
             }
+            RemoteCommand::SetReadCursor {
+                session_id,
+                last_read_message_id,
+                read_at_ms,
+            } => {
+                // Advance the host cursor and, when it actually moved, fan the
+                // new position out to every connected client (this one included)
+                // so desktop and phone converge on where the user left off.
+                if advance_read_cursor(&session_id, &last_read_message_id, read_at_ms) {
+                    if let Some(event) = read_cursor_event_value(&session_id) {
+                        push_remote_event(event);
+                    }
+                }
+                Ok(())
+            }
         };
         if let Err(e) = result {
             eprintln!("remote action dropped: {e}");
@@ -3202,6 +3263,173 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
 }
 
 // ---------------------------------------------------------------------------
+// Read cursors: the host owns the canonical "last read message" per session so
+// desktop and phone converge on where the user left off. Both surfaces write
+// through `advance_read_cursor`, which only moves a cursor forward (by
+// transcript order, with `readAtMs` as a tiebreaker), and read it back via the
+// connect snapshot / a real-time `read_cursor` event. Persisted to disk so the
+// position survives restarts.
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct ReadCursor {
+    #[serde(rename = "lastReadMessageId")]
+    last_read_message_id: String,
+    #[serde(rename = "readAtMs")]
+    read_at_ms: i64,
+}
+
+static READ_CURSORS: OnceLock<StdMutex<HashMap<String, ReadCursor>>> = OnceLock::new();
+
+fn read_cursors_path() -> Option<PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    Some(
+        PathBuf::from(home)
+            .join(".claude")
+            .join("blackcrab")
+            .join("read_cursors.json"),
+    )
+}
+
+fn load_read_cursors_from_disk() -> HashMap<String, ReadCursor> {
+    let Some(path) = read_cursors_path() else {
+        return HashMap::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return HashMap::new();
+    };
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+fn save_read_cursors_to_disk(map: &HashMap<String, ReadCursor>) {
+    let Some(path) = read_cursors_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(text) = serde_json::to_string(map) {
+        let _ = std::fs::write(&path, text);
+    }
+}
+
+fn read_cursors() -> &'static StdMutex<HashMap<String, ReadCursor>> {
+    READ_CURSORS.get_or_init(|| StdMutex::new(load_read_cursors_from_disk()))
+}
+
+/// Order index of `message_id` within the session's loaded transcript tail, or
+/// `None` when it isn't in the window (e.g. older than the tail we keep).
+fn transcript_index_of(session_id: &str, message_id: &str) -> Option<usize> {
+    let sessions = list_sessions().ok()?;
+    let target = sessions.iter().find(|s| s.id == session_id)?;
+    let records =
+        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    records.iter().enumerate().find_map(|(i, record)| {
+        let id = record
+            .get("uuid")
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("{}-{i}", target.id));
+        (id == message_id).then_some(i)
+    })
+}
+
+/// Pure monotonic-advance decision, split out from disk access so it can be
+/// tested directly. `new_idx`/`cur_idx` are the transcript-order positions of
+/// the incoming and stored message ids (None when outside the loaded window).
+fn cursor_should_advance(
+    current: Option<&ReadCursor>,
+    message_id: &str,
+    new_idx: Option<usize>,
+    cur_idx: Option<usize>,
+    at_ms: i64,
+) -> bool {
+    match current {
+        None => true,
+        Some(current) if current.last_read_message_id == message_id => false,
+        Some(current) => match (new_idx, cur_idx) {
+            (Some(n), Some(c)) => n > c,
+            (Some(_), None) => true,  // current fell off the window → new is ahead
+            (None, Some(_)) => false, // new is older than the window → behind
+            (None, None) => at_ms > current.read_at_ms, // unknown order → newest wins
+        },
+    }
+}
+
+/// Move the stored cursor for `session_id` forward to `message_id`/`at_ms` when
+/// it is ahead of the current one. Returns true when the store changed.
+fn advance_read_cursor(session_id: &str, message_id: &str, at_ms: i64) -> bool {
+    if message_id.is_empty() {
+        return false;
+    }
+    // Read the current cursor under a short lock, then do disk I/O unlocked.
+    let current = read_cursors().lock().unwrap().get(session_id).cloned();
+    let new_idx = transcript_index_of(session_id, message_id);
+    let cur_idx = current
+        .as_ref()
+        .and_then(|c| transcript_index_of(session_id, &c.last_read_message_id));
+    let changed = cursor_should_advance(current.as_ref(), message_id, new_idx, cur_idx, at_ms);
+    if changed {
+        let mut map = read_cursors().lock().unwrap();
+        map.insert(
+            session_id.to_string(),
+            ReadCursor {
+                last_read_message_id: message_id.to_string(),
+                read_at_ms: at_ms,
+            },
+        );
+        save_read_cursors_to_disk(&map);
+    }
+    changed
+}
+
+fn read_cursor_event_value(session_id: &str) -> Option<serde_json::Value> {
+    let map = read_cursors().lock().unwrap();
+    let cursor = map.get(session_id)?;
+    Some(serde_json::json!({
+        "type": "read_cursor",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "lastReadMessageId": cursor.last_read_message_id,
+        "readAtMs": cursor.read_at_ms,
+    }))
+}
+
+/// One `read_cursor` event per stored cursor, for the connect snapshot so a
+/// freshly connected client learns every session's left-off point at once.
+fn read_cursor_snapshot_values() -> Vec<serde_json::Value> {
+    let host_id = remote_host_id_for_pairing();
+    let map = read_cursors().lock().unwrap();
+    map.iter()
+        .map(|(session_id, cursor)| {
+            serde_json::json!({
+                "type": "read_cursor",
+                "hostId": host_id,
+                "sessionId": session_id,
+                "lastReadMessageId": cursor.last_read_message_id,
+                "readAtMs": cursor.read_at_ms,
+            })
+        })
+        .collect()
+}
+
+/// Desktop UI entry point: record that the local user read up to a message.
+#[tauri::command]
+fn set_session_read_cursor(session_id: String, last_read_message_id: String, read_at_ms: i64) {
+    if advance_read_cursor(&session_id, &last_read_message_id, read_at_ms) {
+        if let Some(event) = read_cursor_event_value(&session_id) {
+            push_remote_event(event);
+        }
+    }
+}
+
+/// Desktop UI entry point: read back every stored cursor (protocol shape).
+#[tauri::command]
+fn session_read_cursors() -> Vec<serde_json::Value> {
+    read_cursor_snapshot_values()
+}
+
+// ---------------------------------------------------------------------------
 // Remote approvals: forward Claude's permission prompts to paired phones and
 // answer them from a phone's approve/deny, reusing the desktop's existing
 // control_response path. Works whether or not the desktop window is focused.
@@ -3407,6 +3635,10 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
     for approval in &pending {
         events.push(approval_requested_value(approval));
     }
+    // Read cursors, so a freshly connected client lands where the user left off.
+    for value in read_cursor_snapshot_values() {
+        events.push(value);
+    }
     events
 }
 
@@ -3538,6 +3770,8 @@ pub fn run() {
             remote_host_info,
             remote_relay_url,
             remote_transport_info,
+            set_session_read_cursor,
+            session_read_cursors,
             pairing_start,
             pairing_accept,
             pairing_cancel,

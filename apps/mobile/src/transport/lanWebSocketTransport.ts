@@ -266,6 +266,7 @@ export class LanWebSocketTransport implements Transport {
       case "transcript_tail":
       case "approval_requested":
       case "approval_resolved":
+      case "read_cursor":
         this.emitEvent(msg);
         return;
       default:

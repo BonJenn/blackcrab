@@ -41,6 +41,11 @@ pub(crate) enum RemoteCommand {
     Approve { approval_id: String },
     Deny { approval_id: String, reason: Option<String> },
     FocusSession { session_id: String },
+    SetReadCursor {
+        session_id: String,
+        last_read_message_id: String,
+        read_at_ms: i64,
+    },
 }
 
 /// Builds the host->mobile event bodies (each already in protocol shape) the
@@ -346,6 +351,21 @@ async fn handle_connection(
                                         RemoteCommand::FocusSession { session_id },
                                     );
                                 }
+                                WireMessage::SetReadCursor {
+                                    session_id,
+                                    last_read_message_id,
+                                    read_at_ms,
+                                    ..
+                                } => {
+                                    forward_command(
+                                        hooks.commands.as_ref(),
+                                        RemoteCommand::SetReadCursor {
+                                            session_id,
+                                            last_read_message_id,
+                                            read_at_ms,
+                                        },
+                                    );
+                                }
                                 // Pong and host->mobile events are ignored here.
                                 _ => {}
                             },
@@ -569,6 +589,17 @@ enum WireMessage {
         #[serde(rename = "sessionId")]
         session_id: String,
     },
+    SetReadCursor {
+        #[serde(rename = "hostId")]
+        #[allow(dead_code)]
+        host_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "lastReadMessageId")]
+        last_read_message_id: String,
+        #[serde(rename = "readAtMs")]
+        read_at_ms: i64,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -635,6 +666,12 @@ fn _wire_uses() {
     let _ = WireMessage::FocusSession {
         host_id: String::new(),
         session_id: String::new(),
+    };
+    let _ = WireMessage::SetReadCursor {
+        host_id: String::new(),
+        session_id: String::new(),
+        last_read_message_id: String::new(),
+        read_at_ms: 0,
     };
     let _ = ConnectionState::Disconnected;
     let _ = ConnectionState::Connecting;
@@ -1041,6 +1078,25 @@ mod tests {
         match env.msg {
             WireMessage::FocusSession { session_id, .. } => assert_eq!(session_id, "sess-9"),
             other => panic!("expected focus_session, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn envelope_round_trips_set_read_cursor_action() {
+        let text = r#"{"v":1,"msg":{"type":"set_read_cursor","hostId":"h","sessionId":"sess-9","lastReadMessageId":"msg-4","readAtMs":1700000000000}}"#;
+        let env: Envelope = serde_json::from_str(text).unwrap();
+        match env.msg {
+            WireMessage::SetReadCursor {
+                session_id,
+                last_read_message_id,
+                read_at_ms,
+                ..
+            } => {
+                assert_eq!(session_id, "sess-9");
+                assert_eq!(last_read_message_id, "msg-4");
+                assert_eq!(read_at_ms, 1_700_000_000_000);
+            }
+            other => panic!("expected set_read_cursor, got {other:?}"),
         }
     }
 }

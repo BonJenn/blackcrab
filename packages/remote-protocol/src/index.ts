@@ -150,12 +150,27 @@ export interface FocusSessionAction {
   sessionId: SessionId;
 }
 
+export interface SetReadCursorAction {
+  type: "set_read_cursor";
+  hostId: HostId;
+  sessionId: SessionId;
+  /**
+   * The newest transcript entry the user has read in this session. The host
+   * only advances the stored cursor forward (by transcript order), so an
+   * out-of-order request from a device showing an older window is ignored.
+   */
+  lastReadMessageId: MessageId;
+  /** Unix epoch milliseconds when the read happened; used as a tiebreaker. */
+  readAtMs: number;
+}
+
 export type RemoteAction =
   | SendMessageAction
   | StopSessionAction
   | ApproveAction
   | DenyAction
-  | FocusSessionAction;
+  | FocusSessionAction
+  | SetReadCursorAction;
 
 // ---------------------------------------------------------------------------
 // Pairing
@@ -332,13 +347,26 @@ export interface ConnectionStatusEvent {
   status: ConnectionStatus;
 }
 
+/**
+ * The host's canonical read cursor for a session, pushed to all connected
+ * clients whenever it advances (from any device) and in the connect snapshot.
+ */
+export interface ReadCursorEvent {
+  type: "read_cursor";
+  hostId: HostId;
+  sessionId: SessionId;
+  lastReadMessageId: MessageId;
+  readAtMs: number;
+}
+
 export type RemoteEvent =
   | PairedHostsEvent
   | SessionsEvent
   | TranscriptTailEvent
   | ApprovalRequestedEvent
   | ApprovalResolvedEvent
-  | ConnectionStatusEvent;
+  | ConnectionStatusEvent
+  | ReadCursorEvent;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -438,6 +466,7 @@ export function isRemoteAction(value: unknown): value is RemoteAction {
     case "approve":
     case "deny":
     case "focus_session":
+    case "set_read_cursor":
       return true;
     default:
       return false;
@@ -462,6 +491,7 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
     case "approval_requested":
     case "approval_resolved":
     case "connection_status":
+    case "read_cursor":
       return true;
     default:
       return false;

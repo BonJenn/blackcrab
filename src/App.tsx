@@ -4389,6 +4389,12 @@ function App() {
       pendingRemoteStartRef.current = null;
       markSessionActivity(activeSessionIdRef.current, "error", "failed to start");
       notifyErr("failed to start session from phone")(e);
+      // Tell the phone why, so it isn't left guessing (most often a path that
+      // doesn't exist on this host).
+      void invoke("remote_notify_action_failed", {
+        sessionId: null,
+        reason: `Couldn't start a session in "${cwdTrim}" — that directory may not exist on the desktop.`,
+      }).catch(() => {});
       return;
     }
     // Append to the active transcript (which init has folded onto the new

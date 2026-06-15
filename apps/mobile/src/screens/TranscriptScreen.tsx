@@ -63,6 +63,8 @@ export interface TranscriptScreenProps {
   onSend?: (body: string) => void;
   /** Stop this session's current turn. */
   onStop?: () => void;
+  /** Bumped by the host reporting a failed action; flips stuck sends to failed. */
+  failSignal?: number;
   /** Called to advance the read cursor as the user views the conversation. */
   onMarkRead?: (messageId: MessageId) => void;
 }
@@ -82,6 +84,7 @@ export function TranscriptScreen({
   onBack,
   onSend,
   onStop,
+  failSignal,
   onMarkRead,
 }: TranscriptScreenProps) {
   const live = entries != null;
@@ -124,6 +127,17 @@ export function TranscriptScreen({
   useEffect(() => {
     pendingIdsRef.current = new Set(pendingOptimistic.map((o) => o.id));
   }, [pendingOptimistic]);
+
+  // The host reported a failed action — flip any still-pending sends to failed
+  // immediately rather than waiting for the timeout.
+  const firstFailSignal = useRef(failSignal);
+  useEffect(() => {
+    if (failSignal === firstFailSignal.current) return;
+    if (pendingIdsRef.current.size > 0) {
+      setFailedIds((prev) => new Set([...prev, ...pendingIdsRef.current]));
+    }
+    setJustSent(false);
+  }, [failSignal]);
 
   const thinking =
     live && (justSent || sessionState === "running");

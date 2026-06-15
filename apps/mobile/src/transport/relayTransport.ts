@@ -62,6 +62,7 @@ const RELAY_EVENT_TYPES = new Set([
   "read_cursor",
   "project_dirs",
   "session_started",
+  "action_failed",
 ]);
 
 export class RelayTransport implements Transport {

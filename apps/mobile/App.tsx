@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Pressable,
@@ -77,6 +78,9 @@ export default function App() {
   const [projectDirs, setProjectDirs] = useState<string[]>([]);
   const [showNewSession, setShowNewSession] = useState(false);
   const pendingStartCwdRef = useRef<string | null>(null);
+  // Bumped when the host reports an action it couldn't fulfil, so the open
+  // transcript can flip a stuck "sending…" bubble to "not delivered".
+  const [sendFailSignal, setSendFailSignal] = useState(0);
 
   // Slide-over animation for the transcript detail.
   const screenWidth = Dimensions.get("window").width;
@@ -226,6 +230,10 @@ export default function App() {
             unreadCount: 0,
           });
         }
+      } else if (event.type === "action_failed") {
+        if (pendingStartCwdRef.current) pendingStartCwdRef.current = null;
+        setSendFailSignal((n) => n + 1);
+        Alert.alert("Couldn’t send", event.reason);
       }
     });
     return () => {
@@ -443,6 +451,7 @@ export default function App() {
               onBack={closeTranscript}
               onSend={sendToFocused}
               onStop={stopFocused}
+              failSignal={sendFailSignal}
               onMarkRead={(messageId) =>
                 markRead(focusedSession.sessionId, messageId)
               }

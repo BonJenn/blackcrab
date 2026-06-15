@@ -386,6 +386,16 @@ export interface SessionStartedEvent {
   cwd: string;
 }
 
+/** A phone-initiated action (start/resume/send) the host couldn't fulfil. */
+export interface ActionFailedEvent {
+  type: "action_failed";
+  hostId: HostId;
+  /** The session the action targeted, when applicable. */
+  sessionId?: SessionId;
+  /** Human-readable reason to show on the phone. */
+  reason: string;
+}
+
 export type RemoteEvent =
   | PairedHostsEvent
   | SessionsEvent
@@ -395,7 +405,8 @@ export type RemoteEvent =
   | ConnectionStatusEvent
   | ReadCursorEvent
   | ProjectDirsEvent
-  | SessionStartedEvent;
+  | SessionStartedEvent
+  | ActionFailedEvent;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -524,6 +535,7 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
     case "read_cursor":
     case "project_dirs":
     case "session_started":
+    case "action_failed":
       return true;
     default:
       return false;

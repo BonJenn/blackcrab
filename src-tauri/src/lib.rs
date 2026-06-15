@@ -3029,14 +3029,23 @@ async fn run_remote_command_consumer(
                         // continue any past conversation — not only live ones.
                         match session_cwd(&session_id) {
                             Some(cwd) => {
-                                let _ = app.emit(
-                                    REMOTE_RESUME_SEND_EVENT,
-                                    serde_json::json!({
-                                        "sessionId": session_id,
-                                        "cwd": cwd,
-                                        "body": body,
-                                    }),
-                                );
+                                if session_recently_active(&session_id, &cwd) {
+                                    // Live in another process (e.g. a terminal):
+                                    // don't hijack it with a conflicting resume.
+                                    push_remote_event(action_failed_value(
+                                        &session_id,
+                                        "This conversation is active in another window right now. Continue it there, or try again once it's idle.",
+                                    ));
+                                } else {
+                                    let _ = app.emit(
+                                        REMOTE_RESUME_SEND_EVENT,
+                                        serde_json::json!({
+                                            "sessionId": session_id,
+                                            "cwd": cwd,
+                                            "body": body,
+                                        }),
+                                    );
+                                }
                                 Ok(())
                             }
                             None => Err(format!("unknown session {session_id}")),
@@ -3621,6 +3630,45 @@ fn session_unread_count(session_id: &str) -> u32 {
     }
 }
 
+/// A session whose file was written within this window is treated as live in
+/// another process (e.g. a terminal) — we won't hijack it with a `--resume`.
+const REMOTE_ACTIVE_WINDOW_SECS: u64 = 12;
+
+/// True when the session's JSONL was modified very recently — a strong sign
+/// another process is actively writing it.
+fn session_recently_active(session_id: &str, cwd: &str) -> bool {
+    let Ok(path) = session_path(session_id, cwd) else {
+        return false;
+    };
+    std::fs::metadata(&path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.elapsed().ok())
+        .map(|d| d.as_secs() < REMOTE_ACTIVE_WINDOW_SECS)
+        .unwrap_or(false)
+}
+
+fn action_failed_value(session_id: &str, reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "action_failed",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "reason": reason,
+    })
+}
+
+/// Desktop UI entry point: tell the phone a start/resume/send couldn't be
+/// fulfilled (bad directory, session open elsewhere, …).
+#[tauri::command]
+fn remote_notify_action_failed(session_id: Option<String>, reason: String) {
+    push_remote_event(serde_json::json!({
+        "type": "action_failed",
+        "hostId": remote_host_id_for_pairing(),
+        "sessionId": session_id,
+        "reason": reason,
+    }));
+}
+
 /// The working directory recorded for a session, used to resume it.
 fn session_cwd(session_id: &str) -> Option<String> {
     list_sessions()
@@ -4018,6 +4066,7 @@ pub fn run() {
             session_read_cursors,
             mark_session_read_latest,
             remote_notify_session_started,
+            remote_notify_action_failed,
             pairing_start,
             pairing_accept,
             pairing_cancel,

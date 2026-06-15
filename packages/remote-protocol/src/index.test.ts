@@ -202,6 +202,7 @@ describe("remote-protocol", () => {
         "read_cursor",
         "project_dirs",
         "session_started",
+        "action_failed",
       ];
       for (const type of types) {
         expect(isRemoteEvent({ type })).toBe(true);

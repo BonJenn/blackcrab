@@ -11939,41 +11939,54 @@ const PlainTranscript = memo(function PlainTranscript({
 }) {
   const [windowSize, setWindowSize] = useState(TRANSCRIPT_WINDOW);
   const stickToBottomRef = useRef(true);
-  // Stream new turns should auto-extend the window so live replies
-  // don't get clipped by the "show older" affordance once the user
-  // has started expanding it.
-  useEffect(() => {
-    setWindowSize((w) => (entries.length <= w ? w : w));
-  }, [entries.length]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => {
+    const BOTTOM_THRESHOLD = 48;
+    const recompute = () => {
       const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
-      const atBottom = distance < 48;
+      const atBottom = distance < BOTTOM_THRESHOLD;
       stickToBottomRef.current = atBottom;
       onAtBottomChange(atBottom);
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => el.removeEventListener("scroll", onScroll);
+    // A real user gesture (wheel/touch) away from the bottom must stop the
+    // auto-follow immediately. Relying on the "scroll" event alone is racy: a
+    // programmatic snap also fires "scroll" and would re-pin us to the bottom,
+    // yanking the view back while the user is trying to scroll up.
+    const onUserScroll = () => {
+      const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
+      if (distance >= BOTTOM_THRESHOLD && stickToBottomRef.current) {
+        stickToBottomRef.current = false;
+        onAtBottomChange(false);
+      }
+    };
+    el.addEventListener("scroll", recompute, { passive: true });
+    el.addEventListener("wheel", onUserScroll, { passive: true });
+    el.addEventListener("touchmove", onUserScroll, { passive: true });
+    recompute();
+    return () => {
+      el.removeEventListener("scroll", recompute);
+      el.removeEventListener("wheel", onUserScroll);
+      el.removeEventListener("touchmove", onUserScroll);
+    };
   }, [onAtBottomChange, scrollRef]);
 
+  // Follow new content only while pinned to the bottom. Unlike before, a
+  // streaming turn (`busy`) no longer force-snaps when the user has scrolled
+  // up — it only re-snaps the typing indicator height change when already
+  // at the bottom.
   useLayoutEffect(() => {
-    if (!stickToBottomRef.current && !busy) return;
+    if (!stickToBottomRef.current) return;
     let raf = 0;
     const snap = () => {
       const el = scrollRef.current;
-      if (!el) return;
-      el.scrollTop = el.scrollHeight;
-      stickToBottomRef.current = true;
-      onAtBottomChange(true);
+      if (el) el.scrollTop = el.scrollHeight;
     };
     snap();
     raf = requestAnimationFrame(snap);
     return () => cancelAnimationFrame(raf);
-  }, [entries, busy, scrollRef, onAtBottomChange]);
+  }, [entries, busy, scrollRef]);
 
   useLayoutEffect(() => {
     if (!scrollToBottomToken) return;

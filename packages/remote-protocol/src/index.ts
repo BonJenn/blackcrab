@@ -414,6 +414,21 @@ export interface ActionFailedEvent {
   reason: string;
 }
 
+/**
+ * Partial assistant reply text streamed to the phone as the host receives it,
+ * so a long answer appears incrementally. `text` is the full accumulated reply
+ * (not a delta) so the client replaces what it shows. The transient bubble is
+ * dropped once `finalized` is true or the reply lands in a `transcript_tail`.
+ */
+export interface AssistantStreamingEvent {
+  type: "assistant_streaming";
+  hostId: HostId;
+  sessionId: SessionId;
+  messageId: MessageId | null;
+  text: string;
+  finalized: boolean;
+}
+
 export type RemoteEvent =
   | PairedHostsEvent
   | SessionsEvent
@@ -424,7 +439,8 @@ export type RemoteEvent =
   | ReadCursorEvent
   | ProjectDirsEvent
   | SessionStartedEvent
-  | ActionFailedEvent;
+  | ActionFailedEvent
+  | AssistantStreamingEvent;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -554,6 +570,7 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
     case "project_dirs":
     case "session_started":
     case "action_failed":
+    case "assistant_streaming":
       return true;
     default:
       return false;

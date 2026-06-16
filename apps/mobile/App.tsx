@@ -66,6 +66,14 @@ export default function App() {
     null,
   );
   const [approvals, setApprovals] = useState<ApprovalRequest[] | null>(null);
+  // Partial assistant reply streamed by the host while a turn is in flight, so
+  // a long answer shows incrementally. Cleared on finalize or when the real
+  // entry lands in the next transcript_tail.
+  const [streamingMsg, setStreamingMsg] = useState<{
+    sessionId: SessionId;
+    messageId: MessageId | null;
+    text: string;
+  } | null>(null);
   // The session whose transcript is open as a slide-over detail, and the
   // host-canonical read cursors keyed by `${hostId}:${sessionId}`.
   const [focusedSession, setFocusedSession] = useState<SessionSummary | null>(
@@ -174,6 +182,31 @@ export default function App() {
         setLiveSessions(event.sessions);
       } else if (event.type === "transcript_tail") {
         setLiveTranscript(event.entries);
+        // If a streamed reply has now landed as a real assistant entry, drop
+        // the transient bubble so we don't render it twice.
+        setStreamingMsg((prev) => {
+          if (!prev) return prev;
+          if (event.sessionId !== prev.sessionId) return prev;
+          const reconciled = event.entries.some(
+            (e) =>
+              e.kind === "assistant_message" &&
+              e.preview.trim().length > 0 &&
+              prev.text.trim().startsWith(e.preview.trim().replace(/[.…]+$/, "")),
+          );
+          return reconciled ? null : prev;
+        });
+      } else if (event.type === "assistant_streaming") {
+        if (event.finalized) {
+          setStreamingMsg((prev) =>
+            prev && prev.sessionId === event.sessionId ? null : prev,
+          );
+        } else {
+          setStreamingMsg({
+            sessionId: event.sessionId,
+            messageId: event.messageId,
+            text: event.text,
+          });
+        }
       } else if (event.type === "approval_requested") {
         setApprovals((prev) => {
           const list = prev ?? [];
@@ -436,6 +469,12 @@ export default function App() {
             <TranscriptScreen
               entries={liveTranscript}
               sessionId={focusedSession.sessionId}
+              streamingText={
+                streamingMsg &&
+                streamingMsg.sessionId === focusedSession.sessionId
+                  ? streamingMsg.text
+                  : null
+              }
               title={focusedSession.title}
               connected={connected}
               sessionState={

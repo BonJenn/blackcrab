@@ -1046,7 +1046,7 @@ function buildAttachmentBody(
 ): string {
   const attachList = attachments.map((a) => `- ${a.path}`).join("\n");
   return attachments.length > 0
-    ? `${text || "(see attached files)"}\n\n[Attached files]\n${attachList}`
+    ? `${text || "(see attached files)"}\n\nThe user attached the following file(s) — use the Read tool to open each one (images included) before answering:\n${attachList}`
     : text;
 }
 
@@ -4361,7 +4361,9 @@ function App() {
   async function startRemoteSession(targetCwd: string, body: string) {
     const cwdTrim = targetCwd.trim();
     const text = body.trim();
-    if (!cwdTrim || !text) return;
+    // A phone start may carry no first message — the session opens idle and the
+    // user types in the chat. Only the directory is required.
+    if (!cwdTrim) return;
     if (sessionOn && !busy) {
       switchingSessionRef.current = true;
       try {
@@ -4397,8 +4399,10 @@ function App() {
       }).catch(() => {});
       return;
     }
-    // Append to the active transcript (which init has folded onto the new
-    // session id by now) and deliver, exactly like a local send.
+    // With a first message, append to the active transcript (which init has
+    // folded onto the new session id by now) and deliver, exactly like a local
+    // send. Without one, the session simply waits for the phone's first message.
+    if (!text) return;
     setEntries((es) => [...es, { kind: "user", id: randomId(), text: body }]);
     setPanelBusy(panelId, true);
     try {

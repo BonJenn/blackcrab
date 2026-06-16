@@ -884,6 +884,19 @@ fn delete_relay_token() -> Result<(), String> {
     Ok(())
 }
 
+/// The effective relay token in priority order: `BLACKCRAB_RELAY_TOKEN` env,
+/// else the keychain. Empty string when neither is set (LAN-only). Used both to
+/// start the relay client and to derive the per-device relay auth token at
+/// pairing so the host and relay agree on the same shared secret.
+fn effective_relay_token() -> String {
+    let env_token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
+    if env_token.trim().is_empty() {
+        read_relay_token().ok().flatten().unwrap_or_default()
+    } else {
+        env_token
+    }
+}
+
 /// Path to the persisted relay URL config (`~/.blackcrab/relay.json`). The
 /// URL is non-secret; the token lives in the keychain.
 fn relay_url_config_path() -> Option<PathBuf> {
@@ -3204,7 +3217,13 @@ fn pairing_accept(
     device_name: String,
 ) -> Result<PairingAcceptResponse, String> {
     let svc = pairing_service()?;
-    svc.accept_pairing(&code, &device_name, pairing_now_ms())
+    let relay_token = effective_relay_token();
+    let relay_token = if relay_token.trim().is_empty() {
+        None
+    } else {
+        Some(relay_token.as_str())
+    };
+    svc.accept_pairing(&code, &device_name, pairing_now_ms(), relay_token)
 }
 
 #[tauri::command]
@@ -4300,10 +4319,16 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
 /// Side channels the transport uses to reach the rest of the app. Rebuilt per
 /// `start` call; the action sender comes from the global set up in `setup`.
 fn remote_hooks() -> crate::transport::RemoteHooks {
+    let relay_token = effective_relay_token();
     crate::transport::RemoteHooks {
         commands: REMOTE_CMD_TX.get().cloned(),
         events: Some(Arc::new(remote_event_snapshot)),
         broadcast: REMOTE_BROADCAST.get().cloned(),
+        relay_token: if relay_token.trim().is_empty() {
+            None
+        } else {
+            Some(relay_token)
+        },
     }
 }
 
@@ -4325,14 +4350,7 @@ fn maybe_start_relay_client() {
             env_url
         }
     };
-    let token = {
-        let env_token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
-        if env_token.trim().is_empty() {
-            read_relay_token().ok().flatten().unwrap_or_default()
-        } else {
-            env_token
-        }
-    };
+    let token = effective_relay_token();
 
     // Stop any client started by a prior call/config before deciding whether to
     // start a new one — a cleared config should leave nothing running.

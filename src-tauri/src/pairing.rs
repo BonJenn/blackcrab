@@ -22,10 +22,19 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const PAIRING_CODE_ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const PAIRING_CODE_LEN: usize = 8;
+// 12 chars over a 32-symbol alphabet is ~2^60 of entropy. Codes are ephemeral
+// (minted per pairing, short TTL), so widening them is transparent to anyone
+// already paired.
+const PAIRING_CODE_LEN: usize = 12;
 pub const PAIRING_DEFAULT_TTL_SECS: u64 = 5 * 60;
 const REMOTE_TOKEN_BYTES: usize = 32;
 const DEVICE_ID_BYTES: usize = 16;
+
+// Failed pairing-code attempts are rate-limited: more than `MAX_FAILED_ATTEMPTS`
+// failures inside `FAILED_ATTEMPT_WINDOW_MS` locks `accept_pairing` until the
+// window rolls forward. This blunts online brute-forcing of a live code.
+const MAX_FAILED_ATTEMPTS: u32 = 5;
+const FAILED_ATTEMPT_WINDOW_MS: u128 = 60 * 1000;
 
 #[cfg(target_os = "macos")]
 const DEVICE_SECRET_SERVICE: &str = "Blackcrab Device Secret";
@@ -207,10 +216,42 @@ pub struct PairingAcceptResponse {
     pub paired_device: PairedDevice,
 }
 
+/// In-memory tracker for recent failed pairing-code attempts. Fixed-window:
+/// counts failures within `FAILED_ATTEMPT_WINDOW_MS` and reports a lockout once
+/// they exceed `MAX_FAILED_ATTEMPTS`. Never persisted — it only guards a live
+/// pairing session and resets on restart.
+#[derive(Default)]
+struct FailedAttempts {
+    window_start_ms: u128,
+    count: u32,
+}
+
+impl FailedAttempts {
+    /// True if attempts are currently locked out at `now_ms`. Rolls the window
+    /// forward (clearing the count) when the current window has elapsed.
+    fn is_locked(&mut self, now_ms: u128) -> bool {
+        if now_ms.saturating_sub(self.window_start_ms) >= FAILED_ATTEMPT_WINDOW_MS {
+            self.window_start_ms = now_ms;
+            self.count = 0;
+        }
+        self.count >= MAX_FAILED_ATTEMPTS
+    }
+
+    /// Record one failed attempt at `now_ms`, starting a fresh window if needed.
+    fn record_failure(&mut self, now_ms: u128) {
+        if now_ms.saturating_sub(self.window_start_ms) >= FAILED_ATTEMPT_WINDOW_MS {
+            self.window_start_ms = now_ms;
+            self.count = 0;
+        }
+        self.count = self.count.saturating_add(1);
+    }
+}
+
 pub struct PairingService {
     path: PathBuf,
     state: Mutex<PairingState>,
     secrets: SecretStore,
+    failed_attempts: Mutex<FailedAttempts>,
 }
 
 impl PairingService {
@@ -264,6 +305,7 @@ impl PairingService {
             path,
             state: Mutex::new(state),
             secrets,
+            failed_attempts: Mutex::new(FailedAttempts::default()),
         })
     }
 
@@ -297,26 +339,53 @@ impl PairingService {
         code: &str,
         device_name: &str,
         now_ms: u128,
+        relay_token: Option<&str>,
     ) -> Result<PairingAcceptResponse, String> {
         let device_name = device_name.trim();
         if device_name.is_empty() {
             return Err("device name required".into());
         }
+        // Reject before any code lookup once too many recent failures have
+        // accumulated, so a live code can't be brute-forced online.
+        {
+            let mut attempts = self
+                .failed_attempts
+                .lock()
+                .map_err(|_| "lock poisoned".to_string())?;
+            if attempts.is_locked(now_ms) {
+                return Err("too many failed pairing attempts; try again later".into());
+            }
+        }
         let mut state = self.state.lock().map_err(|_| "lock poisoned".to_string())?;
-        let pos = state
+        let pos = match state
             .pending
             .iter()
             .position(|p| p.code == code && p.expires_at_ms > now_ms)
-            .ok_or_else(|| "unknown or expired pairing code".to_string())?;
+        {
+            Some(pos) => pos,
+            None => {
+                // A bad/expired code counts against the failed-attempt limit.
+                drop(state);
+                if let Ok(mut attempts) = self.failed_attempts.lock() {
+                    attempts.record_failure(now_ms);
+                }
+                return Err("unknown or expired pairing code".to_string());
+            }
+        };
         state.pending.remove(pos);
         let device_id = format!("dev_{}", hex(&random_bytes(DEVICE_ID_BYTES)?));
         let remote_token = hex(&random_bytes(REMOTE_TOKEN_BYTES)?);
         let e2e_key = crate::crypto::generate_key_b64()
             .ok_or_else(|| "failed to generate e2e key".to_string())?;
-        // Mint a per-device relay token now so a future release can require it
-        // for relay auth. It is stored alongside the other secrets but not yet
-        // enforced anywhere.
-        let relay_device_token = hex(&random_bytes(REMOTE_TOKEN_BYTES)?);
+        // Derive the per-device relay token so the relay can verify it without a
+        // per-device registry: `hex(HMAC-SHA256(relay_token, device_id))`. The
+        // relay knows the shared relay token (`config.token`), so it recomputes
+        // the same value. When no relay token is configured (LAN-only setups),
+        // fall back to a random value so behavior is unchanged.
+        let relay_device_token = match relay_token {
+            Some(t) if !t.is_empty() => derive_relay_device_token(t, &device_id),
+            _ => hex(&random_bytes(REMOTE_TOKEN_BYTES)?),
+        };
 
         // Persist secrets out-of-band when the store is durable (Keychain);
         // otherwise leave them inline in the JSON for backward compatibility.
@@ -523,6 +592,21 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
+/// Derive a verifiable per-device relay token from the shared relay token and
+/// the device id: `hex(HMAC-SHA256(relay_token, device_id))`. The relay holds
+/// the same `relay_token` (its `config.token`) so it can recompute and check
+/// this without any per-device registration. Must stay in sync with the
+/// relay's `derive_device_token`.
+pub fn derive_relay_device_token(relay_token: &str, device_id: &str) -> String {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_from_slice(relay_token.as_bytes())
+        .expect("HMAC accepts keys of any length");
+    mac.update(device_id.as_bytes());
+    hex(&mac.finalize().into_bytes())
+}
+
 fn generate_pairing_code() -> Result<String, String> {
     let raw = random_bytes(PAIRING_CODE_LEN)?;
     let len = PAIRING_CODE_ALPHABET.len();
@@ -652,7 +736,7 @@ mod tests {
     fn start_then_accept_persists_device_and_drops_pending() {
         let (svc, path) = fresh_service();
         let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
-        let accept = svc.accept_pairing(&start.code, "Phone", 2_000).unwrap();
+        let accept = svc.accept_pairing(&start.code, "Phone", 2_000, None).unwrap();
         assert_eq!(accept.paired_device.display_name, "Phone");
         assert!(accept.paired_device.device_id.starts_with("dev_"));
         assert_eq!(accept.remote_token.len(), REMOTE_TOKEN_BYTES * 2);
@@ -667,7 +751,7 @@ mod tests {
         assert_eq!(devices[0].display_name, "Phone");
 
         // Pending code should be consumed.
-        let err = svc.accept_pairing(&start.code, "Phone", 3_000).unwrap_err();
+        let err = svc.accept_pairing(&start.code, "Phone", 3_000, None).unwrap_err();
         assert!(err.contains("unknown or expired"), "got: {err}");
 
         let _ = std::fs::remove_file(&path);
@@ -679,7 +763,7 @@ mod tests {
         let start = svc.start_pairing(1_000, 1).unwrap();
         // Past expiry (1_000 + 1*1000 = 2_000)
         let err = svc
-            .accept_pairing(&start.code, "Phone", 5_000)
+            .accept_pairing(&start.code, "Phone", 5_000, None)
             .unwrap_err();
         assert!(err.contains("unknown or expired"));
         // Starting a new pairing should also evict the expired pending.
@@ -691,7 +775,7 @@ mod tests {
     fn accept_requires_non_empty_device_name() {
         let (svc, path) = fresh_service();
         let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
-        let err = svc.accept_pairing(&start.code, "   ", 2_000).unwrap_err();
+        let err = svc.accept_pairing(&start.code, "   ", 2_000, None).unwrap_err();
         assert!(err.contains("device name"));
         let _ = std::fs::remove_file(&path);
     }
@@ -703,9 +787,9 @@ mod tests {
         let b = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
         assert!(svc.cancel_pending(&a.code).unwrap());
         // accepting a is now an error
-        assert!(svc.accept_pairing(&a.code, "Phone", 2_000).is_err());
+        assert!(svc.accept_pairing(&a.code, "Phone", 2_000, None).is_err());
         // b still works
-        svc.accept_pairing(&b.code, "Phone", 2_000).unwrap();
+        svc.accept_pairing(&b.code, "Phone", 2_000, None).unwrap();
         let _ = std::fs::remove_file(&path);
     }
 
@@ -713,7 +797,7 @@ mod tests {
     fn revoke_device_removes_and_returns_false_when_already_gone() {
         let (svc, path) = fresh_service();
         let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
-        let accept = svc.accept_pairing(&start.code, "Phone", 2_000).unwrap();
+        let accept = svc.accept_pairing(&start.code, "Phone", 2_000, None).unwrap();
         let device_id = accept.paired_device.device_id.clone();
         assert!(svc.revoke_device(&device_id).unwrap());
         assert!(!svc.revoke_device(&device_id).unwrap());
@@ -725,7 +809,7 @@ mod tests {
     fn verify_token_returns_device_and_updates_last_seen() {
         let (svc, path) = fresh_service();
         let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
-        let accept = svc.accept_pairing(&start.code, "Phone", 2_000).unwrap();
+        let accept = svc.accept_pairing(&start.code, "Phone", 2_000, None).unwrap();
 
         let found = svc
             .verify_token(&accept.remote_token, 5_000)
@@ -747,7 +831,7 @@ mod tests {
         let svc = PairingService::load_with_store(path.clone(), SecretStore::memory())
             .expect("first load");
         let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
-        svc.accept_pairing(&start.code, "Phone", 2_000).unwrap();
+        svc.accept_pairing(&start.code, "Phone", 2_000, None).unwrap();
         drop(svc);
         let reopened =
             PairingService::load_with_store(path.clone(), SecretStore::memory()).unwrap();
@@ -762,7 +846,7 @@ mod tests {
         // e2e key — matching the pre-existing non-macOS behavior.
         let (svc, path) = fresh_service();
         let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
-        let accept = svc.accept_pairing(&start.code, "Phone", 2_000).unwrap();
+        let accept = svc.accept_pairing(&start.code, "Phone", 2_000, None).unwrap();
         drop(svc);
 
         let reopened =
@@ -808,6 +892,101 @@ mod tests {
             svc.e2e_key_for_device("dev_legacy"),
             Some("QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpoaWo=".to_string())
         );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn derive_relay_device_token_is_deterministic_and_keyed() {
+        // Same (relay_token, device_id) → same token; changing either changes it.
+        let a = derive_relay_device_token("relay-secret", "dev_abc");
+        let b = derive_relay_device_token("relay-secret", "dev_abc");
+        assert_eq!(a, b, "derivation must be deterministic");
+        // HMAC-SHA256 hex is 64 chars.
+        assert_eq!(a.len(), 64);
+        assert_ne!(
+            a,
+            derive_relay_device_token("relay-secret", "dev_xyz"),
+            "different device id must yield a different token"
+        );
+        assert_ne!(
+            a,
+            derive_relay_device_token("other-secret", "dev_abc"),
+            "different relay token must yield a different token"
+        );
+    }
+
+    #[test]
+    fn accept_pairing_with_relay_token_derives_verifiable_device_token() {
+        // When a relay token is supplied, the minted relay device token equals
+        // the HMAC derivation the relay will recompute.
+        let (svc, path) = fresh_service();
+        let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
+        let accept = svc
+            .accept_pairing(&start.code, "Phone", 2_000, Some("relay-secret"))
+            .unwrap();
+        let expected =
+            derive_relay_device_token("relay-secret", &accept.paired_device.device_id);
+        assert_eq!(accept.relay_device_token, expected);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn accept_pairing_without_relay_token_uses_random_device_token() {
+        // No relay token configured → fall back to a random token (LAN-only).
+        let (svc, path) = fresh_service();
+        let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
+        let accept = svc
+            .accept_pairing(&start.code, "Phone", 2_000, None)
+            .unwrap();
+        assert_eq!(accept.relay_device_token.len(), REMOTE_TOKEN_BYTES * 2);
+        // It must NOT match the HMAC derivation (it's random).
+        let derived =
+            derive_relay_device_token("", &accept.paired_device.device_id);
+        assert_ne!(accept.relay_device_token, derived);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn repeated_bad_codes_lock_out_then_a_good_code_is_blocked_until_window_passes() {
+        let (svc, path) = fresh_service();
+        let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
+
+        // Up to MAX_FAILED_ATTEMPTS bad codes are rejected as "unknown".
+        for i in 0..MAX_FAILED_ATTEMPTS {
+            let err = svc
+                .accept_pairing("WRONGCODEXXXX", "Phone", 2_000 + u128::from(i), None)
+                .unwrap_err();
+            assert!(err.contains("unknown or expired"), "got: {err}");
+        }
+        // Now locked out: even the *correct* code is refused before lookup.
+        let err = svc
+            .accept_pairing(&start.code, "Phone", 2_100, None)
+            .unwrap_err();
+        assert!(err.contains("too many failed"), "got: {err}");
+
+        // After the window passes, the correct code works again.
+        let after = 2_100 + FAILED_ATTEMPT_WINDOW_MS;
+        let accept = svc
+            .accept_pairing(&start.code, "Phone", after, None)
+            .unwrap();
+        assert_eq!(accept.paired_device.display_name, "Phone");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_correct_code_succeeds_with_failures_under_the_limit() {
+        // A few failures (below the cap) don't block a subsequent correct code.
+        let (svc, path) = fresh_service();
+        let start = svc.start_pairing(1_000, PAIRING_DEFAULT_TTL_SECS).unwrap();
+        for i in 0..(MAX_FAILED_ATTEMPTS - 1) {
+            assert!(svc
+                .accept_pairing("NOPENOPENOPE", "Phone", 2_000 + u128::from(i), None)
+                .is_err());
+        }
+        let accept = svc
+            .accept_pairing(&start.code, "Phone", 2_050, None)
+            .unwrap();
+        assert_eq!(accept.paired_device.display_name, "Phone");
         let _ = std::fs::remove_file(&path);
     }
 }

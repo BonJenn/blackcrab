@@ -82,6 +82,11 @@ pub(crate) struct RemoteHooks {
     /// Real-time host->mobile events (e.g. approvals). Each connection
     /// subscribes and forwards received bodies to its socket.
     pub broadcast: Option<broadcast::Sender<serde_json::Value>>,
+    /// The shared relay token (env or keychain), when configured. Threaded into
+    /// `accept_pairing` so a device paired over LAN gets a relay device token
+    /// derived from it (`hex(HMAC-SHA256(relay_token, device_id))`) that the
+    /// relay can verify. `None` for LAN-only setups (random token fallback).
+    pub relay_token: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -215,7 +220,12 @@ async fn handle_connection(
             code,
             device_name,
             ..
-        } => match pairing.accept_pairing(&code, &device_name, now_ms) {
+        } => match pairing.accept_pairing(
+            &code,
+            &device_name,
+            now_ms,
+            hooks.relay_token.as_deref(),
+        ) {
             Ok(resp) => {
                 let body = WireMessage::PairingResponse {
                     code: code.clone(),

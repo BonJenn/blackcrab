@@ -9,14 +9,20 @@
  * `e2eKey`, can open the payload (and vice versa).
  */
 
-import type {
-  HostId,
-  RemoteAction,
-  RemoteEvent,
-  RemoteWireMessage,
+import {
+  isRemoteWireMessage,
+  REMOTE_PROTOCOL_VERSION,
+  type HostId,
+  type RemoteAction,
+  type RemoteEvent,
+  type RemoteWireMessage,
 } from "@blackcrab/remote-protocol";
 
-import { openEnvelope, sealEnvelope, type SealedFrame } from "../crypto/secretbox";
+import {
+  open as openSealed,
+  seal as sealRaw,
+  type SealedFrame,
+} from "../crypto/secretbox";
 import type { MinimalWebSocket, TimerProvider } from "./lanWebSocketTransport";
 import type {
   Transport,
@@ -90,6 +96,16 @@ export class RelayTransport implements Transport {
   private pendingPingSeq: number | null = null;
   private nextPingSeq = 1;
   private stopped = false;
+  /**
+   * Replay protection. `outSeq` is a monotonic counter stamped on every sealed
+   * outbound envelope (starts at 1, increments per message). `lastSeq` is the
+   * highest inbound seq accepted on the current connection; a frame whose seq
+   * is present and `<= lastSeq` is a replay/reorder and is dropped. Both reset
+   * to 0 on each (re)connect so a fresh socket starts clean. An absent inbound
+   * seq (older peer) is accepted for backward compatibility.
+   */
+  private outSeq = 0;
+  private lastSeq = 0;
 
   constructor(config: RelayTransportConfig) {
     this.config = config;
@@ -165,7 +181,15 @@ export class RelayTransport implements Transport {
 
   private sealAndSend(msg: RemoteWireMessage): boolean {
     if (this.statusValue.state !== "connected" || !this.ws) return false;
-    const payload = sealEnvelope(this.config.e2eKey, msg);
+    // Stamp a monotonic per-connection sequence so the host drops replayed or
+    // reordered frames. The envelope mirrors the desktop shape: { v, seq, msg }.
+    this.outSeq += 1;
+    const envelope = JSON.stringify({
+      v: REMOTE_PROTOCOL_VERSION,
+      seq: this.outSeq,
+      msg,
+    });
+    const payload = sealRaw(this.config.e2eKey, envelope);
     if (!payload) return false;
     try {
       this.ws.send(JSON.stringify({ type: "data", payload }));
@@ -177,6 +201,9 @@ export class RelayTransport implements Transport {
 
   private connect(): void {
     if (this.stopped) return;
+    // A fresh socket starts a clean replay window in both directions.
+    this.outSeq = 0;
+    this.lastSeq = 0;
     this.transition({ state: "connecting" });
 
     let ws: MinimalWebSocket;
@@ -243,9 +270,8 @@ export class RelayTransport implements Transport {
         return;
       case "data": {
         if (!frame.payload) return;
-        const envelope = openEnvelope(this.config.e2eKey, frame.payload);
-        if (!envelope) return;
-        const msg = envelope.msg;
+        const msg = this.openWithReplayCheck(frame.payload);
+        if (!msg) return;
         if (msg.type === "ping") {
           // Answer the host's keepalive over the same sealed channel.
           this.send({ type: "pong", seq: msg.seq });
@@ -267,6 +293,38 @@ export class RelayTransport implements Transport {
       default:
         return;
     }
+  }
+
+  /**
+   * Open a sealed relay payload and enforce the inbound replay window. Returns
+   * the wire message, or null if the frame can't be opened/parsed or is a
+   * replay/reorder. An envelope with an absent `seq` (older peer) is accepted.
+   */
+  private openWithReplayCheck(
+    payload: SealedFrame,
+  ): RemoteWireMessage | null {
+    const text = openSealed(this.config.e2eKey, payload);
+    if (!text) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return null;
+    }
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      (parsed as { v?: unknown }).v !== REMOTE_PROTOCOL_VERSION
+    ) {
+      return null;
+    }
+    const rec = parsed as { seq?: unknown; msg?: unknown };
+    const seq = typeof rec.seq === "number" ? rec.seq : null;
+    if (seq !== null) {
+      if (seq <= this.lastSeq) return null; // replay / reorder — drop
+      this.lastSeq = seq;
+    }
+    return isRemoteWireMessage(rec.msg) ? rec.msg : null;
   }
 
   private onAuthenticated(): void {

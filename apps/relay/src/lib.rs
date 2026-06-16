@@ -84,6 +84,44 @@ impl Drop for ConnectionGuard {
 pub struct RelayConfig {
     /// Shared secret a host must present to claim a room.
     pub token: String,
+    /// When true, a device hello must carry a valid per-device token derived as
+    /// `hex(HMAC-SHA256(token, device_id))`; missing/mismatched tokens are
+    /// rejected. Off by default — enabling it is a BREAKING change that requires
+    /// every device to re-pair against a host that mints the derived token.
+    pub require_device_auth: bool,
+}
+
+/// Derive the per-device relay token from the shared relay token and device id:
+/// `hex(HMAC-SHA256(relay_token, device_id))`. Must stay in sync with the host's
+/// `pairing::derive_relay_device_token`.
+fn derive_device_token(relay_token: &str, device_id: &str) -> String {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_from_slice(relay_token.as_bytes())
+        .expect("HMAC accepts keys of any length");
+    mac.update(device_id.as_bytes());
+    let bytes = mac.finalize().into_bytes();
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        out.push_str(&format!("{:02x}", b));
+    }
+    out
+}
+
+/// Constant-time string comparison so token checks don't leak length/contents
+/// via timing. Returns true only on an exact match.
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }
 
 type Tx = UnboundedSender<WsMessage>;
@@ -221,10 +259,34 @@ async fn handle_connection(
                     .await;
                 return Ok(());
             }
-            // `device_token` is plumbed through but intentionally not validated
-            // yet — devices without it remain accepted. A future release will
-            // enforce it for the device role.
-            let _ = device_token;
+            // Device auth: only enforced when `require_device_auth` is set (off
+            // by default). When enforced, the presented `deviceToken` must equal
+            // `hex(HMAC-SHA256(config.token, device_id))` — verifiable here
+            // without any per-device registry. Compared in constant time. When
+            // the flag is off we ignore the token exactly as before.
+            if role == Role::Device && config.require_device_auth {
+                let device_id_str = device_id.clone().unwrap_or_default();
+                match device_token.as_deref() {
+                    None => {
+                        let _ = sink
+                            .send(error_frame("device authentication required"))
+                            .await;
+                        return Ok(());
+                    }
+                    Some(presented) => {
+                        let expected = derive_device_token(&config.token, &device_id_str);
+                        if !constant_time_eq(presented, &expected) {
+                            let _ = sink
+                                .send(error_frame("invalid device token"))
+                                .await;
+                            return Ok(());
+                        }
+                    }
+                }
+            } else {
+                // Flag off (default): plumbed through but not validated.
+                let _ = device_token;
+            }
             (role, host_id, device_id)
         }
         _ => {
@@ -431,10 +493,15 @@ mod tests {
     type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
     async fn start_relay(token: &str) -> u16 {
+        start_relay_with_auth(token, false).await
+    }
+
+    async fn start_relay_with_auth(token: &str, require_device_auth: bool) -> u16 {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let config = RelayConfig {
             token: token.to_string(),
+            require_device_auth,
         };
         tokio::spawn(async move { serve(listener, config).await });
         port
@@ -572,20 +639,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn device_token_in_hello_is_accepted_but_not_required() {
-        // A device that supplies a (currently unenforced) deviceToken connects
-        // just like a tokenless one.
+    async fn device_token_not_required_when_auth_disabled() {
+        // With device auth OFF (the default), the deviceToken is ignored: a
+        // device connects whether it sends a bogus token or none at all.
         let port = start_relay("secret").await;
-        let mut device = connect(port).await;
+
+        let mut with_tok = connect(port).await;
         send(
-            &mut device,
+            &mut with_tok,
             serde_json::json!({
                 "type":"hello","role":"device","hostId":"h1",
                 "deviceId":"dev-tok","deviceToken":"whatever"
             }),
         )
         .await;
-        assert_eq!(next_text(&mut device).await["type"], "hello_ack");
+        assert_eq!(next_text(&mut with_tok).await["type"], "hello_ack");
+
+        let mut without_tok = connect(port).await;
+        send(&mut without_tok, hello_device("dev-none")).await;
+        assert_eq!(next_text(&mut without_tok).await["type"], "hello_ack");
+    }
+
+    #[test]
+    fn device_token_derivation_is_deterministic_and_keyed() {
+        let a = derive_device_token("secret", "dev-1");
+        let b = derive_device_token("secret", "dev-1");
+        assert_eq!(a, b, "derivation must be deterministic");
+        assert_eq!(a.len(), 64, "HMAC-SHA256 hex is 64 chars");
+        assert_ne!(a, derive_device_token("secret", "dev-2"));
+        assert_ne!(a, derive_device_token("other", "dev-1"));
+        assert!(constant_time_eq(&a, &b));
+        assert!(!constant_time_eq(&a, "deadbeef"));
+    }
+
+    #[tokio::test]
+    async fn device_auth_required_rejects_missing_and_bad_token_accepts_correct() {
+        // With device auth ON, the relay computes hex(HMAC-SHA256(token, id))
+        // and requires the device to present exactly that.
+        let port = start_relay_with_auth("secret", true).await;
+
+        // Missing token → rejected.
+        let mut no_tok = connect(port).await;
+        send(&mut no_tok, hello_device("dev-1")).await;
+        let reply = next_text(&mut no_tok).await;
+        assert_eq!(reply["type"], "hello_error");
+        assert_eq!(reply["reason"], "device authentication required");
+
+        // Wrong token → rejected.
+        let mut bad_tok = connect(port).await;
+        send(
+            &mut bad_tok,
+            serde_json::json!({
+                "type":"hello","role":"device","hostId":"h1",
+                "deviceId":"dev-1","deviceToken":"not-the-right-token"
+            }),
+        )
+        .await;
+        let reply = next_text(&mut bad_tok).await;
+        assert_eq!(reply["type"], "hello_error");
+        assert_eq!(reply["reason"], "invalid device token");
+
+        // Correct derived token → accepted.
+        let good = derive_device_token("secret", "dev-1");
+        let mut good_tok = connect(port).await;
+        send(
+            &mut good_tok,
+            serde_json::json!({
+                "type":"hello","role":"device","hostId":"h1",
+                "deviceId":"dev-1","deviceToken": good
+            }),
+        )
+        .await;
+        assert_eq!(next_text(&mut good_tok).await["type"], "hello_ack");
     }
 
     #[tokio::test]

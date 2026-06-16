@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { openEnvelope, sealEnvelope, toBase64 } from "../crypto/secretbox";
+import {
+  open,
+  openEnvelope,
+  seal,
+  sealEnvelope,
+  toBase64,
+} from "../crypto/secretbox";
 import type { MinimalWebSocket, TimerProvider } from "./lanWebSocketTransport";
 import { RelayTransport } from "./relayTransport";
 import type { TransportStatus } from "./types";
@@ -254,6 +260,125 @@ describe("RelayTransport", () => {
       type: "pong",
       seq: 21,
     });
+    transport.close();
+  });
+
+  it("stamps a monotonic seq on sealed outbound frames", () => {
+    const { ws, transport } = make();
+    ws.open();
+    ws.deliver({ type: "hello_ack" });
+
+    transport.sendAction({
+      type: "stop_session",
+      hostId: "host-1",
+      sessionId: "s1",
+    });
+    transport.sendAction({
+      type: "stop_session",
+      hostId: "host-1",
+      sessionId: "s2",
+    });
+
+    const seqs = ws.sent
+      .map((s) => JSON.parse(s))
+      .filter((f) => f.type === "data")
+      .map((f) => {
+        const opened = open(KEY_B64, f.payload)!;
+        return JSON.parse(opened).seq as number;
+      });
+    expect(seqs).toEqual([1, 2]);
+    transport.close();
+  });
+
+  it("drops replayed/reordered inbound frames but accepts seqless ones", () => {
+    const { ws, transport } = make();
+    const events: string[] = [];
+    transport.subscribeEvents((e) => events.push(e.type));
+    ws.open();
+    ws.deliver({ type: "hello_ack" });
+
+    const sealWithSeq = (seq: number | undefined, type: string) => {
+      const env: Record<string, unknown> = {
+        v: 1,
+        msg: { type, hostId: "host-1", sessions: [] },
+      };
+      if (seq !== undefined) env.seq = seq;
+      return seal(KEY_B64, JSON.stringify(env))!;
+    };
+
+    // seq=1 accepted.
+    ws.deliver({ type: "data", payload: sealWithSeq(1, "sessions") });
+    // seq=1 replay dropped; seq=0 reorder dropped.
+    ws.deliver({ type: "data", payload: sealWithSeq(1, "project_dirs") });
+    ws.deliver({ type: "data", payload: sealWithSeq(0, "project_dirs") });
+    // seq=2 accepted.
+    ws.deliver({ type: "data", payload: sealWithSeq(2, "transcript_tail") });
+    // seqless (older peer) always accepted.
+    ws.deliver({ type: "data", payload: sealWithSeq(undefined, "read_cursor") });
+
+    expect(events).toEqual(["sessions", "transcript_tail", "read_cursor"]);
+    transport.close();
+  });
+
+  it("resets the inbound replay window on reconnect", () => {
+    let intervalCb: (() => void) | null = null;
+    let pongCb: (() => void) | null = null;
+    const sockets: FakeWebSocket[] = [];
+    const transport = new RelayTransport({
+      url: "wss://relay.example.com",
+      hostId: "host-1",
+      deviceId: "dev-1",
+      e2eKey: KEY_B64,
+      webSocketFactory: () => {
+        const ws = new FakeWebSocket();
+        sockets.push(ws);
+        return ws;
+      },
+      timers: {
+        setTimeout: (h) => {
+          if (pongCb === null) {
+            pongCb = h;
+            return 5;
+          }
+          h();
+          return 0;
+        },
+        clearTimeout: () => {
+          pongCb = null;
+        },
+        setInterval: (h) => {
+          intervalCb = h;
+          return 1;
+        },
+        clearInterval: () => {
+          intervalCb = null;
+        },
+        now: () => 0,
+      },
+    });
+    const events: string[] = [];
+    transport.subscribeEvents((e) => events.push(e.type));
+
+    const sealSeq = (seq: number) =>
+      seal(
+        KEY_B64,
+        JSON.stringify({ v: 1, seq, msg: { type: "sessions", hostId: "host-1", sessions: [] } }),
+      )!;
+
+    sockets[0]!.open();
+    sockets[0]!.deliver({ type: "hello_ack" });
+    sockets[0]!.deliver({ type: "data", payload: sealSeq(5) });
+    expect(events).toEqual(["sessions"]);
+
+    // Force a reconnect via the heartbeat/pong-timeout path.
+    intervalCb!();
+    pongCb!();
+    sockets[1]!.open();
+    sockets[1]!.deliver({ type: "hello_ack" });
+
+    // After reconnect, seq=1 must be accepted again (window was reset).
+    sockets[1]!.deliver({ type: "data", payload: sealSeq(1) });
+    expect(events).toEqual(["sessions", "sessions"]);
     transport.close();
   });
 

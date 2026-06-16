@@ -114,12 +114,21 @@ impl RelayClient {
         let mut heartbeat = interval(PUSH_INTERVAL);
         heartbeat.tick().await; // skip the immediate tick
 
+        // Per-connection replay state, reset every (re)connect. `out_seq` is a
+        // single monotonic counter stamped on every sealed outbound envelope.
+        // `last_seq` is the highest inbound seq seen per source device; an
+        // inbound frame whose seq is <= the recorded value is a replay/reorder
+        // and is dropped. Tracked per device because one host connection
+        // multiplexes several devices.
+        let mut out_seq: u64 = 0;
+        let mut last_seq: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+
         loop {
             tokio::select! {
                 incoming = read.next() => {
                     match incoming {
                         Some(Ok(WsMessage::Text(t))) => {
-                            self.handle_frame(&t, &mut devices, &mut sink).await?;
+                            self.handle_frame(&t, &mut devices, &mut last_seq, &mut out_seq, &mut sink).await?;
                         }
                         Some(Ok(WsMessage::Close(_))) | None => break,
                         Some(Ok(_)) => {}
@@ -128,12 +137,12 @@ impl RelayClient {
                 }
                 pushed = pushes.recv() => {
                     if let Ok(body) = pushed {
-                        self.push_event(&devices, &body, &mut sink).await?;
+                        self.push_event(&devices, &body, &mut out_seq, &mut sink).await?;
                     }
                 }
                 _ = heartbeat.tick() => {
                     for body in (self.events)() {
-                        self.push_event(&devices, &body, &mut sink).await?;
+                        self.push_event(&devices, &body, &mut out_seq, &mut sink).await?;
                     }
                 }
             }
@@ -146,6 +155,8 @@ impl RelayClient {
         &self,
         text: &str,
         devices: &mut HashSet<String>,
+        last_seq: &mut std::collections::HashMap<String, u64>,
+        out_seq: &mut u64,
         sink: &mut S,
     ) -> Result<(), String>
     where
@@ -168,13 +179,17 @@ impl RelayClient {
                 match frame.get("event").and_then(|e| e.as_str()) {
                     Some("joined") => {
                         devices.insert(device_id.to_string());
+                        // A fresh device session starts with a clean inbound
+                        // replay window.
+                        last_seq.remove(device_id);
                         // Catch this device up immediately with the snapshot.
                         for body in (self.events)() {
-                            self.push_event_to(device_id, &body, sink).await?;
+                            self.push_event_to(device_id, &body, out_seq, sink).await?;
                         }
                     }
                     Some("left") => {
                         devices.remove(device_id);
+                        last_seq.remove(device_id);
                     }
                     _ => {}
                 }
@@ -191,6 +206,17 @@ impl RelayClient {
                     return Ok(());
                 };
                 if let Some(plaintext) = crypto::open(&key, &sealed) {
+                    // Replay/reorder guard: a `seq` that is present and not
+                    // strictly greater than the last one seen from this device
+                    // is a replayed or reordered frame — drop it. An absent
+                    // `seq` (older peer) is accepted for backward compatibility.
+                    if let Some(seq) = envelope_seq(&plaintext) {
+                        let last = last_seq.entry(from.to_string()).or_insert(0);
+                        if seq <= *last {
+                            return Ok(());
+                        }
+                        *last = seq;
+                    }
                     if let Some(command) = command_from_envelope(&plaintext) {
                         let _ = self.commands.send(command);
                     }
@@ -205,13 +231,14 @@ impl RelayClient {
         &self,
         devices: &HashSet<String>,
         body: &serde_json::Value,
+        out_seq: &mut u64,
         sink: &mut S,
     ) -> Result<(), String>
     where
         S: SinkExt<WsMessage, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
     {
         for device_id in devices {
-            self.push_event_to(device_id, body, sink).await?;
+            self.push_event_to(device_id, body, out_seq, sink).await?;
         }
         Ok(())
     }
@@ -220,6 +247,7 @@ impl RelayClient {
         &self,
         device_id: &str,
         body: &serde_json::Value,
+        out_seq: &mut u64,
         sink: &mut S,
     ) -> Result<(), String>
     where
@@ -228,7 +256,12 @@ impl RelayClient {
         let Some(key) = (self.key_for_device)(device_id) else {
             return Ok(());
         };
-        let envelope = serde_json::json!({ "v": PROTOCOL_VERSION, "msg": body }).to_string();
+        // Stamp a monotonic per-connection sequence so the peer can drop
+        // replayed/reordered frames. Starts at 1 and increments per sealed
+        // message.
+        *out_seq += 1;
+        let envelope =
+            serde_json::json!({ "v": PROTOCOL_VERSION, "seq": *out_seq, "msg": body }).to_string();
         let Some(sealed) = crypto::seal(&key, &envelope) else {
             return Ok(());
         };
@@ -242,6 +275,13 @@ impl RelayClient {
         )
         .await
     }
+}
+
+/// Extract the optional `seq` (u64) from a decrypted envelope JSON string.
+/// Returns `None` when absent or not a valid number (older peer / malformed).
+fn envelope_seq(plaintext: &str) -> Option<u64> {
+    let value: serde_json::Value = serde_json::from_str(plaintext).ok()?;
+    value.get("seq").and_then(|s| s.as_u64())
 }
 
 /// Decode a decrypted protocol envelope into a `RemoteCommand`, if it carries a
@@ -376,6 +416,106 @@ mod tests {
         );
     }
 
+    #[test]
+    fn envelope_seq_reads_present_absent_and_malformed() {
+        let with = serde_json::json!({ "v": 1, "seq": 7u64, "msg": {} }).to_string();
+        assert_eq!(envelope_seq(&with), Some(7));
+        let without = serde_json::json!({ "v": 1, "msg": {} }).to_string();
+        assert_eq!(envelope_seq(&without), None);
+        assert_eq!(envelope_seq("not json"), None);
+        // A non-numeric seq is ignored (treated as absent).
+        let bad = serde_json::json!({ "v": 1, "seq": "x", "msg": {} }).to_string();
+        assert_eq!(envelope_seq(&bad), None);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_drops_replayed_device_frames() {
+        // A device frame whose seq is <= the last one seen is dropped; a fresh
+        // seq is accepted. An absent seq is always accepted (backward compat).
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            blackcrab_relay::serve(
+                listener,
+                blackcrab_relay::RelayConfig {
+                    token: "tok".into(),
+                    require_device_auth: false,
+                },
+            )
+            .await
+        });
+
+        let key = test_key();
+        let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<RemoteCommand>();
+        let (bcast_tx, _bcast_rx) = broadcast::channel::<serde_json::Value>(16);
+        let key_for = {
+            let key = key.clone();
+            Arc::new(move |dev: &str| if dev == "dev-1" { Some(key.clone()) } else { None })
+                as KeyLookup
+        };
+        let events: EventSnapshot = Arc::new(Vec::new);
+        let client = RelayClient {
+            url: format!("ws://127.0.0.1:{port}/"),
+            token: "tok".into(),
+            host_id: "h1".into(),
+            commands: cmd_tx,
+            key_for_device: key_for,
+            events,
+            broadcast: bcast_tx.clone(),
+        };
+        tokio::spawn(client.run());
+
+        let url = format!("ws://127.0.0.1:{port}/");
+        let (mut dev, _) = tokio_tungstenite::connect_async(url.into_client_request().unwrap())
+            .await
+            .unwrap();
+        dev.send(WsMessage::Text(
+            serde_json::json!({"type":"hello","role":"device","hostId":"h1","deviceId":"dev-1"})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+
+        let send_action = |seq: Option<u64>, body: &str| {
+            let mut env = serde_json::json!({
+                "v": 1,
+                "msg": {"type":"send_message","hostId":"h1","sessionId":"s1","body": body}
+            });
+            if let Some(s) = seq {
+                env["seq"] = serde_json::json!(s);
+            }
+            let sealed = crypto::seal(&key, &env.to_string()).unwrap();
+            serde_json::json!({"type":"data","payload": sealed})
+                .to_string()
+        };
+
+        // seq=1 → delivered.
+        dev.send(WsMessage::Text(send_action(Some(1), "first").into()))
+            .await
+            .unwrap();
+        let first = timeout(Duration::from_secs(5), cmd_rx.recv())
+            .await
+            .expect("first arrives")
+            .expect("channel open");
+        assert!(matches!(first, RemoteCommand::SendMessage { body, .. } if body == "first"));
+
+        // Replay seq=1 → dropped. Follow with a fresh seq=2 carrying a distinct
+        // body; the next command we receive must be that one, proving the
+        // replay never reached the channel.
+        dev.send(WsMessage::Text(send_action(Some(1), "replayed").into()))
+            .await
+            .unwrap();
+        dev.send(WsMessage::Text(send_action(Some(2), "second").into()))
+            .await
+            .unwrap();
+        let next = timeout(Duration::from_secs(5), cmd_rx.recv())
+            .await
+            .expect("second arrives")
+            .expect("channel open");
+        assert!(matches!(next, RemoteCommand::SendMessage { body, .. } if body == "second"));
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn host_bridges_actions_and_events_over_relay() {
         // Real relay.
@@ -386,6 +526,7 @@ mod tests {
                 listener,
                 blackcrab_relay::RelayConfig {
                     token: "tok".into(),
+                    require_device_auth: false,
                 },
             )
             .await

@@ -1217,6 +1217,19 @@ async fn start_session(
         let mut lines = BufReader::new(stdout).lines();
         let mut claimed: Option<String> = reserved_session_id;
         while let Ok(Some(line)) = lines.next_line().await {
+            // When this turn completes, push the focused session's transcript to
+            // paired phones immediately rather than letting them wait for the
+            // next heartbeat (up to PING_INTERVAL late). Only push when this
+            // subprocess drives the focused session, so a background session
+            // finishing doesn't trigger a needless rebuild/re-push.
+            if line.contains("\"type\":\"result\"")
+                && claimed.is_some()
+                && claimed == focused_session_id()
+            {
+                if let Some(ev) = remote_transcript_event_value() {
+                    push_remote_event(ev);
+                }
+            }
             // Claim ownership of the session id on the first init event
             // that carries one. Cheap substring check before a full JSON
             // parse — session_id only appears on a handful of event types.
@@ -3014,6 +3027,14 @@ async fn run_remote_command_consumer(
     app: AppHandle,
 ) {
     while let Some(command) = rx.recv().await {
+        // A send that errors out (e.g. no live panel and the session can't be
+        // resumed) should tell the phone, not just log — otherwise the bubble
+        // spins until the 20s timeout with no explanation. Capture the session
+        // up front since the match consumes the command.
+        let notify_session = match &command {
+            RemoteCommand::SendMessage { session_id, .. } => Some(session_id.clone()),
+            _ => None,
+        };
         let result = match command {
             RemoteCommand::SendMessage {
                 session_id,
@@ -3142,6 +3163,9 @@ async fn run_remote_command_consumer(
         };
         if let Err(e) = result {
             eprintln!("remote action dropped: {e}");
+            if let Some(session_id) = notify_session {
+                push_remote_event(action_failed_value(&session_id, &e));
+            }
         }
     }
 }
@@ -3783,7 +3807,9 @@ fn write_remote_attachments(
     } else {
         body
     };
-    format!("{head}\n\n[Attached files]\n{list}")
+    format!(
+        "{head}\n\nThe user attached the following file(s) — use the Read tool to open each one (images included) before answering:\n{list}"
+    )
 }
 
 /// The working directory recorded for a session, used to resume it.

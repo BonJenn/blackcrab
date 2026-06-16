@@ -1363,6 +1363,13 @@ async fn start_session(
     tokio::spawn(async move {
         let mut lines = BufReader::new(stdout).lines();
         let mut claimed: Option<String> = reserved_session_id;
+        // Accumulated partial assistant text for the in-flight reply, pushed to
+        // the phone (throttled) so a long answer appears as it streams in.
+        let mut stream_text = String::new();
+        let mut stream_msg_id: Option<String> = None;
+        // Seed in the past so the very first delta pushes immediately.
+        let mut last_push = std::time::Instant::now()
+            - std::time::Duration::from_millis(1000);
         while let Ok(Some(line)) = lines.next_line().await {
             // When this turn completes, push the focused session's transcript to
             // paired phones immediately rather than letting them wait for the
@@ -1407,6 +1414,72 @@ async fn start_session(
                         } else {
                             owners.insert(sid.to_string(), pid_out.clone());
                             claimed = Some(sid.to_string());
+                        }
+                    }
+                }
+            }
+            // Stream partial assistant text to the phone, but only while it's
+            // viewing this panel's session. We accumulate the full text and
+            // push it (throttled) so the client just replaces what it shows.
+            if claimed.is_some() && claimed.as_deref() == focused_session_id().as_deref() {
+                // Cheap prefilter: these markers only appear on the stream
+                // events we care about, so most lines skip the JSON parse.
+                if line.contains("\"message_start\"")
+                    || line.contains("\"content_block_delta\"")
+                    || line.contains("\"message_stop\"")
+                    || line.contains("\"result\"")
+                {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                        match v.get("type").and_then(|t| t.as_str()) {
+                            Some("message_start") => {
+                                stream_text.clear();
+                                stream_msg_id = v
+                                    .get("message")
+                                    .and_then(|m| m.get("id"))
+                                    .and_then(|id| id.as_str())
+                                    .map(|s| s.to_string());
+                            }
+                            Some("content_block_delta") => {
+                                if let Some(delta) = v.get("delta") {
+                                    // Stream text deltas; ignore thinking deltas.
+                                    let is_thinking = delta
+                                        .get("type")
+                                        .and_then(|t| t.as_str())
+                                        == Some("thinking_delta");
+                                    if !is_thinking {
+                                        if let Some(text) =
+                                            delta.get("text").and_then(|t| t.as_str())
+                                        {
+                                            stream_text.push_str(text);
+                                            if last_push.elapsed()
+                                                >= std::time::Duration::from_millis(150)
+                                            {
+                                                push_remote_event(serde_json::json!({
+                                                    "type": "assistant_streaming",
+                                                    "hostId": remote_host_id_for_pairing(),
+                                                    "sessionId": claimed,
+                                                    "messageId": stream_msg_id,
+                                                    "text": stream_text,
+                                                    "finalized": false,
+                                                }));
+                                                last_push = std::time::Instant::now();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Some("message_stop") | Some("result") => {
+                                push_remote_event(serde_json::json!({
+                                    "type": "assistant_streaming",
+                                    "hostId": remote_host_id_for_pairing(),
+                                    "sessionId": claimed,
+                                    "messageId": stream_msg_id,
+                                    "text": stream_text,
+                                    "finalized": true,
+                                }));
+                                last_push = std::time::Instant::now();
+                            }
+                            _ => {}
                         }
                     }
                 }

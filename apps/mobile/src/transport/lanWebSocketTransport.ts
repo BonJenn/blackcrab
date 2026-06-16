@@ -270,6 +270,7 @@ export class LanWebSocketTransport implements Transport {
       case "project_dirs":
       case "session_started":
       case "action_failed":
+      case "assistant_streaming":
         this.emitEvent(msg);
         return;
       default:

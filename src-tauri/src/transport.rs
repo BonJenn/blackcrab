@@ -307,6 +307,10 @@ async fn handle_connection(
     let mut heartbeat = interval(PING_INTERVAL);
     heartbeat.tick().await; // skip the initial immediate tick
     let mut next_seq: u64 = 1;
+    // Hash of the snapshot we last re-sent on a heartbeat. When a tick produces
+    // an identical snapshot we still send the Ping but skip the (potentially
+    // large) sessions+transcript bodies. `None` forces a send on the first tick.
+    let mut last_snapshot_hash: Option<u64> = None;
     loop {
         tokio::select! {
             pushed = next_broadcast(&mut pushes) => {
@@ -322,11 +326,24 @@ async fn handle_connection(
                 if send_envelope(&mut sink, WireMessage::Ping { seq }).await.is_err() {
                     break;
                 }
-                // Refresh host->mobile data alongside the heartbeat. A send
-                // failure here means the socket is gone; the next ping breaks.
-                for body in snapshot_events(&hooks) {
-                    if send_event_value(&mut sink, body).await.is_err() {
-                        break;
+                // Refresh host->mobile data alongside the heartbeat, but only
+                // when it changed since the last tick — an idle session would
+                // otherwise re-push the full sessions+transcript every interval.
+                let events = snapshot_events(&hooks);
+                let hash = {
+                    use std::hash::{Hash, Hasher};
+                    let serialized = serde_json::to_string(&events).unwrap_or_default();
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    serialized.hash(&mut hasher);
+                    hasher.finish()
+                };
+                if last_snapshot_hash != Some(hash) {
+                    last_snapshot_hash = Some(hash);
+                    // A send failure here means the socket is gone; the next ping breaks.
+                    for body in events {
+                        if send_event_value(&mut sink, body).await.is_err() {
+                            break;
+                        }
                     }
                 }
             }

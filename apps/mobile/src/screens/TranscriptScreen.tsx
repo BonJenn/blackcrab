@@ -57,6 +57,12 @@ export interface TranscriptScreenProps {
   loading?: boolean;
   /** The session being viewed, used to freeze the divider per conversation. */
   sessionId?: SessionId | null;
+  /**
+   * Partial assistant reply streamed from the host while a turn is in flight.
+   * When non-empty and not yet reflected in `entries`, it's rendered as a
+   * transient assistant bubble at the bottom, superseding the thinking dots.
+   */
+  streamingText?: string | null;
   /** Conversation title, shown in the header. */
   title?: string;
   /** Whether the active transport is connected (enables the composer). */
@@ -86,6 +92,7 @@ export function TranscriptScreen({
   entries,
   loading = false,
   sessionId,
+  streamingText,
   title,
   connected = false,
   sessionState,
@@ -195,6 +202,12 @@ export function TranscriptScreen({
   // dots up through the gap between "running" ending and the reply arriving.
   const awaitingReply = justSent && assistantCount <= assistantCountAtSend;
   const thinking = live && (awaitingReply || sessionState === "running");
+  // The streamed reply is shown only while it isn't already reflected as a real
+  // assistant entry in the host tail (App clears it on reconcile/finalize).
+  const streaming = (streamingText ?? "").length > 0;
+  // Show the thinking dots only until streamed text exists, then the transient
+  // bubble takes their place at the bottom.
+  const showDots = thinking && !streaming;
 
   // Freeze the divider anchor at the cursor value captured when this session
   // was opened, so marking messages read while viewing doesn't move the line.
@@ -253,7 +266,7 @@ export function TranscriptScreen({
       prevLenRef.current = data.length;
     }
     if (atBottomRef.current) scrollToEnd(true);
-  }, [data.length, thinking]);
+  }, [data.length, thinking, streamingText]);
 
   // Buzz softly when a new assistant message lands while viewing. The baseline
   // resets on session change / first load so pre-existing messages don't fire.
@@ -424,7 +437,13 @@ export function TranscriptScreen({
           )}
           contentContainerStyle={localStyles.listContent}
           ItemSeparatorComponent={() => <View style={localStyles.separator} />}
-          ListFooterComponent={thinking ? <ThinkingIndicator /> : null}
+          ListFooterComponent={
+            streaming ? (
+              <StreamingBubble text={streamingText ?? ""} />
+            ) : showDots ? (
+              <ThinkingIndicator />
+            ) : null
+          }
           onScrollToIndexFailed={() => {
             // Window not measured yet; leave the user at the top rather than crash.
           }}
@@ -501,6 +520,19 @@ export function TranscriptScreen({
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * The live assistant reply as it streams in, rendered with the same styling as
+ * a settled assistant message. Replaced by the real entry on the next tail.
+ */
+function StreamingBubble({ text }: { text: string }) {
+  return (
+    <View style={localStyles.msgBlock}>
+      <Text style={localStyles.roleLabel}>claude</Text>
+      <Markdown text={text} />
+    </View>
   );
 }
 

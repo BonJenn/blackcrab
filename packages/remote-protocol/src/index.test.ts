@@ -203,6 +203,7 @@ describe("remote-protocol", () => {
         "project_dirs",
         "session_started",
         "action_failed",
+        "assistant_streaming",
       ];
       for (const type of types) {
         expect(isRemoteEvent({ type })).toBe(true);

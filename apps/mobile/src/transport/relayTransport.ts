@@ -63,6 +63,7 @@ const RELAY_EVENT_TYPES = new Set([
   "project_dirs",
   "session_started",
   "action_failed",
+  "assistant_streaming",
 ]);
 
 export class RelayTransport implements Transport {

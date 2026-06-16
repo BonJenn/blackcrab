@@ -163,6 +163,64 @@ describe("FailoverTransport", () => {
     transport!.close();
   });
 
+  it("retries LAN after a network change once it has fallen back to the relay", () => {
+    const lanSockets: FakeWebSocket[] = [];
+    const relaySockets: FakeWebSocket[] = [];
+    const timers = controllableTimers();
+    const transport = connectWithFailover(host(), {
+      timers,
+      webSocketFactory: (url) => {
+        if (url.startsWith("wss://")) {
+          const ws = new FakeWebSocket();
+          relaySockets.push(ws);
+          return ws;
+        }
+        const ws = new FakeWebSocket();
+        lanSockets.push(ws);
+        return ws;
+      },
+    });
+
+    // LAN opens but never acks → grace timer fires → relay fallback.
+    lanSockets[0]!.open();
+    timers.fire();
+    expect(relaySockets.length).toBe(1);
+
+    // Walking back into Wi-Fi: a network change should re-evaluate from LAN,
+    // building a fresh LAN socket rather than staying parked on the relay.
+    transport!.notifyNetworkChanged();
+    expect(lanSockets.length).toBe(2);
+
+    // And the grace timer can fire again to fall back if the new LAN attempt
+    // also fails to connect — proving triedRelay was reset.
+    lanSockets[1]!.open();
+    timers.fire();
+    expect(relaySockets.length).toBe(2);
+    transport!.close();
+  });
+
+  it("notifyNetworkChanged is a no-op for a relay-only host", () => {
+    const relaySockets: FakeWebSocket[] = [];
+    const timers = controllableTimers();
+    const transport = connectWithFailover(
+      host({ lanHost: undefined, lanPort: undefined }),
+      {
+        timers,
+        webSocketFactory: (url) => {
+          expect(url.startsWith("wss://")).toBe(true);
+          const ws = new FakeWebSocket();
+          relaySockets.push(ws);
+          return ws;
+        },
+      },
+    );
+    expect(relaySockets.length).toBe(1);
+    transport!.notifyNetworkChanged();
+    // No LAN endpoint → nothing to retry; still the single relay socket.
+    expect(relaySockets.length).toBe(1);
+    transport!.close();
+  });
+
   it("returns null for a host that can use neither LAN nor relay", () => {
     const manual = host({
       remoteToken: undefined,

@@ -23,8 +23,8 @@ export interface NewSessionScreenProps {
   projectDirs: string[];
   /** Make a paired host the active connection (to start a session on it). */
   onSwitchHost: (host: StoredPairedHost) => void;
-  /** Start a session in `cwd` with `body` as the first message. */
-  onStart: (cwd: string, body: string) => void;
+  /** Start an idle session in `cwd`; the first message is typed in the chat. */
+  onStart: (cwd: string) => void;
   onCancel: () => void;
 }
 
@@ -44,7 +44,6 @@ export function NewSessionScreen({
 }: NewSessionScreenProps) {
   const [selectedDir, setSelectedDir] = useState<string | null>(null);
   const [customDir, setCustomDir] = useState("");
-  const [message, setMessage] = useState("");
 
   // Pre-select the most recent project so Start isn't silently disabled just
   // because no directory was tapped.
@@ -56,7 +55,7 @@ export function NewSessionScreen({
 
   const connected = activeStatus?.state === "connected";
   const cwd = (customDir.trim() || selectedDir || "").trim();
-  const canStart = connected && cwd.length > 0 && message.trim().length > 0;
+  const canStart = connected && cwd.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -151,21 +150,10 @@ export function NewSessionScreen({
           autoCorrect={false}
         />
 
-        <Text style={localStyles.sectionLabel}>First message</Text>
-        <TextInput
-          style={[localStyles.input, localStyles.messageInput]}
-          value={message}
-          onChangeText={setMessage}
-          editable={connected}
-          placeholder="What should Claude work on?"
-          placeholderTextColor="#6b7480"
-          multiline
-        />
-
         <Pressable
           accessibilityRole="button"
           disabled={!canStart}
-          onPress={() => onStart(cwd, message.trim())}
+          onPress={() => onStart(cwd)}
           style={({ pressed }) => [
             localStyles.startButton,
             !canStart && localStyles.disabled,
@@ -244,10 +232,6 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 14,
-  },
-  messageInput: {
-    minHeight: 80,
-    textAlignVertical: "top",
   },
   startButton: {
     marginTop: 16,

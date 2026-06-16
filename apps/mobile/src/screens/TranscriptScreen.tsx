@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Easing,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   LayoutAnimation,
   type NativeScrollEvent,
@@ -27,6 +29,7 @@ import {
 } from "@blackcrab/remote-protocol";
 
 import { pickFile, pickPhoto, takePhoto } from "../attachments";
+import { replyHaptic } from "../haptics";
 import { Markdown } from "../components/Markdown";
 import { firstUnreadIndex, latestEntryId } from "../transcriptDivider";
 import { screenStyles } from "./styles";
@@ -50,8 +53,16 @@ function easeNext() {
 export interface TranscriptScreenProps {
   /** Live transcript tail pushed by the host. Falls back to mock when null. */
   entries?: TranscriptEntry[] | null;
+  /** Show a loading spinner while the first transcript is still in flight. */
+  loading?: boolean;
   /** The session being viewed, used to freeze the divider per conversation. */
   sessionId?: SessionId | null;
+  /**
+   * Partial assistant reply streamed from the host while a turn is in flight.
+   * When non-empty and not yet reflected in `entries`, it's rendered as a
+   * transient assistant bubble at the bottom, superseding the thinking dots.
+   */
+  streamingText?: string | null;
   /** Conversation title, shown in the header. */
   title?: string;
   /** Whether the active transport is connected (enables the composer). */
@@ -79,7 +90,9 @@ function collapse(s: string): string {
 
 export function TranscriptScreen({
   entries,
+  loading = false,
   sessionId,
+  streamingText,
   title,
   connected = false,
   sessionState,
@@ -99,18 +112,28 @@ export function TranscriptScreen({
   const [attaching, setAttaching] = useState(false);
   // Locally-echoed sends, shown instantly until the host's tail reflects them.
   const [optimistic, setOptimistic] = useState<TranscriptEntry[]>([]);
-  // Attachment names per optimistic echo id, for the sending bubble.
-  const [optimisticAttachNames, setOptimisticAttachNames] = useState<
-    Record<string, string[]>
-  >({});
+  // Image/file bytes the phone picked this session, so a thumbnail can render
+  // inline. Keyed by both the echo id (the optimistic bubble) and a normalized
+  // body signature, so the preview survives reconciliation onto the host entry.
+  const [sentAttachments, setSentAttachments] = useState<
+    { id: string; sig: string; atts: RemoteAttachment[] }[]
+  >([]);
   // True from the moment of a send until the host reports the turn running, so
   // the "thinking" indicator appears immediately rather than after a round-trip.
   const [justSent, setJustSent] = useState(false);
+  // Assistant-message count captured at send time. The thinking indicator stays
+  // up until the count grows (a real reply lands), so it never blanks out in the
+  // gap between the session leaving "running" and the reply transcript arriving.
+  const [assistantCountAtSend, setAssistantCountAtSend] = useState(0);
   // Optimistic echoes the host never reflected (failed/dropped/conflict) — so
   // the bubble shows "not delivered" instead of spinning on "sending…" forever.
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const optimisticSeq = useRef(0);
-  const SEND_TIMEOUT_MS = 20000;
+  // Generous: a send that wakes a dormant session (resume + read an attached
+  // image) can take a while before the host echoes it back. Genuine failures
+  // are reported immediately via action_failed, so this is just a backstop —
+  // keep it long enough not to cry wolf mid-turn.
+  const SEND_TIMEOUT_MS = 60000;
 
   // Drop optimistic echoes once a host user_message reflects them. The host
   // preview can be shorter (truncated) or longer (it appends an attachment
@@ -134,6 +157,27 @@ export function TranscriptScreen({
     [hostData, pendingOptimistic],
   );
 
+  // Image/file bytes for a given message bubble, if the phone picked them this
+  // session. Matches the optimistic echo by id, then falls back to the same
+  // prefix match used for reconciliation so the host-reflected entry (whose
+  // preview appends the attachment list) still resolves to its thumbnail.
+  function attachmentsFor(entry: TranscriptEntry): RemoteAttachment[] | undefined {
+    if (entry.kind !== "user_message" || sentAttachments.length === 0) return;
+    const byId = sentAttachments.find((s) => s.id === entry.id);
+    if (byId) return byId.atts;
+    const hp = collapse(entry.preview).replace(/[.…]+$/, "");
+    const bySig = sentAttachments.find((s) => {
+      if (!s.sig) return hp.startsWith("(see attached files)");
+      return hp.length > 0 && (s.sig.startsWith(hp) || hp.startsWith(s.sig));
+    });
+    return bySig?.atts;
+  }
+
+  const assistantCount = useMemo(
+    () => hostData.filter((e) => e.kind === "assistant_message").length,
+    [hostData],
+  );
+
   // Track which echoes are still unreflected, so the send timeout can tell a
   // genuinely-stuck message from one the host already echoed back.
   const pendingIdsRef = useRef<Set<string>>(new Set());
@@ -152,8 +196,18 @@ export function TranscriptScreen({
     setJustSent(false);
   }, [failSignal]);
 
-  const thinking =
-    live && (justSent || sessionState === "running");
+  // Show the indicator while a send is awaiting its first reply (no new
+  // assistant message since the send) or while the host reports the turn
+  // running. Gating on the message count — not on sessionState alone — keeps the
+  // dots up through the gap between "running" ending and the reply arriving.
+  const awaitingReply = justSent && assistantCount <= assistantCountAtSend;
+  const thinking = live && (awaitingReply || sessionState === "running");
+  // The streamed reply is shown only while it isn't already reflected as a real
+  // assistant entry in the host tail (App clears it on reconcile/finalize).
+  const streaming = (streamingText ?? "").length > 0;
+  // Show the thinking dots only until streamed text exists, then the transient
+  // bubble takes their place at the bottom.
+  const showDots = thinking && !streaming;
 
   // Freeze the divider anchor at the cursor value captured when this session
   // was opened, so marking messages read while viewing doesn't move the line.
@@ -212,15 +266,32 @@ export function TranscriptScreen({
       prevLenRef.current = data.length;
     }
     if (atBottomRef.current) scrollToEnd(true);
-  }, [data.length, thinking]);
+  }, [data.length, thinking, streamingText]);
 
-  // Once the host reports the turn running (or a reply lands), the live state
-  // drives the indicator — drop the transient just-sent bridge.
+  // Buzz softly when a new assistant message lands while viewing. The baseline
+  // resets on session change / first load so pre-existing messages don't fire.
+  const prevAssistantCountRef = useRef(assistantCount);
   useEffect(() => {
-    if (sessionState === "running") return;
-    const last = hostData[hostData.length - 1];
-    if (last && last.kind === "assistant_message") setJustSent(false);
-  }, [sessionState, hostData]);
+    prevAssistantCountRef.current = assistantCount;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, live]);
+  useEffect(() => {
+    if (live && assistantCount > prevAssistantCountRef.current) replyHaptic();
+    prevAssistantCountRef.current = assistantCount;
+  }, [assistantCount, live]);
+
+  // Drop the just-sent bridge once a new assistant message actually lands in the
+  // transcript (the count grows past what it was at send). Keying on the reply
+  // arriving — rather than on sessionState leaving "running" — avoids the blank
+  // gap that occurred when state changed before the reply transcript was pushed.
+  useEffect(() => {
+    if (justSent && assistantCount > assistantCountAtSend) {
+      setJustSent(false);
+      // A reply landed, so the send plainly went through — retract any
+      // "not delivered" the timeout may have flagged in the meantime.
+      setFailedIds((prev) => (prev.size > 0 ? new Set() : prev));
+    }
+  }, [justSent, assistantCount, assistantCountAtSend]);
 
   // Viewing the conversation marks it read up to the newest host entry.
   const lastMarkedRef = useRef<string | null>(null);
@@ -260,11 +331,12 @@ export function TranscriptScreen({
     };
     setOptimistic((prev) => [...prev, echo]);
     if (atts.length > 0) {
-      setOptimisticAttachNames((prev) => ({
+      setSentAttachments((prev) => [
         ...prev,
-        [echoId]: atts.map((a) => a.name),
-      }));
+        { id: echoId, sig: collapse(body), atts },
+      ]);
     }
+    setAssistantCountAtSend(assistantCount);
     setJustSent(true);
     onSend(body, atts.length > 0 ? atts : undefined);
     setDraft("");
@@ -339,50 +411,74 @@ export function TranscriptScreen({
         </Pressable>
       </View>
 
-      <FlatList
-        ref={listRef}
-        style={localStyles.list}
-        data={data}
-        keyExtractor={(item) => item.id}
-        onScroll={handleScroll}
-        scrollEventThrottle={64}
-        renderItem={({ item, index }) => (
-          <View>
-            {index === dividerIndex && <NewMessagesDivider />}
-            <EntryView
-              entry={item}
-              pending={item.id.startsWith("optimistic-")}
-              failed={failedIds.has(item.id)}
-              attachmentNames={optimisticAttachNames[item.id]}
-            />
-          </View>
-        )}
-        contentContainerStyle={localStyles.listContent}
-        ItemSeparatorComponent={() => <View style={localStyles.separator} />}
-        ListFooterComponent={thinking ? <ThinkingIndicator /> : null}
-        onScrollToIndexFailed={() => {
-          // Window not measured yet; leave the user at the top rather than crash.
-        }}
-        ListEmptyComponent={
-          <Text style={screenStyles.note}>No transcript entries yet.</Text>
-        }
-      />
+      {loading ? (
+        <View style={localStyles.loading}>
+          <ActivityIndicator color="#e26a4b" />
+          <Text style={localStyles.loadingText}>Loading conversation…</Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={listRef}
+          style={localStyles.list}
+          data={data}
+          keyExtractor={(item) => item.id}
+          onScroll={handleScroll}
+          scrollEventThrottle={64}
+          renderItem={({ item, index }) => (
+            <View>
+              {index === dividerIndex && <NewMessagesDivider />}
+              <EntryView
+                entry={item}
+                pending={item.id.startsWith("optimistic-")}
+                failed={failedIds.has(item.id)}
+                attachments={attachmentsFor(item)}
+              />
+            </View>
+          )}
+          contentContainerStyle={localStyles.listContent}
+          ItemSeparatorComponent={() => <View style={localStyles.separator} />}
+          ListFooterComponent={
+            streaming ? (
+              <StreamingBubble text={streamingText ?? ""} />
+            ) : showDots ? (
+              <ThinkingIndicator />
+            ) : null
+          }
+          onScrollToIndexFailed={() => {
+            // Window not measured yet; leave the user at the top rather than crash.
+          }}
+          ListEmptyComponent={
+            <Text style={screenStyles.note}>No transcript entries yet.</Text>
+          }
+        />
+      )}
 
       {pendingAttachments.length > 0 && (
         <View style={localStyles.attachTray}>
-          {pendingAttachments.map((a, i) => (
-            <Pressable
-              key={`${a.name}-${i}`}
-              accessibilityRole="button"
-              onPress={() => removeAttachment(i)}
-              style={localStyles.attachChip}
-            >
-              <Text style={localStyles.attachChipText} numberOfLines={1}>
-                📎 {a.name}
-              </Text>
-              <Text style={localStyles.attachChipRemove}>✕</Text>
-            </Pressable>
-          ))}
+          {pendingAttachments.map((a, i) => {
+            const isImage =
+              !!a.dataBase64 && (a.mimeType?.startsWith("image/") ?? false);
+            return (
+              <Pressable
+                key={`${a.name}-${i}`}
+                accessibilityRole="button"
+                onPress={() => removeAttachment(i)}
+                style={localStyles.attachChip}
+              >
+                {isImage ? (
+                  <Image
+                    source={{ uri: `data:${a.mimeType};base64,${a.dataBase64}` }}
+                    style={localStyles.attachChipThumb}
+                    resizeMode="cover"
+                  />
+                ) : null}
+                <Text style={localStyles.attachChipText} numberOfLines={1}>
+                  {isImage ? a.name : `📎 ${a.name}`}
+                </Text>
+                <Text style={localStyles.attachChipRemove}>✕</Text>
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
@@ -424,6 +520,19 @@ export function TranscriptScreen({
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * The live assistant reply as it streams in, rendered with the same styling as
+ * a settled assistant message. Replaced by the real entry on the next tail.
+ */
+function StreamingBubble({ text }: { text: string }) {
+  return (
+    <View style={localStyles.msgBlock}>
+      <Text style={localStyles.roleLabel}>claude</Text>
+      <Markdown text={text} />
+    </View>
   );
 }
 
@@ -492,12 +601,12 @@ function EntryView({
   entry,
   pending,
   failed,
-  attachmentNames,
+  attachments,
 }: {
   entry: TranscriptEntry;
   pending?: boolean;
   failed?: boolean;
-  attachmentNames?: string[];
+  attachments?: RemoteAttachment[];
 }) {
   if (entry.kind === "tool_call") {
     return <ToolCallCard toolName={entry.toolName} detail={entry.preview} />;
@@ -526,13 +635,28 @@ function EntryView({
       </Text>
       <View style={isUser ? localStyles.userBody : undefined}>
         {entry.preview ? <Markdown text={entry.preview} /> : null}
-        {attachmentNames && attachmentNames.length > 0 && (
-          <View style={localStyles.attachList}>
-            {attachmentNames.map((n, i) => (
-              <Text key={`${n}-${i}`} style={localStyles.attachListItem}>
-                📎 {n}
-              </Text>
-            ))}
+        {attachments && attachments.length > 0 && (
+          <View style={localStyles.attachGallery}>
+            {attachments.map((a, i) => {
+              const isImage =
+                !!a.dataBase64 && (a.mimeType?.startsWith("image/") ?? false);
+              if (isImage) {
+                return (
+                  <Image
+                    key={`${a.name}-${i}`}
+                    source={{ uri: `data:${a.mimeType};base64,${a.dataBase64}` }}
+                    style={localStyles.attachThumb}
+                    resizeMode="cover"
+                    accessibilityLabel={a.name}
+                  />
+                );
+              }
+              return (
+                <Text key={`${a.name}-${i}`} style={localStyles.attachListItem}>
+                  📎 {a.name}
+                </Text>
+              );
+            })}
           </View>
         )}
       </View>
@@ -658,6 +782,16 @@ const localStyles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  loadingText: {
+    color: "#6b7480",
+    fontSize: 13,
   },
   listContent: {
     paddingVertical: 8,
@@ -821,6 +955,12 @@ const localStyles = StyleSheet.create({
     borderColor: "#2a2f37",
     backgroundColor: "#11151a",
   },
+  attachChipThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: "#0b0e12",
+  },
   attachChipText: {
     flexShrink: 1,
     color: "#cfd5dc",
@@ -847,13 +987,23 @@ const localStyles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "400",
   },
-  attachList: {
-    marginTop: 6,
-    gap: 3,
-  },
   attachListItem: {
     color: "#9aa3ad",
     fontSize: 12.5,
+  },
+  attachGallery: {
+    marginTop: 6,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  attachThumb: {
+    width: 160,
+    height: 160,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#2a2f37",
+    backgroundColor: "#0b0e12",
   },
   input: {
     flex: 1,

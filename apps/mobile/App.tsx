@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  AppState,
   Dimensions,
   Pressable,
   SafeAreaView,
@@ -11,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import * as Network from "expo-network";
 import type {
   ApprovalRequest,
   HostId,
@@ -38,11 +40,35 @@ import {
 import { connectWithFailover } from "./src/transport/failoverTransport";
 import { firstConnectableHost } from "./src/transport/reconnect";
 import type { Transport, TransportStatus } from "./src/transport/types";
+import { tapHaptic } from "./src/haptics";
 
 /** Last path segment, used as a provisional title for a brand-new session. */
 function dirName(path: string): string {
   const parts = path.replace(/\/+$/, "").split("/");
   return parts[parts.length - 1] || path;
+}
+
+/**
+ * Turn a raw host failure reason into a clear, actionable alert. The common
+ * one is an expired Claude login on the desktop, which surfaces as a 401.
+ */
+function describeActionFailure(reason: string): { title: string; message: string } {
+  const r = reason.toLowerCase();
+  if (r.includes("401") || r.includes("authentication") || r.includes("invalid api")) {
+    return {
+      title: "Desktop login expired",
+      message:
+        "Your desktop's Claude login needs refreshing. On the desktop, run “claude /login” (or sign in via the Blackcrab app), then try again.",
+    };
+  }
+  if (r.includes("another window") || r.includes("active in")) {
+    return {
+      title: "Session busy elsewhere",
+      message:
+        "This conversation is open in another window on the desktop. Close it there, or continue from that window.",
+    };
+  }
+  return { title: "Couldn’t send", message: reason };
 }
 
 type TabKey = "hosts" | "sessions" | "approval";
@@ -66,6 +92,14 @@ export default function App() {
     null,
   );
   const [approvals, setApprovals] = useState<ApprovalRequest[] | null>(null);
+  // Partial assistant reply streamed by the host while a turn is in flight, so
+  // a long answer shows incrementally. Cleared on finalize or when the real
+  // entry lands in the next transcript_tail.
+  const [streamingMsg, setStreamingMsg] = useState<{
+    sessionId: SessionId;
+    messageId: MessageId | null;
+    text: string;
+  } | null>(null);
   // The session whose transcript is open as a slide-over detail, and the
   // host-canonical read cursors keyed by `${hostId}:${sessionId}`.
   const [focusedSession, setFocusedSession] = useState<SessionSummary | null>(
@@ -79,6 +113,10 @@ export default function App() {
   const [projectDirs, setProjectDirs] = useState<string[]>([]);
   const [showNewSession, setShowNewSession] = useState(false);
   const pendingStartCwdRef = useRef<string | null>(null);
+  // Mirror of focusedSession for use inside the transport event callback (which
+  // closes over a stale value otherwise), so we can drop transcript pushes that
+  // don't belong to the conversation currently on screen.
+  const focusedSessionRef = useRef<SessionSummary | null>(null);
   // Bumped when the host reports an action it couldn't fulfil, so the open
   // transcript can flip a stuck "sending…" bubble to "not delivered".
   const [sendFailSignal, setSendFailSignal] = useState(0);
@@ -95,6 +133,17 @@ export default function App() {
       }).start();
     }
   }, [focusedSession, slideX]);
+
+  // Horizontal pager so the tab pages slide as you switch tabs.
+  const tabIndex = Math.max(0, TABS.findIndex((t) => t.key === tab));
+  const pagerX = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(pagerX, {
+      toValue: -tabIndex * screenWidth,
+      duration: 240,
+      useNativeDriver: true,
+    }).start();
+  }, [tabIndex, screenWidth, pagerX]);
 
   useEffect(() => {
     let mounted = true;
@@ -173,7 +222,39 @@ export default function App() {
       if (event.type === "sessions") {
         setLiveSessions(event.sessions);
       } else if (event.type === "transcript_tail") {
-        setLiveTranscript(event.entries);
+        // Only render a transcript that belongs to the focused conversation.
+        // During a new-session start, the host may briefly push the most-recent
+        // session's tail (its focus fallback) before our focus_session lands —
+        // ignoring mismatches stops a different conversation flashing up first.
+        const focused = focusedSessionRef.current;
+        if (focused && event.sessionId === focused.sessionId) {
+          setLiveTranscript(event.entries);
+        }
+        // If a streamed reply has now landed as a real assistant entry, drop
+        // the transient bubble so we don't render it twice.
+        setStreamingMsg((prev) => {
+          if (!prev) return prev;
+          if (event.sessionId !== prev.sessionId) return prev;
+          const reconciled = event.entries.some(
+            (e) =>
+              e.kind === "assistant_message" &&
+              e.preview.trim().length > 0 &&
+              prev.text.trim().startsWith(e.preview.trim().replace(/[.…]+$/, "")),
+          );
+          return reconciled ? null : prev;
+        });
+      } else if (event.type === "assistant_streaming") {
+        if (event.finalized) {
+          setStreamingMsg((prev) =>
+            prev && prev.sessionId === event.sessionId ? null : prev,
+          );
+        } else {
+          setStreamingMsg({
+            sessionId: event.sessionId,
+            messageId: event.messageId,
+            text: event.text,
+          });
+        }
       } else if (event.type === "approval_requested") {
         setApprovals((prev) => {
           const list = prev ?? [];
@@ -234,7 +315,8 @@ export default function App() {
       } else if (event.type === "action_failed") {
         if (pendingStartCwdRef.current) pendingStartCwdRef.current = null;
         setSendFailSignal((n) => n + 1);
-        Alert.alert("Couldn’t send", event.reason);
+        const { title, message } = describeActionFailure(event.reason);
+        Alert.alert(title, message);
       }
     });
     return () => {
@@ -244,6 +326,93 @@ export default function App() {
   }, [activeTransport]);
 
   useEffect(() => () => activeTransport?.close(), [activeTransport]);
+
+  // Re-establish the connection when the app returns to the foreground. The OS
+  // often drops the socket while backgrounded; the transports auto-retry on a
+  // clean close, but a fresh connect here resets any backoff and recovers a
+  // silently-killed socket immediately — so always-on machines stay reachable
+  // without the user re-pairing or relaunching.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      if (activeStatus?.state === "connected") return;
+      const host =
+        (activeHostId && storedHosts.find((h) => h.hostId === activeHostId)) ||
+        firstConnectableHost(storedHosts);
+      if (!host) return;
+      const transport = connectWithFailover(host, {
+        onFatalReject: () => {
+          setActiveTransport((current) => {
+            current?.close();
+            return null;
+          });
+          setActiveHostId(null);
+        },
+      });
+      if (transport) {
+        activeTransport?.close();
+        setActiveTransport(transport);
+        setActiveHostId(host.hostId);
+      }
+    });
+    return () => sub.remove();
+  }, [activeStatus?.state, activeHostId, storedHosts, activeTransport]);
+
+  // Re-evaluate LAN vs relay when the device's network changes (e.g. walking
+  // back into Wi-Fi). Hold the active transport in a ref so the subscription
+  // doesn't churn as the transport swaps. expo-network is a native module, so
+  // feature-detect its API and degrade gracefully if it isn't present.
+  const activeTransportRef = useRef<Transport | null>(null);
+  activeTransportRef.current = activeTransport;
+  useEffect(() => {
+    let lastKey = "";
+    const onChange = (state: {
+      type?: unknown;
+      isConnected?: unknown;
+      isInternetReachable?: unknown;
+    }) => {
+      const key = `${String(state.type)}|${String(state.isConnected)}|${String(
+        state.isInternetReachable,
+      )}`;
+      // First sample establishes the baseline; only react to real changes.
+      if (lastKey === "") {
+        lastKey = key;
+        return;
+      }
+      if (key === lastKey) return;
+      lastKey = key;
+      try {
+        activeTransportRef.current?.notifyNetworkChanged?.();
+      } catch {
+        /* noop */
+      }
+    };
+
+    try {
+      if (typeof Network.addNetworkStateListener === "function") {
+        const sub = Network.addNetworkStateListener(onChange);
+        // Seed the baseline from the current state, if obtainable.
+        Network.getNetworkStateAsync?.().then(onChange).catch(() => {});
+        return () => {
+          try {
+            sub.remove();
+          } catch {
+            /* noop */
+          }
+        };
+      }
+    } catch {
+      /* fall through to polling */
+    }
+
+    // Fallback: poll the network state on an interval where no listener API
+    // exists (or it threw). Guard the call so a missing module can't crash.
+    if (typeof Network.getNetworkStateAsync !== "function") return;
+    const interval = setInterval(() => {
+      Network.getNetworkStateAsync().then(onChange).catch(() => {});
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleForgetHost(hostId: HostId) {
     const hosts = await forgetStoredHost(hostId);
@@ -280,7 +449,8 @@ export default function App() {
     }).catch(() => {});
   }
 
-  // Open a session's transcript as a slide-over detail.
+  // Open a session's transcript as a slide-over detail. The transcript lives on
+  // the Chats tab, so opening one selects that tab.
   function openSession(session: SessionSummary) {
     if (!activeTransport) return;
     activeTransport.sendAction({
@@ -289,8 +459,12 @@ export default function App() {
       sessionId: session.sessionId,
     });
     setLiveTranscript(null);
+    // Set the ref synchronously so the very next transcript_tail (which can
+    // arrive before this render commits) isn't filtered out as a mismatch.
+    focusedSessionRef.current = session;
     slideX.setValue(screenWidth);
     setFocusedSession(session);
+    setTab("sessions");
   }
 
   function closeTranscript() {
@@ -298,7 +472,18 @@ export default function App() {
       toValue: screenWidth,
       duration: 200,
       useNativeDriver: true,
-    }).start(() => setFocusedSession(null));
+    }).start(() => {
+      focusedSessionRef.current = null;
+      setFocusedSession(null);
+    });
+  }
+
+  // Switch tabs with a light haptic. The open conversation is kept (the
+  // transcript only shows on the Chats tab), so returning to Chats lands you
+  // back in the conversation you were in.
+  function selectTab(key: TabKey) {
+    tapHaptic();
+    setTab(key);
   }
 
   function sendToFocused(body: string, attachments?: RemoteAttachment[]) {
@@ -357,16 +542,16 @@ export default function App() {
     }
   }
 
-  // Start a session on the active host in `cwd`, sending `body` as the first
-  // message. The host spawns it and replies with session_started, which opens
-  // the conversation here.
-  function handleStartSession(cwd: string, body: string) {
+  // Start a session on the active host in `cwd`. The host spawns an idle
+  // session and replies with session_started, which drops us straight into the
+  // (empty) conversation — the user types the first message in the composer.
+  function handleStartSession(cwd: string) {
     if (!activeTransport || !activeHostId) return;
     activeTransport.sendAction({
       type: "start_session",
       hostId: activeHostId,
       cwd,
-      body,
+      body: "",
     });
     pendingStartCwdRef.current = cwd;
     setShowNewSession(false);
@@ -393,7 +578,7 @@ export default function App() {
             <Text
               key={entry.key}
               accessibilityRole="button"
-              onPress={() => setTab(entry.key)}
+              onPress={() => selectTab(entry.key)}
               style={[styles.tab, active && styles.tabActive]}
             >
               {entry.label}
@@ -402,40 +587,60 @@ export default function App() {
         })}
       </ScrollView>
       <View style={styles.body}>
-        {tab === "hosts" && (
-          <PairedHostsScreen
-            loading={loadingHosts}
-            storedHosts={storedHosts}
-            onForgetHost={handleForgetHost}
-            onPairHost={() => setPairing(true)}
-            activeHostId={activeHostId}
-            activeStatus={activeStatus}
-          />
-        )}
-        {tab === "sessions" && (
-          <SessionsScreen
-            transport={activeTransport}
-            status={activeStatus}
-            sessions={liveSessions}
-            onOpenSession={openSession}
-            onNewSession={() => setShowNewSession(true)}
-          />
-        )}
-        {tab === "approval" && (
-          <ApprovalScreen transport={activeTransport} approvals={approvals} />
-        )}
+        {/* The three tab pages sit side by side and slide horizontally as the
+            active tab changes. */}
+        <Animated.View
+          style={[
+            styles.pager,
+            { width: screenWidth * TABS.length, transform: [{ translateX: pagerX }] },
+          ]}
+        >
+          <View style={{ width: screenWidth }}>
+            <PairedHostsScreen
+              loading={loadingHosts}
+              storedHosts={storedHosts}
+              onForgetHost={handleForgetHost}
+              onPairHost={() => setPairing(true)}
+              activeHostId={activeHostId}
+              activeStatus={activeStatus}
+            />
+          </View>
+          <View style={{ width: screenWidth }}>
+            <SessionsScreen
+              transport={activeTransport}
+              status={activeStatus}
+              sessions={liveSessions}
+              onOpenSession={openSession}
+              onNewSession={() => setShowNewSession(true)}
+            />
+          </View>
+          <View style={{ width: screenWidth }}>
+            <ApprovalScreen transport={activeTransport} approvals={approvals} />
+          </View>
+        </Animated.View>
 
-        {/* Transcript detail slides over the active tab when a session opens. */}
+        {/* Transcript detail for the open conversation. It belongs to the Chats
+            tab: kept mounted (so the draft and scroll survive) but parked
+            off-screen while another tab is active, so returning to Chats lands
+            back in the same conversation. */}
         {focusedSession && (
           <Animated.View
+            pointerEvents={tab === "sessions" ? "auto" : "none"}
             style={[
               styles.overlay,
-              { transform: [{ translateX: slideX }] },
+              { transform: [{ translateX: tab === "sessions" ? slideX : screenWidth }] },
             ]}
           >
             <TranscriptScreen
               entries={liveTranscript}
+              loading={liveTranscript === null}
               sessionId={focusedSession.sessionId}
+              streamingText={
+                streamingMsg &&
+                streamingMsg.sessionId === focusedSession.sessionId
+                  ? streamingMsg.text
+                  : null
+              }
               title={focusedSession.title}
               connected={connected}
               sessionState={
@@ -537,6 +742,11 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    overflow: "hidden",
+  },
+  pager: {
+    flex: 1,
+    flexDirection: "row",
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

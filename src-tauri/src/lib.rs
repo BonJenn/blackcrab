@@ -11,6 +11,7 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_autostart::ManagerExt;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::broadcast;
@@ -790,6 +791,165 @@ fn delete_blackcrab_claude_token() -> Result<(), String> {
     Ok(())
 }
 
+const BLACKCRAB_RELAY_TOKEN_SERVICE: &str = "Blackcrab Relay Token";
+
+#[cfg(target_os = "macos")]
+fn read_relay_token() -> Result<Option<String>, String> {
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "find-generic-password",
+            "-s",
+            BLACKCRAB_RELAY_TOKEN_SERVICE,
+            "-a",
+            &keychain_account(),
+            "-w",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    let token = String::from_utf8(output.stdout)
+        .map_err(|e| e.to_string())?
+        .trim()
+        .to_string();
+    if token.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(token))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn read_relay_token() -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+#[cfg(target_os = "macos")]
+fn write_relay_token(token: &str) -> Result<(), String> {
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "add-generic-password",
+            "-U",
+            "-s",
+            BLACKCRAB_RELAY_TOKEN_SERVICE,
+            "-a",
+            &keychain_account(),
+            "-w",
+            token,
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn write_relay_token(_token: &str) -> Result<(), String> {
+    Err("Blackcrab-managed token storage is currently only supported on macOS".into())
+}
+
+#[cfg(target_os = "macos")]
+fn delete_relay_token() -> Result<(), String> {
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "delete-generic-password",
+            "-s",
+            BLACKCRAB_RELAY_TOKEN_SERVICE,
+            "-a",
+            &keychain_account(),
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("could not be found") || stderr.contains("not found") {
+            return Ok(());
+        }
+        return Err(stderr.trim().to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn delete_relay_token() -> Result<(), String> {
+    Ok(())
+}
+
+/// The effective relay token in priority order: `BLACKCRAB_RELAY_TOKEN` env,
+/// else the keychain. Empty string when neither is set (LAN-only). Used both to
+/// start the relay client and to derive the per-device relay auth token at
+/// pairing so the host and relay agree on the same shared secret.
+fn effective_relay_token() -> String {
+    let env_token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
+    if env_token.trim().is_empty() {
+        read_relay_token().ok().flatten().unwrap_or_default()
+    } else {
+        env_token
+    }
+}
+
+/// Path to the persisted relay URL config (`~/.blackcrab/relay.json`). The
+/// URL is non-secret; the token lives in the keychain.
+fn relay_url_config_path() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(PathBuf::from(home).join(".blackcrab").join("relay.json"))
+}
+
+/// Read the persisted relay URL, if any. Returns `None` when unset or unreadable.
+fn read_relay_url_config() -> Option<String> {
+    let path = relay_url_config_path()?;
+    let data = std::fs::read_to_string(&path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&data).ok()?;
+    let url = value.get("url")?.as_str()?.trim();
+    if url.is_empty() {
+        None
+    } else {
+        Some(url.to_string())
+    }
+}
+
+/// Persist the relay URL to `~/.blackcrab/relay.json` (owner-only on Unix).
+fn write_relay_url_config(url: &str) -> Result<(), String> {
+    let path = relay_url_config_path().ok_or_else(|| "HOME not set".to_string())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("create {}: {}", parent.display(), e))?;
+    }
+    let json = serde_json::to_string_pretty(&serde_json::json!({ "url": url }))
+        .map_err(|e| e.to_string())?;
+    write_relay_config_owner_only(&path, json.as_bytes())
+        .map_err(|e| format!("write {}: {}", path.display(), e))
+}
+
+#[cfg(unix)]
+fn write_relay_config_owner_only(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut f = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    f.write_all(data)?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn write_relay_config_owner_only(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    std::fs::write(path, data)
+}
+
 fn claude_token_state() -> ClaudeTokenStatus {
     let env_configured = env_oauth_token_present();
     match read_blackcrab_claude_token() {
@@ -1216,7 +1376,27 @@ async fn start_session(
     tokio::spawn(async move {
         let mut lines = BufReader::new(stdout).lines();
         let mut claimed: Option<String> = reserved_session_id;
+        // Accumulated partial assistant text for the in-flight reply, pushed to
+        // the phone (throttled) so a long answer appears as it streams in.
+        let mut stream_text = String::new();
+        let mut stream_msg_id: Option<String> = None;
+        // Seed in the past so the very first delta pushes immediately.
+        let mut last_push = std::time::Instant::now()
+            - std::time::Duration::from_millis(1000);
         while let Ok(Some(line)) = lines.next_line().await {
+            // When this turn completes, push the focused session's transcript to
+            // paired phones immediately rather than letting them wait for the
+            // next heartbeat (up to PING_INTERVAL late). Only push when this
+            // subprocess drives the focused session, so a background session
+            // finishing doesn't trigger a needless rebuild/re-push.
+            if line.contains("\"type\":\"result\"")
+                && claimed.is_some()
+                && claimed == focused_session_id()
+            {
+                if let Some(ev) = remote_transcript_event_value() {
+                    push_remote_event(ev);
+                }
+            }
             // Claim ownership of the session id on the first init event
             // that carries one. Cheap substring check before a full JSON
             // parse — session_id only appears on a handful of event types.
@@ -1247,6 +1427,72 @@ async fn start_session(
                         } else {
                             owners.insert(sid.to_string(), pid_out.clone());
                             claimed = Some(sid.to_string());
+                        }
+                    }
+                }
+            }
+            // Stream partial assistant text to the phone, but only while it's
+            // viewing this panel's session. We accumulate the full text and
+            // push it (throttled) so the client just replaces what it shows.
+            if claimed.is_some() && claimed.as_deref() == focused_session_id().as_deref() {
+                // Cheap prefilter: these markers only appear on the stream
+                // events we care about, so most lines skip the JSON parse.
+                if line.contains("\"message_start\"")
+                    || line.contains("\"content_block_delta\"")
+                    || line.contains("\"message_stop\"")
+                    || line.contains("\"result\"")
+                {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                        match v.get("type").and_then(|t| t.as_str()) {
+                            Some("message_start") => {
+                                stream_text.clear();
+                                stream_msg_id = v
+                                    .get("message")
+                                    .and_then(|m| m.get("id"))
+                                    .and_then(|id| id.as_str())
+                                    .map(|s| s.to_string());
+                            }
+                            Some("content_block_delta") => {
+                                if let Some(delta) = v.get("delta") {
+                                    // Stream text deltas; ignore thinking deltas.
+                                    let is_thinking = delta
+                                        .get("type")
+                                        .and_then(|t| t.as_str())
+                                        == Some("thinking_delta");
+                                    if !is_thinking {
+                                        if let Some(text) =
+                                            delta.get("text").and_then(|t| t.as_str())
+                                        {
+                                            stream_text.push_str(text);
+                                            if last_push.elapsed()
+                                                >= std::time::Duration::from_millis(150)
+                                            {
+                                                push_remote_event(serde_json::json!({
+                                                    "type": "assistant_streaming",
+                                                    "hostId": remote_host_id_for_pairing(),
+                                                    "sessionId": claimed,
+                                                    "messageId": stream_msg_id,
+                                                    "text": stream_text,
+                                                    "finalized": false,
+                                                }));
+                                                last_push = std::time::Instant::now();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Some("message_stop") | Some("result") => {
+                                push_remote_event(serde_json::json!({
+                                    "type": "assistant_streaming",
+                                    "hostId": remote_host_id_for_pairing(),
+                                    "sessionId": claimed,
+                                    "messageId": stream_msg_id,
+                                    "text": stream_text,
+                                    "finalized": true,
+                                }));
+                                last_push = std::time::Instant::now();
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -2971,7 +3217,13 @@ fn pairing_accept(
     device_name: String,
 ) -> Result<PairingAcceptResponse, String> {
     let svc = pairing_service()?;
-    svc.accept_pairing(&code, &device_name, pairing_now_ms())
+    let relay_token = effective_relay_token();
+    let relay_token = if relay_token.trim().is_empty() {
+        None
+    } else {
+        Some(relay_token.as_str())
+    };
+    svc.accept_pairing(&code, &device_name, pairing_now_ms(), relay_token)
 }
 
 #[tauri::command]
@@ -3014,6 +3266,14 @@ async fn run_remote_command_consumer(
     app: AppHandle,
 ) {
     while let Some(command) = rx.recv().await {
+        // A send that errors out (e.g. no live panel and the session can't be
+        // resumed) should tell the phone, not just log — otherwise the bubble
+        // spins until the 20s timeout with no explanation. Capture the session
+        // up front since the match consumes the command.
+        let notify_session = match &command {
+            RemoteCommand::SendMessage { session_id, .. } => Some(session_id.clone()),
+            _ => None,
+        };
         let result = match command {
             RemoteCommand::SendMessage {
                 session_id,
@@ -3142,6 +3402,9 @@ async fn run_remote_command_consumer(
         };
         if let Err(e) = result {
             eprintln!("remote action dropped: {e}");
+            if let Some(session_id) = notify_session {
+                push_remote_event(action_failed_value(&session_id, &e));
+            }
         }
     }
 }
@@ -3783,7 +4046,9 @@ fn write_remote_attachments(
     } else {
         body
     };
-    format!("{head}\n\n[Attached files]\n{list}")
+    format!(
+        "{head}\n\nThe user attached the following file(s) — use the Read tool to open each one (images included) before answering:\n{list}"
+    )
 }
 
 /// The working directory recorded for a session, used to resume it.
@@ -4054,19 +4319,49 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
 /// Side channels the transport uses to reach the rest of the app. Rebuilt per
 /// `start` call; the action sender comes from the global set up in `setup`.
 fn remote_hooks() -> crate::transport::RemoteHooks {
+    let relay_token = effective_relay_token();
     crate::transport::RemoteHooks {
         commands: REMOTE_CMD_TX.get().cloned(),
         events: Some(Arc::new(remote_event_snapshot)),
         broadcast: REMOTE_BROADCAST.get().cloned(),
+        relay_token: if relay_token.trim().is_empty() {
+            None
+        } else {
+            Some(relay_token)
+        },
     }
 }
 
-/// Start the outbound relay client when `BLACKCRAB_RELAY_URL` and
-/// `BLACKCRAB_RELAY_TOKEN` are both set. No-op otherwise (LAN-only).
+/// Handle to the running relay client task, so a config change can abort the
+/// old client before spawning a replacement.
+static RELAY_TASK: OnceLock<StdMutex<Option<tauri::async_runtime::JoinHandle<()>>>> =
+    OnceLock::new();
+
+/// Start the outbound relay client. The URL comes from `BLACKCRAB_RELAY_URL`
+/// when set, otherwise the persisted `~/.blackcrab/relay.json`; the token comes
+/// from `BLACKCRAB_RELAY_TOKEN` when set, otherwise the keychain. No-op when
+/// either is empty (LAN-only). Any previously spawned client is aborted first.
 fn maybe_start_relay_client() {
-    let url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
-    let token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
-    if url.is_empty() || token.is_empty() {
+    let url = {
+        let env_url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+        if env_url.trim().is_empty() {
+            read_relay_url_config().unwrap_or_default()
+        } else {
+            env_url
+        }
+    };
+    let token = effective_relay_token();
+
+    // Stop any client started by a prior call/config before deciding whether to
+    // start a new one — a cleared config should leave nothing running.
+    let slot = RELAY_TASK.get_or_init(|| StdMutex::new(None));
+    if let Ok(mut guard) = slot.lock() {
+        if let Some(handle) = guard.take() {
+            handle.abort();
+        }
+    }
+
+    if url.trim().is_empty() || token.trim().is_empty() {
         return;
     }
     let (Some(commands), Some(broadcast)) =
@@ -4088,7 +4383,42 @@ fn maybe_start_relay_client() {
         events: Arc::new(remote_event_snapshot),
         broadcast,
     };
-    tauri::async_runtime::spawn(client.run());
+    let handle = tauri::async_runtime::spawn(client.run());
+    if let Ok(mut guard) = slot.lock() {
+        *guard = Some(handle);
+    }
+}
+
+/// Persist the relay URL and token, then (re)start the relay client so the
+/// change takes effect without an app restart. The token is never echoed back.
+#[tauri::command]
+fn set_relay_config(url: String, token: String) -> Result<(), String> {
+    let url = url.trim().to_string();
+    let token = token.trim().to_string();
+    write_relay_url_config(&url)?;
+    if token.is_empty() {
+        delete_relay_token()?;
+    } else {
+        write_relay_token(&token)?;
+    }
+    maybe_start_relay_client();
+    Ok(())
+}
+
+/// Current relay configuration for the desktop UI: the persisted (or env) URL
+/// and whether a token is set. The token itself is never returned.
+#[tauri::command]
+fn get_relay_config() -> serde_json::Value {
+    let env_url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+    let url = if env_url.trim().is_empty() {
+        read_relay_url_config().unwrap_or_default()
+    } else {
+        env_url
+    };
+    let env_token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
+    let has_token = !env_token.trim().is_empty()
+        || read_relay_token().ok().flatten().is_some();
+    serde_json::json!({ "url": url, "hasToken": has_token })
 }
 
 #[tauri::command]
@@ -4123,7 +4453,63 @@ fn remote_host_info() -> RemoteHostInfo {
 /// a phone can reach it off-LAN. Empty when no relay is configured.
 #[tauri::command]
 fn remote_relay_url() -> String {
-    std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default()
+    let env_url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+    if env_url.trim().is_empty() {
+        read_relay_url_config().unwrap_or_default()
+    } else {
+        env_url
+    }
+}
+
+/// Tray menu item id for revealing the main window.
+const TRAY_SHOW_EVENT: &str = "blackcrab-tray-show";
+/// Tray menu item id for quitting the app for real.
+const TRAY_QUIT_EVENT: &str = "blackcrab-tray-quit";
+
+/// Builds the menu-bar tray icon with "Show Blackcrab" and "Quit" items.
+/// Selecting "Show" reveals + focuses the main window; "Quit" exits the
+/// process (the only path that actually tears the host down, since closing the
+/// window merely hides it).
+fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::tray::TrayIconBuilder;
+
+    let show = MenuItem::with_id(app, TRAY_SHOW_EVENT, "Show Blackcrab", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, TRAY_QUIT_EVENT, "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &quit])?;
+
+    let mut builder = TrayIconBuilder::new()
+        .tooltip("Blackcrab")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            TRAY_SHOW_EVENT => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+            TRAY_QUIT_EVENT => app.exit(0),
+            _ => {}
+        });
+
+    if let Some(icon) = app.default_window_icon().cloned() {
+        builder = builder.icon(icon);
+    }
+
+    builder.build(app)?;
+    Ok(())
+}
+
+/// Toggles whether Blackcrab launches at login. Exposed to the UI so the user
+/// can opt out of the default-on behavior.
+#[tauri::command]
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let autostart = app.autolaunch();
+    if enabled {
+        autostart.enable().map_err(|e| e.to_string())
+    } else {
+        autostart.disable().map_err(|e| e.to_string())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -4137,10 +4523,20 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .menu(blackcrab_menu)
         .on_menu_event(|app, event| {
             if event.id() == OPEN_SETTINGS_EVENT {
                 let _ = app.emit(OPEN_SETTINGS_EVENT, ());
+            }
+        })
+        // Close-to-tray: hiding the window keeps the LAN server + relay client
+        // running so the host stays reachable "as long as the computer is on".
+        // A real quit happens via the tray "Quit" item (`app.exit(0)`).
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .manage(AppState::default())
@@ -4178,6 +4574,8 @@ pub fn run() {
             terminal_kill,
             remote_host_info,
             remote_relay_url,
+            set_relay_config,
+            get_relay_config,
             remote_transport_info,
             set_session_read_cursor,
             session_read_cursors,
@@ -4188,7 +4586,8 @@ pub fn run() {
             pairing_accept,
             pairing_cancel,
             pairing_list_devices,
-            pairing_revoke
+            pairing_revoke,
+            set_autostart
         ])
         .setup(|app| {
             let server = transport_server();
@@ -4232,6 +4631,27 @@ pub fn run() {
             // Lets paired phones reach this host off-LAN; the LAN server is
             // unaffected.
             maybe_start_relay_client();
+
+            // Menu-bar tray icon so the host stays reachable while the window
+            // is hidden. Best-effort: a failure here must not block startup.
+            if let Err(e) = setup_tray(app.handle()) {
+                eprintln!("tray: failed to set up: {e}");
+            }
+
+            // Autostart at login so the host returns after a reboot. Enable by
+            // default if not already enabled; best-effort so a failure (e.g. a
+            // sandboxed/unsupported environment) never blocks startup.
+            let autostart = app.autolaunch();
+            match autostart.is_enabled() {
+                Ok(false) => {
+                    if let Err(e) = autostart.enable() {
+                        eprintln!("autostart: failed to enable: {e}");
+                    }
+                }
+                Ok(true) => {}
+                Err(e) => eprintln!("autostart: failed to query state: {e}"),
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

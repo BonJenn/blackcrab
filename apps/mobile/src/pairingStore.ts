@@ -24,6 +24,11 @@ export interface StoredPairedHost extends PairedHostSummary {
   remoteToken?: string;
   /** base64 32-byte E2E key for relay traffic, minted over LAN at pairing. */
   e2eKey?: string;
+  /**
+   * Per-device relay auth token minted by the desktop at pairing. Sent in the
+   * relay hello for a future device-auth gate; not yet required by the relay.
+   */
+  relayDeviceToken?: string;
   /** This device's id, used to address it through the relay. */
   deviceId?: string;
   /** Relay URL to reach this host off-LAN, when the host advertised one. */
@@ -169,6 +174,8 @@ function isStoredPairedHost(value: unknown): value is StoredPairedHost {
       value.pairingSource === "manual_code") &&
     (value.remoteToken === undefined || typeof value.remoteToken === "string") &&
     (value.e2eKey === undefined || typeof value.e2eKey === "string") &&
+    (value.relayDeviceToken === undefined ||
+      typeof value.relayDeviceToken === "string") &&
     (value.deviceId === undefined || typeof value.deviceId === "string") &&
     (value.relayUrl === undefined || typeof value.relayUrl === "string") &&
     (value.lanHost === undefined || typeof value.lanHost === "string") &&

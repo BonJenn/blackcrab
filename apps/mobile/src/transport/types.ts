@@ -38,5 +38,7 @@ export interface Transport {
    * dropped because the transport was not connected.
    */
   sendAction(action: RemoteAction): boolean;
+  /** Hint that the network changed; re-evaluate LAN vs relay. */
+  notifyNetworkChanged?(): void;
   close(): void;
 }

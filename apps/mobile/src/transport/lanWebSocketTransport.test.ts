@@ -432,6 +432,131 @@ describe("LanWebSocketTransport", () => {
     transport.close();
   });
 
+  it("reconnects when a ping goes unanswered (dead-socket detection)", () => {
+    // A timer harness that lets the test fire the heartbeat interval and the
+    // pong timeout on demand, and reconnect synchronously.
+    let intervalCb: (() => void) | null = null;
+    let pongCb: (() => void) | null = null;
+    const sockets: FakeWebSocket[] = [];
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => {
+        const ws = new FakeWebSocket();
+        sockets.push(ws);
+        return ws;
+      },
+      timers: {
+        setTimeout: (h) => {
+          // The reconnect path reconnects immediately; the pong timeout is held
+          // so the test can fire it.
+          if (pongCb === null) {
+            pongCb = h;
+            return 99;
+          }
+          h();
+          return 0;
+        },
+        clearTimeout: () => {
+          pongCb = null;
+        },
+        setInterval: (h) => {
+          intervalCb = h;
+          return 1;
+        },
+        clearInterval: () => {
+          intervalCb = null;
+        },
+        now: () => 0,
+      },
+    });
+    const statuses: TransportStatus[] = [];
+    transport.subscribe((s) => statuses.push(s));
+
+    sockets[0]!.openConnection();
+    sockets[0]!.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: {
+          type: "pairing_response",
+          code: "ABCDEFGH",
+          status: "accepted",
+          hostId: "desktop-studio",
+          remoteToken: "TOK",
+        },
+      }),
+    );
+    expect(statuses.at(-1)?.state).toBe("connected");
+
+    // Heartbeat fires → a ping is sent and the pong-timeout is armed.
+    intervalCb!();
+    expect(lastEnvelope(sockets[0]!)?.msg).toMatchObject({ type: "ping" });
+
+    // No pong arrives → firing the pong timeout tears down and reconnects.
+    pongCb!();
+    expect(statuses.map((s) => s.state)).toContain("reconnecting");
+    expect(sockets.length).toBeGreaterThanOrEqual(2);
+    transport.close();
+  });
+
+  it("clears the pong timeout when the matching pong arrives", () => {
+    let pongCb: (() => void) | null = null;
+    let intervalCb: (() => void) | null = null;
+    let cleared = false;
+    const ws = new FakeWebSocket();
+    const transport = new LanWebSocketTransport({
+      url: "ws://desktop.local:8124",
+      pairingCode: "ABCDEFGH",
+      deviceName: "Phone",
+      webSocketFactory: () => ws,
+      timers: {
+        setTimeout: (h) => {
+          pongCb = h;
+          return 7;
+        },
+        clearTimeout: () => {
+          cleared = true;
+          pongCb = null;
+        },
+        setInterval: (h) => {
+          intervalCb = h;
+          return 1;
+        },
+        clearInterval: () => {},
+        now: () => 0,
+      },
+    });
+    ws.openConnection();
+    ws.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: {
+          type: "pairing_response",
+          code: "ABCDEFGH",
+          status: "accepted",
+          hostId: "desktop-studio",
+          remoteToken: "TOK",
+        },
+      }),
+    );
+
+    intervalCb!();
+    const ping = lastEnvelope(ws)?.msg as { type: string; seq: number };
+    expect(ping.type).toBe("ping");
+
+    // The matching pong cancels the death timer.
+    ws.deliver(
+      JSON.stringify({
+        v: REMOTE_PROTOCOL_VERSION,
+        msg: { type: "pong", seq: ping.seq },
+      }),
+    );
+    expect(cleared).toBe(true);
+    expect(pongCb).toBeNull();
+    transport.close();
+  });
+
   it("reconnects after the socket closes", () => {
     const sockets: FakeWebSocket[] = [];
     const transport = new LanWebSocketTransport({

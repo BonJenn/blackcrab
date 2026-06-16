@@ -3,6 +3,9 @@
 //! Env:
 //!   RELAY_ADDR  — bind address (default `0.0.0.0:8787`)
 //!   RELAY_TOKEN — required shared secret hosts must present to claim a room
+//!   BLACKCRAB_RELAY_REQUIRE_DEVICE_AUTH — "1"/"true" to require a valid
+//!     per-device token on every device hello (BREAKING: requires devices to
+//!     re-pair against a host that mints the derived token). Off by default.
 //!
 //! The relay is end-to-end-encrypted: it forwards opaque ciphertext frames and
 //! never sees keys or plaintext. Deploy behind a TLS-terminating proxy (wss://)
@@ -29,6 +32,22 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    println!("blackcrab relay listening on {addr}");
-    serve(listener, RelayConfig { token }).await;
+    let require_device_auth = matches!(
+        std::env::var("BLACKCRAB_RELAY_REQUIRE_DEVICE_AUTH")
+            .unwrap_or_default()
+            .trim(),
+        "1" | "true"
+    );
+    println!(
+        "blackcrab relay listening on {addr} (device auth: {})",
+        if require_device_auth { "required" } else { "off" }
+    );
+    serve(
+        listener,
+        RelayConfig {
+            token,
+            require_device_auth,
+        },
+    )
+    .await;
 }

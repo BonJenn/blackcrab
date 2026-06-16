@@ -274,6 +274,7 @@ type AppSettings = {
   notifyOnTurnComplete: boolean;
   autoCheckUpdates: boolean;
   autoOpenPreview: boolean;
+  launchAtLogin: boolean;
   analyticsEnabled: boolean;
   newPanelWorktreeMode: NewPanelWorktreeMode;
   density: AppDensity;
@@ -298,6 +299,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   notifyOnTurnComplete: true,
   autoCheckUpdates: true,
   autoOpenPreview: true,
+  launchAtLogin: true,
   analyticsEnabled: true,
   newPanelWorktreeMode: "ask",
   density: "compact",
@@ -482,6 +484,10 @@ function loadAppSettings(): AppSettings {
         typeof parsed.autoOpenPreview === "boolean"
           ? parsed.autoOpenPreview
           : DEFAULT_APP_SETTINGS.autoOpenPreview,
+      launchAtLogin:
+        typeof parsed.launchAtLogin === "boolean"
+          ? parsed.launchAtLogin
+          : DEFAULT_APP_SETTINGS.launchAtLogin,
       analyticsEnabled:
         typeof parsed.analyticsEnabled === "boolean"
           ? parsed.analyticsEnabled
@@ -1046,7 +1052,7 @@ function buildAttachmentBody(
 ): string {
   const attachList = attachments.map((a) => `- ${a.path}`).join("\n");
   return attachments.length > 0
-    ? `${text || "(see attached files)"}\n\n[Attached files]\n${attachList}`
+    ? `${text || "(see attached files)"}\n\nThe user attached the following file(s) — use the Read tool to open each one (images included) before answering:\n${attachList}`
     : text;
 }
 
@@ -4361,7 +4367,9 @@ function App() {
   async function startRemoteSession(targetCwd: string, body: string) {
     const cwdTrim = targetCwd.trim();
     const text = body.trim();
-    if (!cwdTrim || !text) return;
+    // A phone start may carry no first message — the session opens idle and the
+    // user types in the chat. Only the directory is required.
+    if (!cwdTrim) return;
     if (sessionOn && !busy) {
       switchingSessionRef.current = true;
       try {
@@ -4397,8 +4405,10 @@ function App() {
       }).catch(() => {});
       return;
     }
-    // Append to the active transcript (which init has folded onto the new
-    // session id by now) and deliver, exactly like a local send.
+    // With a first message, append to the active transcript (which init has
+    // folded onto the new session id by now) and deliver, exactly like a local
+    // send. Without one, the session simply waits for the phone's first message.
+    if (!text) return;
     setEntries((es) => [...es, { kind: "user", id: randomId(), text: body }]);
     setPanelBusy(panelId, true);
     try {
@@ -7290,6 +7300,21 @@ function SettingsModal({
             <label className="settings-check-row">
               <input
                 type="checkbox"
+                checked={settings.launchAtLogin}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  onSettingsChange({ launchAtLogin: enabled });
+                  invoke("set_autostart", { enabled }).catch(() => {
+                    // Best-effort: keep the toggle responsive even if the
+                    // platform login-item update fails.
+                  });
+                }}
+              />
+              <span>Launch at login (keep host reachable)</span>
+            </label>
+            <label className="settings-check-row">
+              <input
+                type="checkbox"
                 checked={settings.autoOpenPreview}
                 onChange={(e) =>
                   onSettingsChange({ autoOpenPreview: e.target.checked })
@@ -7327,6 +7352,10 @@ function MobileRemoteSettings() {
   const [lanEndpoint, setLanEndpoint] = useState<TransportEndpoint | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState("");
+  const [relayUrl, setRelayUrl] = useState("");
+  const [relayToken, setRelayToken] = useState("");
+  const [relayHasToken, setRelayHasToken] = useState(false);
+  const [relaySaving, setRelaySaving] = useState(false);
 
   useEffect(() => {
     if (!pairingAvailable) return;
@@ -7366,6 +7395,42 @@ function MobileRemoteSettings() {
   useEffect(() => {
     void refreshDevices();
   }, [refreshDevices]);
+
+  useEffect(() => {
+    if (!pairingAvailable) return;
+    let mounted = true;
+    invoke<{ url: string; hasToken: boolean }>("get_relay_config")
+      .then((config) => {
+        if (!mounted) return;
+        setRelayUrl(config.url ?? "");
+        setRelayHasToken(Boolean(config.hasToken));
+      })
+      .catch(notifyErr("failed to read relay config"));
+    return () => {
+      mounted = false;
+    };
+  }, [pairingAvailable]);
+
+  const saveRelayConfig = async () => {
+    if (!pairingAvailable) return;
+    setRelaySaving(true);
+    setError("");
+    try {
+      await invoke("set_relay_config", { url: relayUrl, token: relayToken });
+      const config = await invoke<{ url: string; hasToken: boolean }>(
+        "get_relay_config",
+      );
+      setRelayUrl(config.url ?? "");
+      setRelayHasToken(Boolean(config.hasToken));
+      setRelayToken("");
+      notify("Relay settings saved", "success");
+    } catch (e) {
+      setError(errorMessage(e));
+      notifyErr("failed to save relay settings")(e);
+    } finally {
+      setRelaySaving(false);
+    }
+  };
 
   const startPairing = async () => {
     if (!pairingAvailable) return;
@@ -7595,6 +7660,40 @@ function MobileRemoteSettings() {
           )}
 
           {error && <div className="settings-inline-error">{error}</div>}
+        </div>
+      </div>
+
+      <div className="settings-row settings-row-top">
+        <span className="settings-label">Relay</span>
+        <div className="settings-control settings-remote-control">
+          <input
+            type="text"
+            placeholder="wss://relay.example.com"
+            value={relayUrl}
+            onChange={(e) => setRelayUrl(e.target.value)}
+            disabled={!pairingAvailable || relaySaving}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <input
+            type="password"
+            placeholder={relayHasToken ? "Token saved — leave blank to keep" : "Relay token"}
+            value={relayToken}
+            onChange={(e) => setRelayToken(e.target.value)}
+            disabled={!pairingAvailable || relaySaving}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <div className="settings-remote-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void saveRelayConfig()}
+              disabled={!pairingAvailable || relaySaving}
+            >
+              {relaySaving ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     </section>

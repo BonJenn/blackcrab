@@ -26,6 +26,33 @@ use crate::transport::RemoteCommand;
 const PROTOCOL_VERSION: u16 = 1;
 const PUSH_INTERVAL: Duration = Duration::from_secs(15);
 const BACKOFF_SECS: [u64; 5] = [1, 2, 5, 15, 30];
+/// One backoff "tick": we sleep in chunks this small so we can react to a
+/// sleep/wake quickly rather than at the end of the full backoff window.
+const WAKE_CHUNK: Duration = Duration::from_secs(1);
+/// If the wall clock jumped at least this far beyond the time we asked to
+/// sleep for, assume the machine was suspended and we just woke up.
+const WAKE_JUMP_THRESHOLD: Duration = Duration::from_secs(20);
+
+/// Sleeps for roughly `delay` seconds, but in 1s chunks, watching the wall
+/// clock for a large forward jump that indicates the machine slept and woke.
+/// Returns `true` if such a wake was detected (so the caller can reconnect
+/// immediately), `false` if the full delay elapsed normally.
+async fn wait_with_wake_detection(delay: u64) -> bool {
+    let mut remaining = delay;
+    while remaining > 0 {
+        let chunk = WAKE_CHUNK.min(Duration::from_secs(remaining));
+        let before = std::time::SystemTime::now();
+        tokio::time::sleep(chunk).await;
+        // Wall-clock elapsed across the chunk. If it's far longer than the
+        // chunk we asked for, the process was suspended mid-sleep.
+        let elapsed = before.elapsed().unwrap_or(chunk);
+        if elapsed > chunk + WAKE_JUMP_THRESHOLD {
+            return true;
+        }
+        remaining = remaining.saturating_sub(chunk.as_secs().max(1));
+    }
+    false
+}
 
 /// Looks up the base64 E2E key for a paired device id.
 pub(crate) type KeyLookup = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
@@ -52,7 +79,15 @@ impl RelayClient {
             }
             let delay = BACKOFF_SECS[attempt.min(BACKOFF_SECS.len() - 1)];
             attempt = attempt.saturating_add(1);
-            tokio::time::sleep(Duration::from_secs(delay)).await;
+            // Sleep for `delay`, but in short chunks so we can notice the
+            // machine waking from sleep. After a sleep/wake the wall clock
+            // jumps far ahead of the time we actually spent sleeping; when we
+            // detect that, bail out of the backoff early and reset `attempt`
+            // so we reconnect within seconds instead of waiting out a 30s
+            // backoff that was scheduled before the nap.
+            if wait_with_wake_detection(delay).await {
+                attempt = 0;
+            }
         }
     }
 

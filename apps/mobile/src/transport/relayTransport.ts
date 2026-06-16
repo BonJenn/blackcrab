@@ -33,6 +33,12 @@ export interface RelayTransportConfig {
   deviceId: string;
   /** base64 32-byte shared key for sealing/opening relay payloads. */
   e2eKey: string;
+  /**
+   * Optional per-device relay auth token, minted by the host at pairing. Sent
+   * in the hello frame when present. The relay does not yet require or validate
+   * it; this lays groundwork for a future device-auth gate.
+   */
+  deviceToken?: string;
   /** Fired when the relay refuses the connection. Transport stops. */
   onFatalReject?: (reason: string) => void;
   webSocketFactory?: (url: string) => MinimalWebSocket;
@@ -185,13 +191,17 @@ export class RelayTransport implements Transport {
 
     ws.onopen = () => {
       if (this.stopped || this.ws !== ws) return;
-      // Cleartext relay hello — routing only, no secrets.
+      // Cleartext relay hello — routing only, no secrets. The optional
+      // deviceToken is forwarded when present; the relay ignores it for now.
       ws.send(
         JSON.stringify({
           type: "hello",
           role: "device",
           hostId: this.config.hostId,
           deviceId: this.config.deviceId,
+          ...(this.config.deviceToken
+            ? { deviceToken: this.config.deviceToken }
+            : {}),
         }),
       );
     };

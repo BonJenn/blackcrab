@@ -7331,6 +7331,10 @@ function MobileRemoteSettings() {
   const [lanEndpoint, setLanEndpoint] = useState<TransportEndpoint | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState("");
+  const [relayUrl, setRelayUrl] = useState("");
+  const [relayToken, setRelayToken] = useState("");
+  const [relayHasToken, setRelayHasToken] = useState(false);
+  const [relaySaving, setRelaySaving] = useState(false);
 
   useEffect(() => {
     if (!pairingAvailable) return;
@@ -7370,6 +7374,42 @@ function MobileRemoteSettings() {
   useEffect(() => {
     void refreshDevices();
   }, [refreshDevices]);
+
+  useEffect(() => {
+    if (!pairingAvailable) return;
+    let mounted = true;
+    invoke<{ url: string; hasToken: boolean }>("get_relay_config")
+      .then((config) => {
+        if (!mounted) return;
+        setRelayUrl(config.url ?? "");
+        setRelayHasToken(Boolean(config.hasToken));
+      })
+      .catch(notifyErr("failed to read relay config"));
+    return () => {
+      mounted = false;
+    };
+  }, [pairingAvailable]);
+
+  const saveRelayConfig = async () => {
+    if (!pairingAvailable) return;
+    setRelaySaving(true);
+    setError("");
+    try {
+      await invoke("set_relay_config", { url: relayUrl, token: relayToken });
+      const config = await invoke<{ url: string; hasToken: boolean }>(
+        "get_relay_config",
+      );
+      setRelayUrl(config.url ?? "");
+      setRelayHasToken(Boolean(config.hasToken));
+      setRelayToken("");
+      notify("Relay settings saved", "success");
+    } catch (e) {
+      setError(errorMessage(e));
+      notifyErr("failed to save relay settings")(e);
+    } finally {
+      setRelaySaving(false);
+    }
+  };
 
   const startPairing = async () => {
     if (!pairingAvailable) return;
@@ -7599,6 +7639,40 @@ function MobileRemoteSettings() {
           )}
 
           {error && <div className="settings-inline-error">{error}</div>}
+        </div>
+      </div>
+
+      <div className="settings-row settings-row-top">
+        <span className="settings-label">Relay</span>
+        <div className="settings-control settings-remote-control">
+          <input
+            type="text"
+            placeholder="wss://relay.example.com"
+            value={relayUrl}
+            onChange={(e) => setRelayUrl(e.target.value)}
+            disabled={!pairingAvailable || relaySaving}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <input
+            type="password"
+            placeholder={relayHasToken ? "Token saved — leave blank to keep" : "Relay token"}
+            value={relayToken}
+            onChange={(e) => setRelayToken(e.target.value)}
+            disabled={!pairingAvailable || relaySaving}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <div className="settings-remote-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void saveRelayConfig()}
+              disabled={!pairingAvailable || relaySaving}
+            >
+              {relaySaving ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     </section>

@@ -790,6 +790,152 @@ fn delete_blackcrab_claude_token() -> Result<(), String> {
     Ok(())
 }
 
+const BLACKCRAB_RELAY_TOKEN_SERVICE: &str = "Blackcrab Relay Token";
+
+#[cfg(target_os = "macos")]
+fn read_relay_token() -> Result<Option<String>, String> {
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "find-generic-password",
+            "-s",
+            BLACKCRAB_RELAY_TOKEN_SERVICE,
+            "-a",
+            &keychain_account(),
+            "-w",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    let token = String::from_utf8(output.stdout)
+        .map_err(|e| e.to_string())?
+        .trim()
+        .to_string();
+    if token.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(token))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn read_relay_token() -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+#[cfg(target_os = "macos")]
+fn write_relay_token(token: &str) -> Result<(), String> {
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "add-generic-password",
+            "-U",
+            "-s",
+            BLACKCRAB_RELAY_TOKEN_SERVICE,
+            "-a",
+            &keychain_account(),
+            "-w",
+            token,
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn write_relay_token(_token: &str) -> Result<(), String> {
+    Err("Blackcrab-managed token storage is currently only supported on macOS".into())
+}
+
+#[cfg(target_os = "macos")]
+fn delete_relay_token() -> Result<(), String> {
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "delete-generic-password",
+            "-s",
+            BLACKCRAB_RELAY_TOKEN_SERVICE,
+            "-a",
+            &keychain_account(),
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("could not be found") || stderr.contains("not found") {
+            return Ok(());
+        }
+        return Err(stderr.trim().to_string());
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn delete_relay_token() -> Result<(), String> {
+    Ok(())
+}
+
+/// Path to the persisted relay URL config (`~/.blackcrab/relay.json`). The
+/// URL is non-secret; the token lives in the keychain.
+fn relay_url_config_path() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(PathBuf::from(home).join(".blackcrab").join("relay.json"))
+}
+
+/// Read the persisted relay URL, if any. Returns `None` when unset or unreadable.
+fn read_relay_url_config() -> Option<String> {
+    let path = relay_url_config_path()?;
+    let data = std::fs::read_to_string(&path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&data).ok()?;
+    let url = value.get("url")?.as_str()?.trim();
+    if url.is_empty() {
+        None
+    } else {
+        Some(url.to_string())
+    }
+}
+
+/// Persist the relay URL to `~/.blackcrab/relay.json` (owner-only on Unix).
+fn write_relay_url_config(url: &str) -> Result<(), String> {
+    let path = relay_url_config_path().ok_or_else(|| "HOME not set".to_string())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("create {}: {}", parent.display(), e))?;
+    }
+    let json = serde_json::to_string_pretty(&serde_json::json!({ "url": url }))
+        .map_err(|e| e.to_string())?;
+    write_relay_config_owner_only(&path, json.as_bytes())
+        .map_err(|e| format!("write {}: {}", path.display(), e))
+}
+
+#[cfg(unix)]
+fn write_relay_config_owner_only(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut f = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    f.write_all(data)?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn write_relay_config_owner_only(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    std::fs::write(path, data)
+}
+
 fn claude_token_state() -> ClaudeTokenStatus {
     let env_configured = env_oauth_token_present();
     match read_blackcrab_claude_token() {
@@ -4087,12 +4233,43 @@ fn remote_hooks() -> crate::transport::RemoteHooks {
     }
 }
 
-/// Start the outbound relay client when `BLACKCRAB_RELAY_URL` and
-/// `BLACKCRAB_RELAY_TOKEN` are both set. No-op otherwise (LAN-only).
+/// Handle to the running relay client task, so a config change can abort the
+/// old client before spawning a replacement.
+static RELAY_TASK: OnceLock<StdMutex<Option<tauri::async_runtime::JoinHandle<()>>>> =
+    OnceLock::new();
+
+/// Start the outbound relay client. The URL comes from `BLACKCRAB_RELAY_URL`
+/// when set, otherwise the persisted `~/.blackcrab/relay.json`; the token comes
+/// from `BLACKCRAB_RELAY_TOKEN` when set, otherwise the keychain. No-op when
+/// either is empty (LAN-only). Any previously spawned client is aborted first.
 fn maybe_start_relay_client() {
-    let url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
-    let token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
-    if url.is_empty() || token.is_empty() {
+    let url = {
+        let env_url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+        if env_url.trim().is_empty() {
+            read_relay_url_config().unwrap_or_default()
+        } else {
+            env_url
+        }
+    };
+    let token = {
+        let env_token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
+        if env_token.trim().is_empty() {
+            read_relay_token().ok().flatten().unwrap_or_default()
+        } else {
+            env_token
+        }
+    };
+
+    // Stop any client started by a prior call/config before deciding whether to
+    // start a new one — a cleared config should leave nothing running.
+    let slot = RELAY_TASK.get_or_init(|| StdMutex::new(None));
+    if let Ok(mut guard) = slot.lock() {
+        if let Some(handle) = guard.take() {
+            handle.abort();
+        }
+    }
+
+    if url.trim().is_empty() || token.trim().is_empty() {
         return;
     }
     let (Some(commands), Some(broadcast)) =
@@ -4114,7 +4291,42 @@ fn maybe_start_relay_client() {
         events: Arc::new(remote_event_snapshot),
         broadcast,
     };
-    tauri::async_runtime::spawn(client.run());
+    let handle = tauri::async_runtime::spawn(client.run());
+    if let Ok(mut guard) = slot.lock() {
+        *guard = Some(handle);
+    }
+}
+
+/// Persist the relay URL and token, then (re)start the relay client so the
+/// change takes effect without an app restart. The token is never echoed back.
+#[tauri::command]
+fn set_relay_config(url: String, token: String) -> Result<(), String> {
+    let url = url.trim().to_string();
+    let token = token.trim().to_string();
+    write_relay_url_config(&url)?;
+    if token.is_empty() {
+        delete_relay_token()?;
+    } else {
+        write_relay_token(&token)?;
+    }
+    maybe_start_relay_client();
+    Ok(())
+}
+
+/// Current relay configuration for the desktop UI: the persisted (or env) URL
+/// and whether a token is set. The token itself is never returned.
+#[tauri::command]
+fn get_relay_config() -> serde_json::Value {
+    let env_url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+    let url = if env_url.trim().is_empty() {
+        read_relay_url_config().unwrap_or_default()
+    } else {
+        env_url
+    };
+    let env_token = std::env::var("BLACKCRAB_RELAY_TOKEN").unwrap_or_default();
+    let has_token = !env_token.trim().is_empty()
+        || read_relay_token().ok().flatten().is_some();
+    serde_json::json!({ "url": url, "hasToken": has_token })
 }
 
 #[tauri::command]
@@ -4149,7 +4361,12 @@ fn remote_host_info() -> RemoteHostInfo {
 /// a phone can reach it off-LAN. Empty when no relay is configured.
 #[tauri::command]
 fn remote_relay_url() -> String {
-    std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default()
+    let env_url = std::env::var("BLACKCRAB_RELAY_URL").unwrap_or_default();
+    if env_url.trim().is_empty() {
+        read_relay_url_config().unwrap_or_default()
+    } else {
+        env_url
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -4204,6 +4421,8 @@ pub fn run() {
             terminal_kill,
             remote_host_info,
             remote_relay_url,
+            set_relay_config,
+            get_relay_config,
             remote_transport_info,
             set_session_read_cursor,
             session_read_cursors,

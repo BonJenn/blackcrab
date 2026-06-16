@@ -48,6 +48,7 @@ export interface LanWebSocketTransportConfig {
     remoteToken: string;
     hostId: HostId;
     e2eKey?: string;
+    relayDeviceToken?: string;
     deviceId?: string;
   }) => void;
   /** Fired when the desktop rejects either handshake. Transport stops. */
@@ -89,6 +90,8 @@ const DEFAULT_WS_FACTORY = (url: string): MinimalWebSocket =>
   new WebSocket(url) as unknown as MinimalWebSocket;
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
+/** How long to wait for a pong before treating the socket as silently dead. */
+const PONG_TIMEOUT_MS = 5_000;
 const BACKOFF_SCHEDULE_MS = [1_000, 2_000, 5_000, 15_000, 30_000];
 
 export class LanWebSocketTransport implements Transport {
@@ -102,6 +105,8 @@ export class LanWebSocketTransport implements Transport {
   private retryIndex = 0;
   private reconnectHandle: unknown = null;
   private heartbeatHandle: unknown = null;
+  private pongTimeoutHandle: unknown = null;
+  private pendingPingSeq: number | null = null;
   private nextPingSeq = 1;
   private stopped = false;
   private remoteToken: string | undefined;
@@ -160,6 +165,25 @@ export class LanWebSocketTransport implements Transport {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * The network changed. We can't switch paths (this transport only speaks
+   * LAN), but a roam can leave the socket silently stale, so force an immediate
+   * reconnect attempt rather than waiting for the next heartbeat to notice.
+   */
+  notifyNetworkChanged(): void {
+    if (this.stopped || !this.ws) return;
+    const ws = this.ws;
+    this.ws = null;
+    this.clearTimers();
+    try {
+      ws.close();
+    } catch {
+      /* noop */
+    }
+    this.transition({ state: "reconnecting", detail: "network changed" });
+    this.scheduleReconnect();
   }
 
   close(): void {
@@ -259,6 +283,11 @@ export class LanWebSocketTransport implements Transport {
         this.send({ type: "pong", seq: msg.seq });
         return;
       case "pong":
+        // Matching pong arrived — the socket is alive; cancel the death timer.
+        if (this.pendingPingSeq !== null && msg.seq === this.pendingPingSeq) {
+          this.pendingPingSeq = null;
+          this.clearPongTimeout();
+        }
         return;
       case "connection_status":
         return;
@@ -270,6 +299,7 @@ export class LanWebSocketTransport implements Transport {
       case "project_dirs":
       case "session_started":
       case "action_failed":
+      case "assistant_streaming":
         this.emitEvent(msg);
         return;
       default:
@@ -290,6 +320,7 @@ export class LanWebSocketTransport implements Transport {
         remoteToken: msg.remoteToken,
         hostId: msg.hostId,
         e2eKey: msg.e2eKey,
+        relayDeviceToken: msg.relayDeviceToken,
         deviceId: msg.deviceId,
       });
       this.onAuthenticated(msg.hostId);
@@ -327,13 +358,49 @@ export class LanWebSocketTransport implements Transport {
     this.heartbeatHandle = this.timers.setInterval(() => {
       const ws = this.ws;
       if (!ws) return;
-      const ping: Heartbeat = { type: "ping", seq: this.nextPingSeq++ };
+      // If the previous ping is still unanswered, don't pile up another timer;
+      // the outstanding pong-timeout will fire and force a reconnect.
+      if (this.pendingPingSeq !== null) return;
+      const seq = this.nextPingSeq++;
+      const ping: Heartbeat = { type: "ping", seq };
       try {
         ws.send(serializeEnvelope(ping));
       } catch {
         /* noop */
       }
+      // Arm the dead-socket timer; cleared when the matching pong arrives.
+      this.pendingPingSeq = seq;
+      this.pongTimeoutHandle = this.timers.setTimeout(() => {
+        this.onPongTimeout();
+      }, PONG_TIMEOUT_MS);
     }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private onPongTimeout(): void {
+    this.pongTimeoutHandle = null;
+    this.pendingPingSeq = null;
+    if (this.stopped) return;
+    // No pong came back: the socket is silently dead. Drop it and reconnect
+    // through the normal backoff path.
+    const ws = this.ws;
+    this.ws = null;
+    this.clearTimers();
+    if (ws) {
+      try {
+        ws.close();
+      } catch {
+        /* noop */
+      }
+    }
+    this.transition({ state: "reconnecting", detail: "heartbeat timeout" });
+    this.scheduleReconnect();
+  }
+
+  private clearPongTimeout(): void {
+    if (this.pongTimeoutHandle !== null) {
+      this.timers.clearTimeout(this.pongTimeoutHandle);
+      this.pongTimeoutHandle = null;
+    }
   }
 
   private scheduleReconnect(): void {
@@ -358,6 +425,8 @@ export class LanWebSocketTransport implements Transport {
       this.timers.clearTimeout(this.reconnectHandle);
       this.reconnectHandle = null;
     }
+    this.clearPongTimeout();
+    this.pendingPingSeq = null;
   }
 
   private transition(next: Partial<TransportStatus>): void {

@@ -100,6 +100,21 @@ export class FailoverTransport implements Transport {
     return this.inner?.sendAction(action) ?? false;
   }
 
+  /**
+   * The network changed (e.g. walked back into Wi-Fi). If the host can use LAN,
+   * forget that we ever fell back to the relay, tear down the current inner
+   * transport, and restart from LAN so we re-evaluate the best path. No-op when
+   * stopped or when the host has no LAN endpoint.
+   */
+  notifyNetworkChanged(): void {
+    if (this.stopped) return;
+    if (!canReconnect(this.host)) return;
+    this.triedRelay = false;
+    this.clearGrace();
+    this.teardownInner();
+    this.start("lan");
+  }
+
   close(): void {
     this.stopped = true;
     this.clearGrace();

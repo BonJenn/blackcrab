@@ -107,6 +107,7 @@ export function connectViaRelay(
     hostId: host.hostId,
     deviceId: host.deviceId!,
     e2eKey: host.e2eKey!,
+    deviceToken: host.relayDeviceToken,
     onFatalReject: options.onFatalReject,
     webSocketFactory: options.webSocketFactory,
     timers: options.timers,

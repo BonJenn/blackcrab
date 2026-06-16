@@ -13,16 +13,72 @@
 //! decrypt their frames, so end-to-end encryption is the real access control.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{self, UnboundedSender};
-use tokio::time::{timeout, Duration};
+use tokio::time::{timeout, Duration, Instant};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 
 const HELLO_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Global ceiling on simultaneously-open connections. Excess connections are
+/// rejected with an error frame and closed; this only sheds abusive load and
+/// never affects a healthy host with its handful of devices.
+const MAX_CONNECTIONS: usize = 1_024;
+
+/// Per-room (per-host) ceiling on connected devices. A host plus its phones is
+/// a tiny set; extra device connections beyond this are anti-abuse rejections.
+const MAX_DEVICES_PER_ROOM: usize = 8;
+
+/// Inbound message rate limit per connection: at most `RATE_LIMIT_BURST`
+/// frames may arrive in any `RATE_LIMIT_WINDOW`. A connection that exceeds this
+/// is closed. The window is generous enough for normal interactive use.
+const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(1);
+const RATE_LIMIT_BURST: u32 = 60;
+
+/// Fixed-window inbound rate limiter for a single connection.
+struct RateLimiter {
+    window_start: Instant,
+    count: u32,
+}
+
+impl RateLimiter {
+    fn new(now: Instant) -> Self {
+        Self {
+            window_start: now,
+            count: 0,
+        }
+    }
+
+    /// Record a frame at `now`; returns `false` if the connection has exceeded
+    /// its allowance for the current window and should be closed.
+    fn allow(&mut self, now: Instant) -> bool {
+        if now.duration_since(self.window_start) >= RATE_LIMIT_WINDOW {
+            self.window_start = now;
+            self.count = 0;
+        }
+        self.count += 1;
+        self.count <= RATE_LIMIT_BURST
+    }
+}
+
+/// Process-wide count of live connections, used to enforce `MAX_CONNECTIONS`.
+/// Decremented via the `ConnectionGuard` RAII drop so every exit path frees it.
+type ConnectionCount = Arc<AtomicUsize>;
+
+/// Decrements the live-connection counter when dropped, regardless of how the
+/// connection task ends.
+struct ConnectionGuard(ConnectionCount);
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 #[derive(Clone)]
 pub struct RelayConfig {
@@ -53,6 +109,11 @@ enum RelayFrame {
         device_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         token: Option<String>,
+        /// Optional per-device relay auth token (minted by the host at pairing).
+        /// Parsed for forward-compatibility but NOT yet required or validated;
+        /// devices without it are still accepted. A later release will enforce.
+        #[serde(rename = "deviceToken", default, skip_serializing_if = "Option::is_none")]
+        device_token: Option<String>,
     },
     HelloAck,
     HelloError {
@@ -94,13 +155,15 @@ enum Role {
 /// Accept connections on `listener` until it errors, forever.
 pub async fn serve(listener: TcpListener, config: RelayConfig) {
     let rooms: Rooms = Arc::new(Mutex::new(HashMap::new()));
+    let live: ConnectionCount = Arc::new(AtomicUsize::new(0));
     loop {
         match listener.accept().await {
             Ok((stream, _peer)) => {
                 let rooms = rooms.clone();
                 let config = config.clone();
+                let live = live.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = handle_connection(stream, rooms, config).await {
+                    if let Err(e) = handle_connection(stream, rooms, config, live).await {
                         eprintln!("relay connection error: {e}");
                     }
                 });
@@ -123,7 +186,17 @@ async fn handle_connection(
     stream: TcpStream,
     rooms: Rooms,
     config: RelayConfig,
+    live: ConnectionCount,
 ) -> Result<(), String> {
+    // Reserve a connection slot up front. If we're at the global ceiling, back
+    // out immediately (the guard's Drop releases the slot on every exit path).
+    let prior = live.fetch_add(1, Ordering::SeqCst);
+    let _conn_guard = ConnectionGuard(live);
+    if prior >= MAX_CONNECTIONS {
+        // Too many open connections; refuse without completing a handshake.
+        return Ok(());
+    }
+
     let ws = tokio_tungstenite::accept_async(stream)
         .await
         .map_err(|e| format!("ws handshake: {e}"))?;
@@ -140,6 +213,7 @@ async fn handle_connection(
             host_id,
             device_id,
             token,
+            device_token,
         }) => {
             if role == Role::Host && token.as_deref() != Some(config.token.as_str()) {
                 let _ = sink
@@ -147,6 +221,10 @@ async fn handle_connection(
                     .await;
                 return Ok(());
             }
+            // `device_token` is plumbed through but intentionally not validated
+            // yet — devices without it remain accepted. A future release will
+            // enforce it for the device role.
+            let _ = device_token;
             (role, host_id, device_id)
         }
         _ => {
@@ -169,32 +247,56 @@ async fn handle_connection(
     // MutexGuard is !Send and must not cross an await). Hosts claim a room
     // exclusively; a second host for the same id is rejected (anti-squatting).
     // We also collect presence frames to emit so the host tracks live devices.
+    enum Registration {
+        Ok,
+        HostTaken,
+        RoomFull,
+    }
     let mut presence: Vec<(Tx, RelayFrame)> = Vec::new();
     let registered = {
         let mut guard = rooms.lock().unwrap();
         let room = guard.entry(host_id.clone()).or_default();
         match role {
-            Role::Host if room.host.is_some() => false,
+            Role::Host if room.host.is_some() => Registration::HostTaken,
             Role::Host => {
                 room.host = Some(tx.clone());
                 // Tell the freshly-connected host about devices already present.
                 for dev in room.devices.keys() {
                     presence.push((tx.clone(), presence_frame(PresenceEvent::Joined, dev)));
                 }
-                true
+                Registration::Ok
+            }
+            // Reject extra devices beyond the per-room cap (a reconnecting
+            // device reuses its key, so this only sheds genuinely new ones).
+            Role::Device
+                if !room.devices.contains_key(&device_key)
+                    && room.devices.len() >= MAX_DEVICES_PER_ROOM =>
+            {
+                // Drop the room entry if our `entry()` just created an empty one.
+                if room.host.is_none() && room.devices.is_empty() {
+                    guard.remove(&host_id);
+                }
+                Registration::RoomFull
             }
             Role::Device => {
                 room.devices.insert(device_key.clone(), tx.clone());
                 if let Some(host) = room.host.clone() {
                     presence.push((host, presence_frame(PresenceEvent::Joined, &device_key)));
                 }
-                true
+                Registration::Ok
             }
         }
     };
-    if !registered {
-        let _ = sink.send(error_frame("host already connected")).await;
-        return Ok(());
+    match registered {
+        Registration::Ok => {}
+        Registration::HostTaken => {
+            let _ = sink.send(error_frame("host already connected")).await;
+            return Ok(());
+        }
+        Registration::RoomFull => {
+            let _ = sink.send(error_frame("too many devices")).await;
+            return Ok(());
+        }
     }
     send_frame(&tx, &RelayFrame::HelloAck);
     for (target, frame) in presence {
@@ -212,7 +314,14 @@ async fn handle_connection(
     });
 
     // Reader loop: route data frames to the counterpart(s).
+    let mut limiter = RateLimiter::new(Instant::now());
     while let Some(Ok(msg)) = read.next().await {
+        // Every inbound frame counts against the per-connection rate limit; a
+        // connection that floods the relay is dropped (the writer task closes
+        // the socket when `tx` is dropped on the way out).
+        if !limiter.allow(Instant::now()) {
+            break;
+        }
         let text = match msg {
             WsMessage::Text(t) => t,
             WsMessage::Close(_) => break,
@@ -447,5 +556,54 @@ mod tests {
         )
         .await;
         assert_eq!(next_text(&mut device).await["type"], "hello_error");
+    }
+
+    #[test]
+    fn rate_limiter_rejects_beyond_burst_then_resets_next_window() {
+        let start = Instant::now();
+        let mut limiter = RateLimiter::new(start);
+        for _ in 0..RATE_LIMIT_BURST {
+            assert!(limiter.allow(start));
+        }
+        // The next frame within the same window is over budget.
+        assert!(!limiter.allow(start));
+        // A frame in the following window is allowed again.
+        assert!(limiter.allow(start + RATE_LIMIT_WINDOW));
+    }
+
+    #[tokio::test]
+    async fn device_token_in_hello_is_accepted_but_not_required() {
+        // A device that supplies a (currently unenforced) deviceToken connects
+        // just like a tokenless one.
+        let port = start_relay("secret").await;
+        let mut device = connect(port).await;
+        send(
+            &mut device,
+            serde_json::json!({
+                "type":"hello","role":"device","hostId":"h1",
+                "deviceId":"dev-tok","deviceToken":"whatever"
+            }),
+        )
+        .await;
+        assert_eq!(next_text(&mut device).await["type"], "hello_ack");
+    }
+
+    #[tokio::test]
+    async fn devices_beyond_room_cap_are_rejected() {
+        let port = start_relay("secret").await;
+        // Fill the room to its device cap; each gets an ack.
+        let mut devices = Vec::new();
+        for i in 0..MAX_DEVICES_PER_ROOM {
+            let mut d = connect(port).await;
+            send(&mut d, hello_device(&format!("dev-{i}"))).await;
+            assert_eq!(next_text(&mut d).await["type"], "hello_ack");
+            devices.push(d);
+        }
+        // One more device is over the cap and rejected.
+        let mut extra = connect(port).await;
+        send(&mut extra, hello_device("dev-extra")).await;
+        let reply = next_text(&mut extra).await;
+        assert_eq!(reply["type"], "hello_error");
+        assert_eq!(reply["reason"], "too many devices");
     }
 }

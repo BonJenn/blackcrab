@@ -230,6 +230,12 @@ export interface PairingResponse {
    * over the trusted LAN pairing channel. Present only on accept.
    */
   e2eKey?: string;
+  /**
+   * Per-device relay auth token, minted by the desktop at pairing. Plumbed to
+   * the device for a future relay device-auth gate; not yet enforced. Accept
+   * only.
+   */
+  relayDeviceToken?: string;
   /** This device's id, used to address it through the relay. Accept only. */
   deviceId?: string;
   rejectedReason?: string;

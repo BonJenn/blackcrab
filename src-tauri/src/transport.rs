@@ -223,6 +223,7 @@ async fn handle_connection(
                     host_id: Some(read_host_id_for_response()),
                     remote_token: Some(resp.remote_token),
                     e2e_key: Some(resp.e2e_key),
+                    relay_device_token: Some(resp.relay_device_token),
                     device_id: Some(resp.paired_device.device_id),
                     rejected_reason: None,
                 };
@@ -240,6 +241,7 @@ async fn handle_connection(
                     host_id: None,
                     remote_token: None,
                     e2e_key: None,
+                    relay_device_token: None,
                     device_id: None,
                     rejected_reason: Some(reason),
                 };
@@ -570,6 +572,11 @@ enum WireMessage {
         remote_token: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "e2eKey")]
         e2e_key: Option<String>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            rename = "relayDeviceToken"
+        )]
+        relay_device_token: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "deviceId")]
         device_id: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "rejectedReason")]

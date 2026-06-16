@@ -274,6 +274,7 @@ type AppSettings = {
   notifyOnTurnComplete: boolean;
   autoCheckUpdates: boolean;
   autoOpenPreview: boolean;
+  launchAtLogin: boolean;
   analyticsEnabled: boolean;
   newPanelWorktreeMode: NewPanelWorktreeMode;
   density: AppDensity;
@@ -298,6 +299,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   notifyOnTurnComplete: true,
   autoCheckUpdates: true,
   autoOpenPreview: true,
+  launchAtLogin: true,
   analyticsEnabled: true,
   newPanelWorktreeMode: "ask",
   density: "compact",
@@ -482,6 +484,10 @@ function loadAppSettings(): AppSettings {
         typeof parsed.autoOpenPreview === "boolean"
           ? parsed.autoOpenPreview
           : DEFAULT_APP_SETTINGS.autoOpenPreview,
+      launchAtLogin:
+        typeof parsed.launchAtLogin === "boolean"
+          ? parsed.launchAtLogin
+          : DEFAULT_APP_SETTINGS.launchAtLogin,
       analyticsEnabled:
         typeof parsed.analyticsEnabled === "boolean"
           ? parsed.analyticsEnabled
@@ -7286,6 +7292,21 @@ function SettingsModal({
                 }
               />
               <span>Check for updates on launch</span>
+            </label>
+            <label className="settings-check-row">
+              <input
+                type="checkbox"
+                checked={settings.launchAtLogin}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  onSettingsChange({ launchAtLogin: enabled });
+                  invoke("set_autostart", { enabled }).catch(() => {
+                    // Best-effort: keep the toggle responsive even if the
+                    // platform login-item update fails.
+                  });
+                }}
+              />
+              <span>Launch at login (keep host reachable)</span>
             </label>
             <label className="settings-check-row">
               <input

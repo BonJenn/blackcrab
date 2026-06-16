@@ -129,6 +129,134 @@ describe("RelayTransport", () => {
     transport.close();
   });
 
+  it("sends a sealed ping on the heartbeat and reconnects on pong timeout", () => {
+    let intervalCb: (() => void) | null = null;
+    let pongCb: (() => void) | null = null;
+    const sockets: FakeWebSocket[] = [];
+    const transport = new RelayTransport({
+      url: "wss://relay.example.com",
+      hostId: "host-1",
+      deviceId: "dev-1",
+      e2eKey: KEY_B64,
+      webSocketFactory: () => {
+        const ws = new FakeWebSocket();
+        sockets.push(ws);
+        return ws;
+      },
+      timers: {
+        setTimeout: (h) => {
+          // Hold the pong timeout for the test; the reconnect timer fires sync.
+          if (pongCb === null) {
+            pongCb = h;
+            return 5;
+          }
+          h();
+          return 0;
+        },
+        clearTimeout: () => {
+          pongCb = null;
+        },
+        setInterval: (h) => {
+          intervalCb = h;
+          return 1;
+        },
+        clearInterval: () => {
+          intervalCb = null;
+        },
+        now: () => 0,
+      },
+    });
+    const statuses: TransportStatus[] = [];
+    transport.subscribe((s) => statuses.push(s));
+
+    sockets[0]!.open();
+    sockets[0]!.deliver({ type: "hello_ack" });
+    expect(statuses.at(-1)?.state).toBe("connected");
+
+    // Heartbeat fires → a sealed ping goes out and the pong-timeout is armed.
+    intervalCb!();
+    const frame = JSON.parse(sockets[0]!.sent.at(-1)!);
+    expect(frame.type).toBe("data");
+    expect(openEnvelope(KEY_B64, frame.payload)?.msg).toMatchObject({
+      type: "ping",
+    });
+
+    // No pong → firing the timeout tears down and reconnects.
+    pongCb!();
+    expect(statuses.map((s) => s.state)).toContain("reconnecting");
+    expect(sockets.length).toBeGreaterThanOrEqual(2);
+    transport.close();
+  });
+
+  it("clears the pong timeout when a matching sealed pong arrives", () => {
+    let intervalCb: (() => void) | null = null;
+    let pongCb: (() => void) | null = null;
+    let cleared = false;
+    const ws = new FakeWebSocket();
+    const transport = new RelayTransport({
+      url: "wss://relay.example.com",
+      hostId: "host-1",
+      deviceId: "dev-1",
+      e2eKey: KEY_B64,
+      webSocketFactory: () => ws,
+      timers: {
+        setTimeout: (h) => {
+          pongCb = h;
+          return 5;
+        },
+        clearTimeout: () => {
+          cleared = true;
+          pongCb = null;
+        },
+        setInterval: (h) => {
+          intervalCb = h;
+          return 1;
+        },
+        clearInterval: () => {},
+        now: () => 0,
+      },
+    });
+    ws.open();
+    ws.deliver({ type: "hello_ack" });
+
+    intervalCb!();
+    const ping = openEnvelope(
+      KEY_B64,
+      JSON.parse(ws.sent.at(-1)!).payload,
+    )?.msg as { type: string; seq: number };
+    expect(ping.type).toBe("ping");
+
+    // Echo the matching sealed pong back through a data frame.
+    const pongPayload = sealEnvelope(KEY_B64, {
+      type: "pong",
+      seq: ping.seq,
+    } as never);
+    ws.deliver({ type: "data", payload: pongPayload });
+    expect(cleared).toBe(true);
+    expect(pongCb).toBeNull();
+    transport.close();
+  });
+
+  it("answers a sealed ping with a sealed pong", () => {
+    const { ws, transport } = make();
+    ws.open();
+    ws.deliver({ type: "hello_ack" });
+
+    const pingPayload = sealEnvelope(KEY_B64, {
+      type: "ping",
+      seq: 21,
+    } as never);
+    ws.deliver({ type: "data", payload: pingPayload });
+
+    const frame = JSON.parse(ws.sent.at(-1)!);
+    expect(frame.type).toBe("data");
+    expect(openEnvelope(KEY_B64, frame.payload)?.msg).toEqual({
+      type: "pong",
+      seq: 21,
+    });
+    transport.close();
+  });
+
   it("stops on hello_error", () => {
     const { ws, transport } = make();
     const rejects: string[] = [];

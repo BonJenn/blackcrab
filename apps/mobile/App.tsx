@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import * as Network from "expo-network";
 import type {
   ApprovalRequest,
   HostId,
@@ -356,6 +357,62 @@ export default function App() {
     });
     return () => sub.remove();
   }, [activeStatus?.state, activeHostId, storedHosts, activeTransport]);
+
+  // Re-evaluate LAN vs relay when the device's network changes (e.g. walking
+  // back into Wi-Fi). Hold the active transport in a ref so the subscription
+  // doesn't churn as the transport swaps. expo-network is a native module, so
+  // feature-detect its API and degrade gracefully if it isn't present.
+  const activeTransportRef = useRef<Transport | null>(null);
+  activeTransportRef.current = activeTransport;
+  useEffect(() => {
+    let lastKey = "";
+    const onChange = (state: {
+      type?: unknown;
+      isConnected?: unknown;
+      isInternetReachable?: unknown;
+    }) => {
+      const key = `${String(state.type)}|${String(state.isConnected)}|${String(
+        state.isInternetReachable,
+      )}`;
+      // First sample establishes the baseline; only react to real changes.
+      if (lastKey === "") {
+        lastKey = key;
+        return;
+      }
+      if (key === lastKey) return;
+      lastKey = key;
+      try {
+        activeTransportRef.current?.notifyNetworkChanged?.();
+      } catch {
+        /* noop */
+      }
+    };
+
+    try {
+      if (typeof Network.addNetworkStateListener === "function") {
+        const sub = Network.addNetworkStateListener(onChange);
+        // Seed the baseline from the current state, if obtainable.
+        Network.getNetworkStateAsync?.().then(onChange).catch(() => {});
+        return () => {
+          try {
+            sub.remove();
+          } catch {
+            /* noop */
+          }
+        };
+      }
+    } catch {
+      /* fall through to polling */
+    }
+
+    // Fallback: poll the network state on an interval where no listener API
+    // exists (or it threw). Guard the call so a missing module can't crash.
+    if (typeof Network.getNetworkStateAsync !== "function") return;
+    const interval = setInterval(() => {
+      Network.getNetworkStateAsync().then(onChange).catch(() => {});
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleForgetHost(hostId: HostId) {
     const hosts = await forgetStoredHost(hostId);

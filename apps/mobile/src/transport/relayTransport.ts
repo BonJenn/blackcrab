@@ -52,6 +52,9 @@ const DEFAULT_TIMERS: TimerProvider = {
 const DEFAULT_WS_FACTORY = (url: string): MinimalWebSocket =>
   new WebSocket(url) as unknown as MinimalWebSocket;
 
+const HEARTBEAT_INTERVAL_MS = 15_000;
+/** How long to wait for a pong before treating the socket as silently dead. */
+const PONG_TIMEOUT_MS = 5_000;
 const BACKOFF_SCHEDULE_MS = [1_000, 2_000, 5_000, 15_000, 30_000];
 
 const RELAY_EVENT_TYPES = new Set([
@@ -76,6 +79,10 @@ export class RelayTransport implements Transport {
   private statusValue: TransportStatus;
   private retryIndex = 0;
   private reconnectHandle: unknown = null;
+  private heartbeatHandle: unknown = null;
+  private pongTimeoutHandle: unknown = null;
+  private pendingPingSeq: number | null = null;
+  private nextPingSeq = 1;
   private stopped = false;
 
   constructor(config: RelayTransportConfig) {
@@ -115,6 +122,25 @@ export class RelayTransport implements Transport {
 
   sendAction(action: RemoteAction): boolean {
     return this.sealAndSend(action);
+  }
+
+  /**
+   * The network changed. The relay reaches the host on or off LAN, so there is
+   * no better path to switch to; a roam can leave the socket silently stale, so
+   * force an immediate reconnect rather than waiting for the next heartbeat.
+   */
+  notifyNetworkChanged(): void {
+    if (this.stopped || !this.ws) return;
+    const ws = this.ws;
+    this.ws = null;
+    this.clearTimers();
+    try {
+      ws.close();
+    } catch {
+      /* noop */
+    }
+    this.transition({ state: "reconnecting", detail: "network changed" });
+    this.scheduleReconnect();
   }
 
   close(): void {
@@ -208,8 +234,23 @@ export class RelayTransport implements Transport {
       case "data": {
         if (!frame.payload) return;
         const envelope = openEnvelope(this.config.e2eKey, frame.payload);
-        if (envelope && RELAY_EVENT_TYPES.has(envelope.msg.type)) {
-          this.emitEvent(envelope.msg as RemoteEvent);
+        if (!envelope) return;
+        const msg = envelope.msg;
+        if (msg.type === "ping") {
+          // Answer the host's keepalive over the same sealed channel.
+          this.send({ type: "pong", seq: msg.seq });
+          return;
+        }
+        if (msg.type === "pong") {
+          // Matching pong — socket is alive; cancel the death timer.
+          if (this.pendingPingSeq !== null && msg.seq === this.pendingPingSeq) {
+            this.pendingPingSeq = null;
+            this.clearPongTimeout();
+          }
+          return;
+        }
+        if (RELAY_EVENT_TYPES.has(msg.type)) {
+          this.emitEvent(msg as RemoteEvent);
         }
         return;
       }
@@ -221,6 +262,50 @@ export class RelayTransport implements Transport {
   private onAuthenticated(): void {
     this.retryIndex = 0;
     this.transition({ state: "connected", hostId: this.config.hostId });
+    this.startHeartbeat();
+  }
+
+  private startHeartbeat(): void {
+    this.heartbeatHandle = this.timers.setInterval(() => {
+      if (this.statusValue.state !== "connected" || !this.ws) return;
+      // Don't pile up another timer while a ping is still unanswered; the
+      // outstanding pong-timeout will fire and force a reconnect.
+      if (this.pendingPingSeq !== null) return;
+      const seq = this.nextPingSeq++;
+      if (!this.sealAndSend({ type: "ping", seq })) return;
+      // Arm the dead-socket timer; cleared when the matching pong arrives.
+      this.pendingPingSeq = seq;
+      this.pongTimeoutHandle = this.timers.setTimeout(() => {
+        this.onPongTimeout();
+      }, PONG_TIMEOUT_MS);
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private onPongTimeout(): void {
+    this.pongTimeoutHandle = null;
+    this.pendingPingSeq = null;
+    if (this.stopped) return;
+    // No pong came back: the socket is silently dead. Drop it and reconnect
+    // through the normal backoff path.
+    const ws = this.ws;
+    this.ws = null;
+    this.clearTimers();
+    if (ws) {
+      try {
+        ws.close();
+      } catch {
+        /* noop */
+      }
+    }
+    this.transition({ state: "reconnecting", detail: "heartbeat timeout" });
+    this.scheduleReconnect();
+  }
+
+  private clearPongTimeout(): void {
+    if (this.pongTimeoutHandle !== null) {
+      this.timers.clearTimeout(this.pongTimeoutHandle);
+      this.pongTimeoutHandle = null;
+    }
   }
 
   private onFatal(detail: string): void {
@@ -252,6 +337,12 @@ export class RelayTransport implements Transport {
       this.timers.clearTimeout(this.reconnectHandle);
       this.reconnectHandle = null;
     }
+    if (this.heartbeatHandle !== null) {
+      this.timers.clearInterval(this.heartbeatHandle);
+      this.heartbeatHandle = null;
+    }
+    this.clearPongTimeout();
+    this.pendingPingSeq = null;
   }
 
   private transition(next: Partial<TransportStatus>): void {

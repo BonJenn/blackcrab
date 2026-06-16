@@ -11,6 +11,7 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_autostart::ManagerExt;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::broadcast;
@@ -4369,6 +4370,57 @@ fn remote_relay_url() -> String {
     }
 }
 
+/// Tray menu item id for revealing the main window.
+const TRAY_SHOW_EVENT: &str = "blackcrab-tray-show";
+/// Tray menu item id for quitting the app for real.
+const TRAY_QUIT_EVENT: &str = "blackcrab-tray-quit";
+
+/// Builds the menu-bar tray icon with "Show Blackcrab" and "Quit" items.
+/// Selecting "Show" reveals + focuses the main window; "Quit" exits the
+/// process (the only path that actually tears the host down, since closing the
+/// window merely hides it).
+fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::tray::TrayIconBuilder;
+
+    let show = MenuItem::with_id(app, TRAY_SHOW_EVENT, "Show Blackcrab", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, TRAY_QUIT_EVENT, "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &quit])?;
+
+    let mut builder = TrayIconBuilder::new()
+        .tooltip("Blackcrab")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            TRAY_SHOW_EVENT => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+            TRAY_QUIT_EVENT => app.exit(0),
+            _ => {}
+        });
+
+    if let Some(icon) = app.default_window_icon().cloned() {
+        builder = builder.icon(icon);
+    }
+
+    builder.build(app)?;
+    Ok(())
+}
+
+/// Toggles whether Blackcrab launches at login. Exposed to the UI so the user
+/// can opt out of the default-on behavior.
+#[tauri::command]
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let autostart = app.autolaunch();
+    if enabled {
+        autostart.enable().map_err(|e| e.to_string())
+    } else {
+        autostart.disable().map_err(|e| e.to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(all(unix, not(debug_assertions)))]
@@ -4380,10 +4432,20 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .menu(blackcrab_menu)
         .on_menu_event(|app, event| {
             if event.id() == OPEN_SETTINGS_EVENT {
                 let _ = app.emit(OPEN_SETTINGS_EVENT, ());
+            }
+        })
+        // Close-to-tray: hiding the window keeps the LAN server + relay client
+        // running so the host stays reachable "as long as the computer is on".
+        // A real quit happens via the tray "Quit" item (`app.exit(0)`).
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .manage(AppState::default())
@@ -4433,7 +4495,8 @@ pub fn run() {
             pairing_accept,
             pairing_cancel,
             pairing_list_devices,
-            pairing_revoke
+            pairing_revoke,
+            set_autostart
         ])
         .setup(|app| {
             let server = transport_server();
@@ -4477,6 +4540,27 @@ pub fn run() {
             // Lets paired phones reach this host off-LAN; the LAN server is
             // unaffected.
             maybe_start_relay_client();
+
+            // Menu-bar tray icon so the host stays reachable while the window
+            // is hidden. Best-effort: a failure here must not block startup.
+            if let Err(e) = setup_tray(app.handle()) {
+                eprintln!("tray: failed to set up: {e}");
+            }
+
+            // Autostart at login so the host returns after a reboot. Enable by
+            // default if not already enabled; best-effort so a failure (e.g. a
+            // sandboxed/unsupported environment) never blocks startup.
+            let autostart = app.autolaunch();
+            match autostart.is_enabled() {
+                Ok(false) => {
+                    if let Err(e) = autostart.enable() {
+                        eprintln!("autostart: failed to enable: {e}");
+                    }
+                }
+                Ok(true) => {}
+                Err(e) => eprintln!("autostart: failed to query state: {e}"),
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

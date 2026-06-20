@@ -37,7 +37,7 @@ jobs:
             rust-targets: ""
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Validate updater signing key
         shell: bash

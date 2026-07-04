@@ -207,7 +207,7 @@ jobs:
           security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | sed 's/^ *"//;s/"$//')
           security default-keychain -d user -s "$keychain_path"
 
-      - uses: tauri-apps/tauri-action@v0.6.2
+      - uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

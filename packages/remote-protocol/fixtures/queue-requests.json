@@ -1,0 +1,414 @@
+[
+  {
+    "name": "read",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "get"
+        }
+      }
+    }
+  },
+  {
+    "name": "enqueue",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "enqueue",
+          "commandId": "command",
+          "body": "original\nmessage"
+        }
+      }
+    }
+  },
+  {
+    "name": "edit",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 4,
+          "change": {
+            "type": "edit",
+            "commandId": "command",
+            "text": "edited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cancel",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 4,
+          "change": {
+            "type": "cancel",
+            "commandId": "command"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "reorder",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 4,
+          "change": {
+            "type": "reorder",
+            "commandIds": [
+              "b",
+              "a"
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "pause",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 4,
+          "change": {
+            "type": "pause"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "resume",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 4,
+          "change": {
+            "type": "resume"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "wrong version",
+    "valid": false,
+    "envelope": {
+      "v": 2,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "get"
+        }
+      }
+    }
+  },
+  {
+    "name": "missing request id",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "operation": {
+          "type": "get"
+        }
+      }
+    }
+  },
+  {
+    "name": "unsupported attachments",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "get"
+        },
+        "attachments": []
+      }
+    }
+  },
+  {
+    "name": "untrimmed id",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": " x ",
+        "requestId": "request",
+        "operation": {
+          "type": "get"
+        }
+      }
+    }
+  },
+  {
+    "name": "oversized id",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+        "operation": {
+          "type": "get"
+        }
+      }
+    }
+  },
+  {
+    "name": "unicode hostname",
+    "valid": true,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "desktop-工作室",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "get"
+        }
+      }
+    }
+  },
+  {
+    "name": "blank body",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "enqueue",
+          "commandId": "command",
+          "body": "  "
+        }
+      }
+    }
+  },
+  {
+    "name": "missing body",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "enqueue",
+          "commandId": "command"
+        }
+      }
+    }
+  },
+  {
+    "name": "attachment operation",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "enqueue",
+          "commandId": "command",
+          "body": "hi",
+          "attachments": []
+        }
+      }
+    }
+  },
+  {
+    "name": "extra operation field",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "get",
+          "extra": true
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid revision -1",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": -1,
+          "change": {
+            "type": "pause"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid revision 1.5",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 1.5,
+          "change": {
+            "type": "pause"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid revision 9007199254740992",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 9007199254740992,
+          "change": {
+            "type": "pause"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "duplicate order",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 0,
+          "change": {
+            "type": "reorder",
+            "commandIds": [
+              "a",
+              "a"
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "unknown change",
+    "valid": false,
+    "envelope": {
+      "v": 1,
+      "msg": {
+        "type": "queue_request",
+        "hostId": "host",
+        "sessionId": "session",
+        "requestId": "request",
+        "operation": {
+          "type": "update",
+          "expectedRevision": 0,
+          "change": {
+            "type": "unknown"
+          }
+        }
+      }
+    }
+  }
+]

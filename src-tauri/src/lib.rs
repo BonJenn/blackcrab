@@ -3,6 +3,7 @@ mod execution;
 mod pairing;
 mod provider;
 mod relay_client;
+mod remote_queue;
 mod transport;
 
 use std::collections::HashMap;
@@ -1759,6 +1760,7 @@ async fn dispatch_next_queued(
 }
 
 fn emit_queue_changed(app: &AppHandle, panel_id: &str, context: &ExecutionContext) {
+    remote_queue::changed(context.clone());
     let _ = app.emit("execution-queue-changed",serde_json::json!({ "panel_id":panel_id,"thread_id":context.thread_id,"run_id":context.run_id }));
 }
 
@@ -3594,6 +3596,21 @@ async fn run_remote_command_consumer(
 ) {
     while let Some(command) = rx.recv().await {
         let result = match command {
+            RemoteCommand::Queue(request) => {
+                let result = remote_queue::execute(
+                    request,
+                    &remote_host_id_for_pairing(),
+                    app.state::<Arc<ExecutionStore>>().inner().clone(),
+                    &sessions,
+                    &session_owners,
+                    Some(&app),
+                )
+                .await;
+                push_remote_event(
+                    serde_json::to_value(result).expect("queue result serialization"),
+                );
+                Ok(())
+            }
             RemoteCommand::SendMessage {
                 session_id,
                 body,
@@ -3679,6 +3696,9 @@ async fn run_remote_command_consumer(
                 // immediately instead of waiting for the next heartbeat.
                 if let Some(transcript) = remote_transcript_event_value() {
                     push_remote_event(transcript);
+                }
+                if let Some(queue) = remote_queue::focused_snapshot() {
+                    push_remote_event(queue);
                 }
                 Ok(())
             }
@@ -4610,6 +4630,9 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
     if let Some(transcript) = remote_transcript_event_value() {
         events.push(transcript);
     }
+    if let Some(queue) = remote_queue::focused_snapshot() {
+        events.push(queue);
+    }
     // Outstanding approvals, so a phone that connects mid-prompt catches up.
     let pending: Vec<PendingApproval> =
         pending_approvals().lock().unwrap().values().cloned().collect();
@@ -4778,6 +4801,7 @@ pub fn run() {
             let execution_root = app.path().app_data_dir()?.join("execution");
             let store =
                 Arc::new(ExecutionStore::open(&execution_root).map_err(std::io::Error::other)?);
+            remote_queue::initialize(store.clone());
             app.manage(store);
             let server = transport_server();
 

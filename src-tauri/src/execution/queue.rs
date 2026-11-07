@@ -19,7 +19,7 @@ pub(crate) struct QueueSnapshot {
     pub items: Vec<QueueItem>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum QueueChange {
     Edit {
@@ -325,6 +325,50 @@ pub(super) fn hold_run(db: &Connection, run_id: &str) -> Result<(), String> {
 }
 
 impl ExecutionStore {
+    /// Confirm only a queue command with the same original payload and thread.
+    /// Used after reconnect without requiring a new live process.
+    pub fn confirm_queued(
+        &self,
+        thread_id: &str,
+        command_id: &str,
+        original: &str,
+    ) -> Result<Option<TurnReceipt>, String> {
+        let mut db = self.connection.lock().map_err(|e| e.to_string())?;
+        let tx = db.transaction().map_err(|e| e.to_string())?;
+        let turn = tx
+            .query_row(
+                &format!("SELECT {RECEIPT_COLUMNS} FROM turns WHERE command_id=?1"),
+                [command_id],
+                row_receipt,
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        let Some((queued, payload)) = queued_receipt(&tx, command_id)? else {
+            return if turn.is_some() {
+                Err("command ID belongs to a different command".into())
+            } else {
+                Ok(None)
+            };
+        };
+        if queued.thread_id != thread_id || payload != original {
+            return Err("command ID was already used for a different message or thread".into());
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(Some(turn.unwrap_or(queued)))
+    }
+
+    pub fn session_for_thread(&self, thread_id: &str) -> Result<Option<String>, String> {
+        let db = self.connection.lock().map_err(|e| e.to_string())?;
+        db.query_row(
+            "SELECT provider_session_id FROM threads WHERE thread_id=?1 AND provider='claude'",
+            [thread_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())
+        .map(Option::flatten)
+    }
+
     pub fn queue_for_session(
         &self,
         provider: &str,

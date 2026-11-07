@@ -88,3 +88,7 @@ eas build --profile development   # dev-client build to install on a phone
 
 `eas.json` already defines `development`, `preview`, and `production` profiles.
 For more detail, see the build steps above or the team's build docs.
+
+## Follow-up queues
+
+The host and shared protocol now provide [queue requests, results and snapshots](../../docs/remote-follow-up-queues.md). Phone queue controls and persistent ambiguous-submission recovery are the next parity step (04c2); the current mobile composer still uses legacy immediate sends. Queue RPCs do not auto-resume stopped sessions.

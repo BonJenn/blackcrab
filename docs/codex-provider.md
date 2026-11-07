@@ -14,8 +14,10 @@ explicit single-workspace start/resume, plain-text sends, streamed output, queue
 controls and one-time command/file approvals. General single/grid provider
 selection and provider-aware mobile controls still expose Claude. Discovery
 therefore keeps Codex `clientReady: false`; the dedicated preview does not imply
-provider-wide readiness. Native visual/window scenarios and actual Codex model
-turns remain unverified; step 05c3b4 covers those gates before general integration.
+provider-wide readiness. An isolated macOS native run has verified the dedicated
+preview against a local CLI stand-in (see [native QA](codex-native-qa.md)). General grid/window scenarios
+and actual Codex model turns remain unverified; step 05c3b4 covers those gates
+before general integration.
 
 The local reference is `codex-cli 0.166.0`. Its generated JSON Schema confirms the
 initialize response fields; the implementation requires a `userAgent` string and

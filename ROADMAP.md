@@ -42,6 +42,15 @@ tests:
 Infrastructure landed alongside: CI now runs the frontend (`vitest`) and Rust
 (`cargo test`) suites on every PR, not just type-check and build.
 
+## T3 functionality parity
+
+The parity program targets `BonJenn/t3code` at
+`7f02de2eb8e253e0ec23f005b3cfff8e2c963be8`. See
+[`docs/t3-parity-plan.md`](docs/t3-parity-plan.md) for ordered PRs and
+acceptance evidence, and [`docs/t3-parity.md`](docs/t3-parity.md) for the
+source comparison. Changes target `stage`; release to `main` is separate.
+Existing remote-hardening PRs must be evaluated for reuse before overlapping work.
+
 ## Next
 
 Near-term, grounded follow-ups:

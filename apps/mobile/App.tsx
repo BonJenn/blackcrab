@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Animated,
@@ -42,6 +42,7 @@ import { connectWithFailover } from "./src/transport/failoverTransport";
 import { firstConnectableHost } from "./src/transport/reconnect";
 import type { Transport, TransportStatus } from "./src/transport/types";
 import { subscribeToHost } from "./src/transport/activeHost";
+import { MobileHostConnection } from "./src/transport/hostConnection";
 
 /** Last path segment, used as a provisional title for a brand-new session. */
 function dirName(path: string): string {
@@ -63,9 +64,10 @@ export default function App() {
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
   const [pairing, setPairing] = useState(false);
-  const [activeTransport, setActiveTransport] = useState<Transport | null>(null);
+  const [hostConnection] = useState(() => new MobileHostConnection((host, onFatalReject) => connectWithFailover(host, { onFatalReject })));
+  const connection = useSyncExternalStore(hostConnection.subscribe, hostConnection.state);
+  const { transport: activeTransport, hostId: activeHostId } = connection;
   const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
-  const [activeHostId, setActiveHostId] = useState<HostId | null>(null);
   const [liveSessions, setLiveSessions] = useState<SessionSummary[] | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<TranscriptEntry[] | null>(
     null,
@@ -114,19 +116,7 @@ export default function App() {
         // preferring LAN and falling back to the relay off-network.
         const host = firstConnectableHost(hosts);
         if (!host) return;
-        const transport = connectWithFailover(host, {
-          onFatalReject: () => {
-            setActiveTransport((current) => {
-              current?.close();
-              return null;
-            });
-            setActiveHostId(null);
-          },
-        });
-        if (transport) {
-          setActiveTransport(transport);
-          setActiveHostId(host.hostId);
-        }
+        hostConnection.connect(host);
       })
       .finally(() => {
         if (mounted) {
@@ -137,7 +127,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [hostConnection]);
 
   // Restore cached read cursors so the divider/landing point is available even
   // before the host's snapshot arrives.
@@ -258,17 +248,13 @@ export default function App() {
     setLiveTranscript(null);
     setLiveSessions(null);
   },[activeHostId]);
-  useEffect(() => () => activeTransport?.close(), [activeTransport]);
+  useEffect(() => () => hostConnection.dispose(), [hostConnection]);
   useEffect(() => { queueClient.bind(activeTransport,activeHostId); return () => queueClient.bind(null,null); }, [queueClient,activeTransport,activeHostId]);
 
   async function handleForgetHost(hostId: HostId) {
     const hosts = await forgetStoredHost(hostId);
     setStoredHosts(hosts);
-    if (activeHostId === hostId) {
-      activeTransport?.close();
-      setActiveTransport(null);
-      setActiveHostId(null);
-    }
+    hostConnection.forget(hostId);
   }
 
   // Record that the user read up to `messageId` in a session: tell the host
@@ -346,51 +332,36 @@ export default function App() {
   ) {
     setStoredHosts(hosts);
     if (transport) {
-      activeTransport?.close();
-      setActiveTransport(transport);
-      setActiveHostId(host.hostId);
+      hostConnection.adopt(host.hostId, transport);
     }
     setPairing(false);
     setTab("hosts");
   }
 
-  // Make a paired host the active connection (used by the new-session machine
-  // picker so you can start on any paired machine, not just the connected one).
+  // Reuse one owner for startup, pairing, host selection and the new-session picker.
   function switchToHost(host: StoredPairedHost) {
-    if (host.hostId === activeHostId) return;
-    const transport = connectWithFailover(host, {
-      onFatalReject: () => {
-        setActiveTransport((current) => {
-          current?.close();
-          return null;
-        });
-        setActiveHostId(null);
-      },
-    });
-    if (transport) {
-      activeTransport?.close();
-      setActiveTransport(transport);
-      setActiveHostId(host.hostId);
-      setProjectDirs([]);
-    }
+    hostConnection.connect(host);
+  }
+
+  function selectHost(hostId: HostId, reconnect = false) {
+    const host = storedHosts.find(value => value.hostId === hostId);
+    if (host && hostConnection.connect(host, reconnect)) setTab("sessions");
   }
 
   // Start a session on the active host in `cwd`, sending `body` as the first
   // message. The host spawns it and replies with session_started, which opens
   // the conversation here.
   function handleStartSession(cwd: string, body: string) {
-    if (!activeTransport || !activeHostId) return;
-    activeTransport.sendAction({
-      type: "start_session",
-      hostId: activeHostId,
-      cwd,
-      body,
-    });
+    if (!activeTransport || !activeHostId || activeTransport.status().state !== "connected" || (activeTransport.status().hostId && activeTransport.status().hostId !== activeHostId)) {
+      Alert.alert("Host not connected", "Wait for the selected host to connect before starting an agent."); return;
+    }
     pendingStartCwdRef.current = cwd;
+    const accepted = activeTransport.sendAction({ type: "start_session", hostId: activeHostId, cwd, body });
+    if (!accepted) { pendingStartCwdRef.current = null; Alert.alert("Not sent", "The host is no longer connected. Your new-session form is still open."); return; }
     setShowNewSession(false);
   }
 
-  const connected = activeStatus?.state === "connected" && Boolean(activeTransport);
+  const connected = activeStatus?.state === "connected" && activeTransport?.status().state === "connected" && (!activeStatus.hostId || activeStatus.hostId === activeHostId);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -398,6 +369,7 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.title}>Blackcrab Remote</Text>
         <Text style={styles.subtitle}>Control your desktop Claude Code sessions</Text>
+        <Text style={styles.subtitle}>{activeHostId ? `${storedHosts.find(host => host.hostId === activeHostId)?.displayName ?? "Selected host"} · ${connected ? "connected" : "not connected"}` : "No host selected"}</Text>
       </View>
       <ScrollView
         horizontal
@@ -428,6 +400,10 @@ export default function App() {
             onPairHost={() => setPairing(true)}
             activeHostId={activeHostId}
             activeStatus={activeStatus}
+            connectionError={connection.error}
+            onConnectHost={selectHost}
+            onDisconnectHost={() => hostConnection.disconnect()}
+            onViewSessions={() => setTab("sessions")}
           />
         )}
         {tab === "sessions" && (

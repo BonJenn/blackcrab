@@ -147,3 +147,23 @@ confirms resolution; it is never replayed automatically. A rejected local send
 keeps an explicit retry available. These controls do not replace host-side
 permission checks, complete protocol schema validation, replay hardening or
 physical-device end-to-end testing.
+
+## Selecting a host
+
+In **Hosts**, choose **Connect** for a paired machine. While it connects, agent
+controls remain unavailable. **Open chats** opens the connected machine's
+conversations; the app header identifies the selected host. **Reconnect**
+explicitly replaces an errored/disconnected transport. Saved hosts without
+reconnect credentials offer **Pair again**.
+
+**Disconnect** closes the phone connection without sending a stop action to
+host agents. Selecting another host creates its transport, retires the old
+owner and closes the previous phone connection. If transport creation fails,
+the existing connection is retained and an explanation is shown; a later
+connection failure is shown for the newly selected host. Late failures from a
+retired connection, including an earlier connection to the same machine, cannot
+clear the replacement. Startup, pairing, the new-session machine picker and
+forgetting a host share this ownership path. Reconnect never resends agent
+commands. The new-session form stays open if a start cannot be handed to a
+connected matching transport; provider-side start receipts/recovery remain
+later work.

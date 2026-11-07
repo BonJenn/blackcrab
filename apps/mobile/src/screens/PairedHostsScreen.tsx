@@ -6,6 +6,7 @@ import {
 
 import type { StoredPairedHost } from "../pairingStore";
 import type { TransportStatus } from "../transport/types";
+import { isConnectable } from "../transport/reconnect";
 import { screenStyles } from "./styles";
 
 interface PairedHostsScreenProps {
@@ -15,6 +16,10 @@ interface PairedHostsScreenProps {
   onPairHost: () => void;
   activeHostId?: HostId | null;
   activeStatus?: TransportStatus | null;
+  connectionError?: string | null;
+  onConnectHost?: (hostId: HostId, reconnect: boolean) => void;
+  onDisconnectHost?: () => void;
+  onViewSessions?: () => void;
 }
 
 export function PairedHostsScreen({
@@ -24,6 +29,10 @@ export function PairedHostsScreen({
   onPairHost,
   activeHostId,
   activeStatus,
+  connectionError,
+  onConnectHost,
+  onDisconnectHost,
+  onViewSessions,
 }: PairedHostsScreenProps) {
   const hasStoredHosts = storedHosts.length > 0;
   const hosts = loading ? [] : storedHosts;
@@ -48,6 +57,8 @@ export function PairedHostsScreen({
       >
         <Text style={localStyles.secondaryButtonText}>Pair desktop</Text>
       </Pressable>
+      {connectionError && <Text accessibilityRole="alert" style={screenStyles.note}>{connectionError}</Text>}
+      {onDisconnectHost && <Text style={screenStyles.note}>Disconnecting closes this phone connection. Agent runs continue on the host.</Text>}
       <FlatList
         data={hosts}
         keyExtractor={(item) => item.hostId}
@@ -56,6 +67,12 @@ export function PairedHostsScreen({
             host={item}
             isStored={hasStoredHosts}
             onForgetHost={hasStoredHosts ? onForgetHost : undefined}
+            active={item.hostId === activeHostId}
+            connectable={isConnectable(item)}
+            onConnectHost={onConnectHost}
+            onDisconnectHost={onDisconnectHost}
+            onViewSessions={onViewSessions}
+            onPairHost={onPairHost}
             connectionStatus={
               activeHostId && activeHostId === item.hostId
                 ? activeStatus ?? null
@@ -77,15 +94,29 @@ function HostRow({
   isStored,
   onForgetHost,
   connectionStatus,
+  active,
+  connectable,
+  onConnectHost,
+  onDisconnectHost,
+  onViewSessions,
+  onPairHost,
 }: {
   host: PairedHostSummary;
   isStored: boolean;
   onForgetHost?: (hostId: HostId) => void;
   connectionStatus: TransportStatus | null;
+  active: boolean;
+  connectable: boolean;
+  onConnectHost?: (hostId: HostId, reconnect: boolean) => void;
+  onDisconnectHost?: () => void;
+  onViewSessions?: () => void;
+  onPairHost: () => void;
 }) {
   const label = connectionStatus
     ? connectionStatus.state.replace("_", " ")
     : "not connected";
+  const connecting = active && (!connectionStatus || ["connecting", "reconnecting"].includes(connectionStatus.state));
+  const connected = active && connectionStatus?.state === "connected";
   return (
     <View style={localStyles.row}>
       <View style={localStyles.rowMain}>
@@ -100,6 +131,14 @@ function HostRow({
         >
           {label}
         </Text>
+        {onConnectHost && <Pressable accessibilityRole="button" accessibilityLabel={`${connected ? "Open chats on" : !connectable ? "Pair again with" : active ? "Reconnect to" : "Connect to"} ${host.displayName}`} disabled={connecting} onPress={() => {
+          if (connected) onViewSessions?.();
+          else if (!connectable) onPairHost();
+          else onConnectHost(host.hostId, active);
+        }} style={({ pressed }) => [localStyles.secondaryButton, pressed && localStyles.secondaryButtonPressed]}>
+          <Text style={localStyles.secondaryButtonText}>{connected ? "Open chats" : connecting ? "Connecting…" : !connectable ? "Pair again" : active ? "Reconnect" : "Connect"}</Text>
+        </Pressable>}
+        {active && onDisconnectHost && <Pressable accessibilityRole="button" accessibilityLabel={`Disconnect from ${host.displayName}`} onPress={onDisconnectHost} style={localStyles.forgetButton}><Text style={localStyles.forgetButtonText}>Disconnect</Text></Pressable>}
         {isStored && onForgetHost && (
           <Pressable
             accessibilityRole="button"

@@ -70,3 +70,28 @@ passed, iOS Hermes bundle export succeeded, and repository smoke passed with
 and production frontend build. Transport and React screen scenarios cover the
 new host/approval boundaries; these are not native device evidence. Native device,
 off-LAN deployment and full navigation verification remain outstanding.
+
+### Host selection increment
+
+The trusted host/session state foundation shipped in #191. The next increment
+adds Connect/Reconnect/Open chats/Disconnect to Hosts and a single connection
+owner shared by app startup, pairing, explicit selection, new-session host
+selection, forgetting and app disposal. A retired generation's rejection cannot
+close the current connection, including when reconnecting to the same host.
+Construction failure or an initial identity mismatch preserves the previous
+connection. Switching after successful construction closes the old phone
+connection; it does not wait for authentication or guarantee seamless handover.
+Later failures are reported on the selected connection. Agent stop/send actions
+are not replayed by connection management.
+
+Controller and React screen tests cover those transitions. New-session submission
+checks the current transport before closing its form; this is not durable
+provider-side start deduplication. Native iOS and real multi-host network tests
+remain required. Launch still chooses the most recently paired connectable host;
+persisting a last-used environment and simultaneous multi-host connections remain
+future work.
+
+Host selection validation: 71 mobile tests and 46 protocol tests passed, mobile
+TypeScript passed, iOS Hermes export succeeded, and full repository smoke passed
+with 147 desktop and 127 native tests (one ignored), Cargo check and production
+frontend build. These checks do not establish signed or real-device operation.

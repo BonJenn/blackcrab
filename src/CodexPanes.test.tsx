@@ -143,3 +143,20 @@ it("does not reapply an old history request after the target pane is removed and
   expect(f.desktop.workspace(second).state()).toMatchObject({ resumeId: "", cwd: "/new-choice", model: "new-model" });
   expect(f.start).not.toHaveBeenCalled();
 });
+
+it("keeps live pane elements, drafts and selection when resizing and equalizing the grid", async () => {
+  const f = fixture();
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} />));
+  await click("Start session", pane(1)); await draft(1, "retained while resizing");
+  await click("Add conversation"); await click("Start session", pane(2)); await click("Grid view");
+  const first = pane(1), secondPane = pane(2), firstOwner = f.desktop.workspace("primary"), secondOwner = f.desktop.workspace(second);
+  const column = element.querySelector('[aria-label="Resize conversation columns"]')!;
+  await act(async () => column.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+  expect(f.desktop.state().sizes.column).toBe(52); expect(f.desktop.state().selected).toBe(second);
+  await click("Equalize panes"); expect(f.desktop.state().sizes.column).toBe(50);
+  await click("Single view"); await click("Grid view");
+  expect(pane(1)).toBe(first); expect(pane(2)).toBe(secondPane);
+  expect(f.desktop.workspace("primary")).toBe(firstOwner); expect(f.desktop.workspace(second)).toBe(secondOwner);
+  expect(firstOwner.state().draft).toBe("retained while resizing"); expect(f.start).toHaveBeenCalledTimes(2);
+  expect(f.control.mock.calls.filter(([, , action]) => action.type !== "queue")).toEqual([]);
+});

@@ -552,3 +552,19 @@ layout changes until reviewed reset. A downgrade cannot read the version 2 list;
 reviewed reset replaces that list, while workspace and outbox data remain.
 Panes removed before this increment were not indexed and cannot be discovered
 retroactively through this list. Cross-window migration remains a separate gate.
+
+## Resizable conversation grid
+
+Drag the shared column divider or the divider between adjacent rows to resize
+panes. Sizes snap near equal; Alt bypasses snapping. Focus a divider and use
+arrow keys to nudge, or Home/End to reach its bounds. Double-click a divider or
+choose **Equalize panes** to reset all proportions. Pointer cancellation restores
+the previous saved size. Resizing preserves pane elements, owners and drafts.
+
+The layout now saves version 3 with bounded column/row proportions. Version 1/2
+layouts load at equal sizes without an initial write; invalid sizes preserve the
+saved record until reviewed reset. Older app versions cannot read version 3 and
+require reviewed reset, which loses its layout index while retaining workspaces
+and message recovery records. Narrow windows show the selected pane while
+retaining grid settings. Dividers align across rows; independent row-specific
+column splits and moving conversations to new windows remain future work.

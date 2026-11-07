@@ -172,3 +172,21 @@ bounded retention without eviction, stale inspection callbacks and stale history
 requests. Earlier removals were not indexed, and cross-window migration and real
 provider operation remain unverified. The final UI text was simplified after the
 native bundle was built; the recovery behavior was unchanged.
+
+## Resizable grid evidence, 2026-11-07
+
+The isolated native fixture displayed two panes and an accessible column splitter.
+Two Right-arrow presses changed its value from 50 to 54; pointer dragging moved
+it to 65. Equalize restored 50. With four panes, the row splitter accepted End at
+90 (the lower row's minimum), then equalization and keyboard changes saved a
+52-percent column split and 55-percent first-row split. Restarting the same app
+restored four idle panes, selected pane 4, grid mode and splitter values 52/55.
+
+Resizing the window to approximately 800 pixels showed only selected pane 4 and
+hid dividers. The fixture wire log across both launches contained only thread
+and model catalog reads, with no starts, resumes, inputs or fixture errors. The
+owned app was closed. Automated regressions additionally cover pointer cancel,
+Alt snapping bypass, stale drags, bounded sizes, failed persistence, v1/v2 loading,
+corrupt size preservation, stable live owners/drafts and Home/End rounding.
+This is one-window native layout evidence, not real-provider or mixed-provider
+window certification.

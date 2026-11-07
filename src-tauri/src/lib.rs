@@ -20,6 +20,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 
+use crate::execution::queue::{QueueChange, QueueSnapshot, QueuedDispatch};
 use crate::execution::{ExecutionContext, ExecutionStore, TurnReceipt};
 use crate::pairing::{
     now_unix_ms as pairing_now_ms, PairedDevice, PairingAcceptResponse, PairingService,
@@ -34,6 +35,30 @@ struct Session {
     process_finished: Arc<AtomicBool>,
     child: Child,
     stdin: ChildStdin,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SessionExecutionInfo {
+    thread_id: String,
+    run_id: String,
+    process_finished: bool,
+}
+
+#[tauri::command]
+async fn session_execution(
+    state: State<'_, AppState>,
+    panel_id: String,
+) -> Result<SessionExecutionInfo, String> {
+    let sessions = state.sessions.lock().await;
+    let session = sessions
+        .get(&panel_id)
+        .ok_or("no active session for this panel")?;
+    Ok(SessionExecutionInfo {
+        thread_id: session.execution.thread_id.clone(),
+        run_id: session.execution.run_id.clone(),
+        process_finished: session.process_finished.load(Ordering::SeqCst),
+    })
 }
 
 const OPEN_SETTINGS_EVENT: &str = "blackcrab-open-settings";
@@ -782,6 +807,193 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn queued_dispatch_obeys_results_stop_resume_and_process_generation() {
+        let root =
+            std::env::temp_dir().join(execution::new_id("blackcrab_queue_delivery_test").unwrap());
+        let store = Arc::new(ExecutionStore::open(&root).unwrap());
+        let context = store
+            .context("claude", "/fixture", Some("native-queue"))
+            .unwrap();
+        let mut child = Command::new("sh")
+            .args(["-c", "cat"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "panel".to_string(),
+            Session {
+                provider: Provider::Claude,
+                execution: context.clone(),
+                process_finished: Arc::new(AtomicBool::new(false)),
+                child,
+                stdin,
+            },
+        )])));
+        deliver_user_message_command(&sessions, "panel", "working", Some("active".into()))
+            .await
+            .unwrap();
+        let _ = lines.next_line().await.unwrap().unwrap();
+        context.enqueue("a", "first follow-up").unwrap();
+        context.enqueue("b", "second follow-up").unwrap();
+        context
+            .update_queue(
+                context.queue_snapshot().unwrap().revision,
+                QueueChange::Reorder {
+                    command_ids: vec!["b".into(), "a".into()],
+                },
+            )
+            .unwrap();
+        assert!(
+            dispatch_next_queued(&sessions, "panel", &context.run_id, None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        context
+            .observe(&serde_json::json!({"type":"result","subtype":"success"}))
+            .unwrap();
+        assert_eq!(
+            dispatch_next_queued(&sessions, "panel", &context.run_id, None)
+                .await
+                .unwrap()
+                .unwrap()
+                .receipt
+                .command_id,
+            "b"
+        );
+        let wire: serde_json::Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(wire["message"]["content"], "second follow-up");
+        assert!(
+            dispatch_next_queued(&sessions, "panel", &context.run_id, None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        terminate_panel(&sessions, &Arc::new(Mutex::new(HashMap::new())), "panel")
+            .await
+            .unwrap();
+        assert_eq!(store.receipt("b").unwrap().status, "interrupted");
+        assert_eq!(store.receipt("a").unwrap().status, "held");
+        drop(lines);
+        let replacement = store
+            .context("claude", "/fixture", Some("native-queue"))
+            .unwrap();
+        let mut child = Command::new("sh")
+            .args(["-c", "cat"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+        sessions.lock().await.insert(
+            "panel".into(),
+            Session {
+                provider: Provider::Claude,
+                execution: replacement.clone(),
+                process_finished: Arc::new(AtomicBool::new(false)),
+                child,
+                stdin,
+            },
+        );
+        assert!(
+            dispatch_next_queued(&sessions, "panel", &replacement.run_id, None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        replacement
+            .update_queue(
+                replacement.queue_snapshot().unwrap().revision,
+                QueueChange::Resume,
+            )
+            .unwrap();
+        assert!(
+            dispatch_next_queued(&sessions, "panel", &context.run_id, None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            dispatch_next_queued(&sessions, "panel", &replacement.run_id, None)
+                .await
+                .unwrap()
+                .unwrap()
+                .receipt
+                .command_id,
+            "a"
+        );
+        let wire: serde_json::Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(wire["message"]["content"], "first follow-up");
+        terminate_panel(&sessions, &Arc::new(Mutex::new(HashMap::new())), "panel")
+            .await
+            .unwrap();
+        drop(lines);
+        drop(sessions);
+        drop(replacement);
+        drop(context);
+        drop(store);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn failed_queue_hold_stops_the_process_and_prevents_dispatch() {
+        let root =
+            std::env::temp_dir().join(execution::new_id("blackcrab_queue_hold_test").unwrap());
+        let store = Arc::new(ExecutionStore::open(&root).unwrap());
+        let context = store
+            .context("claude", "/fixture", Some("native-queue"))
+            .unwrap();
+        context.enqueue("pending", "must not run").unwrap();
+        let mut child = Command::new("sh")
+            .args(["-c", "cat"])
+            .stdin(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let mut session = Session {
+            provider: Provider::Claude,
+            execution: context.clone(),
+            process_finished: Arc::new(AtomicBool::new(false)),
+            child,
+            stdin,
+        };
+        let db = rusqlite::Connection::open(root.join("state.sqlite3")).unwrap();
+        db.execute_batch("CREATE TRIGGER refuse_pause BEFORE UPDATE ON queue_lanes BEGIN SELECT RAISE(ABORT, 'fixture pause failure'); END;").unwrap();
+        assert!(hold_before_interrupt(&mut session)
+            .await
+            .unwrap_err()
+            .contains("session stopped"));
+        assert!(session.process_finished.load(Ordering::SeqCst));
+        assert!(!session.child.wait().await.unwrap().success());
+        let sessions = Arc::new(Mutex::new(HashMap::from([("panel".to_string(), session)])));
+        assert!(
+            dispatch_next_queued(&sessions, "panel", &context.run_id, None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        db.execute_batch("DROP TRIGGER refuse_pause;").unwrap();
+        context.finish("interrupted", None).unwrap();
+        assert_eq!(store.receipt("pending").unwrap().status, "held");
+        drop(db);
+        drop(sessions);
+        drop(context);
+        drop(store);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn extract_session_override_skips_files_without_restorable_metadata() {
         let dir = std::env::temp_dir().join(format!(
@@ -1232,6 +1444,7 @@ async fn start_session(
 
     let mut guard = state.sessions.lock().await;
     if let Some(mut s) = guard.remove(&panel_id) {
+        s.process_finished.store(true, Ordering::SeqCst);
         let _ = s.child.start_kill();
         execution::io(move || {
             s.execution
@@ -1324,104 +1537,110 @@ async fn start_session(
     let app_out = app.clone();
     let pid_out = panel_id.clone();
     let owners_out = state.session_owners.clone();
+    let sessions_out = state.sessions.clone();
     let execution_out = execution.clone();
     let finished_out = process_finished.clone();
     tokio::spawn(async move {
         let mut lines = BufReader::new(stdout).lines();
         let mut claimed: Option<String> = reserved_session_id;
         while let Ok(Some(line)) = lines.next_line().await {
+            let mut is_result = false;
             if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
-                if event["type"] == "result"
-                    || (event["type"] == "system" && event["subtype"] == "init")
-                {
+                is_result = event["type"] == "result";
+                if is_result || (event["type"] == "system" && event["subtype"] == "init") {
                     let context = execution_out.clone();
                     if let Err(error) = execution::io(move || context.observe(&event)).await {
-                        let _ = app_out.emit(
-                            "claude-stderr",
-                            serde_json::json!({
-                                "panel_id": pid_out, "line": format!("execution journal: {error}")
-                            }),
-                        );
+                        let _ = app_out.emit("claude-stderr",serde_json::json!({ "panel_id":pid_out,"line":format!("execution journal: {error}") }));
                     }
                 }
             }
-            // Claim ownership of the session id on the first init event
-            // that carries one. Cheap substring check before a full JSON
-            // parse — session_id only appears on a handful of event types.
+            if finished_out.load(Ordering::SeqCst) {
+                break;
+            }
             if line.contains("\"session_id\"") {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
-                    if let Some(sid) = v.get("session_id").and_then(|x| x.as_str()) {
-                        if claimed.as_deref() == Some(sid) {
-                            let _ = app_out.emit(
-                                "claude-event",
-                                serde_json::json!({ "panel_id": pid_out, "line": line }),
-                            );
-                            continue;
-                        }
-                        let mut owners = owners_out.lock().await;
-                        if let Some(other) = owners.get(sid) {
-                            if other != &pid_out {
-                                let _ = app_out.emit(
-                                    "claude-stderr",
-                                    serde_json::json!({
-                                        "panel_id": pid_out,
-                                        "line": format!(
-                                            "session {} is already open in panel {}; refusing to overwrite owner",
-                                            sid, other
-                                        ),
-                                    }),
-                                );
+                if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+                    if let Some(sid) = event.get("session_id").and_then(|v| v.as_str()) {
+                        if claimed.as_deref() != Some(sid) {
+                            let mut owners = owners_out.lock().await;
+                            if finished_out.load(Ordering::SeqCst) {
+                                break;
                             }
-                        } else {
-                            owners.insert(sid.to_string(), pid_out.clone());
-                            claimed = Some(sid.to_string());
+                            if let Some(other) = owners.get(sid) {
+                                if other != &pid_out {
+                                    let _ = app_out.emit("claude-stderr",serde_json::json!({ "panel_id":pid_out,"line":format!("session {} is already open in panel {}; refusing to overwrite owner",sid,other) }));
+                                }
+                            } else {
+                                owners.insert(sid.to_string(), pid_out.clone());
+                                claimed = Some(sid.to_string());
+                            }
                         }
                     }
                 }
             }
-            // Surface permission prompts to any paired phone.
             register_remote_approval(&pid_out, claimed.as_deref(), &line);
             let _ = app_out.emit(
                 "claude-event",
-                serde_json::json!({ "panel_id": pid_out, "line": line }),
+                serde_json::json!({ "panel_id":pid_out,"run_id":execution_out.run_id,"line":line }),
             );
+            if is_result {
+                if let Err(error) = dispatch_next_queued(
+                    &sessions_out,
+                    &pid_out,
+                    &execution_out.run_id,
+                    Some(&app_out),
+                )
+                .await
+                {
+                    let _ = app_out.emit("claude-stderr",serde_json::json!({ "panel_id":pid_out,"line":format!("queue dispatch: {error}") }));
+                }
+                emit_queue_changed(&app_out, &pid_out, &execution_out);
+            }
         }
         finished_out.store(true, Ordering::SeqCst);
+        let closed_execution = execution_out.clone();
         if let Err(error) = execution::io(move || {
-            execution_out.finish(
+            closed_execution.finish(
                 "interrupted",
                 Some("Provider output closed before a terminal result"),
             )
         })
         .await
         {
+            let _ = app_out.emit("claude-stderr",serde_json::json!({ "panel_id":pid_out,"line":format!("execution journal: {error}") }));
+        }
+        emit_queue_changed(&app_out, &pid_out, &execution_out);
+        // An old reader must not release a replacement process's ownership.
+        let sessions = sessions_out.lock().await;
+        if sessions
+            .get(&pid_out)
+            .is_none_or(|session| session.execution.run_id == execution_out.run_id)
+        {
+            if let Some(sid) = claimed {
+                let mut owners = owners_out.lock().await;
+                if owners.get(&sid) == Some(&pid_out) {
+                    owners.remove(&sid);
+                }
+            }
             let _ = app_out.emit(
-                "claude-stderr",
-                serde_json::json!({
-                    "panel_id": pid_out, "line": format!("execution journal: {error}")
-                }),
+                "claude-done",
+                serde_json::json!({ "panel_id":pid_out,"run_id":execution_out.run_id }),
             );
         }
-        // Release ownership once the subprocess's stdout closes (claude
-        // has exited). If another panel had already stolen the claim,
-        // only drop it if it still points at us.
-        if let Some(sid) = claimed {
-            let mut owners = owners_out.lock().await;
-            if owners.get(&sid).map(|p| p == &pid_out).unwrap_or(false) {
-                owners.remove(&sid);
-            }
-        }
-        let _ = app_out.emit("claude-done", serde_json::json!({ "panel_id": pid_out }));
     });
 
     let app_err = app.clone();
     let pid_err = panel_id.clone();
+    let finished_err = process_finished.clone();
+    let run_err = execution.run_id.clone();
     tokio::spawn(async move {
         let mut lines = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = lines.next_line().await {
+            if finished_err.load(Ordering::SeqCst) {
+                break;
+            }
             let _ = app_err.emit(
                 "claude-stderr",
-                serde_json::json!({ "panel_id": pid_err, "line": line }),
+                serde_json::json!({ "panel_id": pid_err,"run_id":run_err, "line": line }),
             );
         }
     });
@@ -1473,11 +1692,21 @@ async fn deliver_user_message_command(
     let body = text.to_string();
     let begun = execution::io(move || context.begin(&id, &body)).await?;
     if !begun.dispatch {
-        if ["failed", "interrupted", "uncertain"].contains(&begun.receipt.status.as_str()) {
+        if ["failed", "interrupted", "uncertain", "cancelled"]
+            .contains(&begun.receipt.status.as_str())
+        {
             return Err(format!("command is {}; it was not resent. Review its transcript before starting a new command", begun.receipt.status));
         }
         return Ok(begun.receipt);
     }
+    write_prepared_turn(session, text, &command_id).await
+}
+
+async fn write_prepared_turn(
+    session: &mut Session,
+    text: &str,
+    command_id: &str,
+) -> Result<TurnReceipt, String> {
     let line = session.provider.user_message(text);
     let write = async {
         session.stdin.write_all(line.as_bytes()).await?;
@@ -1500,7 +1729,132 @@ async fn deliver_user_message_command(
         ));
     }
     let context = session.execution.clone();
+    let command_id = command_id.to_string();
     execution::io(move || context.sent(&command_id)).await
+}
+
+async fn dispatch_next_queued(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: &str,
+    expected_run: &str,
+    app: Option<&AppHandle>,
+) -> Result<Option<QueuedDispatch>, String> {
+    let mut guard = sessions.lock().await;
+    let Some(session) = guard.get_mut(panel_id) else {
+        return Ok(None);
+    };
+    if session.execution.run_id != expected_run || session.process_finished.load(Ordering::SeqCst) {
+        return Ok(None);
+    }
+    let context = session.execution.clone();
+    let Some(mut next) = execution::io(move || context.claim_queued()).await? else {
+        return Ok(None);
+    };
+    // Announce the persisted dispatch before provider output can overtake it.
+    if let Some(app) = app {
+        emit_queue_dispatch(app, panel_id, &session.execution, &next);
+    }
+    next.receipt = write_prepared_turn(session, &next.text, &next.receipt.command_id).await?;
+    Ok(Some(next))
+}
+
+fn emit_queue_changed(app: &AppHandle, panel_id: &str, context: &ExecutionContext) {
+    let _ = app.emit("execution-queue-changed",serde_json::json!({ "panel_id":panel_id,"thread_id":context.thread_id,"run_id":context.run_id }));
+}
+
+fn emit_queue_dispatch(
+    app: &AppHandle,
+    panel_id: &str,
+    context: &ExecutionContext,
+    dispatched: &QueuedDispatch,
+) {
+    let _ = app.emit("execution-queue-dispatched",serde_json::json!({ "panel_id":panel_id,"thread_id":context.thread_id,"run_id":context.run_id,"text":dispatched.text,"receipt":dispatched.receipt }));
+}
+
+#[tauri::command]
+async fn queue_message(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    panel_id: String,
+    text: String,
+    command_id: String,
+) -> Result<TurnReceipt, String> {
+    let context = {
+        let guard = state.sessions.lock().await;
+        let session = guard
+            .get(&panel_id)
+            .ok_or("no active session for this panel")?;
+        if session.process_finished.load(Ordering::SeqCst) {
+            return Err("resume the session before adding queued messages".into());
+        }
+        let context = session.execution.clone();
+        let submit = context.clone();
+        let id = command_id.clone();
+        execution::io(move || submit.enqueue(&id, &text)).await?;
+        context
+    };
+    let dispatched =
+        dispatch_next_queued(&state.sessions, &panel_id, &context.run_id, Some(&app)).await;
+    emit_queue_changed(&app, &panel_id, &context);
+    dispatched?;
+    let store = context.store.clone();
+    execution::io(move || store.receipt(&command_id)).await
+}
+
+#[tauri::command]
+async fn session_queue(
+    state: State<'_, AppState>,
+    panel_id: String,
+) -> Result<QueueSnapshot, String> {
+    let context = state
+        .sessions
+        .lock()
+        .await
+        .get(&panel_id)
+        .ok_or("no active session for this panel")?
+        .execution
+        .clone();
+    execution::io(move || context.queue_snapshot()).await
+}
+
+#[tauri::command]
+async fn update_session_queue(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    panel_id: String,
+    expected_revision: i64,
+    change: QueueChange,
+) -> Result<QueueSnapshot, String> {
+    let context = {
+        let guard = state.sessions.lock().await;
+        let session = guard
+            .get(&panel_id)
+            .ok_or("no active session for this panel")?;
+        if matches!(change, QueueChange::Resume) && session.process_finished.load(Ordering::SeqCst)
+        {
+            return Err("resume the session before resuming its queue".into());
+        }
+        let context = session.execution.clone();
+        let edit = context.clone();
+        execution::io(move || edit.update_queue(expected_revision, change)).await?;
+        context
+    };
+    let dispatched =
+        dispatch_next_queued(&state.sessions, &panel_id, &context.run_id, Some(&app)).await;
+    emit_queue_changed(&app, &panel_id, &context);
+    dispatched?;
+    execution::io(move || context.queue_snapshot()).await
+}
+
+#[tauri::command]
+async fn execution_queue(
+    store: State<'_, Arc<ExecutionStore>>,
+    session_id: String,
+    provider: Option<String>,
+) -> Result<Option<QueueSnapshot>, String> {
+    let provider = Provider::parse(provider.as_deref())?;
+    let store = store.inner().clone();
+    execution::io(move || store.queue_for_session(provider.id(), &session_id)).await
 }
 
 /// Kill a panel's subprocess and release any session it owned. Shared by the
@@ -1863,31 +2217,44 @@ async fn stop_session(state: State<'_, AppState>, panel_id: String) -> Result<()
     terminate_panel(&state.sessions, &state.session_owners, &panel_id).await
 }
 
+async fn hold_before_interrupt(session: &mut Session) -> Result<(), String> {
+    let context = session.execution.clone();
+    if let Err(error) = execution::io(move || context.pause_owned_queue()).await {
+        session.process_finished.store(true, Ordering::SeqCst);
+        let _ = session.child.start_kill();
+        return Err(format!(
+            "session stopped because its queue could not be held: {error}"
+        ));
+    }
+    Ok(())
+}
+
 #[tauri::command]
-async fn interrupt_session(state: State<'_, AppState>, panel_id: String) -> Result<(), String> {
+async fn interrupt_session(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    panel_id: String,
+) -> Result<(), String> {
+    let mut guard = state.sessions.lock().await;
+    let Some(session) = guard.get_mut(&panel_id) else {
+        return Ok(());
+    };
+    let context = session.execution.clone();
+    let held = hold_before_interrupt(session).await;
+    emit_queue_changed(&app, &panel_id, &context);
+    held?;
     #[cfg(unix)]
-    {
-        let guard = state.sessions.lock().await;
-        if let Some(s) = guard.get(&panel_id) {
-            if let Some(pid) = s.child.id() {
-                unsafe {
-                    libc::kill(pid as i32, libc::SIGINT);
-                }
-            }
+    if let Some(pid) = session.child.id() {
+        unsafe {
+            libc::kill(pid as i32, libc::SIGINT);
         }
     }
-
     #[cfg(windows)]
-    {
-        let mut guard = state.sessions.lock().await;
-        if let Some(s) = guard.get_mut(&panel_id) {
-            s.stdin
-                .write_all(&[0x03])
-                .await
-                .map_err(|e| format!("failed to write interrupt to session: {}", e))?;
-        }
-    }
-
+    session
+        .stdin
+        .write_all(&[0x03])
+        .await
+        .map_err(|e| format!("failed to write interrupt to session: {e}"))?;
     Ok(())
 }
 
@@ -4362,6 +4729,11 @@ pub fn run() {
             start_session,
             send_message,
             execution_history,
+            execution_queue,
+            queue_message,
+            session_queue,
+            session_execution,
+            update_session_queue,
             execution_receipt,
             send_raw,
             stop_session,

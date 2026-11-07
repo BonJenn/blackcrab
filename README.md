@@ -152,6 +152,8 @@ implemented provider.
   linkification.
 - `src-tauri/src/execution.rs`: durable thread mappings, turn receipts, and
   host recovery leases.
+- `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
+  command support; client queue controls are the next parity step.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,
   and message framing.
 - `src-tauri/src/lib.rs`: Tauri commands for Claude process management,

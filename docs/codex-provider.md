@@ -8,12 +8,13 @@ turns, drain follow-ups, interrupt, and answer supported one-time approvals.
 Its typed events carry text, item/tool lifecycle, token usage and terminal error
 payloads.
 
-This is backend library implementation, not a user-facing provider release. The
-runtime is not yet connected to `start_session`, the application session registry,
-provider discovery, saved-history indexing or either client. The running app
-still uses Claude. Host-command routing and account/model/history/client controls
-are step 05c; they must be connected before advertising a runnable Codex provider.
-No actual Codex model turn or device scenario has been validated by these fixtures.
+Step 05c1 connects the runtime to the native session registry and commands. It is
+an API implementation, not a user-facing provider release: `start_session` can
+accept `provider: "codex"`, but discovery marks Codex `clientReady: false`.
+The existing desktop/mobile controls still expose Claude. Account/model/history
+services, desktop rendering/approval controls and provider-aware mobile routing
+are steps 05c2–05c4 and must work before enabling the selector. No actual Codex
+model turn or device scenario has been validated by these fixtures.
 
 The local reference is `codex-cli 0.166.0`. Its generated JSON Schema confirms the
 initialize response fields; the implementation requires a `userAgent` string and
@@ -89,8 +90,9 @@ Only an explicit one-time accept, decline or cancel is accepted. Replies to old,
 unknown or already-answered IDs are rejected. Session-wide grants, policy
 amendments, file approvals requesting a grant root and other server request types
 are not implemented: unsupported requests receive an RPC error and hold follow-ups.
-Client UI for these decisions is still pending. Item/tool payloads are preserved
-for presentation; this step does not yet render them in the application.
+The native answer endpoint routes these decisions, while client UI remains
+pending. Item/tool payloads are preserved for presentation; this step does not
+yet render them in the application.
 
 Interrupt holds queued work before writing `turn/interrupt`. Its RPC reply is not
 substituted for a terminal result; the provider completion drives the receipt.
@@ -99,6 +101,50 @@ interrupted/uncertain receipt when no terminal result was known. It cannot undo
 provider/tool side effects. A missing start acknowledgement is uncertain, not a
 reason to start another turn. The caller must drain typed events; overflow or
 journal failure closes dispatch rather than silently dropping lifecycle state.
+
+## Native host API
+
+- `list_providers` returns installation/capability metadata and `clientReady`.
+  Codex is installed when its executable is found, but client readiness remains
+  false. This is not evidence of login, model availability or working UI.
+- `start_session` accepts `provider: "codex"` with permission mode `default`
+  (workspace-write/on-request) or `readOnly` (read-only/on-request). Model is
+  optional and passed exactly as selected; resume uses the provider's native
+  thread ID. Unsupported modes/worktrees fail before replacing the current
+  panel. A missing executable also fails before replacement. No Claude keychain
+  token is injected into the Codex command; the normal CLI environment/account
+  remains Codex-owned. Full-access, plan and steering modes are not implemented.
+- `send_message`, `queue_message`, `session_queue`, `update_session_queue`,
+  `interrupt_session` and `stop_session` route according to the panel's backend.
+  Codex owns receipt preparation and queue dispatch internally; the host never
+  creates a second turn or writes a Claude input line for it.
+- `session_execution` includes the provider, local journal thread/run IDs,
+  process status, and Codex `providerSessionId`. `execution_history` and
+  `execution_queue` accept `provider: "codex"` for journal reads. These are not
+  provider transcript/history indexing. `execution_provider_turn({commandId})`
+  reads the provider-turn mapping separately from its stable receipt.
+- `answer_provider_approval({panelId, approvalId, decision})` accepts only
+  `accept`, `decline` or `cancel` for a current opaque Codex approval ID. Claude
+  retains its existing control path. `send_raw` rejects Codex input, including
+  control messages; callers cannot inject arbitrary RPC frames.
+
+`provider-event` carries `{panel_id, run_id, provider: "codex", event}` with the
+runtime's typed event body. Codex events do not masquerade as Claude stream JSON.
+User/queue events also feed the existing queue-dispatched/changed signals, so
+queue clients can reconcile stable command IDs. Future consumers must filter
+panel/run/provider identities and avoid appending both the typed User and its
+queue-dispatch echo. Old readers stop forwarding and cannot clear a replacement
+run's ownership. Registry and owner cleanup stay under the same lock.
+Startup still holds the shared session registry lock, as the existing Claude
+host does; another panel's command can wait for startup to finish. Per-panel
+startup isolation remains future host work before broader client readiness.
+
+Codex ownership keys use `codex:<nativeThreadId>`; legacy Claude ownership remains
+compatible with existing phones. The current remote protocol and history
+snapshots still target Claude, and do not discover or route Codex sessions yet.
+Legacy remote sends/stops and raw approval input reject a Codex-owned panel.
+The host still belongs to the desktop app; this does not create an independent
+host or guarantee background operation after app exit.
 
 ## Verification
 
@@ -154,3 +200,10 @@ with the installed-CLI probe ignored by default, and the desktop suite passed
 84 tests. Final Cargo check passed. This includes 10 Codex lifecycle fixtures and
 three provider identity/migration/lock tests, plus the strengthened host lease
 recovery regression. No live Codex model turn was started.
+
+Final 05c1 validation: full smoke passed with 115 native tests and the CLI probe
+ignored, 84 desktop tests, typecheck, Cargo check and production build. Four
+real-pipe host fixtures cover shared idempotent dispatch, queue/interrupt/resume,
+opaque one-time approval routing, and stop/restart ownership. They also reject
+legacy phone sends/stops against Codex and unsupported launch modes without
+replacing the current run. No live model turn, UI or device scenario was run.

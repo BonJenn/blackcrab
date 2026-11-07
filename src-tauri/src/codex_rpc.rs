@@ -210,6 +210,7 @@ struct Pending {
 pub(crate) struct Client {
     commands: mpsc::Sender<ClientCommand>,
     options: Options,
+    #[cfg(test)]
     stderr_bytes: Arc<AtomicU64>,
     completion: watch::Receiver<bool>,
 }
@@ -287,6 +288,7 @@ impl Client {
         let client = Self {
             commands,
             options,
+            #[cfg(test)]
             stderr_bytes,
             completion,
         };
@@ -341,6 +343,7 @@ impl Client {
         })?;
         result.await.unwrap_or(Err(RpcError::Closed))
     }
+    #[cfg(test)]
     pub async fn notify(&self, method: &str, params: Option<Value>) -> Result<(), RpcError> {
         check_method(method)?;
         self.notify_internal(method, params).await.map(|_| ())
@@ -354,6 +357,7 @@ impl Client {
         self.send(ClientCommand::Respond { id, result, reply })?;
         ack.await.unwrap_or(Err(RpcError::Closed)).map(|_| ())
     }
+    #[cfg(test)]
     pub fn stderr_bytes(&self) -> u64 {
         self.stderr_bytes.load(Ordering::Relaxed)
     }

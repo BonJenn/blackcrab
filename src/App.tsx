@@ -32,6 +32,7 @@ import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { QueueControls } from "./QueueControls";
 import { queueClient, startQueuedSession, type AcceptedEvent } from "./queueClient";
 import { usePanelQueue } from "./usePanelQueue";
+import type { CodexActivity } from "./CodexConversation";
 import {
   patchSessionInfoList,
   removeSessionInfoFromList,
@@ -1330,6 +1331,8 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cwd, setCwd] = useState<string>(() => appSettings.startupCwd);
   const [codexHistoryOpen, setCodexHistoryOpen] = useState(false);
+  const [codexLoaded, setCodexLoaded] = useState(false);
+  const [codexActivity, setCodexActivity] = useState<CodexActivity>("idle");
   const [model, setModel] = useState<string>(() => appSettings.defaultModel);
   const [permissionMode, setPermissionMode] = useState<string>(
     () => appSettings.defaultPermissionMode,
@@ -5824,9 +5827,14 @@ function App() {
           onImportBackup={importBackup}
         />
       )}
-      {codexHistoryOpen && (
+      {codexLoaded && (
         <Suspense fallback={<div role="status">Loading Codex browser…</div>}>
-          <CodexHistory onClose={() => setCodexHistoryOpen(false)} />
+          <CodexHistory
+            open={codexHistoryOpen}
+            defaultCwd={cwd}
+            onActivity={setCodexActivity}
+            onClose={() => setCodexHistoryOpen(false)}
+          />
         </Suspense>
       )}
       {diagnosticsOpen && (
@@ -6176,9 +6184,12 @@ function App() {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => setCodexHistoryOpen(true)}
+              onClick={() => {
+                setCodexLoaded(true);
+                setCodexHistoryOpen(true);
+              }}
             >
-              Codex history
+              Codex{codexActivity !== "idle" ? ` · ${codexActivity}` : ""}
             </button>
           </div>
         </header>

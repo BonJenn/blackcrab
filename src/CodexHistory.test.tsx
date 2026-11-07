@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import CodexHistory from "./CodexHistory";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./CodexConversation", () => ({ default: ({ requestedThread, onActivity }: { requestedThread?: { id: string }; onActivity?: (value: "running") => void }) => <section data-testid="conversation-stub">Selected thread: {requestedThread?.id}<button onClick={() => onActivity?.("running")}>Simulate background activity</button></section> }));
 const call = vi.mocked(invoke);
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let element: HTMLDivElement;
@@ -87,4 +88,26 @@ it("closes on Escape through the modal's cancel event and restores focus on unmo
   expect(close).toHaveBeenCalledTimes(1);
   act(() => root.render(null));
   expect(document.activeElement).toBe(opener); opener.remove();
+});
+
+it("hands history to the preview without starting and keeps its view mounted across dialog close/reopen", async () => {
+  const activity = vi.fn();
+  call.mockResolvedValueOnce(reply("threads", page([thread("chosen-thread")])));
+  await act(async () => root.render(<CodexHistory onClose={close} onActivity={activity} />));
+  call.mockResolvedValueOnce(reply("turns", page([])));
+  await act(async () => element.querySelector<HTMLButtonElement>(".codex-thread-list button")!.click());
+  await click("Continue in conversation");
+  await act(async () => { await import("./CodexConversation"); });
+  expect(element.textContent).toContain("Selected thread: chosen-thread");
+  await click("Simulate background activity");
+  expect(activity).toHaveBeenCalledWith("running");
+  const reads = call.mock.calls.length;
+  await act(async () => root.render(<CodexHistory onClose={close} onActivity={activity} open={false} />));
+  expect(element.querySelector("dialog")?.open).toBe(false);
+  expect(element.querySelector('[data-testid="conversation-stub"]')).not.toBeNull();
+  await act(async () => root.render(<CodexHistory onClose={close} onActivity={activity} open={true} />));
+  expect(element.querySelector("dialog")?.open).toBe(true);
+  expect(element.textContent).toContain("Selected thread: chosen-thread");
+  expect(call.mock.calls.length).toBe(reads);
+  expect(call.mock.calls.every(([method]) => method === "codex_query")).toBe(true);
 });

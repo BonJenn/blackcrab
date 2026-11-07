@@ -156,12 +156,13 @@ implemented provider.
   host recovery leases.
 - `src-tauri/src/codex_rpc.rs`, `codex_runtime.rs`, `codex_host.rs` and
   `codex_services.rs`: app-server transport, journal-backed runtime, native host
-  routing and bounded account/model/history reads. Codex client controls
-  remain disabled until live conversation controls are connected. The top bar's
-  **Codex history** browser reads CLI history, account status and models without
-  starting a conversation. See [`docs/codex-provider.md`](docs/codex-provider.md).
-- `src/codexLive.ts`: prepared live client state, receipt recovery and bounded
-  run/turn-scoped output. Conversation views using it are not yet enabled.
+  routing and bounded account/model/history reads. The **Codex** panel includes a
+  dedicated conversation preview and CLI history/account/catalog browsing.
+  General single/grid provider selection remains Claude-only. See
+  [`docs/codex-provider.md`](docs/codex-provider.md).
+- `src/codexLive.ts`, `CodexConversation.tsx` and `codexWorkspace.ts`: guarded live
+  state, recovery, workspace UI and persistent drafts. Native visual/real-turn
+  scenarios and general provider readiness remain unverified.
 - `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
   command support, with shared desktop controls in `src/QueueControls.tsx`.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,

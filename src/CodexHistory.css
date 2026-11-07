@@ -14,3 +14,16 @@
 .codex-history-dialog p, .codex-history-dialog dd { overflow-wrap: anywhere; }
 .codex-history-dialog [role="alert"] { color: var(--err); }
 @media (max-width: 700px) { .codex-history-columns { grid-template-columns: 1fr; } }
+.codex-conversation textarea { display: block; width: 100%; min-height: 100px; resize: vertical; color: var(--text); background: var(--bg-elev); border: 1px solid var(--border); padding: 10px; box-sizing: border-box; font: inherit; }
+.codex-launch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.codex-history-dialog .codex-launch input, .codex-history-dialog .codex-launch select { width: 100%; box-sizing: border-box; }
+.codex-launch .codex-page-actions { grid-column: 1 / -1; }
+.codex-approval { border: 1px solid var(--warn); border-radius: 6px; padding: 12px; margin: 16px 0; }
+.codex-queue { padding-left: 24px; }
+.codex-queue > li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.codex-conversation label { display: block; }
+.codex-conversation .codex-page-actions { align-items: center; }
+.codex-conversation code { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .codex-launch { grid-template-columns: 1fr; } }
+
+.codex-conversation [aria-label="Codex live transcript"] { max-height: 52vh; overflow: auto; overscroll-behavior: contain; }

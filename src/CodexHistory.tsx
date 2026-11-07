@@ -1,9 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import { codexQuery, historyItem, type CodexAccount, type CodexItem, type CodexModel, type CodexThread, type CodexTurn } from "./codexClient";
 import { useCodexPage } from "./useCodexPage";
 import "./CodexHistory.css";
+import type { CodexActivity } from "./CodexConversation";
+const CodexConversation = lazy(() => import("./CodexConversation"));
 
-type Tab = "history" | "models" | "account";
+type Tab = "history" | "models" | "account" | "conversation";
 function date(seconds: number) { return new Date(seconds * 1000).toLocaleString(); }
 function ItemView({ item }: { item: unknown }) {
   const value = historyItem(item);
@@ -17,13 +19,14 @@ function PageActions({ page }: { page: { loading: boolean; error: string | null;
     {page.nextCursor && <button type="button" className="btn btn-secondary" disabled={page.loading} onClick={page.more}>{page.error ? "Retry next page" : "Load more"}</button>}
   </div>;
 }
-function ThreadHistory({ thread }: { thread: CodexThread }) {
+function ThreadHistory({ thread, onChoose }: { thread: CodexThread; onChoose: (thread: CodexThread) => void }) {
   const [fullTurns, setFullTurns] = useState(false);
   const [turn, setTurn] = useState<string>();
   const turns = useCodexPage<CodexTurn>({ type: "turns", threadId: thread.id, page: { limit: 20 }, itemsView: fullTurns ? "full" : "notLoaded" }, value => value.id);
   const items = useCodexPage<CodexItem>(turn ? { type: "items", threadId: thread.id, turnId: turn, page: { limit: 50 } } : null, value => `${value.turnId}:${historyItem(value.item).id ?? JSON.stringify(value.item)}`);
   return <section aria-label="Codex thread history">
     <h3>{thread.name || thread.preview || thread.id}</h3>
+    <button type="button" className="btn btn-secondary" onClick={() => onChoose(thread)}>Continue in conversation</button>
     <p>{thread.cwd} · {thread.modelProvider}{thread.model ? ` · ${thread.model}` : ""}</p>
     <p>Updated {date(thread.updatedAt)}. Stored history; live output may be newer.</p>
     <label><input type="checkbox" checked={fullTurns} onChange={event => { setFullTurns(event.target.checked); setTurn(undefined); }} /> Include full items in each turn page (legacy history)</label>
@@ -43,7 +46,7 @@ function ThreadHistory({ thread }: { thread: CodexThread }) {
     </section>}
   </section>;
 }
-function HistoryBrowser() {
+function HistoryBrowser({ onChoose }: { onChoose: (thread: CodexThread) => void }) {
   const [cwd, setCwd] = useState("");
   const [filter, setFilter] = useState<string>();
   const [archived, setArchived] = useState(false);
@@ -63,7 +66,7 @@ function HistoryBrowser() {
           <strong>{thread.name || thread.preview || thread.id}</strong><span>{thread.cwd}</span><span>{thread.modelProvider} · {date(thread.updatedAt)}</span>
         </button></li>)}</ul>
       </section>
-      {selected ? <ThreadHistory key={selected.id} thread={selected} /> : <p>Select a thread to read its stored turns.</p>}
+      {selected ? <ThreadHistory key={selected.id} thread={selected} onChoose={onChoose} /> : <p>Select a thread to read its stored turns.</p>}
     </div>
   </>;
 }
@@ -93,21 +96,27 @@ function Account() {
     <p>Configure login and account changes in the Codex CLI.</p><button type="button" className="btn btn-secondary" disabled={state.loading} onClick={() => setRevision(value => value + 1)}>Refresh account</button>
   </section>;
 }
-export default function CodexHistory({ onClose }: { onClose: () => void }) {
+export default function CodexHistory({ onClose, open = true, defaultCwd = "", onActivity }: { onClose: () => void; open?: boolean; defaultCwd?: string; onActivity?: (activity: CodexActivity) => void }) {
   const [tab, setTab] = useState<Tab>("history");
+  const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [requestedThread, setRequestedThread] = useState<CodexThread>();
+  const chooseThread = useCallback((thread: CodexThread) => { setRequestedThread({ ...thread }); setConversationLoaded(true); setTab("conversation"); }, []);
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useId();
   useEffect(() => {
+    if (!open) return;
     const node = dialog.current;
     const previous = document.activeElement as HTMLElement | null;
-    node?.showModal();
+    if (node && !node.open) node.showModal();
     node?.querySelector<HTMLButtonElement>("button")?.focus();
-    return () => { node?.close(); previous?.focus(); };
-  }, []);
+    return () => { if (node?.open) node.close(); if (previous?.isConnected) previous.focus(); };
+  }, [open]);
   return <dialog className="codex-history-dialog" ref={dialog} aria-labelledby={title} onCancel={event => { event.preventDefault(); onClose(); }}>
     <header><h2 id={title}>Codex</h2><button type="button" className="btn btn-secondary" onClick={onClose}>Close</button></header>
-    <p>Read your CLI history, models and account. Use the Codex CLI to start or resume conversations.</p>
-    <nav aria-label="Codex sections">{(["history", "models", "account"] as const).map(value => <button key={value} type="button" className="btn btn-secondary" aria-pressed={tab === value} onClick={() => setTab(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
-    <div className="codex-history-body">{tab === "history" ? <HistoryBrowser /> : tab === "models" ? <Models /> : <Account />}</div>
+    <p>Read your CLI history, models and account, or open a conversation preview.</p>
+    <nav aria-label="Codex sections">{(["history", "models", "account", "conversation"] as const).map(value => <button key={value} type="button" className="btn btn-secondary" aria-pressed={tab === value} onClick={() => { if (value === "conversation") setConversationLoaded(true); setTab(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
+    <div className="codex-history-body">{tab === "history" ? <HistoryBrowser onChoose={chooseThread} /> : tab === "models" ? <Models /> : tab === "account" ? <Account /> : null}
+      {conversationLoaded && <div hidden={tab !== "conversation"}><Suspense fallback={<p role="status">Loading conversation…</p>}><CodexConversation defaultCwd={defaultCwd} requestedThread={requestedThread} onActivity={onActivity} /></Suspense></div>}
+    </div>
   </dialog>;
 }

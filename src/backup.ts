@@ -13,7 +13,8 @@ export const BACKUP_VERSION = 1;
 // `blackcrab.analyticsInstallId` — that identity should not be cloned onto a
 // second machine or duplicated by a restore. Unconfirmed queue submissions
 // (`blackcrab.queueSubmission.v1.*`) and Codex outboxes
-// (`blackcrab.codexOutbox.v1.*`) also stay local to their host.
+// (`blackcrab.codexOutbox.v1.*`) and Codex workspace drafts/preferences
+// (`blackcrab.codexWorkspace.v1.*`) also stay local to their host.
 export const BACKUP_KEYS: readonly string[] = [
   "blackcrab.settings",
   "composerDrafts",

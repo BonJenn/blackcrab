@@ -9,7 +9,7 @@ export type CodexInfo = { threadId: string; providerThreadId: string; runId: str
 export type CodexEnvelope = { provider: string; panel_id: string; run_id: string; event: unknown };
 export type CodexPending = { version: 1; provider: "codex"; panelId: string; threadId: string; providerSessionId: string; runId: string; commandId: string; text: string; queued: boolean };
 export type CodexOutput = { commandId: string; itemId: string; label: string; text: string; completed: boolean; truncated: boolean };
-export type CodexApproval = { id: string; commandId: string; providerTurnId: string; method: string; preview: string };
+export type CodexApproval = { id: string; commandId: string; providerTurnId: string; method: string; preview: string; truncated: boolean };
 export type CodexLiveState = {
   phase: "idle" | "starting" | "live" | "detached" | "stopping" | "stopped";
   context: CodexContext | null;
@@ -311,10 +311,15 @@ export class CodexLiveClient {
     if (!string(event.commandId) && event.type !== "turn_completed") return;
     const command = event.type === "turn_completed" && validReceipt(event.receipt, context.threadId) ? event.receipt.commandId : event.commandId;
     if (!string(command) || !string(event.providerTurnId) || this.turns.get(command) !== event.providerTurnId) return;
-    if (event.type === "turn_completed" && validReceipt(event.receipt, context.threadId, command) && TERMINAL.has(event.receipt.status)) { this.receipt(event.receipt); return; }
+    if (event.type === "turn_completed" && validReceipt(event.receipt, context.threadId, command) && TERMINAL.has(event.receipt.status)) {
+      this.receipt(event.receipt);
+      if (event.error != null) this.update({ notices: [...this.value.notices, { method: `Turn ${command} error`, preview: preview(event.error, 16384) }].slice(-32) });
+      return;
+    }
     if (this.active !== command || TERMINAL.has(this.receipts.get(command)?.status ?? "")) return;
     if (event.type === "approval_requested" && string(event.approvalId) && string(event.method)) {
-      if (!this.resolvedApprovals.has(event.approvalId) && !this.value.approvals.some(item => item.id === event.approvalId) && this.value.approvals.length < 32) this.update({ approvals: [...this.value.approvals, { id: event.approvalId, commandId: command, providerTurnId: event.providerTurnId, method: event.method, preview: preview(event.params, 65536) }] });
+      const details = JSON.stringify(event.params) ?? "";
+      if (!this.resolvedApprovals.has(event.approvalId) && !this.value.approvals.some(item => item.id === event.approvalId) && this.value.approvals.length < 32) this.update({ approvals: [...this.value.approvals, { id: event.approvalId, commandId: command, providerTurnId: event.providerTurnId, method: event.method, preview: details.slice(0, 65536), truncated: details.length > 65536 }] });
     } else if (event.type === "usage") {
       this.update({ usage: [...this.value.usage.filter(item => item.commandId !== command), { commandId: command, preview: preview(event.usage, 16384) }].slice(-100) });
     } else if (event.type === "item" && object(event.item) && string(event.item.id)) {

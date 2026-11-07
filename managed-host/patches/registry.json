@@ -1,0 +1,20 @@
+[
+  {
+    "id": "office-font-file-url-path",
+    "file": "001-office-font-path.patch",
+    "target": "apps/web/vite.config.ts",
+    "sha256": "e8de31b3643c99bcc0a4133f5169b5580c178ac482f2b8e68694dac89b44d395",
+    "beforeSha256": "50a36d354390a1781cc3adaaacffd969076b9ad8e0cf6c535e87e3d53835549e",
+    "afterSha256": "9ad0aa67a6af507008373a7cfc9b1e71da712523cd72443e176c8a5cbf04a531",
+    "replacements": [
+      {
+        "before": "import * as NodeZlib from \"node:zlib\";",
+        "after": "import * as NodeZlib from \"node:zlib\";\nimport * as NodeURL from \"node:url\";"
+      },
+      {
+        "before": "\"@betteroffice/fonts-cjk\": new URL(\n          \"./src/components/files/office/fonts-cjk.ts\",\n          import.meta.url,\n        ).pathname,",
+        "after": "\"@betteroffice/fonts-cjk\": NodeURL.fileURLToPath(new URL(\n          \"./src/components/files/office/fonts-cjk.ts\",\n          import.meta.url,\n        )),"
+      }
+    ]
+  }
+]

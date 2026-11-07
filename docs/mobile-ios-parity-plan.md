@@ -130,3 +130,16 @@ network evidence remain pending.
 Remembered-host validation: 102 mobile tests and 46 protocol tests passed, all
 workspace TypeScript checks passed, and final iOS Hermes export succeeded. These
 are controller/build checks; native device and real network scenarios remain open.
+
+### Provider discovery increment
+
+M1 now has a host-scoped Providers tab using authenticated LAN/encrypted relay
+RPC. Installation, client readiness and adapter features remain separate, with
+explicit old-host timeout and no substituted provider. Codex remote controls,
+account/model discovery and native iOS/network evidence remain pending. The
+[contract guide](remote-providers.md) records validation and limitations.
+
+Provider discovery validation: 109 mobile tests, 48 protocol tests, workspace
+TypeScript checks and iOS Hermes export passed. Combined desktop/mobile smoke
+passed with 167 desktop and 133 native tests (one installed-CLI probe ignored),
+Cargo check and production build. No real provider turn or iOS device claim is made.

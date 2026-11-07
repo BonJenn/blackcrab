@@ -8,6 +8,7 @@ mod pairing;
 mod provider;
 mod relay_client;
 mod remote_queue;
+mod remote_providers;
 mod transport;
 
 use std::collections::HashMap;
@@ -3829,6 +3830,11 @@ async fn run_remote_command_consumer(
 ) {
     while let Some(command) = rx.recv().await {
         let result = match command {
+            RemoteCommand::Providers(request) => {
+                let result = remote_providers::execute(request, &remote_host_id_for_pairing());
+                push_remote_event(serde_json::to_value(result).expect("provider result serialization"));
+                Ok(())
+            }
             RemoteCommand::Queue(request) => {
                 let result = remote_queue::execute(
                     request,

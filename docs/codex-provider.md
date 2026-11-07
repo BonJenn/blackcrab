@@ -183,6 +183,53 @@ UI must use this guarded interface. The bridge does not yet implement outbox
 persistence, transcript rendering or reconnect state. Client readiness remains
 false until those controls and their scenarios are complete.
 
+## Live client state
+
+`src/codexLive.ts` provides one `CodexLiveClient` per owned panel with an injected
+backend/storage boundary. It is prepared for the upcoming desktop conversation
+views; it is not mounted by the app yet and does not change `clientReady`.
+
+- Subscribe to typed provider events before starting a session. Capture an early
+  ready event and reconcile it against native journal/run/provider identity.
+  Discovering an existing live run, or losing the startup acknowledgement, leaves
+  the client detached; it never silently replaces that runtime or replays input.
+- Persist each unconfirmed message before calling the guarded submit endpoint.
+  The `blackcrab.codexOutbox.v1.<panelId>` record includes the original text, queue
+  mode, command ID, local journal thread/run and native provider session ID.
+  Storage failures leave the draft untransferred and make no submit call.
+- A lost submit acknowledgement is checked against its durable receipt. If still
+  unknown, retain the record. Reload reads recovery state without resubmission.
+  Explicit retry first checks the receipt and only reuses the original ID/body
+  on the original resumed session; it never invents a new command to retry.
+  Cross-command/thread receipts and changed recovery records cannot clear it.
+  Corrupt/unreadable records block startup/writes until explicitly discarded.
+  Discard only forgets local recovery data; it does not undo provider work.
+- Filter every event by provider/panel/run. Bind command IDs to provider-turn IDs
+  before accepting output, usage or approvals. User echoes deduplicate by command
+  ID, completed items replace streamed text, and late acknowledgements cannot
+  regress terminal receipts. Resolved opaque approvals are not reopened by a
+  repeated request. Late responses from superseded runs/disposed clients cannot
+  alter current state or clear their recovery record.
+- Queue events/reads retain newer revisions. Edits keep the caller's revision;
+  conflicts refresh state without repeating the mutation or resuming a queue.
+  Interrupt waits for a terminal event before clearing busy state. Stop and
+  closed events reconcile the active receipt and saved queue with read-only
+  journal queries; neither path replays a turn.
+
+Live display state is bounded: 100 user echoes, 200 output items, 128 Ki characters
+per item/echo and 2 Mi characters of output, plus bounded usage/notices/approval
+previews and 256 recent receipt/turn identities. Truncation is explicit; complete
+history remains provider-owned and available through the history browser. Live
+state is not a durable replay log and does not claim seamless reconnect or
+exactly-once delta delivery. Existing runs require history review and explicit
+stop/resume after client reload. Disposing the controller removes listeners but
+does not stop its native run; the future view owner must manage that lifecycle.
+
+The native backend uses explicit Codex launch options, no managed worktrees, the
+run-guarded control endpoint, and provider-specific journal reads. It does not
+change CLI auth or choose a replacement model. The upcoming views still need
+scenario/visual evidence and opt-in real-turn validation before readiness.
+
 ## Account, model and history reads
 
 `codex_query({query})` is a separate read-only native command. Its tagged query
@@ -352,3 +399,13 @@ retry identity and explicit held-queue resume. A native wire-contract test rejec
 unknown actions/fields and session-wide approval grants. Five TypeScript bridge
 tests verify run routing, response identity, no fallback/retry, and finished-context
 restrictions. No live model turn or UI/device scenario was run in this step.
+
+Final 05c3b2 validation: full smoke passed with 116 desktop tests, 126 native
+tests (the installed-CLI probe remains ignored), typecheck, Cargo check and
+production build. Nineteen client tests cover early ready/start identity, detached
+and lost-start recovery, durable send ordering, acknowledgements/reload, storage
+failures, stale run/turn/queue data, one-time approvals, interrupt/stop/closed
+receipts, bounded display, listener disposal, native API bindings, foreign receipt
+rejection, replacement display cleanup and superseded startup completion. Backend
+and storage are injected fixtures; no real CLI session, model turn, UI or device
+scenario was run. Conversation views remain the next step.

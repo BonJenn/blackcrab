@@ -160,6 +160,8 @@ implemented provider.
   remain disabled until live conversation controls are connected. The top bar's
   **Codex history** browser reads CLI history, account status and models without
   starting a conversation. See [`docs/codex-provider.md`](docs/codex-provider.md).
+- `src/codexLive.ts`: prepared live client state, receipt recovery and bounded
+  run/turn-scoped output. Conversation views using it are not yet enabled.
 - `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
   command support, with shared desktop controls in `src/QueueControls.tsx`.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,

@@ -8,7 +8,13 @@ turns, drain follow-ups, interrupt, and answer supported one-time approvals.
 Its typed events carry text, item/tool lifecycle, token usage and terminal error
 payloads.
 
-The native host and read services are connected to the dedicated **Codex** panel.
+The native host and read services are connected to the **Codex preview** desktop
+workspace, selected through the main **Provider** control. Provider selection is
+saved independently of Claude setup and does not start or stop a session. Both
+provider views keep their conversation owners mounted across switches; the
+inactive view is hidden and inert. Claude shortcuts and file drops are scoped to
+the Claude view, so Codex input does not mutate a hidden Claude composer.
+Returning to Claude shows any unresolved setup again.
 It includes history/account/model browsing and a **Conversation preview** for
 up to six independently owned conversations, explicit start/resume, plain-text
 sends, streamed output, queue controls and one-time command/file approvals.
@@ -16,11 +22,12 @@ Single/grid views retain hidden runs and drafts; history preparation targets the
 selected pane. The original preview keeps its existing owner and storage keys.
 Pane removal requires a stopped/idle owner, resolved recovery, known empty queues
 for existing sessions and no unsent draft. Removing a pane retains its saved
-workspace and provider history; it never stops a running session. General single/grid provider
-selection and provider-aware mobile controls still expose Claude. Discovery
+workspace and provider history; it never stops a running session. Mixed
+Claude/Codex grids and provider-aware mobile controls remain pending. Discovery
 therefore keeps Codex `clientReady: false`; the dedicated preview does not imply
 provider-wide readiness. An isolated macOS native run has verified the dedicated
-preview against a local CLI stand-in (see [native QA](codex-native-qa.md)). General grid/window scenarios
+preview against a local CLI stand-in (see [native QA](codex-native-qa.md)).
+Mixed-provider grid and multi-window scenarios
 and actual Codex model turns remain unverified; step 05c3b4 covers those gates
 before general integration.
 

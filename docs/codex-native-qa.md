@@ -99,3 +99,37 @@ held-queue removal guards, owner disposal, legacy owner/key compatibility, and
 history-to-selected-owner routing have automated regression coverage. Native
 evidence covers two panes in one window; six concurrent provider processes,
 multiple windows, mixed Claude/Codex grids and real model turns remain open gates.
+
+## Main provider view evidence, 2026-11-07
+
+Select **Provider → Codex preview** in the main toolbar. Codex uses the desktop
+area with its history, account, model catalog and conversation panes. Switching
+back to **Claude Code** preserves both provider views and their unsent drafts.
+The selected provider is restored on app restart; selection itself does not
+start, stop or replay a provider turn.
+
+Native accessibility automation verified the full-width workspace, independent
+unsent Claude and Codex drafts, and the inactive Claude sidebar disappearing from
+the accessibility tree. Cmd+K did not open Claude's palette while Codex was active.
+Cmd+Enter sent the fixture's `hold` message through the Codex composer. Switching
+to Claude showed its original draft and a **Codex · running** badge. Returning
+through that badge preserved the same provider thread, streaming turn and Codex
+draft. Explicit interrupt and stop produced one interrupted receipt.
+
+After restarting the isolated app, the Codex provider view was restored, and
+opening Conversation showed its saved draft and an idle owner requiring explicit
+resume. The fixture recorded one start, one input with an existing dispatching
+receipt, zero resumes and no fixture errors. View switches and restart produced
+no additional provider input. No Claude message or real model turn was sent.
+
+App-level DOM regression scenarios additionally cover provider-scoped shortcuts
+and file drops, retained mounted views/drafts, forced Claude setup remaining
+unresolved when returning from Codex, and delayed first mounting of saved Claude
+grid owners while Codex is selected. Once visited, the Claude grid keeps its
+original `startEnabled` value and stays mounted on provider switches; toggling
+that flag would run the existing panel's stop cleanup. Native file dropping and
+live Claude grid processes were not exercised by this fixture run.
+
+General readiness remains gated on mixed-provider grid/window scenarios and
+actual provider turns. This desktop provider switch does not change mobile
+provider support or advertise general Codex `clientReady`.

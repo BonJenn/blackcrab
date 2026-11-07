@@ -133,3 +133,24 @@ live Claude grid processes were not exercised by this fixture run.
 General readiness remains gated on mixed-provider grid/window scenarios and
 actual provider turns. This desktop provider switch does not change mobile
 provider support or advertise general Codex `clientReady`.
+
+## Versioned pane ownership evidence, 2026-11-07
+
+The isolated native app added a new extra pane using the versioned identity
+scheme and displayed two panes in grid view. Clicking the first pane's project
+field selected Conversation 1; clicking into the second selected Conversation 2.
+Keyboard Tab traversal from the first pane to the second pane's Stop button
+selected the second owner as well.
+
+The new pane started a read-only local fixture session and completed a message
+through the native guard/runtime/receipt path. The UI showed a successful reply;
+SQLite recorded one successful receipt, the fixture observed `dispatching`
+before its one input, and no fixture errors occurred. The run and owned QA app
+were explicitly stopped. No real model calls were made.
+
+Automated tests additionally cover preserved legacy addresses/draft/outbox data,
+refusing ambiguous legacy primary labels, window-scoped caches and captured
+factories, disjoint addresses for new panes, focus/history routing and unchanged
+selection without storage writes. Native evidence is one-window only; true
+multi-window process recovery and migration of ambiguous old identities remain
+unverified.

@@ -27,7 +27,7 @@ function Panes({ desktop, requestedThread, onActivity }: { desktop: Desktop; req
     </div>
     <div className={`codex-panes codex-panes-${state.layout}`}>{state.panes.map((id, index) => {
       const problem = desktop.removalProblem(id);
-      return <section key={id} className="codex-pane" aria-label={`Conversation ${index + 1}`} data-selected={state.selected === id} hidden={state.layout === "single" && state.selected !== id}>
+      return <section key={id} className="codex-pane" aria-label={`Conversation ${index + 1}`} data-selected={state.selected === id} hidden={state.layout === "single" && state.selected !== id} onPointerDownCapture={() => desktop.select(id)} onFocusCapture={() => desktop.select(id)}>
         <header><h3>Conversation {index + 1}</h3>{id !== "primary" && <button type="button" className="btn btn-secondary" disabled={!!problem} title={problem ?? "Close this pane; stored history is retained"} onClick={() => desktop.remove(id)}>Remove pane</button>}</header>
         <CodexConversation defaultCwd="" workspace={desktop.workspace(id)} catalog={catalog} requestedThread={request?.pane === id ? request.thread : undefined} />
       </section>;

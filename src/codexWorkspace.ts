@@ -53,22 +53,38 @@ export class CodexWorkspace {
     if (this.value.draft === text && this.value.draftTarget === target) this.update({ draft: "" });
   }
 }
-const workspaces = new Map<string, CodexWorkspace>();
-export function desktopCodexWorkspace(defaultCwd: string, pane = "primary"): CodexWorkspace {
-  if (pane !== "primary" && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(pane)) throw new Error("Invalid Codex pane identity");
-  const existing = workspaces.get(pane);
-  if (existing) return existing;
+// Legacy UUID pane addresses stay intact: changing them could orphan a live
+// runtime or a saved unconfirmed send. New panes use a disjoint address scheme.
+const UUID = "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
+const PANE_ID = new RegExp(`^(?:v2:)?${UUID}$`);
+const LEGACY_EXTRA_SUFFIX = new RegExp(`\\.${UUID}$`);
+export function isCodexPaneId(value: unknown): value is string { return typeof value === "string" && (value === "primary" || PANE_ID.test(value)); }
+export function newCodexPaneId(): string { return `v2:${crypto.randomUUID()}`; }
+export const CODEX_WORKSPACE_V2_PREFIX = "blackcrab.codexWorkspace.v2.";
+const workspaces = new Map<string, Map<string, CodexWorkspace>>();
+export function desktopCodexWorkspace(defaultCwd: string, pane = "primary", windowLabel?: string): CodexWorkspace {
+  if (!isCodexPaneId(pane)) throw new Error("Invalid Codex pane identity");
   if (!("__TAURI_INTERNALS__" in window)) throw new Error("Codex conversations require the desktop app");
-  const label = getCurrentWindow().label;
-  // Preserve the original preview's owner, draft and recovery keys.
+  const label = windowLabel ?? getCurrentWindow().label;
+  // A primary label ending in .UUID would alias another window's retained
+  // legacy extra pane. Do not inspect, replace or rewrite that ambiguous owner.
+  if (pane === "primary" && LEGACY_EXTRA_SUFFIX.test(label)) throw new Error("This window label conflicts with a legacy Codex pane address. Use a different window label; saved workspace and recovery data were preserved.");
+  const existing = workspaces.get(label)?.get(pane);
+  if (existing) return existing;
   const suffix = pane === "primary" ? label : `${label}.${pane}`;
-  const client = new CodexLiveClient(`codex-${suffix}`, nativeCodexLiveBackend, localStorage);
-  const workspace = new CodexWorkspace(client, localStorage, CODEX_WORKSPACE_PREFIX + suffix, defaultCwd);
-  workspaces.set(pane, workspace);
+  const address = JSON.stringify([label, pane]);
+  const versioned = pane.startsWith("v2:");
+  const client = new CodexLiveClient(versioned ? `codex:pane:v2:${address}` : `codex-${suffix}`, nativeCodexLiveBackend, localStorage);
+  const workspace = new CodexWorkspace(client, localStorage, versioned ? CODEX_WORKSPACE_V2_PREFIX + address : CODEX_WORKSPACE_PREFIX + suffix, defaultCwd);
+  let byPane = workspaces.get(label);
+  if (!byPane) { byPane = new Map(); workspaces.set(label, byPane); }
+  byPane.set(pane, workspace);
   return workspace;
 }
 export function releaseDesktopCodexWorkspace(pane: string, workspace: CodexWorkspace) {
-  if (pane === "primary" || workspaces.get(pane) !== workspace) return;
-  workspaces.delete(pane);
-  workspace.client.dispose();
+  if (pane === "primary") return;
+  for (const byPane of workspaces.values()) {
+    if (byPane.get(pane) !== workspace) continue;
+    byPane.delete(pane); workspace.client.dispose(); return;
+  }
 }

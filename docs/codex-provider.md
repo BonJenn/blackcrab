@@ -146,6 +146,43 @@ Legacy remote sends/stops and raw approval input reject a Codex-owned panel.
 The host still belongs to the desktop app; this does not create an independent
 host or guarantee background operation after app exit.
 
+## Run-specific live controls
+
+`codex_control({panelId, expectedRunId, action})` is the intended write interface
+for upcoming desktop Codex controls. Actions are a closed tagged union:
+
+```json
+{"type":"submit","commandId":"stable-command-id","text":"message","queued":false}
+{"type":"queue"}
+{"type":"changeQueue","expectedRevision":3,"change":{"type":"pause"}}
+{"type":"interrupt"}
+{"type":"answer","approvalId":"opaque-approval-id","decision":"decline"}
+{"type":"stop"}
+```
+
+Replies are `{type: "receipt", data: receipt}`, `{type: "queue", data: snapshot}`,
+or `{type: "done"}`. Submit uses the existing durable execution/queue path and
+requires the caller's stable command ID; queued submission uses `queued: true`.
+Queue changes retain optimistic revisions; approvals allow only one-time
+`accept`, `decline` and `cancel`. Unknown action fields and broad approval grants
+are rejected before dispatch. There is no arbitrary JSONL/RPC/control action.
+
+The native endpoint checks provider, panel and exact run identity together while
+holding the session registry lock. It clones that specific runtime before
+releasing the lock; a later replacement can close the handle but cannot redirect
+its action to a new run. Stop retains the lock through termination, journal
+finalization and ownership release. A stale stop cannot remove a replacement or
+release its ownership. Finished matching runs permit saved queue reads and stop
+cleanup, while other actions require resuming the original session.
+
+`src/codexControl.ts` reads/validates native Codex context, includes the intended
+run on every operation, checks receipt command/thread identity and queue thread/
+revision shape, and never falls back to the older panel-only APIs or retries a
+failed write automatically. Those APIs remain for compatibility; new Codex live
+UI must use this guarded interface. The bridge does not yet implement outbox
+persistence, transcript rendering or reconnect state. Client readiness remains
+false until those controls and their scenarios are complete.
+
 ## Account, model and history reads
 
 `codex_query({query})` is a separate read-only native command. Its tagged query
@@ -306,3 +343,12 @@ response identity/cursor checks and shared pending reads. The React quality
 review covered effect cleanup/dependencies, native modal accessibility, lazy
 loading, stable page identity and escaped output. Native visual rendering, real
 CLI reads, live model turns and device workflows remain unverified in this step.
+
+Final 05c3b1 validation: full smoke passed with 97 desktop tests, 126 native tests
+(the installed-CLI probe remains ignored), typecheck, Cargo check and production
+build. Two new real-pipe host fixtures cover every stale action after replacement
+and matching-run receipt/queue/interrupt/approval flows, including unchanged-body
+retry identity and explicit held-queue resume. A native wire-contract test rejects
+unknown actions/fields and session-wide approval grants. Five TypeScript bridge
+tests verify run routing, response identity, no fallback/retry, and finished-context
+restrictions. No live model turn or UI/device scenario was run in this step.

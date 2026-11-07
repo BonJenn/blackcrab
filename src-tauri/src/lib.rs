@@ -1426,6 +1426,23 @@ async fn reserve_session_owner(
 }
 
 #[tauri::command]
+async fn codex_control(
+    state: State<'_, AppState>,
+    panel_id: String,
+    expected_run_id: String,
+    action: codex_host::Action,
+) -> Result<codex_host::ControlReply, String> {
+    codex_host::control(
+        &state.sessions,
+        &state.session_owners,
+        &panel_id,
+        &expected_run_id,
+        action,
+    )
+    .await
+}
+
+#[tauri::command]
 async fn codex_query(
     service: State<'_, codex_services::Service>,
     query: codex_services::Query,
@@ -4972,6 +4989,7 @@ pub fn run() {
             claude_preflight,
             list_providers,
             codex_query,
+            codex_control,
             claude_token_status,
             save_claude_oauth_token,
             clear_claude_oauth_token,

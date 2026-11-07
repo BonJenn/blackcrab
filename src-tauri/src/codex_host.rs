@@ -45,6 +45,127 @@ pub(crate) async fn answer(
     runtime.answer(id, decision).await.map_err(error)
 }
 
+/// UI writes target a particular runtime, never whichever run later occupies a panel.
+#[derive(serde::Deserialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub(crate) enum Action {
+    Submit {
+        command_id: String,
+        text: String,
+        #[serde(default)]
+        queued: bool,
+    },
+    Queue {},
+    ChangeQueue {
+        expected_revision: i64,
+        change: QueueChange,
+    },
+    Interrupt {},
+    Answer {
+        approval_id: String,
+        decision: Decision,
+    },
+    Stop {},
+}
+#[derive(serde::Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub(crate) enum ControlReply {
+    Receipt(TurnReceipt),
+    Queue(QueueSnapshot),
+    Done,
+}
+
+pub(crate) async fn control(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    owners: &Arc<Mutex<HashMap<String, String>>>,
+    panel: &str,
+    expected_run: &str,
+    action: Action,
+) -> Result<ControlReply, String> {
+    let mut guard = sessions.lock().await;
+    let session = guard.get(panel).ok_or("no Codex session for this panel")?;
+    if session.provider != Provider::Codex || session.execution.run_id != expected_run {
+        return Err("Codex session changed; refresh before trying again".into());
+    }
+    let runtime = session
+        .codex()
+        .ok_or("panel does not have a Codex runtime")?;
+    if matches!(action, Action::Stop {}) {
+        // Keep the registry locked through stop and ownership release. A stale
+        // stop can neither remove a replacement nor release its writer lease.
+        let session = guard.remove(panel).expect("validated session");
+        session.process_finished.store(true, Ordering::SeqCst);
+        runtime.stop().await;
+        let result = execution::io(move || {
+            session
+                .execution
+                .finish("interrupted", Some("Session stopped"))
+        })
+        .await;
+        owners.lock().await.retain(|_, owner| owner != panel);
+        result?;
+        return Ok(ControlReply::Done);
+    }
+    if session.process_finished.load(Ordering::SeqCst) {
+        if matches!(action, Action::Queue {}) {
+            let context = session.execution.clone();
+            return execution::io(move || context.queue_snapshot())
+                .await
+                .map(ControlReply::Queue);
+        }
+        return Err("Codex runtime ended; resume the original session before continuing".into());
+    }
+    // Clone the validated runtime while holding the registry lock. Replacements
+    // may close this handle; they cannot redirect it to the new runtime.
+    drop(guard);
+    match action {
+        Action::Submit {
+            command_id,
+            text,
+            queued,
+        } => {
+            let result = if queued {
+                runtime.enqueue(&command_id, &text).await
+            } else {
+                runtime.send(&command_id, &text).await
+            };
+            result.map(ControlReply::Receipt).map_err(error)
+        }
+        Action::Queue {} => runtime
+            .queue()
+            .await
+            .map(ControlReply::Queue)
+            .map_err(error),
+        Action::ChangeQueue {
+            expected_revision,
+            change,
+        } => runtime
+            .change_queue(expected_revision, change)
+            .await
+            .map(ControlReply::Queue)
+            .map_err(error),
+        Action::Interrupt {} => runtime
+            .interrupt()
+            .await
+            .map(|_| ControlReply::Done)
+            .map_err(error),
+        Action::Answer {
+            approval_id,
+            decision,
+        } => runtime
+            .answer(&approval_id, decision)
+            .await
+            .map(|_| ControlReply::Done)
+            .map_err(error),
+        Action::Stop {} => unreachable!("stop handled under registry lock"),
+    }
+}
+
 pub(crate) async fn start(
     sessions: &Arc<Mutex<HashMap<String, Session>>>,
     owners: &Arc<Mutex<HashMap<String, String>>>,
@@ -482,5 +603,267 @@ mod tests {
         terminate_panel(&f.sessions, &f.owners, "panel")
             .await
             .unwrap();
+    }
+    #[test]
+    fn typed_control_rejects_raw_actions_unknown_fields_and_broad_approval_grants() {
+        for value in [
+            serde_json::json!({"type":"send_raw","text":"bypass"}),
+            serde_json::json!({"type":"stop","extra":true}),
+            serde_json::json!({"type":"submit","commandId":"id","text":"body","method":"turn/start"}),
+            serde_json::json!({"type":"answer","approvalId":"id","decision":"acceptForSession"}),
+        ] {
+            assert!(serde_json::from_value::<Action>(value).is_err());
+        }
+        for value in [
+            serde_json::json!({"type":"submit","commandId":"id","text":"body"}),
+            serde_json::json!({"type":"submit","commandId":"id","text":"body","queued":true}),
+            serde_json::json!({"type":"queue"}),
+            serde_json::json!({"type":"changeQueue","expectedRevision":1,"change":{"type":"pause"}}),
+            serde_json::json!({"type":"interrupt"}),
+            serde_json::json!({"type":"answer","approvalId":"opaque","decision":"cancel"}),
+            serde_json::json!({"type":"stop"}),
+        ] {
+            assert!(serde_json::from_value::<Action>(value).is_ok());
+        }
+        assert_eq!(
+            serde_json::to_value(ControlReply::Done).unwrap(),
+            serde_json::json!({"type":"done"})
+        );
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn run_guard_rejects_every_stale_action_and_preserves_the_replacement() {
+        let mut f = Fixture::new();
+        f.start("panel", None).await.unwrap();
+        let old = f.event("ready").await["runId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        control(&f.sessions, &f.owners, "panel", &old, Action::Stop {})
+            .await
+            .unwrap();
+        f.start("panel", Some("fixture-codex-thread"))
+            .await
+            .unwrap();
+        let current = f.event("ready").await["runId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_ne!(old, current);
+        for action in [
+            Action::Submit {
+                command_id: "stale-send".into(),
+                text: "complete".into(),
+                queued: false,
+            },
+            Action::Submit {
+                command_id: "stale-queue".into(),
+                text: "complete".into(),
+                queued: true,
+            },
+            Action::Queue {},
+            Action::ChangeQueue {
+                expected_revision: 0,
+                change: QueueChange::Resume,
+            },
+            Action::Interrupt {},
+            Action::Answer {
+                approval_id: "stale-approval".into(),
+                decision: Decision::Accept,
+            },
+            Action::Stop {},
+        ] {
+            assert!(control(&f.sessions, &f.owners, "panel", &old, action)
+                .await
+                .err()
+                .unwrap()
+                .contains("changed"));
+        }
+        assert!(f.store.receipt("stale-send").is_err());
+        assert!(f.store.receipt("stale-queue").is_err());
+        assert!(f.starts().is_empty());
+        assert_eq!(f.sessions.lock().await["panel"].execution.run_id, current);
+        assert_eq!(
+            f.owners
+                .lock()
+                .await
+                .get("codex:fixture-codex-thread")
+                .map(String::as_str),
+            Some("panel")
+        );
+        // Matching another panel's run also cannot control this panel.
+        assert!(
+            control(&f.sessions, &f.owners, "other", &current, Action::Stop {})
+                .await
+                .is_err()
+        );
+        control(&f.sessions, &f.owners, "panel", &current, Action::Stop {})
+            .await
+            .unwrap();
+        assert!(!f.sessions.lock().await.contains_key("panel"));
+        assert!(f.owners.lock().await.is_empty());
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn matching_run_controls_share_receipts_queues_interrupts_and_one_time_approvals() {
+        let mut f = Fixture::new();
+        f.start("panel", None).await.unwrap();
+        let run = f.event("ready").await["runId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let receipt = control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Submit {
+                command_id: "command".into(),
+                text: "hold".into(),
+                queued: false,
+            },
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(receipt,ControlReply::Receipt(ref receipt) if receipt.status == "running")
+        );
+        control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Submit {
+                command_id: "queued".into(),
+                text: "queued-one".into(),
+                queued: true,
+            },
+        )
+        .await
+        .unwrap();
+        control(&f.sessions, &f.owners, "panel", &run, Action::Interrupt {})
+            .await
+            .unwrap();
+        assert_eq!(
+            f.event("turn_completed").await["event"]["receipt"]["status"],
+            "interrupted"
+        );
+        assert!(control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Submit {
+                command_id: "command".into(),
+                text: "changed body".into(),
+                queued: false
+            }
+        )
+        .await
+        .is_err());
+        let duplicate = control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Submit {
+                command_id: "command".into(),
+                text: "hold".into(),
+                queued: false,
+            },
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(duplicate,ControlReply::Receipt(ref receipt) if receipt.status == "interrupted")
+        );
+        assert_eq!(f.starts().len(), 1);
+        let snapshot = control(&f.sessions, &f.owners, "panel", &run, Action::Queue {})
+            .await
+            .unwrap();
+        let ControlReply::Queue(snapshot) = snapshot else {
+            panic!("expected queue");
+        };
+        assert!(snapshot.paused);
+        assert_eq!(snapshot.items.len(), 1);
+        control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::ChangeQueue {
+                expected_revision: snapshot.revision,
+                change: QueueChange::Resume,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            f.event("turn_completed").await["event"]["receipt"]["commandId"],
+            "queued"
+        );
+
+        control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Submit {
+                command_id: "approval".into(),
+                text: "approval".into(),
+                queued: false,
+            },
+        )
+        .await
+        .unwrap();
+        let event = f.event("approval_requested").await;
+        let approval = event["event"]["approvalId"].as_str().unwrap().to_string();
+        assert!(control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            "foreign-run",
+            Action::Answer {
+                approval_id: approval.clone(),
+                decision: Decision::Accept
+            }
+        )
+        .await
+        .is_err());
+        control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Answer {
+                approval_id: approval.clone(),
+                decision: Decision::Decline,
+            },
+        )
+        .await
+        .unwrap();
+        f.event("turn_completed").await;
+        assert!(control(
+            &f.sessions,
+            &f.owners,
+            "panel",
+            &run,
+            Action::Answer {
+                approval_id: approval,
+                decision: Decision::Accept
+            }
+        )
+        .await
+        .is_err());
+        let result = control(&f.sessions, &f.owners, "panel", &run, Action::Queue {})
+            .await
+            .unwrap();
+        assert!(
+            matches!(result,ControlReply::Queue(ref snapshot) if snapshot.paused && snapshot.items.is_empty())
+        );
+        control(&f.sessions, &f.owners, "panel", &run, Action::Stop {})
+            .await
+            .unwrap();
+        assert_eq!(f.starts().len(), 3);
     }
 }

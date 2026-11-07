@@ -64,7 +64,7 @@ pub(crate) struct Info {
     pub model: String,
     pub cwd: String,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Decision {
     Accept,

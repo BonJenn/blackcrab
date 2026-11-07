@@ -213,6 +213,9 @@ impl RelayClient {
 /// supported action. Mirrors the action decode in `transport.rs`, but from JSON
 /// (the LAN path uses the typed wire enum).
 fn command_from_envelope(plaintext: &str) -> Option<RemoteCommand> {
+    if let Some(request) = crate::remote_providers::decode(plaintext) {
+        return Some(RemoteCommand::Providers(request));
+    }
     if let Some(request) = crate::remote_queue::decode(plaintext) {
         return Some(RemoteCommand::Queue(request));
     }
@@ -324,6 +327,16 @@ mod tests {
     }
 
     #[test]
+    fn provider_discovery_uses_the_strict_shared_decoder() {
+        let valid = serde_json::json!({"v":1,"msg":{"type":"providers_request","hostId":"h1","requestId":"read"}});
+        assert_eq!(command_from_envelope(&valid.to_string()), Some(RemoteCommand::Providers(crate::remote_providers::decode(&valid.to_string()).unwrap())));
+        let mut skewed = valid.clone(); skewed["v"] = serde_json::json!(2);
+        assert_eq!(command_from_envelope(&skewed.to_string()), None);
+        let mut malformed = valid; malformed["msg"]["extra"] = serde_json::json!(true);
+        assert_eq!(command_from_envelope(&malformed.to_string()), None);
+    }
+
+    #[test]
     fn decodes_start_session_action() {
         let plaintext = serde_json::json!({
             "v": 1,
@@ -342,6 +355,29 @@ mod tests {
                 body: "kick off".into(),
             })
         );
+    }
+
+    #[tokio::test]
+    async fn provider_discovery_requires_a_known_device_and_valid_encryption() {
+        let key = test_key();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let (broadcast, _) = broadcast::channel(4);
+        let client = RelayClient {
+            url: String::new(), token: String::new(), host_id: "h1".into(), commands: tx,
+            key_for_device: { let key = key.clone(); Arc::new(move |device| (device == "known").then(|| key.clone())) },
+            events: Arc::new(Vec::new), broadcast,
+        };
+        let mut sink = futures_util::sink::drain::<WsMessage>().sink_map_err(|never| -> tokio_tungstenite::tungstenite::Error { match never {} });
+        let mut devices = HashSet::new();
+        let request = serde_json::json!({"v":1,"msg":{"type":"providers_request","hostId":"h1","requestId":"read"}}).to_string();
+        let sealed = crypto::seal(&key, &request).unwrap();
+        client.handle_frame(&serde_json::json!({"type":"data","from":"unknown","payload":sealed}).to_string(), &mut devices, &mut sink).await.unwrap();
+        assert!(rx.try_recv().is_err());
+        let wrong_key = B64.encode((33u8..=64).collect::<Vec<u8>>());
+        client.handle_frame(&serde_json::json!({"type":"data","from":"known","payload":crypto::seal(&wrong_key, &request).unwrap()}).to_string(), &mut devices, &mut sink).await.unwrap();
+        assert!(rx.try_recv().is_err());
+        client.handle_frame(&serde_json::json!({"type":"data","from":"known","payload":sealed}).to_string(), &mut devices, &mut sink).await.unwrap();
+        assert_eq!(rx.try_recv().unwrap(), RemoteCommand::Providers(crate::remote_providers::decode(&request).unwrap()));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -441,6 +477,11 @@ mod tests {
                 attachments: Vec::new(),
             }
         );
+
+        let providers = serde_json::json!({"v":1,"msg":{"type":"providers_request","hostId":"h1","requestId":"provider-read"}}).to_string();
+        dev.send(WsMessage::Text(serde_json::json!({"type":"data","payload":crypto::seal(&key, &providers).unwrap()}).to_string().into())).await.unwrap();
+        assert_eq!(timeout(Duration::from_secs(5), cmd_rx.recv()).await.unwrap().unwrap(),
+            RemoteCommand::Providers(crate::remote_providers::decode(&providers).unwrap()));
 
         let queued = serde_json::json!({"v":1,"msg":{"type":"queue_request","hostId":"h1","sessionId":"s1","requestId":"request","operation":{"type":"enqueue","commandId":"command","body":"follow up"}}}).to_string();
         let sealed = crypto::seal(&key, &queued).unwrap();

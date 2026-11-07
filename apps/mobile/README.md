@@ -208,3 +208,12 @@ The preference `blackcrab.mobile.hostSelection.v1` contains only a version and a
 host ID, or null for disconnect. Native uses SecureStore; web uses unencrypted
 localStorage. Storage unavailability is reported without an in-memory fallback.
 Pairing credentials and draft/recovery records remain in their existing stores.
+
+## Provider discovery
+
+The Providers tab reads the selected host’s installed provider catalog and
+separates adapter features from desktop and remote integration support. It clears
+data across host switches/reconnects and ignores stale replies. Older hosts show
+an unavailable message with explicit Refresh. Discovery never launches an agent
+or reads account credentials. Codex remote control is still unavailable. See the
+[remote provider contract](../../docs/remote-providers.md) for limits and evidence.

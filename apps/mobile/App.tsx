@@ -44,6 +44,8 @@ import { MobileHostSelection } from "./src/transport/hostSelection";
 import { hostSelectionStorage } from "./src/transport/hostSelectionStorage";
 import type { Transport, TransportStatus } from "./src/transport/types";
 import { subscribeToHost } from "./src/transport/activeHost";
+import { MobileProvidersClient } from "./src/providers/client";
+import { ProvidersScreen } from "./src/providers/ProvidersScreen";
 import { MobileHostConnection } from "./src/transport/hostConnection";
 
 /** Last path segment, used as a provisional title for a brand-new session. */
@@ -52,15 +54,17 @@ function dirName(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-type TabKey = "hosts" | "sessions" | "approval";
+type TabKey = "hosts" | "sessions" | "approval" | "providers";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "hosts", label: "Hosts" },
+  { key: "providers", label: "Providers" },
   { key: "sessions", label: "Chats" },
   { key: "approval", label: "Attention" },
 ];
 
 export default function App() {
+  const [providersClient] = useState(() => new MobileProvidersClient(queueId));
   const [queueClient] = useState(() => new MobileQueueClient(queueStorage,queueId,10000,(hostId,sessionId,transfer)=>mobileDrafts.confirmTransfer(hostId,sessionId,transfer)));
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
@@ -249,6 +253,7 @@ export default function App() {
     setLiveSessions(null);
   },[activeHostId]);
   useEffect(() => () => hostConnection.dispose(), [hostConnection]);
+  useEffect(() => { providersClient.bind(activeTransport, activeHostId); return () => providersClient.bind(null, null); }, [providersClient, activeTransport, activeHostId]);
   useEffect(() => { queueClient.bind(activeTransport,activeHostId); return () => queueClient.bind(null,null); }, [queueClient,activeTransport,activeHostId]);
 
   async function handleForgetHost(hostId: HostId) {
@@ -411,6 +416,7 @@ export default function App() {
             onViewSessions={() => setTab("sessions")}
           />
         )}
+        {tab === "providers" && <ProvidersScreen client={providersClient} />}
         {tab === "sessions" && (
           <SessionsScreen
             transport={activeTransport}

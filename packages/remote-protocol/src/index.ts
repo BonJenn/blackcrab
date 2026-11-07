@@ -251,7 +251,34 @@ export interface QueueResultEvent {
   receipt: QueueReceipt | null;
 }
 
+/** Read-only adapter discovery; capabilities do not imply remote workflow support. */
+export interface RemoteProviderInfo {
+  id: "claude" | "codex";
+  displayName: string;
+  installed: boolean;
+  desktopReady: boolean;
+  remoteReady: boolean;
+  capabilities: {
+    resume: boolean; streaming: boolean; modelSelection: boolean;
+    permissionModes: string[]; worktrees: boolean; steering: boolean;
+  };
+}
+export interface ProvidersRequestAction {
+  type: "providers_request";
+  hostId: HostId;
+  requestId: string;
+}
+export interface ProvidersResultEvent {
+  type: "providers_result";
+  hostId: HostId;
+  requestId: string;
+  ok: boolean;
+  error: string | null;
+  providers: RemoteProviderInfo[] | null;
+}
+
 export type RemoteAction =
+  | ProvidersRequestAction
   | QueueRequestAction
   | SendMessageAction
   | StopSessionAction
@@ -474,6 +501,7 @@ export interface ActionFailedEvent {
 }
 
 export type RemoteEvent =
+  | ProvidersResultEvent
   | QueueSnapshotEvent
   | QueueResultEvent
   | PairedHostsEvent
@@ -638,10 +666,27 @@ function isQueueReceipt(value: unknown): value is QueueReceipt {
     (value.detail === null || typeof value.detail === "string");
 }
 
+function validProviderRequest(value: Record<string, unknown>): boolean {
+  return isNonEmptyString(value.hostId) && [...value.hostId].length <= 1024 && queueId(value.requestId);
+}
+export function isRemoteProviderInfo(value: unknown): value is RemoteProviderInfo {
+  if (!isRecord(value) || typeof value.id !== "string" || !["claude", "codex"].includes(value.id) ||
+    !isNonEmptyString(value.displayName) || value.displayName.length > 128 ||
+    ![value.installed, value.desktopReady, value.remoteReady].every(item => typeof item === "boolean") ||
+    !isRecord(value.capabilities)) return false;
+  const c = value.capabilities;
+  return [c.resume, c.streaming, c.modelSelection, c.worktrees, c.steering].every(item => typeof item === "boolean") &&
+    Array.isArray(c.permissionModes) && c.permissionModes.length <= 32 &&
+    c.permissionModes.every(mode => typeof mode === "string" && mode.length > 0 && mode.length <= 128) &&
+    new Set(c.permissionModes).size === c.permissionModes.length;
+}
+
 export function isRemoteAction(value: unknown): value is RemoteAction {
   if (!value || typeof value !== "object") return false;
   const v = value as { type?: unknown };
   switch (v.type) {
+    case "providers_request":
+      return isRecord(value) && onlyKeys(value, ["type", "hostId", "requestId"]) && validProviderRequest(value);
     case "queue_request":
       return isRecord(value) &&
         onlyKeys(value, ["type", "hostId", "sessionId", "requestId", "operation"]) &&
@@ -671,6 +716,12 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
   if (!value || typeof value !== "object") return false;
   const v = value as { type?: unknown };
   switch (v.type) {
+    case "providers_result":
+      return isRecord(value) && onlyKeys(value, ["type", "hostId", "requestId", "ok", "error", "providers"]) &&
+        validProviderRequest(value) && typeof value.ok === "boolean" &&
+        (value.ok ? value.error === null && Array.isArray(value.providers) && value.providers.length <= 32 &&
+          value.providers.every(isRemoteProviderInfo) && new Set(value.providers.map(provider => provider.id)).size === value.providers.length
+          : isNonEmptyString(value.error) && value.providers === null);
     case "queue_snapshot":
       return isRecord(value) && isNonEmptyString(value.hostId) &&
         isNonEmptyString(value.sessionId) && (value.queue === null || isFollowUpQueue(value.queue));
@@ -749,7 +800,9 @@ export function isRemoteWireMessage(
 
 export function isRemoteEnvelope(value: unknown): value is RemoteEnvelope {
   if (!isRecord(value)) return false;
+  const providerMessage = isRecord(value.msg) && ["providers_request", "providers_result"].includes(String(value.msg.type));
   return (
+    (!providerMessage || onlyKeys(value, ["v", "msg"])) &&
     value.v === REMOTE_PROTOCOL_VERSION && isRemoteWireMessage(value.msg)
   );
 }

@@ -45,6 +45,7 @@ pub(crate) struct RemoteAttachment {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RemoteCommand {
+    Providers(crate::remote_providers::ProvidersRequest),
     Queue(crate::remote_queue::QueueRequest),
     SendMessage {
         session_id: String,
@@ -339,6 +340,10 @@ async fn handle_connection(
                 };
                 match msg {
                     WsMessage::Text(t) => {
+                        if let Some(request) = crate::remote_providers::decode(&t) {
+                            forward_command(hooks.commands.as_ref(), RemoteCommand::Providers(request));
+                            continue;
+                        }
                         if let Some(request) = crate::remote_queue::decode(&t) {
                             forward_command(hooks.commands.as_ref(), RemoteCommand::Queue(request));
                             continue;
@@ -950,6 +955,21 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    async fn provider_discovery_cannot_bypass_authentication() {
+        let path = tmp_path();
+        let pairing = Arc::new(PairingService::load(path.clone()).unwrap());
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
+        let server = Arc::new(TransportServer::new());
+        let endpoint = server.start(pairing, RemoteHooks { commands: Some(tx), ..Default::default() }).await.unwrap();
+        let (mut ws, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}/", endpoint.port).into_client_request().unwrap()).await.unwrap();
+        ws.send(WsMessage::Text(serde_json::json!({"v":1,"msg":{"type":"providers_request","hostId":"h","requestId":"unauthenticated"}}).to_string().into())).await.unwrap();
+        let closed = timeout(Duration::from_secs(2), ws.next()).await.unwrap();
+        assert!(matches!(closed, None | Some(Ok(WsMessage::Close(_)))));
+        assert!(rx.try_recv().is_err());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn authenticated_actions_reach_the_command_channel() {
         let path = tmp_path();
         let _ = std::fs::remove_file(&path);
@@ -1012,6 +1032,12 @@ mod tests {
                 attachments: Vec::new(),
             }
         );
+
+        let providers = serde_json::json!({"v":1,"msg":{"type":"providers_request","hostId":"h","requestId":"provider-read"}}).to_string();
+        ws.send(WsMessage::Text(providers.clone().into())).await.unwrap();
+        assert_eq!(timeout(Duration::from_secs(2), rx.recv()).await.unwrap().unwrap(),
+            RemoteCommand::Providers(crate::remote_providers::decode(&providers).unwrap()));
+        ws.send(WsMessage::Text(providers.replace("\"requestId\":\"provider-read\"", "\"requestId\":\"\"").into())).await.unwrap();
 
         let queued = serde_json::json!({"v":1,"msg":{"type":"queue_request","hostId":"h","sessionId":"sess-abc","requestId":"request","operation":{"type":"enqueue","commandId":"command","body":"follow up"}}}).to_string();
         ws.send(WsMessage::Text(queued.clone().into()))

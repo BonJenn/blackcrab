@@ -32,6 +32,9 @@ A backup is a single `blackcrab-backup-<date>.json` file containing:
 - **Conversation transcripts** (`~/.claude/projects`). These are owned and
   managed by Claude Code, can be large, and use machine-specific working-directory
   paths. Back them up through Claude Code or your own file backups.
+- **Execution journal.** Host-owned thread mappings and turn receipts under the
+  application data directory are not part of this UI-settings export. See
+  [`execution-store.md`](execution-store.md).
 - **Your sign-in token.** The Claude OAuth token lives in the OS keychain and is
   never written to a backup. After restoring on a new machine, re-authenticate
   via Settings → Claude.

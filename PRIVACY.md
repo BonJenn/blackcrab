@@ -30,6 +30,13 @@ sidebar/grid sizing, grid panel state, and short-lived composer drafts.
 
 Composer drafts are keyed by session id and pruned after 30 days by the app.
 
+The local execution journal stores submitted message text, project paths, thread
+identities and turn receipts under the application data directory. It supports
+duplicate-command detection and interruption recovery. Receipts are not included
+in analytics or the existing UI-settings backups. There is no automatic receipt
+retention or purge UI yet; deleting a session does not erase its journal. See
+[`docs/execution-store.md`](docs/execution-store.md) for storage and removal details.
+
 ## Preview Webview
 
 The preview panel can open HTTP and HTTPS URLs. Local development URLs may be

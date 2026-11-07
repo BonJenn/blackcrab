@@ -33,6 +33,7 @@ futures-util = "0.3"
 crypto_secretbox = "0.1"
 base64 = "0.22"
 getrandom = "0.2"
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"

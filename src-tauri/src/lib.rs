@@ -1,3 +1,6 @@
+// Transport prerequisite; the next provider step wires its public operations.
+#[allow(dead_code)]
+mod codex_rpc;
 mod crypto;
 mod execution;
 mod pairing;

@@ -465,3 +465,25 @@ approval/error state. React review checked effect cleanup, stable subscriptions,
 lazy loading, modal focus, stale async selection and revision guards. Native
 visual/window behavior, real CLI turns, general main/grid integration and mobile
 workflows remain unverified; general `clientReady` is still false.
+
+### Native verification baseline after #185
+
+A local `npm run dev:desktop -- --no-watch` build launched successfully after
+#185, with Vite ready and Cargo reporting `Running target/debug/blackcrab`.
+Native automation could not address the app: lookup before launch reported
+`Invalid app: Blackcrab`, and lookup of the configured identifier after launch
+reported `Invalid app: com.bonjenn.blackcrab`. No native screenshot, interaction
+or real CLI/model scenario was validated. The owned dev process was terminated;
+no existing Blackcrab process was replaced. Native visual verification remains
+open until the app is addressable by the automation surface.
+
+Development startup also exposed that product analytics had no dev-mode guard.
+`trackProductEvent` now returns immediately in Vite development mode before
+version/install-ID lookup or network submission. Packaged production builds keep
+the existing desktop/analytics-opt-in checks. This prevents subsequent dev QA
+from counting as production app/update events; it is not native UI evidence.
+
+Development-isolation validation: full smoke passed with 130 desktop tests, 126
+native tests (CLI probe ignored), typecheck, Cargo check and production build.
+The change is limited to the existing product-event guard; production opt-in
+behavior remains unchanged. Native rendering is still not verified.

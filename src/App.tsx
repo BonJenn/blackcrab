@@ -859,7 +859,7 @@ async function trackProductEvent(
     metadata?: Record<string, unknown>;
   } = {},
 ) {
-  if (!isTauriRuntime() || !loadAppSettings().analyticsEnabled) return;
+  if (import.meta.env.DEV || !isTauriRuntime() || !loadAppSettings().analyticsEnabled) return;
 
   try {
     const currentVersion = await getAppVersion();

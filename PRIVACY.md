@@ -26,7 +26,8 @@ Snapshots include pending message text, including any attachment paths already
 embedded in that text. Queue responses use the existing host-wide paired-device
 broadcast channel. See [`docs/remote-follow-up-queues.md`](docs/remote-follow-up-queues.md).
 
-If anonymous analytics are enabled, Blackcrab sends app launch and updater
+Development builds do not submit product analytics. In production, if anonymous
+analytics are enabled, Blackcrab sends app launch and updater
 events to `https://www.blackcrab.app/api/events`. Those events include platform,
 current version, update target version when applicable, event type, and a
 locally generated anonymous install id. The server hashes that install id before

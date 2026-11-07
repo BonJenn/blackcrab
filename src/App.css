@@ -5691,3 +5691,22 @@ textarea,
   border: 2px solid var(--bg);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+.followup-queue { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: var(--bg-elev); color: var(--text); font: 12px var(--sans); }
+.followup-head, .followup-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.followup-head h3 { font-size: 12px; margin: 0 auto 0 0; }
+.followup-head h3 span { color: var(--text-dim); font-weight: normal; }
+.followup-hint { color: var(--text-dim); margin: 8px 0; }
+.followup-error { color: var(--err); overflow-wrap: anywhere; }
+.followup-list { max-height: 220px; overflow-y: auto; padding-left: 24px; margin: 8px 0 0; }
+.followup-list li { padding: 8px 0; border-top: 1px solid var(--border); }
+.followup-queue pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px var(--sans); margin: 0 0 8px; max-height: 100px; overflow-y: auto; }
+.followup-list textarea { width: 100%; min-height: 70px; box-sizing: border-box; font: 12px var(--sans); background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 8px; resize: vertical; }
+.followup-actions .btn, .followup-head .btn, .followup-pending .btn { font-size: 11px; padding: 4px 8px; }
+.followup-pending { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+.followup-toggle { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; padding: 3px 0; }
+.followup-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.grid-panel-composer { flex-wrap: wrap; }
+.grid-panel-composer .followup-queue { flex: 0 0 100%; box-sizing: border-box; margin: 0; max-height: 200px; overflow-y: auto; }
+.grid-panel-composer .followup-list { max-height: 100px; }
+.grid-panel-composer .followup-queue .btn { padding: 4px 8px; }

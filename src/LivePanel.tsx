@@ -3,6 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { compileMarkdown } from "./markdown";
 import { notifyErr } from "./toast";
+import { QueueControls } from "./QueueControls";
+import { queueClient, startQueuedSession, type AcceptedEvent } from "./queueClient";
+import { usePanelQueue } from "./usePanelQueue";
 import {
   type Block,
   type Entry,
@@ -115,6 +118,8 @@ export function LivePanel({
   const [busy, setBusy] = useState(false);
   const [sessionOn, setSessionOn] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
+  const effectiveCwdRef = useRef(initialCwd);
+  const panelQueue = usePanelQueue(panelId, sessionId || initialSessionId, sessionOn, typeof window !== "undefined" && "__TAURI_INTERNALS__" in window);
   const sessionIdRef = useRef<string | undefined>(initialSessionId);
   useEffect(() => {
     sessionIdRef.current = sessionId || initialSessionId;
@@ -288,6 +293,34 @@ export function LivePanel({
     [onAttention, panelId],
   );
 
+  useEffect(() => {
+    const clearTransferredDraft = ({panelId: target,submission}: AcceptedEvent) => {
+      if (target !== panelId || submission.draftText === undefined) return;
+      setInput(current => current === submission.draftText ? "" : current);
+      const sent = new Set(submission.attachmentIds);
+      setAttachments(current => current.filter(file => !sent.has(file.id)));
+    };
+    const offPrepared = queueClient.onPrepared(clearTransferredDraft);
+    const offAccepted = queueClient.onAccepted(clearTransferredDraft);
+    const offDispatch = queueClient.onDispatch(event => {
+      if (event.panel_id !== panelId) return;
+      setEntries(entries => entries.some(entry => entry.id === event.receipt.commandId) ? entries : [...entries,{kind:"user",id:event.receipt.commandId,text:event.text}]);
+      lastUserMessageRef.current = event.text;
+      setBusy(true);
+      setSessionOn(true);
+      reportAttention("engaged");
+    });
+    return () => { offPrepared(); offAccepted(); offDispatch(); };
+  }, [panelId,reportAttention]);
+
+  async function ensureQueueSession() {
+    const resumeId = sessionIdRef.current || initialSessionId || null;
+    const info = await invoke<{runId:string;processFinished:boolean}>("session_execution",{panelId}).catch(() => null);
+    if (info && !info.processFinished) { if (queueClient.state(panelId).context?.runId !== info.runId) await queueClient.attach(panelId,resumeId || undefined); return; }
+    await startQueuedSession({panelId,cwd:effectiveCwdRef.current,permissionMode:currentModeRef.current,model:normalizeModelValue(initialModel),resumeId,useWorktree:!resumeId && !!useWorktree});
+    setSessionOn(true);
+  }
+
   const handleEvent = useCallback(
     (ev: StreamEvent) => {
       // Claude asks the frontend for permission via control_request /
@@ -308,6 +341,7 @@ export function LivePanel({
         return;
       }
       if (ev.type === "system" && ev.subtype === "init") {
+        if (ev.cwd) effectiveCwdRef.current = ev.cwd;
         if (ev.session_id) {
           sessionIdRef.current = ev.session_id;
           setSessionId(ev.session_id);
@@ -549,7 +583,7 @@ export function LivePanel({
     startedRef.current = true;
     (async () => {
       try {
-        await invoke("start_session", {
+        await startQueuedSession({
           panelId,
           cwd: initialCwd,
           permissionMode,
@@ -580,10 +614,10 @@ export function LivePanel({
     let off2: (() => void) | null = null;
     let off3: (() => void) | null = null;
     let off4: (() => void) | null = null;
-    const p1 = listen<{ panel_id: string; line: string }>(
+    const p1 = listen<{ panel_id: string; run_id?: string; line: string }>(
       "claude-event",
       (e) => {
-        if (e.payload?.panel_id !== panelId) return;
+        if (e.payload?.panel_id !== panelId || !queueClient.acceptsRun(panelId,e.payload?.run_id)) return;
         const line = e.payload?.line;
         if (typeof line !== "string") return;
         try {
@@ -593,17 +627,17 @@ export function LivePanel({
         }
       },
     );
-    const p2 = listen<{ panel_id: string }>("claude-done", (e) => {
-      if (e.payload?.panel_id !== panelId) return;
+    const p2 = listen<{ panel_id: string; run_id?: string }>("claude-done", (e) => {
+      if (e.payload?.panel_id !== panelId || !queueClient.acceptsRun(panelId,e.payload?.run_id)) return;
       setSessionOn(false);
       setBusy(false);
     });
     // Mirror stderr to the console so grid-panel spawn failures are
     // diagnosable without wiring up a per-panel stderr drawer.
-    const p3 = listen<{ panel_id: string; line: string }>(
+    const p3 = listen<{ panel_id: string; run_id?: string; line: string }>(
       "claude-stderr",
       (e) => {
-        if (e.payload?.panel_id !== panelId) return;
+        if (e.payload?.panel_id !== panelId || !queueClient.acceptsRun(panelId,e.payload?.run_id)) return;
         const line = e.payload?.line ?? "";
         if (isAuthErrorText(line)) {
           onAuthFailure?.(line);
@@ -654,54 +688,21 @@ export function LivePanel({
     el.scrollTop = el.scrollHeight;
   }, [entries, busy]);
 
-  const send = useCallback(async () => {
+  async function send() {
     const text = input.trim();
-    if ((!text && attachments.length === 0) || busy) return;
-    const attachList = attachments.map((a) => `- ${a.path}`).join("\n");
-    const body =
-      attachments.length > 0
-        ? `${text || "(see attached files)"}\n\n[Attached files]\n${attachList}`
-        : text;
-    setInput("");
-    setAttachments([]);
-    setEntries((es) => [...es, { kind: "user", id: randomId(), text: body }]);
-    lastUserMessageRef.current = body;
-    reportAttention("engaged");
-    setBusy(true);
-    try {
-      await invoke("send_message", { panelId, text: body });
-    } catch (e) {
-      setBusy(false);
-      setEntries((es) => [
-        ...es,
-        { kind: "system", id: randomId(), text: `send failed: ${e}` },
-      ]);
-      notifyErr("send failed")(e);
-    }
-  }, [input, busy, panelId, attachments, reportAttention]);
+    if (!text && attachments.length === 0) return;
+    const attachList = attachments.map(file => `- ${file.path}`).join("\n");
+    const body = attachments.length ? `${text || "(see attached files)"}\n\n[Attached files]\n${attachList}` : text;
+    const draft = {draftText:input,attachmentIds:attachments.map(file => file.id)};
+    try { await ensureQueueSession(); await queueClient.submit(panelId,body,draft); }
+    catch (error) { queueClient.report(panelId,error); }
+  }
 
-  // Fire a short user reply without touching input/attachments — used
-  // by the yes/no quick-reply buttons.
-  const sendQuickReply = useCallback(
-    async (text: string) => {
-      if (busy || !text) return;
-      setEntries((es) => [...es, { kind: "user", id: randomId(), text }]);
-      lastUserMessageRef.current = text;
-      reportAttention("engaged");
-      setBusy(true);
-      try {
-        await invoke("send_message", { panelId, text });
-      } catch (e) {
-        setBusy(false);
-        setEntries((es) => [
-          ...es,
-          { kind: "system", id: randomId(), text: `send failed: ${e}` },
-        ]);
-        notifyErr("send failed")(e);
-      }
-    },
-    [busy, panelId, reportAttention],
-  );
+  async function sendQuickReply(text: string) {
+    if (!text) return;
+    try { await ensureQueueSession(); await queueClient.submit(panelId,text); }
+    catch (error) { queueClient.report(panelId,error); }
+  }
 
   // Restart this panel's subprocess in bypassPermissions mode and replay
   // the last user message. Used by the denial overlay's "allow & retry".
@@ -710,22 +711,16 @@ export function LivePanel({
     setPendingDenials(null);
     currentModeRef.current = "bypassPermissions";
     try {
-      await invoke("start_session", {
+      await startQueuedSession({
         panelId,
-        cwd: initialCwd,
+        cwd: effectiveCwdRef.current,
         permissionMode: "bypassPermissions",
         model: normalizeModelValue(initialModel),
         resumeId: sessionId || initialSessionId || null,
       });
       setSessionOn(true);
       if (resendText) {
-        setEntries((es) => [
-          ...es,
-          { kind: "user", id: randomId(), text: resendText },
-        ]);
-        reportAttention("engaged");
-        setBusy(true);
-        await invoke("send_message", { panelId, text: resendText });
+        await queueClient.retryDenied(panelId,resendText);
       }
     } catch (e) {
       setEntries((es) => [
@@ -913,7 +908,7 @@ export function LivePanel({
               >
                 Dismiss
               </button>
-              <button className="btn btn-primary" onClick={allowAndRetry}>
+              <button className="btn btn-primary" onClick={allowAndRetry} disabled={panelQueue.saving || !!panelQueue.pending}>
                 Allow all tools &amp; retry
               </button>
             </div>
@@ -921,6 +916,7 @@ export function LivePanel({
         )}
       </div>
       <footer className="grid-panel-composer">
+        <QueueControls panelId={panelId} state={panelQueue} busy={busy} live={sessionOn} sessionId={sessionId || initialSessionId} ensureSession={ensureQueueSession} compact />
         {(() => {
           if (busy) return null;
           let lastText = "";
@@ -1011,27 +1007,11 @@ export function LivePanel({
             }
           }}
           placeholder="message…  (Enter to send; drop files on this tile to attach)"
-          disabled={busy}
+          disabled={panelQueue.saving || !!panelQueue.pending}
           rows={2}
         />
-        {busy ? (
-          <button
-            type="button"
-            className="btn btn-interrupt"
-            onClick={interrupt}
-          >
-            stop
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-send"
-            onClick={send}
-            disabled={!input.trim() && attachments.length === 0}
-          >
-            send
-          </button>
-        )}
+        {busy && <button type="button" className="btn btn-interrupt" onClick={interrupt}>stop</button>}
+        <button type="button" className="btn btn-send" onClick={send} disabled={panelQueue.saving || !!panelQueue.pending || (!input.trim() && attachments.length === 0)}>{busy || (panelQueue.queue?.items.length ?? 0) > 0 ? "queue" : "send"}</button>
       </footer>
     </div>
   );

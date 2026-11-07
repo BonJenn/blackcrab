@@ -11,7 +11,8 @@ export const BACKUP_VERSION = 1;
 
 // Every app-owned localStorage key captured by a backup. Intentionally EXCLUDES
 // `blackcrab.analyticsInstallId` — that identity should not be cloned onto a
-// second machine or duplicated by a restore.
+// second machine or duplicated by a restore. Unconfirmed queue submissions
+// (`blackcrab.queueSubmission.v1.*`) also stay local to their host.
 export const BACKUP_KEYS: readonly string[] = [
   "blackcrab.settings",
   "composerDrafts",

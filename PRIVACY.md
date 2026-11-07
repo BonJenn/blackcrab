@@ -29,6 +29,11 @@ Blackcrab stores UI preferences in browser localStorage, including theme,
 sidebar/grid sizing, grid panel state, and short-lived composer drafts.
 
 Composer drafts are keyed by session id and pruned after 30 days by the app.
+Unconfirmed desktop queue submissions retain their original text, attachment paths,
+command ID and draft identity in localStorage until confirmed. These unencrypted
+recovery records do not expire automatically, are excluded from settings backups,
+and are never resubmitted automatically on reload. See
+[`docs/follow-up-queues.md`](docs/follow-up-queues.md).
 
 The local execution journal stores submitted message text, project paths, thread
 identities and turn receipts under the application data directory. Follow-up

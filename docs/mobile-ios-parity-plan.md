@@ -143,3 +143,59 @@ Provider discovery validation: 109 mobile tests, 48 protocol tests, workspace
 TypeScript checks and iOS Hermes export passed. Combined desktop/mobile smoke
 passed with 167 desktop and 133 native tests (one installed-CLI probe ignored),
 Cargo check and production build. No real provider turn or iOS device claim is made.
+
+### Managed workspace source and native connection increment (in progress)
+
+The independent-host architecture now has a native connection path separate from
+legacy remote pairings. `vendor/t3` retains the exact pinned source closure of six
+public client-runtime entries (207 source files, 20 packages), original package
+metadata, dependency lock, MIT notice and one recorded types-only patch. The patch
+has identical emitted JavaScript. Export and verification details are in
+[the shared runtime guide](../shared-runtime/README.md).
+
+The Workspaces tab uses the shared onboarding, registry, authenticated RPC and
+shell snapshot services. Native adapters provide separate SecureStore catalog and
+selection namespaces, strict upstream cache codecs, scoped connectivity and
+foreground wakeups. Controller ownership fences retired callbacks and serializes
+selection writes and replacement runtimes. A cached list is labeled stale;
+connection state alone does not establish live data. Existing Hosts, Providers,
+Chats and Attention flows retain their legacy ownership.
+
+Real packaged-host integration exercised one-use read-only pairing over HTTP,
+live project discovery over WebSocket, disable/re-enable, catalog recovery after
+runtime recreation, removal and credential cleanup. It used isolated data/home
+paths with no inherited provider credentials. This establishes the direct SDK
+connection path in a Node test harness with injected native boundaries; it is not
+a native-device or agent-turn certification.
+
+Cloud identity/relay and SSH are explicitly unavailable in these adapters.
+Managed thread controls, transcripts, approvals, queued mutations, attachments,
+notifications, remaining settings and real-device acceptance remain pending.
+This increment does not establish M1–M6 completion or full desktop/mobile parity.
+
+Validation for this increment: 140 mobile tests and 48 legacy protocol tests
+passed; the real packaged-host integration passed separately in production mode.
+All workspace TypeScript checks, 59 source export/provenance tests, 30 managed-host
+regression tests, and product-entry iOS Hermes compilation passed. Repository
+smoke passed with 173 desktop tests, 145 native tests (3 ignored), Cargo check and
+production frontend build.
+
+The local Xcode 27.1 build exposed existing Expo 54 tooling issues: a pod resource
+target below the SDK minimum and shell commands that split the external volume's
+space-containing path. An isolated QA project built after local-only workarounds
+and rendered the actual Hermes product entry in an iOS 26.2 simulator. The initial
+unsigned build could not read secure storage. Rebuilding with Xcode-generated
+simulator entitlements resolved that QA setup failure. The actual native app then
+paired the isolated packaged host, displayed its live project and idle thread,
+persisted its catalog and explicit selection across process restarts, preserved
+disconnect and cached data through restart, reconnected with saved credentials,
+and stayed empty after forgetting and restarting. The captured host process and
+public descriptor remained available after phone process exit and forget. No
+provider turn was started.
+
+These simulator observations used Expo 54.0.35 / React Native 0.81.5 and the actual
+product-entry Hermes bundle at source head `436a3b5`, with real SecureStore,
+filesystem, network and WebSocket adapters. The local-only build workarounds are
+not shipping build evidence or repository dependency patches. The next native
+build increment must provide a reproducible physical staging workspace and pod
+floor adjustment. No distribution-signed release or physical-device claim is made.

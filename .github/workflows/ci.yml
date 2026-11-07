@@ -33,9 +33,15 @@ jobs:
 
       - run: npm test
 
-      - run: npm test --workspaces
+      - run: npm test --workspaces --if-present
 
       - run: npm run test:managed-host
+
+      - run: npm run test:shared-runtime
+
+      - run: npm run verify:shared-runtime
+
+      - run: npm run bundle:shared-runtime:ios
 
       - run: npm run build
 

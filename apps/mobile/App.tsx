@@ -47,6 +47,8 @@ import { subscribeToHost } from "./src/transport/activeHost";
 import { MobileProvidersClient } from "./src/providers/client";
 import { ProvidersScreen } from "./src/providers/ProvidersScreen";
 import { MobileHostConnection } from "./src/transport/hostConnection";
+import { ManagedEnvironmentsScreen } from "./src/screens/ManagedEnvironmentsScreen";
+import { createNativeManagedEnvironmentsClient } from "./src/managed/native";
 
 /** Last path segment, used as a provisional title for a brand-new session. */
 function dirName(path: string): string {
@@ -54,16 +56,22 @@ function dirName(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-type TabKey = "hosts" | "sessions" | "approval" | "providers";
+type TabKey = "hosts" | "managed" | "sessions" | "approval" | "providers";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "hosts", label: "Hosts" },
+  { key: "managed", label: "Workspaces" },
   { key: "providers", label: "Providers" },
   { key: "sessions", label: "Chats" },
   { key: "approval", label: "Attention" },
 ];
 
 export default function App() {
+  const [managedClient] = useState(createNativeManagedEnvironmentsClient);
+  useEffect(() => {
+    void managedClient.start().catch(() => undefined);
+    return () => { void managedClient.stop().catch(() => undefined); };
+  }, [managedClient]);
   const [providersClient] = useState(() => new MobileProvidersClient(queueId));
   const [queueClient] = useState(() => new MobileQueueClient(queueStorage,queueId,10000,(hostId,sessionId,transfer)=>mobileDrafts.confirmTransfer(hostId,sessionId,transfer)));
   const [tab, setTab] = useState<TabKey>("hosts");
@@ -375,8 +383,8 @@ export default function App() {
       <StatusBar style="auto" />
       <View style={styles.header}>
         <Text style={styles.title}>Blackcrab Remote</Text>
-        <Text style={styles.subtitle}>Control your desktop Claude Code sessions</Text>
-        <Text style={styles.subtitle}>{activeHostId ? `${storedHosts.find(host => host.hostId === activeHostId)?.displayName ?? "Selected host"} · ${connected ? "connected" : "not connected"}` : "No host selected"}</Text>
+        <Text style={styles.subtitle}>Connect to your agents and workspaces</Text>
+        {tab !== "managed" && <Text style={styles.subtitle}>{activeHostId ? `${storedHosts.find(host => host.hostId === activeHostId)?.displayName ?? "Selected host"} · ${connected ? "connected" : "not connected"}` : "No host selected"}</Text>}
       </View>
       <ScrollView
         horizontal
@@ -416,6 +424,7 @@ export default function App() {
             onViewSessions={() => setTab("sessions")}
           />
         )}
+        {tab === "managed" && <ManagedEnvironmentsScreen client={managedClient} />}
         {tab === "providers" && <ProvidersScreen client={providersClient} />}
         {tab === "sessions" && (
           <SessionsScreen

@@ -1,0 +1,162 @@
+[
+  {
+    "name": "@t3tools/client-runtime",
+    "originalPath": "upstream/manifests/client-runtime.json",
+    "originalSha256": "cf20a029d0a2a27357b65d8ed95386247e6dc2e8c9c987fd59ed22c40016d195",
+    "generatedPath": "packages/client-runtime/package.json",
+    "generatedSha256": "c70490847f24f38e496bd1363bae6fca9b03496bceff778701c3244706b8207b",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/contracts",
+    "originalPath": "upstream/manifests/contracts.json",
+    "originalSha256": "9a0bbab153c1964d6e1cec1c1a29e0e881af25779f9a1569eae3ab3e04b47dfb",
+    "generatedPath": "packages/contracts/package.json",
+    "generatedSha256": "0c01e418275cc6396d11df7585d103119ed7f441134fd9e08c3e8057ac241285",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-acp-registry",
+    "originalPath": "upstream/manifests/provider-acp-registry.json",
+    "originalSha256": "fa02309cbf19e8ad8e9749247552e9e740a799173629a2809492d562442fa19e",
+    "generatedPath": "packages/provider-acp-registry/package.json",
+    "generatedSha256": "42f70919864fc2f3f881080dd14ab149ba2053a12f34b279d27a73ecd7e67072",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-core",
+    "originalPath": "upstream/manifests/provider-core.json",
+    "originalSha256": "a33e00cf0701594b454789bf11d4f59b64e5093cff10f4b68f9b520d99e9836f",
+    "generatedPath": "packages/provider-core/package.json",
+    "generatedSha256": "8824f3d9e72180936824a549dfad02e18cb9e7da36ba57cb13b44c1ca0bb0c76",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-cursor",
+    "originalPath": "upstream/manifests/provider-cursor.json",
+    "originalSha256": "c8b03e823102f941814b1ebbf1a441391be7d1a8929c43ae2afdfd5f9f2c1962",
+    "generatedPath": "packages/provider-cursor/package.json",
+    "generatedSha256": "597acc496de7c300f50db7794b2fcf90967fe8b618fb5aaa8341259c9ee31553",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-fx",
+    "originalPath": "upstream/manifests/provider-fx.json",
+    "originalSha256": "df2d63ea438968f77add4e9821e3c7f2584a76c9ebcdabb6365428f4850bca94",
+    "generatedPath": "packages/provider-fx/package.json",
+    "generatedSha256": "70f0b31945d928529a1736c75a68cb78c29a15498512bee136419820abd74966",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-grok",
+    "originalPath": "upstream/manifests/provider-grok.json",
+    "originalSha256": "50cca40439fda251219b1136650a76da51a19fbb9a2d41a3cf1436a79ae9220c",
+    "generatedPath": "packages/provider-grok/package.json",
+    "generatedSha256": "e6d292df7bb40501b0461229609fd1e9d069ccc88faeaf0e32c37f696abc3c9d",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-kiro",
+    "originalPath": "upstream/manifests/provider-kiro.json",
+    "originalSha256": "1d3e5a16560fa1d6dc45b64cdfba0aa62bc40ca8c1cf05b6833df3b0e05e8af1",
+    "generatedPath": "packages/provider-kiro/package.json",
+    "generatedSha256": "888d9b109f66ddfbb9ee515896dac953d465dcdbec519ec493c0baffadfa9ca7",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-muse",
+    "originalPath": "upstream/manifests/provider-muse.json",
+    "originalSha256": "c33ac734059bb68e0d4a6b9592f0bc5affed1dbd39aaf11e467450f58aebe36d",
+    "generatedPath": "packages/provider-muse/package.json",
+    "generatedSha256": "5c91775da5b5e261c31ebfe337091409f570f9634c3be950d856d9401e74ee52",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-opencode",
+    "originalPath": "upstream/manifests/provider-opencode.json",
+    "originalSha256": "6576799cab12cc8233fd29c470f3a12b349d762d18a10d24afb2bfd247ab3017",
+    "generatedPath": "packages/provider-opencode/package.json",
+    "generatedSha256": "298dc06226994007303db1d45671dc00e3554256556b9b49814abccac169d6a3",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/provider-pi",
+    "originalPath": "upstream/manifests/provider-pi.json",
+    "originalSha256": "388ad7ef7f8f7534ebf2539a61eeb8493f19d262143af1bff0f4dc0e9ed18f68",
+    "generatedPath": "packages/provider-pi/package.json",
+    "generatedSha256": "116cb985bdafe3de1dae6487e7eeb41f2dbddbe87a3ca20c3415089304f7e479",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/shared",
+    "originalPath": "upstream/manifests/shared.json",
+    "originalSha256": "0999e2e0521960e1846197be2873aa8d39fdc643f5c6e1be6894ce4255d84cb8",
+    "generatedPath": "packages/shared/package.json",
+    "generatedSha256": "4fb2a99060895563935fe14db584fbaa82b2050a57d825aa925715545fafe17b",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-azure-devops",
+    "originalPath": "upstream/manifests/source-control-azure-devops.json",
+    "originalSha256": "c1773655c6948f7d3263c754c447339a617815475675e7ad2d8abe202b503c20",
+    "generatedPath": "packages/source-control-azure-devops/package.json",
+    "generatedSha256": "654eeba91b407030e25ea0c64c6328deb8ff2967db0f2c345624025d31b14fe5",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-bitbucket",
+    "originalPath": "upstream/manifests/source-control-bitbucket.json",
+    "originalSha256": "ffe7725c8eb192eaf877e12002b8e17a5060b7a078f7549a525a7ac6ef0846a5",
+    "generatedPath": "packages/source-control-bitbucket/package.json",
+    "generatedSha256": "db88817860b8a40f1fbf4bc16c5949f2822e92f316679a5e5823af573001e319",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-core",
+    "originalPath": "upstream/manifests/source-control-core.json",
+    "originalSha256": "b17d257f7fbe3b7e32c99b74e317d719d0d07e48394a2172118118aae93eb089",
+    "generatedPath": "packages/source-control-core/package.json",
+    "generatedSha256": "644f56d1ac41e6a91708c263f3dc1820d9b7865369895c5c880adcc21815ea67",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-definitions",
+    "originalPath": "upstream/manifests/source-control-definitions.json",
+    "originalSha256": "de675a4c558fa39d168386ea9a42cefe6bed407f03d7bfdb1ff78e015f50a102",
+    "generatedPath": "packages/source-control-definitions/package.json",
+    "generatedSha256": "1c920bbf55dbdf21e0092d4ff6cb16efcf2ac4892747e4f2a70decb71175aa59",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-forgejo",
+    "originalPath": "upstream/manifests/source-control-forgejo.json",
+    "originalSha256": "45e10aa9fee2d0c30d624a12d7ba955879f29ad19557704c2a954ce1d5525ac3",
+    "generatedPath": "packages/source-control-forgejo/package.json",
+    "generatedSha256": "ccec761541e70472c3bb4000fcccd1ddc82b30c7c134c8ea8322e2215d9b4e3f",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-gitcafe",
+    "originalPath": "upstream/manifests/source-control-gitcafe.json",
+    "originalSha256": "2af54d478bddfc4181174296915daf3db916c73bcffb18563073d34b152f518d",
+    "generatedPath": "packages/source-control-gitcafe/package.json",
+    "generatedSha256": "770acaf2776b571dc1737304837fc110943d08a7b4281b86018307b4af9c04ca",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-github",
+    "originalPath": "upstream/manifests/source-control-github.json",
+    "originalSha256": "a1f3be021fe3ae4cec8fa617ccfa9125b9ebab8b692ae0aa9cd4d8c7968bd479",
+    "generatedPath": "packages/source-control-github/package.json",
+    "generatedSha256": "d9560a3c2f4142faa193563e8032b9fdeb8f54633b450f50d470205752d52462",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  },
+  {
+    "name": "@t3tools/source-control-gitlab",
+    "originalPath": "upstream/manifests/source-control-gitlab.json",
+    "originalSha256": "132cbb7f8241fe6aff64379d493c7b53d1ddaa6f7424a850486cc710583dc49b",
+    "generatedPath": "packages/source-control-gitlab/package.json",
+    "generatedSha256": "f3e6ed0c2383796983e0cd7b397e684a0be4860a684f514e7245dacffc42c3c2",
+    "reason": "Restrict source exports and dependencies to the analyzed native client boundary; preserve runtime source unchanged."
+  }
+]

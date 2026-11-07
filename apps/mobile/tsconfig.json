@@ -8,7 +8,16 @@
     "skipLibCheck": true,
     "noEmit": true,
     "isolatedModules": true,
-    "types": ["react-native"]
+    "types": [
+      "react-native"
+    ],
+    "allowImportingTsExtensions": true
   },
-  "include": ["index.ts", "App.tsx", "src/**/*.ts", "src/**/*.tsx"]
+  "include": [
+    "index.ts",
+    "App.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tools/**/*.ts"
+  ]
 }

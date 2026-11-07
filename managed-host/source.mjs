@@ -34,7 +34,7 @@ export async function applySourcePatches(root) {
   return applied;
 }
 /** Only the exact archived target is extracted; callers never build a mutable user checkout. */
-export async function prepareSourceArchive(archive, cacheDir) {
+export async function extractPinnedSourceArchive(archive, cacheDir) {
   if (await archiveDigest(archive) !== UPSTREAM.archiveSha256) throw new Error('Source archive does not match the pinned T3 target');
   await fs.mkdir(cacheDir, { recursive: true });
   const root = await fs.mkdtemp(path.join(cacheDir, 'blackcrab-managed-source-'));
@@ -43,6 +43,12 @@ export async function prepareSourceArchive(archive, cacheDir) {
     let error = ''; child.stderr.on('data', bytes => { error = (error + bytes.toString()).slice(-2048); });
     child.once('error', reject); child.once('close', code => code === 0 ? resolve() : reject(new Error(`Pinned source extraction failed (${code}): ${error}`)));
   });
+  return { root };
+}
+
+/** Native runtime builds apply their recorded build-only patches after extraction. */
+export async function prepareSourceArchive(archive, cacheDir) {
+  const { root } = await extractPinnedSourceArchive(archive, cacheDir);
   const sourcePatches = await applySourcePatches(root);
   return { root, sourcePatches };
 }

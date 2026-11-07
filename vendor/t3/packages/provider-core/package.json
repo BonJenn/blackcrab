@@ -1,0 +1,24 @@
+{
+  "name": "@t3tools/provider-core",
+  "version": "0.1.7",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./src/client.ts"
+    },
+    "./modelShortName": {
+      "types": "./src/modelShortName.ts",
+      "import": "./src/modelShortName.ts"
+    }
+  },
+  "dependencies": {
+    "@t3tools/contracts": "file:../contracts",
+    "effect": "4.1.2"
+  },
+  "files": [
+    "src"
+  ]
+}

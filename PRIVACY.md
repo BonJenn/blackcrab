@@ -51,6 +51,15 @@ recovery records do not expire automatically, are excluded from settings backups
 and are never resubmitted automatically on reload. See
 [`docs/follow-up-queues.md`](docs/follow-up-queues.md).
 
+The Codex live-client controller also defines unconfirmed-message recovery records
+under `blackcrab.codexOutbox.v1.*`: original text, send/queue mode and command,
+thread, run and provider-session identities. These records are unencrypted, have
+no automatic expiry, stay out of settings backups and are never resubmitted on
+reload. They are removed only after receipt confirmation or explicit discard;
+discard does not cancel provider work. The conversation UI using this controller
+is not yet enabled. Provider output is held only in bounded in-memory display
+state by this controller; the CLI owns its stored history.
+
 The local execution journal stores submitted message text, project paths, thread
 identities, provider-turn mappings and turn receipts under the application data directory. Follow-up
 queues also retain original and edited message text, including cancelled command

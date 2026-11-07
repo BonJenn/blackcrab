@@ -1,10 +1,10 @@
 import { expect, it, vi } from "vitest";
-import { CodexDesktop, MAX_CODEX_PANES } from "./codexDesktop";
+import { CodexDesktop, MAX_CODEX_PANES, MAX_SAVED_CODEX_PANES } from "./codexDesktop";
 import { CodexWorkspace } from "./codexWorkspace";
 import type { CodexLiveClient, CodexLiveState } from "./codexLive";
 
-function fixture(raw?: string) {
-  const saved = new Map<string, string>(raw ? [["desktop", raw]] : []);
+function fixture(raw?: string, existing?: Map<string, string>) {
+  const saved = existing ?? new Map<string, string>(raw ? [["desktop", raw]] : []);
   const storage = { getItem: (key: string) => saved.get(key) ?? null, setItem: vi.fn((key: string, value: string) => { saved.set(key, value); }) };
   const owners = new Map<string, ReturnType<typeof owner>>();
   let counter = 0;
@@ -95,7 +95,7 @@ it("preserves corrupt layouts until reviewed reset and rejects unsaved additions
   }
   const f = fixture(); f.storage.setItem.mockImplementationOnce(() => { throw new Error("quota"); });
   expect(f.desktop.add()).toBeNull(); expect(f.desktop.state().panes).toEqual(["primary"]);
-  expect(f.owners.size).toBe(1); expect(f.desktop.state().error).toContain("previous layout is retained");
+  expect(f.owners.size).toBe(2); expect([...f.owners.values()][1].client.dispose).toHaveBeenCalledOnce(); expect(f.desktop.state().error).toContain("previous layout is retained");
 });
 it("retains unreadable pane preferences and unresolved pending sends", async () => {
   const f = fixture(), id = "00000000-0000-0000-0000-000000000001";
@@ -117,4 +117,88 @@ it("does not rewrite layout storage when selection has not changed", () => {
   expect(f.desktop.select("primary")).toBe(true); expect(f.desktop.select("primary")).toBe(true);
   expect(f.storage.setItem).toHaveBeenCalledOnce();
   expect(f.desktop.select("missing")).toBe(false); expect(f.storage.setItem).toHaveBeenCalledOnce();
+});
+
+it("retains removed addresses across reload and reopens the original saved workspace without replay", async () => {
+  const f = fixture(), id = f.desktop.add()!;
+  await f.desktop.workspace(id).ready;
+  f.desktop.workspace(id).update({ cwd: "/retained", model: "saved-model" });
+  const savedWorkspace = f.saved.get(`workspace-${id}`);
+  f.saved.set(`outbox-${id}`, "unconfirmed identity remains untouched");
+  expect(f.desktop.remove(id)).toBe(true);
+  expect(f.desktop.state().retained).toEqual([id]);
+  expect(JSON.parse(f.saved.get("desktop")!)).toMatchObject({ version: 2, retained: [id] });
+  const restored = fixture(undefined, f.saved);
+  expect(restored.owners.size).toBe(1); // Retained owners are not inspected on startup.
+  expect(restored.desktop.reopen(id)).toBe(true);
+  expect(restored.desktop.state()).toMatchObject({ panes: ["primary", id], selected: id, retained: [] });
+  expect(restored.desktop.workspace(id).state()).toMatchObject({ cwd: "/retained", model: "saved-model" });
+  expect(restored.owners.get(id)!.client.inspect).toHaveBeenCalledOnce();
+  expect(restored.saved.get(`workspace-${id}`)).toBe(savedWorkspace);
+  expect(restored.saved.get(`outbox-${id}`)).toBe("unconfirmed identity remains untouched");
+  expect(restored.desktop.reopen(id)).toBe(false);
+  expect(restored.desktop.reopen("../foreign")).toBe(false);
+});
+it("bounds known addresses without evicting recovery and allows reuse at the limit", async () => {
+  const f = fixture();
+  for (let i = 1; i < MAX_SAVED_CODEX_PANES; i++) {
+    const id = f.desktop.add()!; expect(id).not.toBeNull();
+    await f.desktop.workspace(id).ready; expect(f.desktop.remove(id)).toBe(true);
+  }
+  const retained = [...f.desktop.state().retained];
+  expect(f.desktop.add()).toBeNull(); expect(f.desktop.state().retained).toEqual(retained);
+  for (const id of retained.slice(0, MAX_CODEX_PANES - 1)) expect(f.desktop.reopen(id)).toBe(true);
+  expect(f.desktop.reopen(retained[MAX_CODEX_PANES - 1])).toBe(false);
+  const id = retained[0]; await f.desktop.workspace(id).ready;
+  expect(f.desktop.remove(id)).toBe(true);
+  expect(f.desktop.reopen(retained[MAX_CODEX_PANES - 1])).toBe(true);
+});
+it("preserves malformed retained lists until explicit reviewed reset", () => {
+  const id = "v2:00000000-0000-0000-0000-000000000001";
+  for (const retained of [null, ["primary"], [id, id], ["foreign"], [id]]) {
+    const panes = retained?.[0] === id && retained.length === 1 ? ["primary", id] : ["primary"];
+    const raw = JSON.stringify({ version: 2, panes, retained, selected: "primary", layout: "single" });
+    const f = fixture(raw);
+    expect(f.desktop.layoutBlocked()).toBe(true);
+    expect(f.desktop.reopen(id)).toBe(false); expect(f.saved.get("desktop")).toBe(raw);
+    expect(f.desktop.resetLayout(false)).toBe(false); expect(f.saved.get("desktop")).toBe(raw);
+    expect(f.desktop.resetLayout(true)).toBe(true);
+  }
+});
+it("preserves a retained address when construction or saving fails", async () => {
+  const f = fixture(), id = f.desktop.add()!; await f.desktop.workspace(id).ready;
+  expect(f.desktop.remove(id)).toBe(true);
+  const saved = f.saved.get("desktop");
+  const failed = new CodexDesktop(f.storage, "desktop", name => {
+    if (name === id) throw new Error("inspection setup failed");
+    return f.desktop.workspace("primary");
+  });
+  expect(failed.reopen(id)).toBe(false); expect(f.saved.get("desktop")).toBe(saved);
+  expect(failed.state().retained).toEqual([id]);
+  f.storage.setItem.mockImplementationOnce(() => { throw new Error("quota"); });
+  expect(f.desktop.reopen(id)).toBe(false); expect(f.saved.get("desktop")).toBe(saved);
+  expect(f.desktop.state().retained).toEqual([id]);
+  expect(f.owners.get(id)!.client.dispose).toHaveBeenCalledOnce();
+  expect(f.desktop.reopen(id)).toBe(true);
+});
+it("does not let a retired inspection mark a reopened pane ready", async () => {
+  const saved = new Map<string, string>();
+  const storage = { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => { saved.set(key, value); } };
+  const id = "v2:00000000-0000-0000-0000-000000000001";
+  const resolves: Array<(ok: boolean) => void> = [];
+  let extraCount = 0;
+  const desktop = new CodexDesktop(storage, "desktop", name => {
+    const old = name === id && extraCount++ === 0;
+    const client = {
+      state: () => ({ phase: old ? "stopped" : "idle", context: old ? { processFinished: true } : null, queue: old ? { items: [] } : null }),
+      subscribe: () => () => {}, dispose: vi.fn(),
+      inspect: () => name === "primary" ? Promise.resolve(true) : new Promise<boolean>(resolve => resolves.push(resolve)),
+    } as unknown as CodexLiveClient;
+    return new CodexWorkspace(client, storage, `workspace-${name}`);
+  }, () => id);
+  desktop.add(); expect(desktop.remove(id)).toBe(true); expect(desktop.reopen(id)).toBe(true);
+  resolves[0](true); await Promise.resolve(); await Promise.resolve();
+  expect(desktop.removalProblem(id)).toContain("inspection");
+  resolves[1](true); await desktop.workspace(id).ready;
+  expect(desktop.removalProblem(id)).toBeNull();
 });

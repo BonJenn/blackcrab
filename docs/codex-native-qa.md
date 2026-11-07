@@ -154,3 +154,21 @@ factories, disjoint addresses for new panes, focus/history routing and unchanged
 selection without storage writes. Native evidence is one-window only; true
 multi-window process recovery and migration of ambiguous old identities remain
 unverified.
+
+## Retained conversation recovery evidence, 2026-11-07
+
+The isolated native app prepared an extra pane, saved its fixture project path,
+removed it and reopened it from **Retained conversations**. The original project
+path returned and the pane remained idle. After removing it again and restarting
+the same isolated app, the retained entry was still discoverable under the same
+pane ID. Reopening restored the same project path and idle state without an
+unsolicited start or send. The fixture wire log contained only two thread-list
+and two model-list queries across both app launches, with no starts, resumes,
+inputs or fixture errors. The owned app was closed after verification.
+
+This verifies native one-window remove/reopen/restart behavior. Controller/DOM
+regressions cover malformed retained lists, save/construction failure rollback,
+bounded retention without eviction, stale inspection callbacks and stale history
+requests. Earlier removals were not indexed, and cross-window migration and real
+provider operation remain unverified. The final UI text was simplified after the
+native bundle was built; the recovery behavior was unchanged.

@@ -114,8 +114,7 @@ immediate send.
 Attachment uploads retain the separate **Send files** path, available when no
 turn or queued work is pending. They do not use queue command IDs or gain queue
 retry guarantees. New-session creation also retains its existing flow. Queue
-upload support, independent-host resume and full offline drafts remain later
-parity work.
+upload support and independent-host resume remain later parity work.
 
 Recovery files live under `documentDirectory/queue-recovery-v1` on iOS/Android.
 File names hash the host/session identity; file contents are unencrypted JSON
@@ -167,3 +166,25 @@ forgetting a host share this ownership path. Reconnect never resends agent
 commands. The new-session form stays open if a start cannot be handed to a
 connected matching transport; provider-side start receipts/recovery remain
 later work.
+
+## Durable text drafts
+
+The transcript composer saves text separately for each host/session, including
+while disconnected. Loading must finish before editing; failed saves retain text
+in memory and block submission until Retry succeeds. Unreadable saved data is
+preserved until an explicit reviewed reset. Drafts never submit automatically.
+A confirmed queue handoff clears only the exact original edit; newer typing
+survives. After restart, Retry saved message confirms the original command and
+saves the matching draft transition before removing its recovery record.
+
+Native drafts use unencrypted JSON in `documentDirectory/drafts-v1`, with hashed
+host/session filenames and temporary-file replacement. Web uses
+`blackcrab.mobile.draft.v1.*` localStorage. Records contain host/session IDs, text
+and edit identity, have no automatic expiry, survive forgetting a pairing, and
+may be included in OS/browser backups. Crashes can leave temporary files or lose
+the latest edit before its asynchronous save completes. Attachment recovery
+still uses the separate legacy socket handoff, without durable queue receipts.
+
+Validation: 87 mobile and 46 protocol tests passed, including storage failures,
+restart recovery, newer-edit preservation and reconnect races. Workspace
+TypeScript checks and iOS Hermes bundle export passed. Native iOS installation and device tests remain open.

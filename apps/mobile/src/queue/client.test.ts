@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FollowUpQueue, QueueRequestAction, QueueResultEvent, RemoteEvent } from "@blackcrab/remote-protocol";
 import type { Transport, TransportListener, TransportStatus } from "../transport/types";
+import { MobileDraftClient } from "../drafts/client";
 import { MobileQueueClient } from "./client";
 function deferred<T>() { let resolve!: (value:T)=>void; const promise=new Promise<T>(yes=>{resolve=yes;}); return {promise,resolve}; }
 const flush=async()=>{for(let i=0;i<6;i++) await Promise.resolve();};
-function fixture() {
+function fixture(settleDraft?: ConstructorParameters<typeof MobileQueueClient>[3]) {
   const saved=new Map<string,string>();
   const storage={read:vi.fn(async(key:string)=>saved.get(key) ?? null),write:vi.fn(async(key:string,value:string)=>{saved.set(key,value);}),remove:vi.fn(async(key:string)=>{saved.delete(key);})};
   const events=new Set<(event:RemoteEvent)=>void>(),statuses=new Set<TransportListener>();
@@ -12,7 +13,7 @@ function fixture() {
   const actions: QueueRequestAction[]=[];
   const transport: Transport={status:()=>status,subscribe:callback=>{statuses.add(callback);return()=>{statuses.delete(callback);};},subscribeEvents:callback=>{events.add(callback);return()=>{events.delete(callback);};},send:()=>{},sendAction:vi.fn(action=>{actions.push(action as QueueRequestAction);return status.state==="connected";}),close:()=>{}};
   let next=0;
-  const client=new MobileQueueClient(storage,()=>`id-${++next}`,100);
+  const client=new MobileQueueClient(storage,()=>`id-${++next}`,100,settleDraft);
   const queue:FollowUpQueue={threadId:"thread",revision:0,paused:false,items:[]};
   const emit=(event:RemoteEvent)=>events.forEach(callback=>callback(event));
   const reply=(action=actions[actions.length-1],patch:Partial<QueueResultEvent>={})=>emit({type:"queue_result",hostId:action.hostId,sessionId:action.sessionId,requestId:action.requestId,ok:true,error:null,queue:structuredClone(queue),receipt:null,...patch});
@@ -107,4 +108,82 @@ describe("phone host queue client",()=>{
     const f=fixture();await f.open();vi.mocked(f.transport.sendAction).mockReturnValueOnce(false);
     await f.client.enqueue("host","session","draft");expect(f.client.state("host","session").busy).toBe(false);expect(f.client.state("host","session").pending?.body).toBe("draft");f.client.dispose();
   });
+});
+
+it("keeps the original outbox until a confirmed message's draft is durably settled", async () => {
+  const settle = vi.fn(async () => false), f = fixture(settle); await f.open();
+  const transfer = { editId: "original-edit", text: " original " };
+  expect(await f.client.enqueue("host", "session", "original", transfer)).toBe(true);
+  expect(JSON.parse([...f.saved.values()][0]).draft).toEqual(transfer);
+  f.reply(undefined, { receipt: f.receipt() }); await flush();
+  expect(f.client.state("host", "session").pending?.body).toBe("original");
+  expect(f.storage.remove).not.toHaveBeenCalled(); expect(f.client.state("host", "session").error).toContain("draft could not be settled");
+  settle.mockResolvedValue(true); f.client.retry("host", "session"); f.reply(undefined, { receipt: f.receipt() }); await flush();
+  expect(settle).toHaveBeenCalledWith("host", "session", transfer);
+  expect(f.client.state("host", "session").pending).toBeNull(); expect(f.saved.size).toBe(0); f.client.dispose();
+});
+it("confirms a restarted outbox without leaving its original composer draft or erasing newer edits", async () => {
+  for (const newer of [false, true]) {
+    const draftRecords = new Map<string,string>(); let draftId = 0;
+    const storage = { read: async (key: string) => draftRecords.get(key) ?? null, write: async (key: string, value: string) => { draftRecords.set(key, value); } };
+    const drafts = new MobileDraftClient(storage, () => `draft-${++draftId}`); await drafts.open("host", "session");
+    drafts.edit("host", "session", "original"); await drafts.retrySave("host", "session");
+    const transfer = { editId: drafts.state("host", "session").editId, text: "original" };
+    const f = fixture(); await f.open(); await f.client.enqueue("host", "session", "original", transfer); const operation = f.actions[1].operation; f.client.dispose();
+    const reloadedDrafts = new MobileDraftClient(storage, () => `new-edit-${++draftId}`); await reloadedDrafts.open("host", "session");
+    if (newer) reloadedDrafts.edit("host", "session", "a newer draft");
+    let request = 0;
+    const restored = new MobileQueueClient(f.storage, () => `restart-${++request}`, 1000, (host, session, draft) => reloadedDrafts.confirmTransfer(host, session, draft));
+    restored.bind(f.transport, "host"); await restored.open("host", "session"); f.reply(); await flush();
+    expect(f.actions.filter(action => action.operation.type === "enqueue")).toHaveLength(1);
+    restored.retry("host", "session"); expect(f.actions[f.actions.length - 1].operation).toEqual(operation);
+    f.reply(undefined, { receipt: f.receipt() });
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+    expect(restored.state("host", "session").pending).toBeNull();
+    expect(reloadedDrafts.state("host", "session").text).toBe(newer ? "a newer draft" : "");
+    expect(JSON.parse([...draftRecords.values()][0]).text).toBe(newer ? "a newer draft" : "");
+    restored.dispose();
+  }
+});
+
+it("serializes duplicate confirmations across reconnect so they cannot remove a newer outbox", async () => {
+  const gate = deferred<boolean>(), settle = vi.fn(() => gate.promise), f = fixture(settle);
+  await f.open(); await f.client.enqueue("host", "session", "original", { editId: "old-edit", text: "original" });
+  const original = f.actions[1]; f.reply(original, { receipt: f.receipt(original) }); await flush();
+  expect(settle).toHaveBeenCalledOnce();
+  f.client.bind(null, null); f.client.bind(f.transport, "host"); f.reply(); await flush();
+  f.client.retry("host", "session"); const retry = f.actions[f.actions.length - 1];
+  f.reply(retry, { receipt: f.receipt(retry) }); await flush();
+  expect(settle).toHaveBeenCalledOnce(); expect(f.storage.remove).not.toHaveBeenCalled();
+  gate.resolve(true); for (let i = 0; i < 30; i++) await Promise.resolve();
+  expect(f.storage.remove).toHaveBeenCalledOnce(); expect(f.client.state("host", "session").pending).toBeNull();
+  await f.client.enqueue("host", "session", "newer command");
+  const newer = f.client.state("host", "session").pending!;
+  expect(newer.body).toBe("newer command");
+  // Duplicate retired replies cannot touch the newer pending record/file.
+  f.reply(original, { receipt: f.receipt(original) }); f.reply(retry, { receipt: f.receipt(retry) });
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  expect(f.storage.remove).toHaveBeenCalledOnce();
+  expect(JSON.parse([...f.saved.values()][0]).commandId).toBe(newer.commandId);
+  expect(f.client.state("host", "session").pending).toBe(newer);
+  f.client.dispose();
+});
+it("does not run a second outbox removal concurrently when reconnect occurs during deletion", async () => {
+  const deleting = deferred<void>(), f = fixture(async () => true); await f.open();
+  f.storage.remove.mockImplementationOnce(async key => { await deleting.promise; f.saved.delete(key); });
+  await f.client.enqueue("host", "session", "original", { editId: "old-edit", text: "original" });
+  const original = f.actions[1]; f.reply(original, { receipt: f.receipt(original) });
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(f.storage.remove).toHaveBeenCalledOnce();
+  f.client.bind(null, null); f.client.bind(f.transport, "host"); f.reply(); await flush();
+  f.client.retry("host", "session"); f.reply(undefined, { receipt: f.receipt() });
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(f.storage.remove).toHaveBeenCalledOnce();
+  deleting.resolve(); for (let i = 0; i < 40; i++) await Promise.resolve();
+  expect(f.client.state("host", "session").pending).toBeNull();
+  const removals = f.storage.remove.mock.calls.length;
+  expect(await f.client.enqueue("host", "session", "newer command")).toBe(true);
+  f.reply(original, { receipt: f.receipt(original) }); await flush();
+  expect(f.storage.remove).toHaveBeenCalledTimes(removals);
+  expect(JSON.parse([...f.saved.values()][0]).body).toBe("newer command"); f.client.dispose();
 });

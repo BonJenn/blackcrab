@@ -1,0 +1,6 @@
+.managed-workspace-entry { padding: 16px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--bg); }
+.managed-workspace-entry h3 { margin: 0 0 8px; }
+.managed-workspace-entry p { margin: 8px 0; overflow-wrap: anywhere; }
+.managed-workspace-entry [role="alert"] { color: var(--err); }
+.managed-workspace-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.managed-workspace-actions button { font: inherit; }

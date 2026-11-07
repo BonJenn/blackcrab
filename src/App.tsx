@@ -34,6 +34,7 @@ import { queueClient, startQueuedSession, type AcceptedEvent } from "./queueClie
 import { usePanelQueue } from "./usePanelQueue";
 import type { CodexActivity } from "./CodexConversation";
 import { DesktopProviderViews } from "./DesktopProviderViews";
+import { ManagedWorkspaceEntry } from "./ManagedWorkspaceEntry";
 import { ProviderSwitcher } from "./ProviderSwitcher";
 import { readDesktopProvider, saveDesktopProvider, type DesktopProvider } from "./desktopProvider";
 import {
@@ -7158,6 +7159,7 @@ function SettingsModal({
             </div>
           </section>
 
+          <ManagedWorkspaceEntry />
           <MobileRemoteSettings />
 
           <section className="settings-section">

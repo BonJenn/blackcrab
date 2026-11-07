@@ -96,3 +96,23 @@ it("binds history preparation to the selected owner once and never moves it on s
   await click("Conversation 2"); await click("Resume session", pane(2));
   expect(f.start).toHaveBeenCalledWith(second, { cwd: "/chosen", model: "chosen-model", resumeId: "chosen", permissionMode: "readOnly" });
 });
+
+it("routes history to the grid owner selected by pointer or keyboard focus", async () => {
+  const f = fixture();
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} />));
+  await click("Add conversation"); await click("Grid view");
+  expect(f.desktop.state().selected).toBe(second);
+  await act(async () => pane(1).querySelector("header")!.dispatchEvent(new Event("pointerdown", { bubbles: true })));
+  expect(f.desktop.state().selected).toBe("primary");
+  const firstThread = { id: "first-target", cwd: "/first", model: "first-model" } as CodexThread;
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} requestedThread={firstThread} />));
+  expect(f.desktop.workspace("primary").state().resumeId).toBe("first-target");
+  expect(f.desktop.workspace(second).state().resumeId).toBe("");
+  await act(async () => pane(2).querySelector<HTMLInputElement>("input")!.focus());
+  expect(f.desktop.state().selected).toBe(second);
+  const secondThread = { id: "second-target", cwd: "/second", model: "second-model" } as CodexThread;
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} requestedThread={secondThread} />));
+  expect(f.desktop.workspace(second).state().resumeId).toBe("second-target");
+  expect(f.desktop.workspace("primary").state().resumeId).toBe("first-target");
+  expect(f.start).not.toHaveBeenCalled();
+});

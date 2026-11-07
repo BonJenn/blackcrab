@@ -517,3 +517,21 @@ visibility, and an independent Codex action that does not invoke Claude continue
 recheck, terminal, token-save or token-clear callbacks. The main opener and setup
 entry share the same Codex panel callback. Native visual behavior and real CLI
 turns remain unverified; general provider readiness is unchanged.
+
+## Pane identity and selection
+
+New extra panes use `v2:UUID` identities. Their runtime owner starts with
+`codex:pane:v2:` and their workspace storage uses
+`blackcrab.codexWorkspace.v2.`; both contain a JSON tuple of window label and
+pane ID. The legacy primary and existing UUID-pane owner/workspace/outbox keys
+remain unchanged, so upgrades do not rename live owners or unconfirmed sends.
+Workspace and desktop caches are window-scoped, including deferred pane creation.
+
+A legacy primary window label ending in `.UUID` can alias a retained extra-pane
+address. That ambiguous primary is refused before inspection or writes; saved
+data is preserved. Explicit recovery/migration for that rare legacy identity
+remains pending. This is not a claim of complete multi-window parity.
+
+Pointer interaction and keyboard focus inside a grid pane select that owner.
+History preparation uses that selection; choosing an already-selected pane does
+not rewrite the saved layout. Active-run and draft transfer guards still apply.

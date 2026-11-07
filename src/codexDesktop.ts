@@ -1,13 +1,13 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { codexActivity, type CodexActivity } from "./codexActivity";
-import { desktopCodexWorkspace, releaseDesktopCodexWorkspace, type CodexWorkspace } from "./codexWorkspace";
+import { desktopCodexWorkspace, releaseDesktopCodexWorkspace, isCodexPaneId, newCodexPaneId, type CodexWorkspace } from "./codexWorkspace";
 
 export const CODEX_DESKTOP_PREFIX = "blackcrab.codexDesktop.v1.";
 export const MAX_CODEX_PANES = 6;
 type Layout = "single" | "grid";
 type DesktopState = { panes: string[]; selected: string; layout: Layout; error: string | null; revision: number };
 type StorageBackend = Pick<Storage, "getItem" | "setItem">;
-const validId = (id: unknown): id is string => typeof id === "string" && (id === "primary" || /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(id));
+const validId = isCodexPaneId;
 
 /** Window-scoped owners survive view switches. No action here starts or sends a turn. */
 export class CodexDesktop {
@@ -17,7 +17,7 @@ export class CodexDesktop {
   private subscriptions = new Map<string, () => void>();
   private inspected = new Set<string>();
   private unreadable = false;
-  constructor(private storage: StorageBackend, readonly key: string, private create: (id: string) => CodexWorkspace, private newId: () => string = () => crypto.randomUUID(), private release = (_id: string, owner: CodexWorkspace) => owner.client.dispose()) {
+  constructor(private storage: StorageBackend, readonly key: string, private create: (id: string) => CodexWorkspace, private newId: () => string = newCodexPaneId, private release = (_id: string, owner: CodexWorkspace) => owner.client.dispose()) {
     try {
       const raw = storage.getItem(key);
       if (raw) {
@@ -56,7 +56,10 @@ export class CodexDesktop {
       this.unreadable = false; this.value = { ...next, error: null }; this.emit(); return true;
     } catch (error) { this.value = { ...this.value, error: `Could not save Codex panes: ${String(error)}. The previous layout is retained.` }; this.emit(); return false; }
   }
-  select(id: string): boolean { return this.value.panes.includes(id) && this.save({ ...this.value, selected: id }); }
+  select(id: string): boolean {
+    if (this.unreadable || !this.value.panes.includes(id)) return false;
+    return id === this.value.selected || this.save({ ...this.value, selected: id });
+  }
   layout(layout: Layout): boolean { return this.save({ ...this.value, layout }); }
   add(): string | null {
     if (this.unreadable || this.value.panes.length >= MAX_CODEX_PANES) return null;
@@ -91,10 +94,13 @@ export class CodexDesktop {
   }
   resetLayout(reviewed: boolean): boolean { return reviewed && this.save(this.value, true); }
 }
-let desktop: CodexDesktop | undefined;
+const desktops = new Map<string, CodexDesktop>();
 export function desktopCodexPanes(defaultCwd: string): CodexDesktop {
-  if (desktop) return desktop;
   if (!("__TAURI_INTERNALS__" in window)) throw new Error("Codex conversations require the desktop app");
-  desktop = new CodexDesktop(localStorage, CODEX_DESKTOP_PREFIX + getCurrentWindow().label, id => desktopCodexWorkspace(defaultCwd, id), () => crypto.randomUUID(), releaseDesktopCodexWorkspace);
+  const label = getCurrentWindow().label;
+  const existing = desktops.get(label);
+  if (existing) return existing;
+  const desktop = new CodexDesktop(localStorage, CODEX_DESKTOP_PREFIX + label, id => desktopCodexWorkspace(defaultCwd, id, label), newCodexPaneId, releaseDesktopCodexWorkspace);
+  desktops.set(label, desktop);
   return desktop;
 }

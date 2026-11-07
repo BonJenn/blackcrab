@@ -108,3 +108,13 @@ it("retains unreadable pane preferences and unresolved pending sends", async () 
   expect(f.desktop.remove(id)).toBe(false);
   expect(f.desktop.removalProblem(id)).toContain("recovery");
 });
+
+it("does not rewrite layout storage when selection has not changed", () => {
+  const f = fixture(), id = f.desktop.add()!;
+  f.storage.setItem.mockClear(); const unchanged = f.desktop.state();
+  expect(f.desktop.select(id)).toBe(true); expect(f.desktop.select(id)).toBe(true);
+  expect(f.storage.setItem).not.toHaveBeenCalled(); expect(f.desktop.state()).toBe(unchanged);
+  expect(f.desktop.select("primary")).toBe(true); expect(f.desktop.select("primary")).toBe(true);
+  expect(f.storage.setItem).toHaveBeenCalledOnce();
+  expect(f.desktop.select("missing")).toBe(false); expect(f.storage.setItem).toHaveBeenCalledOnce();
+});

@@ -1295,4 +1295,78 @@ mod tests {
         assert_eq!(queue.items.len(), 1);
         runtime.stop().await;
     }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn native_ui_standin_uses_real_receipts_approvals_interrupts_and_persisted_history() {
+        let f = Fixture::new();
+        let command = || {
+            let mut command = Command::new("python3");
+            command
+                .arg("-u")
+                .arg(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/tests/fixtures/codex_ui.py"
+                ))
+                .env("BLACKCRAB_QA_STATE", f.root.join("fixture"))
+                .env("BLACKCRAB_QA_JOURNAL", f.root.join("journal/state.sqlite3"));
+            command
+        };
+        let (runtime, mut events) = Runtime::start(
+            command(),
+            f.store.clone(),
+            StartOptions {
+                cwd: f.root.to_string_lossy().into_owned(),
+                resume_id: None,
+                model: None,
+                sandbox: Sandbox::ReadOnly,
+                rpc: RpcOptions {
+                    request_timeout: Duration::from_secs(2),
+                    ..RpcOptions::default()
+                },
+            },
+        )
+        .await
+        .unwrap();
+        let native = runtime.info.provider_thread_id.clone();
+        runtime.send("ui-complete", "complete").await.unwrap();
+        assert_eq!(completed(&mut events).await.status, "succeeded");
+        runtime.send("ui-hold", "hold").await.unwrap();
+        runtime.interrupt().await.unwrap();
+        assert_eq!(completed(&mut events).await.status, "interrupted");
+        runtime.send("ui-approval", "approval").await.unwrap();
+        let id = approval(&mut events).await;
+        runtime.answer(&id, Decision::Decline).await.unwrap();
+        let denied = completed(&mut events).await;
+        assert_eq!(denied.status, "succeeded");
+        assert!(denied.detail.unwrap().contains("denied"));
+        assert!(runtime.queue().await.unwrap().paused);
+        runtime.stop().await;
+        let (client, _events) = Client::connect(command(), RpcOptions::default())
+            .await
+            .unwrap();
+        let history = client
+            .request(
+                "thread/turns/list",
+                Some(json!({"threadId":native,"itemsView":"full","limit":20})),
+            )
+            .await
+            .unwrap();
+        assert_eq!(history["data"].as_array().unwrap().len(), 3);
+        let catalog = client
+            .request("model/list", Some(json!({"limit":50})))
+            .await
+            .unwrap();
+        assert_eq!(catalog["data"][0]["model"], "native-qa");
+        client.close().await;
+        let wire = std::fs::read_to_string(f.root.join("fixture/wire.jsonl")).unwrap();
+        let inputs: Vec<Value> = wire
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|row| row["phase"] == "input-recorded")
+            .collect();
+        assert_eq!(inputs.len(), 3);
+        assert!(inputs
+            .iter()
+            .all(|row| row["statusBeforeInput"] == "dispatching"));
+    }
 }

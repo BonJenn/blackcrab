@@ -5,6 +5,7 @@ Blackcrab is designed as a local desktop app.
 ## What Blackcrab Reads
 
 - Claude Code session JSONL files under `~/.claude/projects`.
+- Codex account status, model catalog and stored history requested in its panel.
 - Project directories and file paths you choose in the UI.
 - Git metadata for selected project directories, such as branches and remotes.
 - Files you explicitly attach by drag-and-drop.
@@ -12,8 +13,8 @@ Blackcrab is designed as a local desktop app.
 ## What Blackcrab Sends
 
 Blackcrab sends messages to your local `claude` CLI subprocess. The native API
-also supports explicitly requested Codex app-server sessions; Codex client controls
-remain disabled until their integration is complete. Each CLI is responsible for
+also supports explicitly requested Codex app-server sessions through the dedicated
+conversation preview; general provider integration remains incomplete. Each CLI is responsible for
 network requests to its configured provider. Typed provider events can contain
 prompt/tool output and are sent to the local app window, not analytics.
 
@@ -56,9 +57,17 @@ under `blackcrab.codexOutbox.v1.*`: original text, send/queue mode and command,
 thread, run and provider-session identities. These records are unencrypted, have
 no automatic expiry, stay out of settings backups and are never resubmitted on
 reload. They are removed only after receipt confirmation or explicit discard;
-discard does not cancel provider work. The conversation UI using this controller
-is not yet enabled. Provider output is held only in bounded in-memory display
+discard does not cancel provider work. The dedicated conversation preview uses
+this controller. Provider output is held only in bounded in-memory display
 state by this controller; the CLI owns its stored history.
+
+The dedicated Codex workspace also stores its project/model/native thread choice,
+unsent draft and draft target under `blackcrab.codexWorkspace.v1.*`. These records
+are unencrypted, excluded from settings backups and do not expire automatically.
+Clear draft empties the current draft. Unreadable saved data is retained until
+explicit reset; storage failures keep new input in memory. Permissions reset to
+read-only on app reload. Closing the panel keeps its current run and draft alive;
+it is not the same as stopping the run.
 
 The local execution journal stores submitted message text, project paths, thread
 identities, provider-turn mappings and turn receipts under the application data directory. Follow-up

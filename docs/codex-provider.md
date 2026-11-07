@@ -8,13 +8,14 @@ turns, drain follow-ups, interrupt, and answer supported one-time approvals.
 Its typed events carry text, item/tool lifecycle, token usage and terminal error
 payloads.
 
-Step 05c1 connects the runtime to the native session registry and commands. It is
-an API implementation, not a user-facing provider release: `start_session` can
-accept `provider: "codex"`, but discovery marks Codex `clientReady: false`.
-The existing desktop/mobile controls still expose Claude. Account/model/history
-services, desktop rendering/approval controls and provider-aware mobile routing
-are steps 05c2–05c4 and must work before enabling the selector. No actual Codex
-model turn or device scenario has been validated by these fixtures.
+The native host and read services are connected to the dedicated **Codex** panel.
+It includes history/account/model browsing and a **Conversation preview** for
+explicit single-workspace start/resume, plain-text sends, streamed output, queue
+controls and one-time command/file approvals. General single/grid provider
+selection and provider-aware mobile controls still expose Claude. Discovery
+therefore keeps Codex `clientReady: false`; the dedicated preview does not imply
+provider-wide readiness. Native visual/window scenarios and actual Codex model
+turns remain unverified; step 05c3b4 covers those gates before general integration.
 
 The local reference is `codex-cli 0.166.0`. Its generated JSON Schema confirms the
 initialize response fields; the implementation requires a `userAgent` string and
@@ -106,7 +107,7 @@ journal failure closes dispatch rather than silently dropping lifecycle state.
 
 - `list_providers` returns installation/capability metadata and `clientReady`.
   Codex is installed when its executable is found, but client readiness remains
-  false. This is not evidence of login, model availability or working UI.
+  false. Installation is not evidence of login, model availability or full client readiness.
 - `start_session` accepts `provider: "codex"` with permission mode `default`
   (workspace-write/on-request) or `readOnly` (read-only/on-request). Model is
   optional and passed exactly as selected; resume uses the provider's native
@@ -149,7 +150,7 @@ host or guarantee background operation after app exit.
 ## Run-specific live controls
 
 `codex_control({panelId, expectedRunId, action})` is the intended write interface
-for upcoming desktop Codex controls. Actions are a closed tagged union:
+for the dedicated preview and future general desktop Codex controls. Actions are a closed tagged union:
 
 ```json
 {"type":"submit","commandId":"stable-command-id","text":"message","queued":false}
@@ -179,15 +180,15 @@ cleanup, while other actions require resuming the original session.
 run on every operation, checks receipt command/thread identity and queue thread/
 revision shape, and never falls back to the older panel-only APIs or retries a
 failed write automatically. Those APIs remain for compatibility; new Codex live
-UI must use this guarded interface. The bridge does not yet implement outbox
-persistence, transcript rendering or reconnect state. Client readiness remains
-false until those controls and their scenarios are complete.
+UI must use this guarded interface. The thin bridge delegates outbox/lifecycle state to `codexLive.ts` and rendering
+to `CodexConversation.tsx`. General client readiness remains false until the
+remaining integration and native/real-turn scenarios are complete.
 
 ## Live client state
 
 `src/codexLive.ts` provides one `CodexLiveClient` per owned panel with an injected
-backend/storage boundary. It is prepared for the upcoming desktop conversation
-views; it is not mounted by the app yet and does not change `clientReady`.
+backend/storage boundary. It now backs the dedicated conversation preview. General desktop/mobile
+integration remains incomplete and `clientReady` stays false.
 
 - Subscribe to typed provider events before starting a session. Capture an early
   ready event and reconcile it against native journal/run/provider identity.
@@ -223,11 +224,12 @@ history remains provider-owned and available through the history browser. Live
 state is not a durable replay log and does not claim seamless reconnect or
 exactly-once delta delivery. Existing runs require history review and explicit
 stop/resume after client reload. Disposing the controller removes listeners but
-does not stop its native run; the future view owner must manage that lifecycle.
+does not stop its native run; the workspace owner keeps it mounted across modal/tab changes; native window and
+app-exit behavior still needs scenario evidence.
 
 The native backend uses explicit Codex launch options, no managed worktrees, the
 run-guarded control endpoint, and provider-specific journal reads. It does not
-change CLI auth or choose a replacement model. The upcoming views still need
+change CLI auth or choose a replacement model. General desktop integration still needs
 scenario/visual evidence and opt-in real-turn validation before readiness.
 
 ## Account, model and history reads
@@ -284,7 +286,7 @@ subscriptions remain subsequent work. Client readiness is still false.
 
 ## Desktop browser
 
-The top bar's **Codex history** button opens a lazy-loaded native modal browser.
+The top bar's **Codex** button opens a lazy-loaded native modal browser.
 It reads CLI/VS Code/app-server thread history across model providers, filters by
 an absolute project directory or archived status, and loads additional pages
 only on request. Selecting a thread loads its turn summaries; **View items** reads
@@ -302,13 +304,55 @@ account/history data. Filter/tab/thread changes discard late responses, so an ol
 replace the current selection. Modal close/Escape restores focus to the opener;
 native dialog behavior supplies focus containment.
 
-This is a read-only desktop feature. It never invokes session start/resume/send,
-changes permissions, accepts an approval, edits history or logs in. Existing
-Claude single/grid flows remain separate. Codex still reports `clientReady:
-false` because desktop conversation controls, live renderer/approvals, recovery,
-and provider-aware mobile flows have not been connected. The browser tests use
-mock native query responses; native rendering, real account/catalog/history and
-live model scenarios require separate evidence.
+History, Models and Account remain read-only. **Continue in conversation** only
+prepares a selected thread; it does not start or resume it automatically.
+
+## Dedicated conversation preview
+
+The Conversation tab owns one Codex panel per native window label. The workspace
+is initialized only when that tab is chosen. **Start session** / **Resume session**
+are explicit and separate from submitting a message. Model IDs come from the CLI
+catalog, with CLI default available if catalog lookup fails. Permissions default
+to read-only and offer workspace-write as an explicit selection; neither plan,
+full-access nor managed-worktree modes are exposed. Resume/new-target changes do
+not silently transfer an existing draft or unconfirmed message.
+
+The composer uses the guarded live controller. **Send now** requires an idle run
+and a known empty queue; **Queue message** can append while a turn is busy. A
+failed initial queue read has a visible refresh path. Accepted sends clear only
+the matching text/target draft. Recovery shows the original text and has explicit
+confirm/retry and reviewed discard actions; discarding a record never cancels
+provider work. History can prepare the original session without starting it.
+
+Live user/assistant/tool output is inert text grouped by command, with usage,
+terminal status/error details and explicit truncation. Only current one-time
+command/file requests expose **Allow once**. Unknown methods or truncated details
+cannot be accepted; decline/cancel remain available. Interrupt is disabled while
+idle or before a provider turn is bound, and does not clear busy state until the
+terminal event. Stop is explicit and targets the intended run.
+
+Queue edit/remove/reorder/pause/resume use the displayed revision. An open stale
+edit cannot save until reopened against the latest data. Held work is not resumed
+on startup. The panel stays mounted when closed, as does an activated conversation
+tab while browsing history/account/models, so runs, output and drafts remain.
+The toolbar reports running/approval/detached/confirmation activity after the
+workspace has been opened. Closing the modal does not stop the runtime.
+
+`blackcrab.codexWorkspace.v1.<windowLabel>` stores project/model/native thread,
+plain draft text and its target. It is unencrypted, excluded from settings
+backups, and has no automatic expiry; Clear draft removes the current draft.
+Permission mode is kept in memory and resets to read-only after app reload.
+Unreadable saved preferences are preserved until explicit reset; new input stays
+in memory and storage errors stay visible. The separate outbox still controls
+unconfirmed send identity. After a webview reload, the controller discovers a
+live native run as detached; review history and explicitly stop/resume it. This
+is not seamless replay/reconnect and does not guarantee behavior after native
+window/app exit.
+
+The preview does not share Claude's main/grid transcript or phone routing. General
+provider readiness, cross-window/native visual scenarios, richer attachments/
+rendering and actual model-turn evidence remain separate work. DOM tests and
+injected backend fixtures are not claims of native/end-to-end verification.
 
 ## Verification
 
@@ -409,3 +453,15 @@ receipts, bounded display, listener disposal, native API bindings, foreign recei
 rejection, replacement display cleanup and superseded startup completion. Backend
 and storage are injected fixtures; no real CLI session, model turn, UI or device
 scenario was run. Conversation views remain the next step.
+
+Final 05c3b3 validation: full smoke passed with 130 desktop tests, 126 native tests
+(the installed-CLI probe remains ignored), typecheck, Cargo check and production
+build. Fourteen new DOM/workspace tests cover explicit history handoff/start,
+close/reopen ownership, draft persistence/target identity, busy queue submission,
+inert streaming output, one-time/truncated approvals, stale queue edits, recovery
+confirmation/discard, background activity, queue-read recovery, storage failures
+and read-only permission reset. Existing controller tests also cover bounded
+approval/error state. React review checked effect cleanup, stable subscriptions,
+lazy loading, modal focus, stale async selection and revision guards. Native
+visual/window behavior, real CLI turns, general main/grid integration and mobile
+workflows remain unverified; general `clientReady` is still false.

@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct QueueItem {
     pub command_id: String,
@@ -10,7 +10,7 @@ pub(crate) struct QueueItem {
     pub updated_at_ms: i64,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct QueueSnapshot {
     pub thread_id: String,
@@ -687,7 +687,7 @@ mod tests {
         drop(store);
         let db = Connection::open(fixture.0.join("state.sqlite3")).unwrap();
         db.execute_batch(
-            "DROP TABLE queued_messages; DROP TABLE queue_lanes; PRAGMA user_version=1;",
+            "DROP TABLE provider_turns; DROP TABLE queued_messages; DROP TABLE queue_lanes; PRAGMA user_version=1;",
         )
         .unwrap();
         drop(db);

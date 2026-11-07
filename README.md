@@ -154,8 +154,8 @@ implemented provider.
   linkification.
 - `src-tauri/src/execution.rs`: durable thread mappings, turn receipts, and
   host recovery leases.
-- `src-tauri/src/codex_rpc.rs`: private app-server transport prerequisite;
-  Codex is not yet exposed as a runnable provider. See [`docs/codex-provider.md`](docs/codex-provider.md).
+- `src-tauri/src/codex_rpc.rs` and `codex_runtime.rs`: private app-server transport
+  and journal-backed runtime; Codex is not yet exposed as a runnable provider. See [`docs/codex-provider.md`](docs/codex-provider.md).
 - `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
   command support, with shared desktop controls in `src/QueueControls.tsx`.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,

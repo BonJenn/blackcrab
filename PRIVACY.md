@@ -49,7 +49,7 @@ and are never resubmitted automatically on reload. See
 [`docs/follow-up-queues.md`](docs/follow-up-queues.md).
 
 The local execution journal stores submitted message text, project paths, thread
-identities and turn receipts under the application data directory. Follow-up
+identities, provider-turn mappings and turn receipts under the application data directory. Follow-up
 queues also retain original and edited message text, including cancelled command
 IDs for retry deduplication. It supports
 duplicate-command detection and interruption recovery. Receipts are not included

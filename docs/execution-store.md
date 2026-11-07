@@ -83,7 +83,20 @@ deduplication history. Never remove an active database, WAL or lease file.
 
 Unknown newer schemas and database errors fail explicitly. The app does not
 silently replace a corrupt database or launch an unjournaled structured session.
-Schema version 2 adds host follow-up queues through an atomic migration from
-version 1, preserving existing receipts. Older binaries that only understand
-version 1 will refuse the upgraded database. Desktop queue controls and ambiguous-submission recovery build on this boundary;
-mobile queue integration and scoped remote access follow in later parity PRs.
+Schema version 2 adds host follow-up queues; version 3 adds provider-turn
+correlation through atomic migrations that preserve existing receipts and queues.
+Binaries that only understand version 1 or 2 refuse a version-3 database.
+Provider turn IDs are separate from stable Blackcrab turn/command IDs; matching
+thread, run, command and provider-turn identities guard terminal updates.
+
+Per-thread `thread_*.provider.lock` files support exclusive Codex runtime
+ownership, including idle threads. Normal guard drop explicitly unlocks, so duplicated descriptors cannot extend
+the logical owner lifetime. The OS also releases locks on process exit; empty
+lock files may remain. They have the same private filesystem
+permissions as host lease files. Never remove an active lock file, since replacing
+it would allow another process to lock a different file at the same path.
+
+Desktop/mobile Claude queue controls build on this journal. The private Codex
+runtime also uses it, while Codex application command/history/client integration
+and scoped remote access remain later parity steps. See
+[`codex-provider.md`](codex-provider.md) for the current runtime boundary.

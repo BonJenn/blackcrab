@@ -41,6 +41,7 @@ import {
 import { connectWithFailover } from "./src/transport/failoverTransport";
 import { firstConnectableHost } from "./src/transport/reconnect";
 import type { Transport, TransportStatus } from "./src/transport/types";
+import { subscribeToHost } from "./src/transport/activeHost";
 
 /** Last path segment, used as a provisional title for a brand-new session. */
 function dirName(path: string): string {
@@ -75,6 +76,8 @@ export default function App() {
   const [focusedSession, setFocusedSession] = useState<SessionSummary | null>(
     null,
   );
+  const focusedSessionRef = useRef(focusedSession);
+  focusedSessionRef.current = focusedSession;
   const [readCursors, setReadCursors] = useState<
     Record<string, { lastReadMessageId: MessageId; readAtMs: number }>
   >({});
@@ -161,7 +164,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!activeTransport) {
+    if (!activeTransport || !activeHostId) {
       setActiveStatus(null);
       setLiveSessions(null);
       setLiveTranscript(null);
@@ -170,10 +173,14 @@ export default function App() {
       return;
     }
     setApprovals([]);
-    const unsubStatus = activeTransport.subscribe((status) => {
+    setLiveSessions(null);
+    setLiveTranscript(null);
+    setProjectDirs([]);
+    pendingStartCwdRef.current = null;
+    return subscribeToHost(activeTransport, activeHostId, (status) => {
       setActiveStatus(status);
-    });
-    const unsubEvents = activeTransport.subscribeEvents((event) => {
+      if (status.state !== "connected") setApprovals(null);
+    }, (event) => {
       if (event.type === "sessions") {
         setLiveSessions(event.sessions);
       } else if (event.type === "transcript_tail") {
@@ -240,15 +247,14 @@ export default function App() {
         setSendFailSignal((n) => n + 1);
         Alert.alert("Couldn’t send", event.reason);
       }
-    });
-    return () => {
-      unsubStatus();
-      unsubEvents();
-    };
-  }, [activeTransport]);
+    }, () => focusedSessionRef.current?.hostId === activeHostId ? focusedSessionRef.current.sessionId : null);
+  }, [activeTransport, activeHostId]);
 
   useEffect(() => {
     setFocusedSession(current=>current && current.hostId!==activeHostId ? null : current);
+    setApprovals(null);
+    setProjectDirs([]);
+    pendingStartCwdRef.current = null;
     setLiveTranscript(null);
     setLiveSessions(null);
   },[activeHostId]);
@@ -293,22 +299,24 @@ export default function App() {
   // Open a session's transcript as a slide-over detail.
   function openSession(session: SessionSummary) {
     if (!activeTransport || session.hostId!==activeHostId) return;
+    setLiveTranscript(null);
+    focusedSessionRef.current = session;
+    slideX.setValue(screenWidth);
+    setFocusedSession(session);
     activeTransport.sendAction({
       type: "focus_session",
       hostId: session.hostId,
       sessionId: session.sessionId,
     });
-    setLiveTranscript(null);
-    slideX.setValue(screenWidth);
-    setFocusedSession(session);
   }
 
   function closeTranscript() {
+    const closing = focusedSessionRef.current;
     Animated.timing(slideX, {
       toValue: screenWidth,
       duration: 200,
       useNativeDriver: true,
-    }).start(() => setFocusedSession(null));
+    }).start(() => { if (focusedSessionRef.current === closing) { focusedSessionRef.current = null; setFocusedSession(null); } });
   }
 
   function sendToFocused(body: string, attachments?: RemoteAttachment[]) {
@@ -432,7 +440,7 @@ export default function App() {
           />
         )}
         {tab === "approval" && (
-          <ApprovalScreen transport={activeTransport} approvals={approvals} />
+          <ApprovalScreen transport={activeTransport} status={activeStatus} hostId={activeHostId} approvals={approvals} />
         )}
 
         {/* Transcript detail slides over the active tab when a session opens. */}

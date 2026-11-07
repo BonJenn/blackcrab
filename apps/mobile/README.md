@@ -2,7 +2,9 @@
 
 An Expo / React Native (iOS + Android) remote companion that pairs with a
 Blackcrab desktop host to view and control its Claude Code sessions from a
-phone. See `../../docs/mobile-remote.md` for the architecture and non-goals.
+phone. The full remote iOS delivery scope is tracked in
+[the mobile parity plan](../../docs/mobile-ios-parity-plan.md).
+`../../docs/mobile-remote.md` contains architecture and historical notes.
 
 The app is functional in code: it performs a real pairing handshake, opens a
 live connection to the desktop (over LAN or relay), streams sessions and
@@ -49,7 +51,7 @@ Verified against the source under `src/`:
   most-recently-paired connectable host reconnects via failover without
   re-pairing; a rejected token clears the active connection.
 - **Live session list** (`screens/SessionsScreen.tsx`): renders sessions pushed
-  by the host, falling back to mock fixtures until a connection exists.
+  by the host, showing an empty/waiting state until a real host snapshot arrives.
 - **Transcript tail streaming** (`screens/TranscriptScreen.tsx`): follows a
   chosen session's transcript; tapping "Transcript" sends a `focus_session`
   action so the host pushes that session's tail.
@@ -66,13 +68,14 @@ Verified against the source under `src/`:
 
 - **Never built via EAS** and **never run on a physical device** — the code is
   unexercised end-to-end on real hardware.
-- **No `projectId` registered with EAS yet** (`app.json` has no `extra.eas`
-  entry), so `eas build` will not work until the project is initialized.
-- App `version` is still `0.0.0`.
-- **No UI / on-device test coverage.** The tests under `src/` cover only the
-  crypto (`secretbox.test.ts`) and transport logic
-  (`lanWebSocketTransport`, `relayTransport`, `failoverTransport`,
-  `reconnect`). Screens and navigation are untested.
+- `app.json` already has an EAS project ID, update URL and version `1.0.0`;
+  `eas.json` includes a development-simulator profile. Account access, signing,
+  installable build and device runtime evidence still need verification. Do not
+  initialize a replacement EAS project.
+- Screen/controller regression checks and iOS bundle export are covered; these
+  do not substitute for simulator or physical-device verification.
+- Full navigation and device coverage remain incomplete. Automated tests cover
+  crypto, transports, queue controls and host/approval state scenarios.
 - No push notifications — updates arrive only while the app is connected and
   foregrounded (see the doc's non-goals).
 
@@ -82,7 +85,6 @@ Producing an installable build requires an Expo account and EAS:
 
 ```sh
 eas login
-eas init                          # registers the project, adds extra.eas.projectId
 eas build --profile development   # dev-client build to install on a phone
 ```
 
@@ -129,3 +131,19 @@ Validation covers controller state/races, shared host contracts, a React control
 conflict scenario, and iOS bundle export. Physical-device, simulator and visual
 validation remain unverified; these source/build checks do not claim device
 end-to-end evidence.
+
+## Authoritative remote state
+
+Normal screens never substitute sample hosts, chats, approvals or transcript
+entries for real data. Cached conversations are labelled as last received while
+disconnected. Incoming UI events belong to one active host binding; foreign
+host records, mixed-session tails and callbacks retired by a host switch are
+ignored. Only the focused session can replace its transcript. Reconnecting
+clears pending approval UI; request updates must come from the new connection.
+
+Approval buttons require the selected connected host and check the transport
+again at tap time. A submitted decision disables both buttons until the host
+confirms resolution; it is never replayed automatically. A rejected local send
+keeps an explicit retry available. These controls do not replace host-side
+permission checks, complete protocol schema validation, replay hardening or
+physical-device end-to-end testing.

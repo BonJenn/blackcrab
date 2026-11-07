@@ -1,13 +1,21 @@
 # Mobile Remote
 
-The Blackcrab mobile companion is intended to give a user a phone-side view
-into their desktop Blackcrab sessions: see what Claude is doing, approve or
-deny requests for attention, and send short follow-ups without sitting at the
-desk.
+Blackcrab Remote is the Expo / React Native application in `apps/mobile`, with
+shared contracts in `packages/remote-protocol`. Pairing, encrypted LAN/relay
+transport, sessions, transcript streaming, approvals, attachments and durable
+follow-up queues have implementations. It is no longer merely a scaffold.
 
-This document captures the intended architecture before any of it is wired up.
-The code under `apps/mobile/` and `packages/remote-protocol/` is intentionally
-a skeleton.
+The delivery requirement is a full remote iOS application for controlling agents
+with all applicable functionality of the pinned T3 mobile target. The current
+scope, sequencing and verification gates are in the
+[mobile iOS parity plan](mobile-ios-parity-plan.md). Earlier exclusions of remote
+terminals/files and push notifications are backlog items, not final non-goals.
+Host-side credentials and permission enforcement remain architectural boundaries.
+
+The sections below document the original incremental implementation and include
+historical descriptions of scaffolding. They are not a certification of current
+runtime, signing, deployment or device readiness. Consult the mobile README,
+parity plan and recorded tests for current status.
 
 ## Architecture
 
@@ -192,7 +200,7 @@ The full off‑LAN loop now works: pair on LAN → walk away → the phone recon
 through the relay, end‑to‑end encrypted. Still to come: push notifications and
 relay rate‑limiting/replay hardening.
 
-## Non-goals for this branch
+## Historical limitations of the original branch
 
 - No push notifications yet — the phone only receives updates while connected
   and foregrounded. Waking it for attention requests (APNs/FCM) is future work.

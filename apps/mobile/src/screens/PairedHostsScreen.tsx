@@ -1,6 +1,5 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import {
-  MOCK_PAIRED_HOSTS,
   type HostId,
   type PairedHostSummary,
 } from "@blackcrab/remote-protocol";
@@ -27,7 +26,7 @@ export function PairedHostsScreen({
   activeStatus,
 }: PairedHostsScreenProps) {
   const hasStoredHosts = storedHosts.length > 0;
-  const hosts = loading ? [] : hasStoredHosts ? storedHosts : MOCK_PAIRED_HOSTS;
+  const hosts = loading ? [] : storedHosts;
 
   return (
     <View style={screenStyles.container}>
@@ -49,9 +48,6 @@ export function PairedHostsScreen({
       >
         <Text style={localStyles.secondaryButtonText}>Pair desktop</Text>
       </Pressable>
-      {!loading && !hasStoredHosts && (
-        <Text style={localStyles.sectionLabel}>Sample hosts</Text>
-      )}
       <FlatList
         data={hosts}
         keyExtractor={(item) => item.hostId}
@@ -89,9 +85,7 @@ function HostRow({
 }) {
   const label = connectionStatus
     ? connectionStatus.state.replace("_", " ")
-    : host.online
-      ? "online"
-      : "offline";
+    : "not connected";
   return (
     <View style={localStyles.row}>
       <View style={localStyles.rowMain}>
@@ -102,7 +96,7 @@ function HostRow({
       </View>
       <View style={localStyles.rowActions}>
         <Text
-          style={[localStyles.status, statusStyle(connectionStatus, host.online)]}
+          style={[localStyles.status, statusStyle(connectionStatus, false)]}
         >
           {label}
         </Text>

@@ -18,7 +18,6 @@ import {
   View,
 } from "react-native";
 import {
-  MOCK_TRANSCRIPT_TAIL,
   type MessageId,
   type RemoteAttachment,
   type SessionId,
@@ -54,7 +53,7 @@ function easeNext() {
 export interface TranscriptScreenProps {
   queueClient: MobileQueueClient;
   hostId: string;
-  /** Live transcript tail pushed by the host. Falls back to mock when null. */
+  /** Live transcript tail pushed by the host. Null until this session has a host snapshot. */
   entries?: TranscriptEntry[] | null;
   /** The session being viewed, used to freeze the divider per conversation. */
   sessionId?: SessionId | null;
@@ -78,6 +77,8 @@ export interface TranscriptScreenProps {
   onMarkRead?: (messageId: MessageId) => void;
 }
 
+const EMPTY_ENTRIES: TranscriptEntry[] = [];
+
 /** Collapse whitespace so an optimistic body can be matched to a host preview. */
 function collapse(s: string): string {
   return s.replace(/\s+/g, " ").trim();
@@ -100,7 +101,7 @@ export function TranscriptScreen({
 }: TranscriptScreenProps) {
   const queue = useQueue(queueClient,hostId,sessionId || "");
   const live = entries != null;
-  const hostData = live ? entries : MOCK_TRANSCRIPT_TAIL;
+  const hostData = entries ?? EMPTY_ENTRIES;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
   const [draft, setDraft] = useState("");
   const draftRevision = useRef(0);
@@ -382,7 +383,7 @@ export function TranscriptScreen({
           // Window not measured yet; leave the user at the top rather than crash.
         }}
         ListEmptyComponent={
-          <Text style={screenStyles.note}>No transcript entries yet.</Text>
+          <Text style={screenStyles.note}>{!connected ? "Reconnect to receive this conversation." : live ? "No transcript entries yet." : "Waiting for this conversation’s transcript…"}</Text>
         }
       />
 

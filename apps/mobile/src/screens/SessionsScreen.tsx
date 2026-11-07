@@ -5,7 +5,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { MOCK_SESSIONS, type SessionSummary } from "@blackcrab/remote-protocol";
+import { type SessionSummary } from "@blackcrab/remote-protocol";
 
 import type { Transport, TransportStatus } from "../transport/types";
 import { screenStyles } from "./styles";
@@ -29,7 +29,7 @@ export interface SessionsScreenProps {
   transport?: Transport | null;
   /** Status of the active transport, used to enable/disable controls. */
   status?: TransportStatus | null;
-  /** Live sessions pushed by the host. Falls back to mock fixtures when null. */
+  /** Live sessions pushed by the host. Null until the host sends its first snapshot. */
   sessions?: SessionSummary[] | null;
   /** Open a session's transcript (slide-over detail). */
   onOpenSession?: (session: SessionSummary) => void;
@@ -46,7 +46,7 @@ export function SessionsScreen({
 }: SessionsScreenProps) {
   const connected = status?.state === "connected" && Boolean(transport);
   const live = sessions != null;
-  const data = live ? sessions : MOCK_SESSIONS;
+  const data = sessions ?? [];
 
   return (
     <View style={screenStyles.container}>
@@ -66,14 +66,13 @@ export function SessionsScreen({
         )}
       </View>
       <Text style={screenStyles.note}>
-        {live
-          ? "Tap a conversation to open it."
-          : connected
-            ? "Waiting for the host's session list…"
-            : "Mocked sessions. Connect to a host to open a conversation."}
+        {connected
+          ? live ? "Tap a conversation to open it." : "Waiting for the host's session list…"
+          : live ? "Last received conversations. Reconnect to control your agents." : "Connect to a paired host to see your conversations."}
       </Text>
       <FlatList
         data={data}
+        ListEmptyComponent={<Text style={screenStyles.note}>{connected && live ? "No conversations on this host yet." : ""}</Text>}
         keyExtractor={(item) => `${item.hostId}:${item.sessionId}`}
         renderItem={({ item }) => (
           <SessionRow

@@ -1,19 +1,22 @@
+import { useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { MOCK_APPROVALS, type ApprovalRequest } from "@blackcrab/remote-protocol";
+import { type ApprovalRequest } from "@blackcrab/remote-protocol";
 
-import type { Transport } from "../transport/types";
+import type { Transport, TransportStatus } from "../transport/types";
 import { screenStyles } from "./styles";
 
 export interface ApprovalScreenProps {
   /** Live connection to the active host, when paired and connected. */
   transport?: Transport | null;
+  status?: TransportStatus | null;
+  hostId?: string | null;
   /** Pending approvals pushed by the host. Null until a host connects. */
   approvals?: ApprovalRequest[] | null;
 }
 
-export function ApprovalScreen({ transport, approvals }: ApprovalScreenProps) {
-  const live = approvals != null && transport != null;
-  const data = live ? approvals : MOCK_APPROVALS;
+export function ApprovalScreen({ transport, status, hostId, approvals }: ApprovalScreenProps) {
+  const live = status?.state === "connected" && transport != null && !!hostId && (!status.hostId || status.hostId === hostId);
+  const data = (approvals ?? []).filter(approval => approval.hostId === hostId);
 
   return (
     <View style={screenStyles.container}>
@@ -21,7 +24,7 @@ export function ApprovalScreen({ transport, approvals }: ApprovalScreenProps) {
       <Text style={screenStyles.note}>
         {live
           ? "Live permission prompts from the connected host. Approve or deny without leaving your phone."
-          : "Approve and deny are wired through the protocol but inactive until a host connection exists."}
+          : "Reconnect to the selected host to receive and answer approval requests."}
       </Text>
       <FlatList
         data={data}
@@ -34,7 +37,7 @@ export function ApprovalScreen({ transport, approvals }: ApprovalScreenProps) {
         )}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
         ListEmptyComponent={
-          <Text style={localStyles.empty}>Nothing waiting.</Text>
+          <Text style={localStyles.empty}>No approval requests received.</Text>
         }
       />
     </View>
@@ -48,29 +51,26 @@ function ApprovalRow({
   approval: ApprovalRequest;
   transport: Transport | null;
 }) {
-  const enabled = transport != null;
+  const [submitted, setSubmitted] = useState(false);
+  const submittedRef = useRef(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const enabled = transport != null && !submitted;
 
   function resolve(decision: "approve" | "deny") {
-    if (!transport) return;
-    if (decision === "approve") {
-      transport.sendAction({
-        type: "approve",
-        hostId: approval.hostId,
-        approvalId: approval.id,
-      });
-    } else {
-      transport.sendAction({
-        type: "deny",
-        hostId: approval.hostId,
-        approvalId: approval.id,
-      });
-    }
+    if (!transport || submittedRef.current) return;
+    const status = transport.status();
+    if (status.state !== "connected" || (status.hostId && status.hostId !== approval.hostId)) return;
+    const accepted = transport.sendAction({ type: decision, hostId: approval.hostId, approvalId: approval.id });
+    if (accepted) { submittedRef.current = true; setSubmitted(true); setProblem(null); }
+    else setProblem("The decision was not sent. Reconnect and review the request before trying again.");
   }
 
   return (
     <View style={localStyles.row}>
       <Text style={localStyles.kind}>{approval.kind.replace("_", " ")}</Text>
       <Text style={localStyles.summary}>{approval.summary}</Text>
+      {submitted && <Text>Decision submitted. Waiting for host confirmation.</Text>}
+      {problem && <Text accessibilityRole="alert">{problem}</Text>}
       <View style={localStyles.actions}>
         <Pressable
           accessibilityRole="button"

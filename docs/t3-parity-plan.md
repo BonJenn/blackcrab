@@ -1,5 +1,10 @@
 # T3 functionality parity delivery plan
 
+Full remote iOS control is an explicit delivery requirement, including all applicable
+T3 mobile workflows. The app lives in `apps/mobile`; see the
+[iOS delivery plan](mobile-ios-parity-plan.md). Mobile foundations can proceed
+alongside desktop integration; provider actions depend on shared host services.
+
 Target: BonJenn/t3code commit `7f02de2eb8e253e0ec23f005b3cfff8e2c963be8`.
 Destination: `stage`. Keep one coherent improvement per PR and merge it before
 starting dependent implementation. Leave release tags and `main` unchanged.
@@ -31,8 +36,9 @@ client action before its backend works.
 | 05c3b4b | Independent provider setup entry | Codex preview entry without dismissing/claiming successful Claude setup | Merged #187; all 3 CI checks passed; smoke, 132 desktop / 126 native tests and Cargo check/build; general clientReady remains false |
 | 05c3b4b2 | Reproducible native Codex QA | Isolated macOS bundle and local CLI fixture, real native workflow evidence, durable receipt regression | Merged #188; all 3 CI checks passed; native fixture scenarios verified; smoke, 132 desktop / 127 native tests and Cargo check/build; actual model turns remain unverified |
 | 05c3b4c1 | Codex multi-conversation desktop workspace | Stable per-pane owners and drafts, six-pane single/grid views, hidden attention, removal/recovery guards and native fixture scenarios | Merged #189; all 3 CI checks passed; smoke, 142 desktop / 127 native tests and Cargo check/build; two-pane native grid, approval, restart/draft and removal scenarios passed; general clientReady remains false |
-| 05c3b4c2 | Main desktop provider views | Full-width Codex workspace, persistent provider selection, retained owners/drafts, provider-scoped input and Claude setup | Implemented; smoke, 147 desktop / 127 native tests and Cargo check/build; native provider switch, retained Codex run/drafts and restart passed; awaiting PR/CI; mixed-provider grid/window and real model gates remain open |
+| 05c3b4c2 | Main desktop provider views | Full-width Codex workspace, persistent provider selection, retained owners/drafts, provider-scoped input and Claude setup | Merged #190; all 3 CI checks passed; smoke, 147 desktop / 127 native tests and Cargo check/build; native provider switch, retained Codex run/drafts and restart passed; mixed-provider grid/window and real model gates remain open |
 | 05c3b4c | General desktop integration and verification | Single/grid provider selection, owner/window scenarios, visual checks and opt-in real turns; advertise only verified readiness/capabilities | Pending |
+| 05c4a | Authoritative mobile host state | Remove demo data, scope snapshots/approvals to active host/session, retire stale callbacks and disable disconnected decisions | Implemented; 64 mobile / 46 protocol tests, mobile typecheck, iOS Hermes export and smoke (147 desktop / 127 native); awaiting PR/CI; full remote iOS scope in [delivery plan](mobile-ios-parity-plan.md) |
 | 05c4 | Codex mobile integration | Provider-aware remote actions, history/queue/approval UI and device scenarios | Pending, after 05c3b4c merges |
 | 06 | Independent host and reconnect | Host outlives UI; desktop plus second client converge; no duplicate writer or replayed side effects | Pending |
 | 07 | Managed worktrees and project scripts | Provider-independent create/reuse/setup/cleanup; failures recover; dirty user work protected | Pending |

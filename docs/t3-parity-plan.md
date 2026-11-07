@@ -12,9 +12,9 @@ client action before its backend works.
 
 | Order | Deliverable | Acceptance / evidence | State |
 |---|---|---|---|
-| 01 | Pin target, plan, staging CI | Stage exists; PR and stage pushes run CI; baseline is traceable | In progress |
-| 02 | Provider-neutral launch boundary | Claude argument/auth/resume behavior preserved; invalid providers fail before replacing a process; capability discovery is honest | Pending |
-| 03 | Durable execution store | Stable thread/turn/command identity, atomic state updates, idempotent receipts; crash/reload recovery tested | Pending |
+| 01 | Pin target, plan, staging CI | Stage exists; PR and stage pushes run CI; baseline is traceable | Merged [#171](https://github.com/BonJenn/blackcrab/pull/171), all 3 CI checks passed |
+| 02 | Provider-neutral launch boundary | Claude argument/auth/resume behavior preserved; invalid providers fail before replacing a process; capability discovery is honest | Merged [#172](https://github.com/BonJenn/blackcrab/pull/172), smoke + all 3 CI checks passed |
+| 03 | Durable execution store | Stable thread/turn/command identity, atomic state updates, idempotent receipts; crash/reload recovery tested | Implemented; smoke and native failure/race fixtures passed; awaiting CI and merge |
 | 04 | Durable follow-up queues | Queue/edit/remove/reorder, explicit resume after restart/stop, same behavior in single/grid/remote paths | Pending |
 | 05 | Codex adapter and history | Real create/resume/stream/tools/usage/stop/approvals; fake protocol fixture plus opt-in live smoke; account/model settings | Pending |
 | 06 | Independent host and reconnect | Host outlives UI; desktop plus second client converge; no duplicate writer or replayed side effects | Pending |

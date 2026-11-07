@@ -54,6 +54,12 @@ impl Provider {
         }
     }
 
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+        }
+    }
+
     pub fn executable(self) -> &'static str {
         match self {
             Self::Claude => "claude",
@@ -76,6 +82,19 @@ impl Provider {
                     steering: false,
                 },
             },
+        }
+    }
+
+    pub fn control_message(self, line: &str) -> Result<String, String> {
+        match self {
+            Self::Claude => {
+                let value: serde_json::Value =
+                    serde_json::from_str(line).map_err(|e| e.to_string())?;
+                match value["type"].as_str() {
+                    Some("control_request" | "control_response") => Ok(format!("{value}\n")),
+                    _ => Err("raw input accepts control messages only; use send_message for journaled user messages".into()),
+                }
+            }
         }
     }
 
@@ -273,6 +292,20 @@ mod tests {
         let spec = prepare_launch(req, None).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
         assert!(spec.args.iter().any(|arg| arg == "--worktree"));
+    }
+
+    #[test]
+    fn control_framing_cannot_bypass_journaled_delivery() {
+        let wire = Provider::Claude.control_message(r#"{"type":"control_request","request":{"subtype":"set_permission_mode","mode":"plan"}}"#).unwrap();
+        assert_eq!(wire.lines().count(), 1);
+        assert!(Provider::Claude
+            .control_message(r#"{"type":"control_response","response":{"subtype":"success"}}"#)
+            .is_ok());
+        assert!(Provider::Claude
+            .control_message(r#"{"type":"user","message":{"content":"untracked"}}"#)
+            .unwrap_err()
+            .contains("send_message"));
+        assert!(Provider::Claude.control_message("{}\n{}").is_err());
     }
 
     #[test]

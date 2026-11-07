@@ -29,6 +29,8 @@ with Claude Code, Tauri, and local developer tools.
 - Launch an interactive Claude Code computer-use session from Blackcrab.
 - Attach dropped files to messages.
 - Track context and output-token usage per session.
+- Keep durable turn receipts with duplicate-command protection and explicit
+  interrupted/uncertain delivery states. See [`docs/execution-store.md`](docs/execution-store.md).
 - Export and restore a local backup of settings, layout, usage history, drafts,
   and per-session titles/archived state. See [`docs/backup-restore.md`](docs/backup-restore.md).
 
@@ -148,6 +150,8 @@ implemented provider.
 - `src/Terminal.tsx`: xterm.js wrapper for the Rust PTY backend.
 - `src/markdown.ts`: Markdown rendering, syntax highlighting, and PR
   linkification.
+- `src-tauri/src/execution.rs`: durable thread mappings, turn receipts, and
+  host recovery leases.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,
   and message framing.
 - `src-tauri/src/lib.rs`: Tauri commands for Claude process management,

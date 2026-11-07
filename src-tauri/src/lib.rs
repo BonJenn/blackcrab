@@ -1,4 +1,5 @@
 mod crypto;
+mod execution;
 mod pairing;
 mod provider;
 mod relay_client;
@@ -9,6 +10,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -18,6 +20,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 
+use crate::execution::{ExecutionContext, ExecutionStore, TurnReceipt};
 use crate::pairing::{
     now_unix_ms as pairing_now_ms, PairedDevice, PairingAcceptResponse, PairingService,
     PairingStartResponse, PAIRING_DEFAULT_TTL_SECS,
@@ -27,6 +30,8 @@ use crate::transport::{RemoteCommand, TransportEndpoint, TransportServer};
 
 struct Session {
     provider: Provider,
+    execution: ExecutionContext,
+    process_finished: Arc<AtomicBool>,
     child: Child,
     stdin: ChildStdin,
 }
@@ -530,7 +535,9 @@ mod tests {
             .await
             .insert("session-1".to_string(), "panel-a".to_string());
 
-        terminate_panel(&sessions, &owners, "panel-a").await;
+        terminate_panel(&sessions, &owners, "panel-a")
+            .await
+            .unwrap();
 
         assert!(owners.lock().await.is_empty());
     }
@@ -629,6 +636,150 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.contains("no active session"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn delivery_records_before_io_and_duplicate_commands_do_not_write_twice() {
+        let root = std::env::temp_dir().join(execution::new_id("blackcrab_delivery_test").unwrap());
+        let store = Arc::new(ExecutionStore::open(&root).unwrap());
+        let context = store
+            .context("claude", "/fixture", Some("native-fixture"))
+            .unwrap();
+        let mut child = Command::new("sh")
+            .args(["-c", "cat"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "panel".to_string(),
+            Session {
+                provider: Provider::Claude,
+                execution: context.clone(),
+                process_finished: Arc::new(AtomicBool::new(false)),
+                child,
+                stdin,
+            },
+        )])));
+        let db = rusqlite::Connection::open(root.join("state.sqlite3")).unwrap();
+        db.execute_batch("CREATE TRIGGER refuse_turn BEFORE INSERT ON turns BEGIN SELECT RAISE(ABORT, 'fixture persistence failure'); END;").unwrap();
+        assert!(deliver_user_message_command(&sessions, "panel", "must not reach the pipe", Some("rejected".into())).await.unwrap_err().contains("fixture persistence failure"));
+        assert!(store.receipt("rejected").is_err());
+        db.execute_batch("DROP TRIGGER refuse_turn;").unwrap();
+        drop(db);
+        let first =
+            deliver_user_message_command(&sessions, "panel", "first", Some("request-one".into()))
+                .await
+                .unwrap();
+        assert_eq!(first.status, "running");
+        let wire: serde_json::Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(wire["message"]["content"], "first");
+        assert_eq!(
+            deliver_user_message_command(&sessions, "panel", "first", Some("request-one".into()))
+                .await
+                .unwrap()
+                .turn_id,
+            first.turn_id
+        );
+        assert!(deliver_user_message_command(
+            &sessions,
+            "panel",
+            "changed",
+            Some("request-one".into())
+        )
+        .await
+        .is_err());
+        assert!(deliver_user_message_command(
+            &sessions,
+            "panel",
+            "second",
+            Some("request-two".into())
+        )
+        .await
+        .is_err());
+        context
+            .observe(&serde_json::json!({"type":"result","subtype":"success"}))
+            .unwrap();
+        assert_eq!(
+            deliver_user_message_command(&sessions, "panel", "first", Some("request-one".into()))
+                .await
+                .unwrap()
+                .status,
+            "succeeded"
+        );
+        deliver_user_message_command(&sessions, "panel", "second", Some("request-two".into()))
+            .await
+            .unwrap();
+        let wire: serde_json::Value =
+            serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+        assert_eq!(wire["message"]["content"], "second");
+        terminate_panel(&sessions, &Arc::new(Mutex::new(HashMap::new())), "panel")
+            .await
+            .unwrap();
+        assert_eq!(store.receipt("request-two").unwrap().status, "interrupted");
+        drop(sessions);
+        drop(lines);
+        drop(context);
+        drop(store);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn failed_input_preserves_uncertain_receipt_and_closes_dispatch() {
+        let root =
+            std::env::temp_dir().join(execution::new_id("blackcrab_failed_delivery_test").unwrap());
+        let store = Arc::new(ExecutionStore::open(&root).unwrap());
+        let context = store
+            .context("claude", "/fixture", Some("native-fixture"))
+            .unwrap();
+        let mut child = Command::new("sh")
+            .args(["-c", "exit 0"])
+            .stdin(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        child.wait().await.unwrap();
+        let sessions = Arc::new(Mutex::new(HashMap::from([(
+            "panel".to_string(),
+            Session {
+                provider: Provider::Claude,
+                execution: context.clone(),
+                process_finished: Arc::new(AtomicBool::new(false)),
+                child,
+                stdin,
+            },
+        )])));
+        let error =
+            deliver_user_message_command(&sessions, "panel", "first", Some("request-one".into()))
+                .await
+                .unwrap_err();
+        assert!(error.contains("uncertain"));
+        assert_eq!(store.receipt("request-one").unwrap().status, "uncertain");
+        assert!(deliver_user_message_command(
+            &sessions,
+            "panel",
+            "second",
+            Some("request-two".into())
+        )
+        .await
+        .unwrap_err()
+        .contains("process has ended"));
+        assert!(store.receipt("request-two").is_err());
+        terminate_panel(&sessions, &Arc::new(Mutex::new(HashMap::new())), "panel")
+            .await
+            .unwrap();
+        assert_eq!(store.receipt("request-one").unwrap().status, "uncertain");
+        drop(sessions);
+        drop(context);
+        drop(store);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1067,12 +1218,26 @@ async fn start_session(
     )?;
     let resume_id = launch.resume_id;
     let cwd = launch.cwd;
+    let store = app.state::<Arc<ExecutionStore>>().inner().clone();
+    let provider = launch.provider;
+    let journal_cwd = cwd.clone();
+    let journal_resume = resume_id.clone();
+    let execution = execution::io(move || {
+        store.context(provider.id(), &journal_cwd, journal_resume.as_deref())
+    })
+    .await?;
+    let process_finished = Arc::new(AtomicBool::new(false));
     let mut cmd = Command::new(launch.provider.executable());
-    cmd.args(&launch.args);
+    cmd.args(&launch.args).kill_on_drop(true);
 
     let mut guard = state.sessions.lock().await;
     if let Some(mut s) = guard.remove(&panel_id) {
         let _ = s.child.start_kill();
+        execution::io(move || {
+            s.execution
+                .finish("interrupted", Some("Panel process replaced"))
+        })
+        .await?;
     }
     release_panel_session_owners(&state.session_owners, &panel_id).await;
 
@@ -1159,10 +1324,27 @@ async fn start_session(
     let app_out = app.clone();
     let pid_out = panel_id.clone();
     let owners_out = state.session_owners.clone();
+    let execution_out = execution.clone();
+    let finished_out = process_finished.clone();
     tokio::spawn(async move {
         let mut lines = BufReader::new(stdout).lines();
         let mut claimed: Option<String> = reserved_session_id;
         while let Ok(Some(line)) = lines.next_line().await {
+            if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+                if event["type"] == "result"
+                    || (event["type"] == "system" && event["subtype"] == "init")
+                {
+                    let context = execution_out.clone();
+                    if let Err(error) = execution::io(move || context.observe(&event)).await {
+                        let _ = app_out.emit(
+                            "claude-stderr",
+                            serde_json::json!({
+                                "panel_id": pid_out, "line": format!("execution journal: {error}")
+                            }),
+                        );
+                    }
+                }
+            }
             // Claim ownership of the session id on the first init event
             // that carries one. Cheap substring check before a full JSON
             // parse — session_id only appears on a handful of event types.
@@ -1204,6 +1386,22 @@ async fn start_session(
                 serde_json::json!({ "panel_id": pid_out, "line": line }),
             );
         }
+        finished_out.store(true, Ordering::SeqCst);
+        if let Err(error) = execution::io(move || {
+            execution_out.finish(
+                "interrupted",
+                Some("Provider output closed before a terminal result"),
+            )
+        })
+        .await
+        {
+            let _ = app_out.emit(
+                "claude-stderr",
+                serde_json::json!({
+                    "panel_id": pid_out, "line": format!("execution journal: {error}")
+                }),
+            );
+        }
         // Release ownership once the subprocess's stdout closes (claude
         // has exited). If another panel had already stolen the claim,
         // only drop it if it still points at us.
@@ -1228,11 +1426,16 @@ async fn start_session(
         }
     });
 
-    guard.insert(panel_id, Session {
-        provider: launch.provider,
-        child,
-        stdin,
-    });
+    guard.insert(
+        panel_id,
+        Session {
+            provider: launch.provider,
+            execution,
+            process_finished,
+            child,
+            stdin,
+        },
+    );
     Ok(())
 }
 
@@ -1244,18 +1447,60 @@ async fn deliver_user_message(
     panel_id: &str,
     text: &str,
 ) -> Result<(), String> {
+    deliver_user_message_command(sessions, panel_id, text, None)
+        .await
+        .map(|_| ())
+}
+
+async fn deliver_user_message_command(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: &str,
+    text: &str,
+    command_id: Option<String>,
+) -> Result<TurnReceipt, String> {
     let mut guard = sessions.lock().await;
     let session = guard
         .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
+    if session.process_finished.load(Ordering::SeqCst) {
+        return Err("session process has ended; resume it before sending another message".into());
+    }
+    let command_id = command_id
+        .map(Ok)
+        .unwrap_or_else(|| execution::new_id("command"))?;
+    let context = session.execution.clone();
+    let id = command_id.clone();
+    let body = text.to_string();
+    let begun = execution::io(move || context.begin(&id, &body)).await?;
+    if !begun.dispatch {
+        if ["failed", "interrupted", "uncertain"].contains(&begun.receipt.status.as_str()) {
+            return Err(format!("command is {}; it was not resent. Review its transcript before starting a new command", begun.receipt.status));
+        }
+        return Ok(begun.receipt);
+    }
     let line = session.provider.user_message(text);
-    session
-        .stdin
-        .write_all(line.as_bytes())
-        .await
-        .map_err(|e| e.to_string())?;
-    session.stdin.flush().await.map_err(|e| e.to_string())?;
-    Ok(())
+    let write = async {
+        session.stdin.write_all(line.as_bytes()).await?;
+        session.stdin.flush().await
+    }
+    .await;
+    if let Err(error) = write {
+        session.process_finished.store(true, Ordering::SeqCst);
+        let _ = session.child.start_kill();
+        let context = session.execution.clone();
+        execution::io(move || {
+            context.finish(
+                "uncertain",
+                Some("Provider input failed; delivery may have occurred"),
+            )
+        })
+        .await?;
+        return Err(format!(
+            "message delivery is uncertain: {error}; review the transcript before retrying"
+        ));
+    }
+    let context = session.execution.clone();
+    execution::io(move || context.sent(&command_id)).await
 }
 
 /// Kill a panel's subprocess and release any session it owned. Shared by the
@@ -1264,15 +1509,20 @@ async fn terminate_panel(
     sessions: &Arc<Mutex<HashMap<String, Session>>>,
     session_owners: &Arc<Mutex<HashMap<String, String>>>,
     panel_id: &str,
-) {
-    {
+) -> Result<(), String> {
+    let journal_result = {
         let mut guard = sessions.lock().await;
         if let Some(mut s) = guard.remove(panel_id) {
+            s.process_finished.store(true, Ordering::SeqCst);
             let _ = s.child.start_kill();
+            execution::io(move || s.execution.finish("interrupted", Some("Session stopped"))).await
+        } else {
+            Ok(())
         }
-    }
+    };
     let mut owners = session_owners.lock().await;
     owners.retain(|_, owner| owner != panel_id);
+    journal_result
 }
 
 /// Resolve the Claude session id a remote action targets to the panel that
@@ -1290,11 +1540,32 @@ async fn send_message(
     state: State<'_, AppState>,
     panel_id: String,
     text: String,
-) -> Result<(), String> {
-    deliver_user_message(&state.sessions, &panel_id, &text).await
+    command_id: Option<String>,
+) -> Result<TurnReceipt, String> {
+    deliver_user_message_command(&state.sessions, &panel_id, &text, command_id).await
 }
 
-/// Write an arbitrary (already-framed) line to a panel's subprocess stdin.
+#[tauri::command]
+async fn execution_history(
+    store: State<'_, Arc<ExecutionStore>>,
+    session_id: String,
+    provider: Option<String>,
+) -> Result<Vec<TurnReceipt>, String> {
+    let provider = Provider::parse(provider.as_deref())?;
+    let store = store.inner().clone();
+    execution::io(move || store.history(provider.id(), &session_id)).await
+}
+
+#[tauri::command]
+async fn execution_receipt(
+    store: State<'_, Arc<ExecutionStore>>,
+    command_id: String,
+) -> Result<TurnReceipt, String> {
+    let store = store.inner().clone();
+    execution::io(move || store.receipt(&command_id)).await
+}
+
+/// Write a provider control message to a panel's subprocess stdin.
 /// Shared by the `send_raw` command and the remote approval consumer.
 async fn deliver_raw_line(
     sessions: &Arc<Mutex<HashMap<String, Session>>>,
@@ -1305,11 +1576,7 @@ async fn deliver_raw_line(
     let session = guard
         .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
-    let body = if line.ends_with('\n') {
-        line.to_string()
-    } else {
-        format!("{}\n", line)
-    };
+    let body = session.provider.control_message(line)?;
     session
         .stdin
         .write_all(body.as_bytes())
@@ -1319,7 +1586,7 @@ async fn deliver_raw_line(
     Ok(())
 }
 
-/// Writes an arbitrary JSON line to the panel's subprocess stdin. Used
+/// Writes a control JSON line to the panel's subprocess stdin. Used
 /// for control_response (answering Claude's permission prompts) and for
 /// control_request (e.g. mid-session set_permission_mode changes).
 #[tauri::command]
@@ -1593,8 +1860,7 @@ async fn stop_session(state: State<'_, AppState>, panel_id: String) -> Result<()
     // claude's stdout closes, but killing via start_kill races that
     // close so we release eagerly here too to unblock the next
     // start_session for the same sid.
-    terminate_panel(&state.sessions, &state.session_owners, &panel_id).await;
-    Ok(())
+    terminate_panel(&state.sessions, &state.session_owners, &panel_id).await
 }
 
 #[tauri::command]
@@ -3025,10 +3291,7 @@ async fn run_remote_command_consumer(
             }
             RemoteCommand::StopSession { session_id } => {
                 match panel_for_session(&session_owners, &session_id).await {
-                    Some(panel_id) => {
-                        terminate_panel(&sessions, &session_owners, &panel_id).await;
-                        Ok(())
-                    }
+                    Some(panel_id) => terminate_panel(&sessions, &session_owners, &panel_id).await,
                     None => Err(format!("no live session for {session_id}")),
                 }
             }
@@ -4098,6 +4361,8 @@ pub fn run() {
             clear_claude_oauth_token,
             start_session,
             send_message,
+            execution_history,
+            execution_receipt,
             send_raw,
             stop_session,
             interrupt_session,
@@ -4138,6 +4403,10 @@ pub fn run() {
             pairing_revoke
         ])
         .setup(|app| {
+            let execution_root = app.path().app_data_dir()?.join("execution");
+            let store =
+                Arc::new(ExecutionStore::open(&execution_root).map_err(std::io::Error::other)?);
+            app.manage(store);
             let server = transport_server();
 
             // Spawn the remote-action consumer before starting the server so

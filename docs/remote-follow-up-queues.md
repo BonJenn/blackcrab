@@ -1,9 +1,10 @@
 # Remote follow-up queue contract
 
 Authenticated LAN and encrypted relay clients can read and modify the same queue
-used by the desktop. This is parity step 04c1, the host/protocol prerequisite.
-The phone composer and queue controls remain step 04c2; this does not claim they
-have shipped or that a physical phone has been tested.
+used by the desktop. This is parity step 04c1, the host/protocol prerequisite. The phone
+composer and queue controls are implemented in step 04c2; see the
+[mobile guide](../apps/mobile/README.md#follow-up-queues) for recovery behavior and
+remaining device-validation limits. A physical phone has not been tested.
 
 ## Requests
 

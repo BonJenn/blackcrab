@@ -91,4 +91,41 @@ For more detail, see the build steps above or the team's build docs.
 
 ## Follow-up queues
 
-The host and shared protocol now provide [queue requests, results and snapshots](../../docs/remote-follow-up-queues.md). Phone queue controls and persistent ambiguous-submission recovery are the next parity step (04c2); the current mobile composer still uses legacy immediate sends. Queue RPCs do not auto-resume stopped sessions.
+The text composer uses the [host queue protocol](../../docs/remote-follow-up-queues.md).
+The Queue panel supports edit, remove, reorder, pause and explicit resume. Resume
+requires an idle, live desktop-owned session. A stopped session must first be
+opened/resumed on the desktop; queue actions do not use the legacy foreground
+resume fallback. Queued text appears in the transcript when the host/provider
+records it, not as an optimistic send bubble.
+
+The phone saves one unconfirmed original body and command ID per host/session
+before transferring the composer draft. On reconnect or app restart it fetches
+a snapshot without replaying writes. **Retry saved message** explicitly reuses
+the original ID and body. A lost mutation reply requires Refresh and review;
+mutations are never replayed automatically. Stale edits retain their draft and
+block saving until cancelled and reopened. Only a matching host/session/request
+result with the matching command/thread receipt can clear a saved submission.
+Storage failure leaves the composer unchanged. Older hosts that do not answer
+queue RPCs show an unavailable message; text never silently falls back to an
+immediate send.
+
+Attachment uploads retain the separate **Send files** path, available when no
+turn or queued work is pending. They do not use queue command IDs or gain queue
+retry guarantees. New-session creation also retains its existing flow. Queue
+upload support, independent-host resume and full offline drafts remain later
+parity work.
+
+Recovery files live under `documentDirectory/queue-recovery-v1` on iOS/Android.
+File names hash the host/session identity; file contents are unencrypted JSON
+with host/session/thread IDs, original body and command ID. Writes stage a temp
+file before moving it into place; a crash can leave an orphan temp file. Web
+uses `blackcrab.mobile.queueRecovery.v1.*` localStorage keys. There is no memory-only
+fallback or automatic expiry. Confirmed records are removed; unresolved records
+and crash temp files remain in app data and may be included in OS/browser
+backups. Forgetting a pairing does not remove them. Review the host journal before
+manually clearing app recovery data, since that discards retry identities.
+
+Validation covers controller state/races, shared host contracts, a React control
+conflict scenario, and iOS bundle export. Physical-device, simulator and visual
+validation remain unverified; these source/build checks do not claim device
+end-to-end evidence.

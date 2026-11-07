@@ -4,7 +4,8 @@ The host can persist, edit, cancel, reorder, pause and resume follow-up messages
 Desktop single and grid composers expose the host queue: send while a turn is
 running, edit/remove/reorder pending messages, pause, and explicitly resume held
 work. The remote protocol is described in [remote-follow-up-queues.md](remote-follow-up-queues.md);
-the mobile controls remain step 04c2 in the parity plan. Existing direct
+mobile controls and recovery behavior are described in the
+[mobile guide](../apps/mobile/README.md#follow-up-queues). Existing direct
 `send_message` integrations remain immediate and reject
 running turns or pending queues.
 
@@ -122,8 +123,8 @@ ID rather than append the message twice.
 
 Claude stream/done/stderr events also include run IDs where supplied by the
 reader, and queue dispatch requires the current panel generation. Clients must
-ignore events from an older run. Desktop queue events are reconciled against the current run and thread. Mobile
-queue reconciliation remains part of 04c2.
+ignore events from an older run. Desktop queue events are reconciled against the current run and thread. Mobile queue clients also correlate host, session, request and command IDs, and
+fetch fresh snapshots after reconnect without replaying writes.
 
 ## Storage and compatibility
 

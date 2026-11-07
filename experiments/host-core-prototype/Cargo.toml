@@ -1,0 +1,28 @@
+[package]
+name = "blackcrab-host-core-prototype"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+
+[[bin]]
+name = "blackcrab-host-core-prototype"
+path = "src/main.rs"
+test = false
+bench = false
+
+[workspace]
+
+[dependencies]
+getrandom = "=0.2.17"
+libc = "=0.2.186"
+rusqlite = { version = "=0.41.1", default-features = false, features = ["bundled"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.149"
+tokio = { version = "=1.52.3", features = ["full"] }
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+strip = true

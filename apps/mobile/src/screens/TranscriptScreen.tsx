@@ -26,6 +26,10 @@ import {
   type TranscriptEntry,
 } from "@blackcrab/remote-protocol";
 
+import { QueueControls } from "../queue/QueueControls";
+import { useQueue } from "../queue/useQueue";
+import type { MobileQueueClient } from "../queue/client";
+
 import { pickFile, pickPhoto, takePhoto } from "../attachments";
 import { Markdown } from "../components/Markdown";
 import { firstUnreadIndex, latestEntryId } from "../transcriptDivider";
@@ -48,6 +52,8 @@ function easeNext() {
 }
 
 export interface TranscriptScreenProps {
+  queueClient: MobileQueueClient;
+  hostId: string;
   /** Live transcript tail pushed by the host. Falls back to mock when null. */
   entries?: TranscriptEntry[] | null;
   /** The session being viewed, used to freeze the divider per conversation. */
@@ -78,6 +84,8 @@ function collapse(s: string): string {
 }
 
 export function TranscriptScreen({
+  queueClient,
+  hostId,
   entries,
   sessionId,
   title,
@@ -90,10 +98,12 @@ export function TranscriptScreen({
   failSignal,
   onMarkRead,
 }: TranscriptScreenProps) {
+  const queue = useQueue(queueClient,hostId,sessionId || "");
   const live = entries != null;
   const hostData = live ? entries : MOCK_TRANSCRIPT_TAIL;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
   const [draft, setDraft] = useState("");
+  const draftRevision = useRef(0);
   // Files staged in the composer, and whether a picker is currently open.
   const [pendingAttachments, setPendingAttachments] = useState<RemoteAttachment[]>([]);
   const [attaching, setAttaching] = useState(false);
@@ -241,13 +251,19 @@ export function TranscriptScreen({
     atBottomRef.current = distance < 48;
   }
 
-  function handleSend() {
+  async function handleSend() {
     const body = draft.trim();
     const atts = pendingAttachments;
     // Allow sending text, attachments, or both.
-    if ((!body && atts.length === 0) || !connected || !onSend || !sessionId) {
+    if ((!body && atts.length === 0) || !connected || !sessionId) {
       return;
     }
+    if (atts.length===0) {
+      const original=draft, revision=draftRevision.current;
+      if (await queueClient.enqueue(hostId,sessionId,body) && draftRevision.current===revision) setDraft(current=>current===original ? "" : current);
+      return;
+    }
+    if (!onSend || sessionState==="running" || queue.busy || queue.pending || (queue.queue?.items.length ?? 0)>0) return;
     optimisticSeq.current += 1;
     const echoId = `optimistic-${optimisticSeq.current}`;
     const echo: TranscriptEntry = {
@@ -280,8 +296,10 @@ export function TranscriptScreen({
     }, SEND_TIMEOUT_MS);
   }
 
-  const canSend =
-    connected && (draft.trim().length > 0 || pendingAttachments.length > 0);
+  const queueReady=queue.loaded && queue.support==="available" && !!queue.queue && !queue.busy && !queue.pending && !queue.needsRefresh;
+  const canSend = connected && (pendingAttachments.length>0
+    ? sessionState!=="running" && !queue.busy && !queue.pending && (queue.queue?.items.length ?? 0)===0
+    : queueReady && draft.trim().length>0);
 
   async function runPicker(fn: () => Promise<RemoteAttachment | null>) {
     setAttaching(true);
@@ -368,6 +386,7 @@ export function TranscriptScreen({
         }
       />
 
+      <QueueControls client={queueClient} state={queue} hostId={hostId} sessionId={sessionId || ""}/>
       {pendingAttachments.length > 0 && (
         <View style={localStyles.attachTray}>
           {pendingAttachments.map((a, i) => (
@@ -402,7 +421,7 @@ export function TranscriptScreen({
         <TextInput
           style={localStyles.input}
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={value=>{draftRevision.current++;setDraft(value);}}
           editable={connected}
           placeholder={connected ? "Message…" : "Not connected"}
           placeholderTextColor="#6b7480"
@@ -420,7 +439,7 @@ export function TranscriptScreen({
             pressed && localStyles.pressed,
           ]}
         >
-          <Text style={localStyles.sendText}>Send</Text>
+          <Text style={localStyles.sendText}>{pendingAttachments.length>0 ? "Send files" : "Queue"}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

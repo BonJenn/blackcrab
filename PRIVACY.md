@@ -34,6 +34,13 @@ credentials are not included. This can be turned off in Settings.
 Blackcrab stores UI preferences in browser localStorage, including theme,
 sidebar/grid sizing, grid panel state, and short-lived composer drafts.
 
+The mobile app also retains unconfirmed text queue submissions in app document
+files (`queue-recovery-v1`), or localStorage on web. These contain original text
+and retry identities, are unencrypted, and have no automatic expiry. Confirmed
+records are removed; crash temp files may remain. OS/browser backups may include
+this app data. Forgetting a paired host does not erase recovery records. See the
+[mobile queue guide](apps/mobile/README.md#follow-up-queues).
+
 Composer drafts are keyed by session id and pruned after 30 days by the app.
 Unconfirmed desktop queue submissions retain their original text, attachment paths,
 command ID and draft identity in localStorage until confirmed. These unencrypted

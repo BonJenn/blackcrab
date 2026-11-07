@@ -21,6 +21,9 @@ import type {
   TranscriptEntry,
 } from "@blackcrab/remote-protocol";
 
+import { MobileQueueClient } from "./src/queue/client";
+import { queueStorage, queueId } from "./src/queue/storage";
+
 import { ApprovalScreen } from "./src/screens/ApprovalScreen";
 import { NewSessionScreen } from "./src/screens/NewSessionScreen";
 import { PairedHostsScreen } from "./src/screens/PairedHostsScreen";
@@ -54,6 +57,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export default function App() {
+  const [queueClient] = useState(() => new MobileQueueClient(queueStorage,queueId));
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
@@ -243,7 +247,13 @@ export default function App() {
     };
   }, [activeTransport]);
 
+  useEffect(() => {
+    setFocusedSession(current=>current && current.hostId!==activeHostId ? null : current);
+    setLiveTranscript(null);
+    setLiveSessions(null);
+  },[activeHostId]);
   useEffect(() => () => activeTransport?.close(), [activeTransport]);
+  useEffect(() => { queueClient.bind(activeTransport,activeHostId); return () => queueClient.bind(null,null); }, [queueClient,activeTransport,activeHostId]);
 
   async function handleForgetHost(hostId: HostId) {
     const hosts = await forgetStoredHost(hostId);
@@ -282,7 +292,7 @@ export default function App() {
 
   // Open a session's transcript as a slide-over detail.
   function openSession(session: SessionSummary) {
-    if (!activeTransport) return;
+    if (!activeTransport || session.hostId!==activeHostId) return;
     activeTransport.sendAction({
       type: "focus_session",
       hostId: session.hostId,
@@ -302,7 +312,7 @@ export default function App() {
   }
 
   function sendToFocused(body: string, attachments?: RemoteAttachment[]) {
-    if (!activeTransport || !focusedSession) return;
+    if (!activeTransport || !focusedSession || focusedSession.hostId!==activeHostId) return;
     activeTransport.sendAction({
       type: "send_message",
       hostId: focusedSession.hostId,
@@ -313,7 +323,7 @@ export default function App() {
   }
 
   function stopFocused() {
-    if (!activeTransport || !focusedSession) return;
+    if (!activeTransport || !focusedSession || focusedSession.hostId!==activeHostId) return;
     activeTransport.sendAction({
       type: "stop_session",
       hostId: focusedSession.hostId,
@@ -434,10 +444,13 @@ export default function App() {
             ]}
           >
             <TranscriptScreen
-              entries={liveTranscript}
+              key={JSON.stringify([focusedSession.hostId,focusedSession.sessionId])}
+              queueClient={queueClient}
+              hostId={focusedSession.hostId}
+              entries={liveTranscript?.filter(entry => entry.sessionId===focusedSession.sessionId) ?? null}
               sessionId={focusedSession.sessionId}
               title={focusedSession.title}
-              connected={connected}
+              connected={connected && focusedSession.hostId===activeHostId}
               sessionState={
                 liveSessions?.find(
                   (s) => s.sessionId === focusedSession.sessionId,

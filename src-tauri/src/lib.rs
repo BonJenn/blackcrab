@@ -1,6 +1,8 @@
-// Transport prerequisite; the next provider step wires its public operations.
+// Private provider core until host session routing and clients are connected.
 #[allow(dead_code)]
 mod codex_rpc;
+#[allow(dead_code)]
+mod codex_runtime;
 mod crypto;
 mod execution;
 mod pairing;

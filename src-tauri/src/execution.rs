@@ -1,3 +1,4 @@
+mod provider;
 pub(crate) mod queue;
 
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
@@ -24,9 +25,18 @@ pub(crate) struct BeginTurn {
 
 pub(crate) struct ExecutionStore {
     connection: Mutex<Connection>,
+    root: PathBuf,
     host_id: String,
     // A different host must acquire this lease before recovering our turns.
     _lease: File,
+}
+
+impl Drop for ExecutionStore {
+    fn drop(&mut self) {
+        // A cloned/inherited descriptor can outlive this logical owner. Release
+        // the shared OS lock explicitly before closing our own descriptor.
+        let _ = self._lease.unlock();
+    }
 }
 
 #[derive(Clone)]
@@ -124,7 +134,7 @@ impl ExecutionStore {
         let version: i64 = tx
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if version > 2 {
+        if version > 3 {
             return Err(format!(
                 "execution store version {version} requires a newer Blackcrab"
             ));
@@ -158,6 +168,9 @@ impl ExecutionStore {
         if version < 2 {
             queue::migrate(&tx)?;
         }
+        if version < 3 {
+            provider::migrate(&tx)?;
+        }
         tx.commit().map_err(|e| e.to_string())?;
 
         let hosts: Vec<String> = {
@@ -190,6 +203,7 @@ impl ExecutionStore {
         Ok(Self {
             connection: Mutex::new(db),
             host_id,
+            root: root.to_path_buf(),
             _lease: lease,
         })
     }
@@ -374,22 +388,7 @@ impl ExecutionContext {
                 .and_then(|v| v.as_str())
                 .filter(|v| !v.trim().is_empty())
             {
-                let db = self.store.connection.lock().map_err(|e| e.to_string())?;
-                let existing: Option<String> = db
-                    .query_row(
-                        "SELECT provider_session_id FROM threads WHERE thread_id=?1",
-                        [&self.thread_id],
-                        |r| r.get(0),
-                    )
-                    .map_err(|e| e.to_string())?;
-                if existing.as_deref().is_some_and(|old| old != id) {
-                    return Err("provider changed the session identity during resume".into());
-                }
-                db.execute(
-                    "UPDATE threads SET provider_session_id=?1 WHERE thread_id=?2",
-                    params![id, self.thread_id],
-                )
-                .map_err(|e| e.to_string())?;
+                self.bind_provider_session(id)?;
             }
         }
         if event.get("type").and_then(|v| v.as_str()) == Some("result") {
@@ -468,6 +467,7 @@ mod tests {
     fn recovery_waits_for_host_lease_and_never_redispatches() {
         let fixture = Fixture::new();
         let store = fixture.open();
+        let inherited_lease = store._lease.try_clone().unwrap();
         let context = store
             .context("claude", "/project", Some("session-a"))
             .unwrap();
@@ -482,6 +482,7 @@ mod tests {
         drop(pending);
         drop(context);
         drop(store);
+        // A child/duplicate handle must not extend a dropped owner lifetime.
         let restarted = fixture.open();
         assert_eq!(
             restarted.receipt("before-write").unwrap().status,
@@ -490,6 +491,7 @@ mod tests {
         let receipt = restarted.receipt("request-a").unwrap();
         assert_eq!(receipt.status, "interrupted");
         assert!(receipt.detail.unwrap().contains("review the transcript"));
+        drop(inherited_lease);
         let resumed = restarted
             .context("claude", "/project", Some("session-a"))
             .unwrap();

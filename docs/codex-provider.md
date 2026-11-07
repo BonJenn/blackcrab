@@ -2,12 +2,18 @@
 
 ## Current boundary
 
-Step 05a adds a private Rust transport for `codex app-server --listen stdio://`.
-It is compiled and tested but is not connected to `start_session`, listed as an
-available provider, or exposed by a selector. The running app still uses Claude.
-Step 05b will connect this transport to provider events, execution receipts and
-turn lifecycle; account/model/history and client integration follow in 05c.
-Do not claim create/resume/tools/stop/approval parity from this prerequisite.
+Steps 05a and 05b add a private Rust stdio transport and a journal-backed Codex
+thread/turn runtime. The runtime can create/resume threads, submit deduplicated
+turns, drain follow-ups, interrupt, and answer supported one-time approvals.
+Its typed events carry text, item/tool lifecycle, token usage and terminal error
+payloads.
+
+This is backend library implementation, not a user-facing provider release. The
+runtime is not yet connected to `start_session`, the application session registry,
+provider discovery, saved-history indexing or either client. The running app
+still uses Claude. Host-command routing and account/model/history/client controls
+are step 05c; they must be connected before advertising a runnable Codex provider.
+No actual Codex model turn or device scenario has been validated by these fixtures.
 
 The local reference is `codex-cli 0.166.0`. Its generated JSON Schema confirms the
 initialize response fields; the implementation requires a `userAgent` string and
@@ -49,13 +55,50 @@ No T3 implementation or generated source was copied into this module.
   closes it. Kill-on-drop remains a fallback if cleanup is interrupted.
 
 RPC request IDs provide connection-local response matching, **not** durable
-command deduplication. A failed/expired call may already have reached the provider;
+command deduplication. The runtime provides the journal integration below. A failed/expired call may already have reached the provider;
 closing its process cannot undo side effects. Cancellation of a Rust request
-future does not cancel an already handed-off provider action. Step 05b must
-persist a stable command/turn receipt before any turn-start write, reconcile the
-provider thread/turn IDs, and retain interrupted/uncertain delivery state rather
-than reissuing a turn. Provider interrupt/approval behavior is not implemented by
-this transport alone.
+future does not cancel an already handed-off provider action. The transport alone does not implement provider interrupt, approvals or
+durable receipt semantics; those belong to the runtime layer.
+
+## Runtime and journal
+
+The runtime sends `thread/start` or `thread/resume`, validates the returned
+provider thread identity and cwd, and binds it to the journal. An OS file lock
+for that journal thread prevents a second Blackcrab runtime, even while idle.
+External Codex programs do not participate in this lock; a returned active thread
+status is rejected, but broader host/external-writer coordination remains later
+host integration work.
+
+A turn begins with a committed journal receipt before `turn/start` is written.
+The stable command ID is also sent as `clientUserMessageId`. RPC IDs, journal
+thread/turn IDs and provider thread/turn IDs remain distinct. Schema 3 persists
+provider-turn mappings; completion updates require the matching command, run,
+thread and provider turn, so a stale completion cannot finish later work.
+
+Events arriving before the start acknowledgement are buffered with a limit of
+64, then reconciled to the acknowledged provider turn. A terminal start response
+is also authoritative. Successful terminal results drain eligible queued work;
+failed/interrupted results, interruption requests, denied/unsupported input and
+runtime loss keep it held. Resume/restart does not automatically unpause work.
+The runtime uses the same edit/cancel/reorder/revision and claim transactions as
+Claude queues. Retrying a command returns its existing receipt without another
+provider write, including after a resumed runtime.
+
+Supported command/file approval requests become opaque, turn-bound approval IDs.
+Only an explicit one-time accept, decline or cancel is accepted. Replies to old,
+unknown or already-answered IDs are rejected. Session-wide grants, policy
+amendments, file approvals requesting a grant root and other server request types
+are not implemented: unsupported requests receive an RPC error and hold follow-ups.
+Client UI for these decisions is still pending. Item/tool payloads are preserved
+for presentation; this step does not yet render them in the application.
+
+Interrupt holds queued work before writing `turn/interrupt`. Its RPC reply is not
+substituted for a terminal result; the provider completion drives the receipt.
+Closing the runtime stops the app-server connection, holds work and records an
+interrupted/uncertain receipt when no terminal result was known. It cannot undo
+provider/tool side effects. A missing start acknowledgement is uncertain, not a
+reason to start another turn. The caller must drain typed events; overflow or
+journal failure closes dispatch rather than silently dropping lifecycle state.
 
 ## Verification
 
@@ -86,4 +129,28 @@ Recorded validation: the initialization-only probe passed against local
 `codex-cli 0.166.0`, with no thread or model turn started. The full smoke suite
 passed with 97 native tests (the CLI probe remains ignored by default), 84 desktop
 tests, Cargo check and production build. Actual provider turns and client UI
-remain unverified and unavailable until the following steps.
+remain unverified and unavailable until the following steps. This is the 05a
+transport baseline; 05b adds the runtime fixture and schema migration coverage.
+
+The additional `codex_runtime.py` fixture reads only its own temporary SQLite
+journal and log. It verifies a dispatching receipt already exists when provider
+input arrives, and covers early completion, duplicate/foreign events, queues,
+hold-before-interrupt ordering, one-time approvals, unsupported requests, stopped
+resume and lost acknowledgements. Migration tests retain version-2 Claude
+receipts/queues while adding provider mappings. These are local protocol/lifecycle
+fixtures, not model execution or end-to-end application evidence.
+
+Runtime events distinguish journal `threadId` from `providerThreadId` in ready
+metadata, and journal turn/command IDs from `providerTurnId` in turn events.
+Provider mappings persist in schema 3; upgrading preserves existing receipts and
+queues, while binaries that only support schema 1 or 2 refuse the upgraded store.
+
+The ownership guards explicitly unlock on drop, preventing duplicated descriptors
+from retaining a lease after its logical owner ends. Regression tests exercise
+both the host recovery lease and provider session lock with duplicated handles.
+
+Final 05b validation: full smoke passed; the final native suite passed 110 tests
+with the installed-CLI probe ignored by default, and the desktop suite passed
+84 tests. Final Cargo check passed. This includes 10 Codex lifecycle fixtures and
+three provider identity/migration/lock tests, plus the strengthened host lease
+recovery regression. No live Codex model turn was started.

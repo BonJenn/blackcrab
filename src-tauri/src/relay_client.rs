@@ -213,6 +213,9 @@ impl RelayClient {
 /// supported action. Mirrors the action decode in `transport.rs`, but from JSON
 /// (the LAN path uses the typed wire enum).
 fn command_from_envelope(plaintext: &str) -> Option<RemoteCommand> {
+    if let Some(request) = crate::remote_queue::decode(plaintext) {
+        return Some(RemoteCommand::Queue(request));
+    }
     let value: serde_json::Value = serde_json::from_str(plaintext).ok()?;
     let msg = value.get("msg")?;
     let session = || msg.get("sessionId").and_then(|s| s.as_str()).map(String::from);
@@ -437,6 +440,23 @@ mod tests {
                 body: "hi".into(),
                 attachments: Vec::new(),
             }
+        );
+
+        let queued = serde_json::json!({"v":1,"msg":{"type":"queue_request","hostId":"h1","sessionId":"s1","requestId":"request","operation":{"type":"enqueue","commandId":"command","body":"follow up"}}}).to_string();
+        let sealed = crypto::seal(&key, &queued).unwrap();
+        dev.send(WsMessage::Text(
+            serde_json::json!({"type":"data","payload":sealed})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+        assert_eq!(
+            timeout(Duration::from_secs(5), cmd_rx.recv())
+                .await
+                .unwrap()
+                .unwrap(),
+            RemoteCommand::Queue(crate::remote_queue::decode(&queued).unwrap())
         );
 
         // A broadcast event should reach the device, decryptable.

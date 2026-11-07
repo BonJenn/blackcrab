@@ -16,6 +16,12 @@ responsible for any network requests to Anthropic or configured providers.
 
 Blackcrab does not proxy Claude traffic or ask for Anthropic credentials.
 
+When paired mobile access is used, the host sends queue snapshots and action
+receipts over its existing LAN or encrypted relay connection to paired devices.
+Snapshots include pending message text, including any attachment paths already
+embedded in that text. Queue responses use the existing host-wide paired-device
+broadcast channel. See [`docs/remote-follow-up-queues.md`](docs/remote-follow-up-queues.md).
+
 If anonymous analytics are enabled, Blackcrab sends app launch and updater
 events to `https://www.blackcrab.app/api/events`. Those events include platform,
 current version, update target version when applicable, event type, and a

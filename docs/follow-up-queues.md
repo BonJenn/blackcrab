@@ -3,8 +3,9 @@
 The host can persist, edit, cancel, reorder, pause and resume follow-up messages.
 Desktop single and grid composers expose the host queue: send while a turn is
 running, edit/remove/reorder pending messages, pause, and explicitly resume held
-work. The mobile protocol and controls remain a separate step 04c in the parity
-plan. Existing direct `send_message` integrations remain immediate and reject
+work. The remote protocol is described in [remote-follow-up-queues.md](remote-follow-up-queues.md);
+the mobile controls remain step 04c2 in the parity plan. Existing direct
+`send_message` integrations remain immediate and reject
 running turns or pending queues.
 
 ## Desktop controls and recovery
@@ -122,7 +123,7 @@ ID rather than append the message twice.
 Claude stream/done/stderr events also include run IDs where supplied by the
 reader, and queue dispatch requires the current panel generation. Clients must
 ignore events from an older run. Desktop queue events are reconciled against the current run and thread. Mobile
-queue reconciliation remains part of 04c.
+queue reconciliation remains part of 04c2.
 
 ## Storage and compatibility
 
@@ -133,6 +134,5 @@ not part of UI-settings backup/restore. The same journal permissions and removal
 rules in [execution-store.md](execution-store.md) apply. Cancelling a queued
 message removes pending work, not its local deduplication history.
 
-Steering, queue-specific attachment upload, remote queue RPCs and persistent
-approval state remain outside this desktop queue step. It does not create a
+Steering, queue-specific attachment upload, and persistent approval state remain outside this desktop queue step. It does not create a
 standalone host: native processes still belong to the running desktop app.

@@ -45,6 +45,7 @@ pub(crate) struct RemoteAttachment {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum RemoteCommand {
+    Queue(crate::remote_queue::QueueRequest),
     SendMessage {
         session_id: String,
         body: String,
@@ -338,6 +339,10 @@ async fn handle_connection(
                 };
                 match msg {
                     WsMessage::Text(t) => {
+                        if let Some(request) = crate::remote_queue::decode(&t) {
+                            forward_command(hooks.commands.as_ref(), RemoteCommand::Queue(request));
+                            continue;
+                        }
                         match serde_json::from_str::<Envelope>(&t) {
                             Ok(env) if env.v == PROTOCOL_VERSION => match env.msg {
                                 WireMessage::Ping { seq } => {
@@ -1008,6 +1013,45 @@ mod tests {
             }
         );
 
+        let queued = serde_json::json!({"v":1,"msg":{"type":"queue_request","hostId":"h","sessionId":"sess-abc","requestId":"request","operation":{"type":"enqueue","commandId":"command","body":"follow up"}}}).to_string();
+        ws.send(WsMessage::Text(queued.clone().into()))
+            .await
+            .unwrap();
+        let command = timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            command,
+            RemoteCommand::Queue(crate::remote_queue::decode(&queued).unwrap())
+        );
+        // A malformed queue request never becomes a legacy immediate send.
+        ws.send(WsMessage::Text(
+            queued
+                .replace("\"commandId\":\"command\"", "\"commandId\":\"\"")
+                .into(),
+        ))
+        .await
+        .unwrap();
+        ws.send(WsMessage::Text(
+            serde_json::json!({"v":1,"msg":{"type":"ping","seq":17}})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+        timeout(Duration::from_secs(2), async {
+            while let Some(Ok(WsMessage::Text(text))) = ws.next().await {
+                let envelope: serde_json::Value = serde_json::from_str(&text).unwrap();
+                if envelope["msg"]["type"] == "pong" && envelope["msg"]["seq"] == 17 {
+                    return;
+                }
+            }
+            panic!("socket closed before pong");
+        })
+        .await
+        .expect("pong after rejected queue request");
+        assert!(rx.try_recv().is_err());
         let _ = std::fs::remove_file(&path);
     }
 

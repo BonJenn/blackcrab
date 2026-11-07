@@ -193,7 +193,66 @@ export interface StartSessionAction {
   body: string;
 }
 
+/** Host-owned follow-ups. Attachments use paths already present on the host. */
+export interface FollowUpQueueItem {
+  commandId: string;
+  turnId: string;
+  text: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+export interface FollowUpQueue {
+  threadId: string;
+  revision: number;
+  paused: boolean;
+  items: FollowUpQueueItem[];
+}
+export type QueueChange =
+  | { type: "edit"; commandId: string; text: string }
+  | { type: "cancel"; commandId: string }
+  | { type: "reorder"; commandIds: string[] }
+  | { type: "pause" | "resume" };
+export type QueueOperation =
+  | { type: "get" }
+  | { type: "enqueue"; commandId: string; body: string }
+  | { type: "update"; expectedRevision: number; change: QueueChange };
+export interface QueueRequestAction {
+  type: "queue_request";
+  hostId: HostId;
+  sessionId: SessionId;
+  /** Response correlation only; enqueue deduplication uses commandId. */
+  requestId: string;
+  operation: QueueOperation;
+}
+export interface QueueReceipt {
+  commandId: string;
+  threadId: string;
+  turnId: string;
+  status: "queued" | "held" | "cancelled" | "dispatching" | "running" | "succeeded" | "failed" | "interrupted" | "uncertain";
+  createdAtMs: number;
+  updatedAtMs: number;
+  detail: string | null;
+}
+export interface QueueSnapshotEvent {
+  type: "queue_snapshot";
+  hostId: HostId;
+  sessionId: SessionId;
+  queue: FollowUpQueue | null;
+}
+export interface QueueResultEvent {
+  type: "queue_result";
+  hostId: HostId;
+  sessionId: SessionId;
+  requestId: string;
+  /** A failed dispatch can still have a committed receipt. Inspect both. */
+  ok: boolean;
+  error: string | null;
+  queue: FollowUpQueue | null;
+  receipt: QueueReceipt | null;
+}
+
 export type RemoteAction =
+  | QueueRequestAction
   | SendMessageAction
   | StopSessionAction
   | ApproveAction
@@ -415,6 +474,8 @@ export interface ActionFailedEvent {
 }
 
 export type RemoteEvent =
+  | QueueSnapshotEvent
+  | QueueResultEvent
   | PairedHostsEvent
   | SessionsEvent
   | TranscriptTailEvent
@@ -515,10 +576,76 @@ export function hasDesktopPairingPayloadExpired(
   return payload.expiresAtMs <= nowMs;
 }
 
+function onlyKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  return Object.keys(value).every(key => keys.includes(key));
+}
+function queueId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 128 &&
+    /^[\x20-\x7e]+$/.test(value) && value.trim() === value;
+}
+function validQueueIdentity(value: Record<string, unknown>): boolean {
+  return isNonEmptyString(value.hostId) && [...value.hostId].length <= 1024 &&
+    queueId(value.sessionId) && queueId(value.requestId);
+}
+function queueRevision(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+export function isQueueChange(value: unknown): value is QueueChange {
+  if (!isRecord(value)) return false;
+  switch (value.type) {
+    case "edit":
+      return queueId(value.commandId) && isNonEmptyString(value.text);
+    case "cancel":
+      return queueId(value.commandId);
+    case "reorder":
+      return Array.isArray(value.commandIds) && value.commandIds.length <= 100 &&
+        value.commandIds.every(queueId) && new Set(value.commandIds).size === value.commandIds.length;
+    case "pause":
+    case "resume":
+      return true;
+    default:
+      return false;
+  }
+}
+export function isQueueOperation(value: unknown): value is QueueOperation {
+  if (!isRecord(value)) return false;
+  switch (value.type) {
+    case "get":
+      return onlyKeys(value, ["type"]);
+    case "enqueue":
+      return onlyKeys(value, ["type", "commandId", "body"]) &&
+        queueId(value.commandId) && isNonEmptyString(value.body);
+    case "update":
+      return onlyKeys(value, ["type", "expectedRevision", "change"]) &&
+        queueRevision(value.expectedRevision) && isQueueChange(value.change);
+    default:
+      return false;
+  }
+}
+export function isFollowUpQueue(value: unknown): value is FollowUpQueue {
+  if (!isRecord(value) || !queueId(value.threadId) || !queueRevision(value.revision) ||
+    typeof value.paused !== "boolean" || !Array.isArray(value.items) || value.items.length > 100) return false;
+  return value.items.every(item => isRecord(item) && queueId(item.commandId) &&
+    queueId(item.turnId) && isNonEmptyString(item.text) && queueRevision(item.createdAtMs) &&
+    queueRevision(item.updatedAtMs)) &&
+    new Set(value.items.map(item => item.commandId)).size === value.items.length;
+}
+function isQueueReceipt(value: unknown): value is QueueReceipt {
+  return isRecord(value) && queueId(value.commandId) && queueId(value.threadId) &&
+    queueId(value.turnId) && typeof value.status === "string" &&
+    ["queued", "held", "cancelled", "dispatching", "running", "succeeded", "failed", "interrupted", "uncertain"].includes(value.status) &&
+    queueRevision(value.createdAtMs) && queueRevision(value.updatedAtMs) &&
+    (value.detail === null || typeof value.detail === "string");
+}
+
 export function isRemoteAction(value: unknown): value is RemoteAction {
   if (!value || typeof value !== "object") return false;
   const v = value as { type?: unknown };
   switch (v.type) {
+    case "queue_request":
+      return isRecord(value) &&
+        onlyKeys(value, ["type", "hostId", "sessionId", "requestId", "operation"]) &&
+        validQueueIdentity(value) && isQueueOperation(value.operation);
     case "send_message":
     case "stop_session":
     case "approve":
@@ -544,6 +671,15 @@ export function isRemoteEvent(value: unknown): value is RemoteEvent {
   if (!value || typeof value !== "object") return false;
   const v = value as { type?: unknown };
   switch (v.type) {
+    case "queue_snapshot":
+      return isRecord(value) && isNonEmptyString(value.hostId) &&
+        isNonEmptyString(value.sessionId) && (value.queue === null || isFollowUpQueue(value.queue));
+    case "queue_result":
+      return isRecord(value) && validQueueIdentity(value) && typeof value.ok === "boolean" &&
+        (value.error === null || typeof value.error === "string") &&
+        (value.ok ? value.error === null : isNonEmptyString(value.error)) &&
+        (value.queue === null || isFollowUpQueue(value.queue)) &&
+        (value.receipt === null || isQueueReceipt(value.receipt));
     case "paired_hosts":
     case "sessions":
     case "transcript_tail":

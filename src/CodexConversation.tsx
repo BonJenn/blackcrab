@@ -4,7 +4,8 @@ import { useCodexPage } from "./useCodexPage";
 import { desktopCodexWorkspace, type CodexWorkspace } from "./codexWorkspace";
 import type { CodexLiveClient, CodexLiveState } from "./codexLive";
 import type { QueueChange } from "./queueClient";
-export type CodexActivity = "idle" | "running" | "approval" | "detached" | "confirmation";
+import { codexActivity, type CodexActivity } from "./codexActivity";
+export type { CodexActivity } from "./codexActivity";
 const APPROVAL_METHODS = new Set(["item/commandExecution/requestApproval", "item/fileChange/requestApproval"]);
 function Queue({ client, state }: { client: CodexLiveClient; state: CodexLiveState }) {
   const [editing, setEditing] = useState<{ id: string; text: string; revision: number } | null>(null);
@@ -39,11 +40,13 @@ function Queue({ client, state }: { client: CodexLiveClient; state: CodexLiveSta
     </li>)}</ol>
   </section>;
 }
-function Conversation({ workspace, requestedThread, onActivity }: { workspace: CodexWorkspace; requestedThread?: CodexThread; onActivity?: (activity: CodexActivity) => void }) {
+export type CodexModelPage = ReturnType<typeof useCodexPage<CodexModel>>;
+function Conversation({ workspace, requestedThread, onActivity, catalog }: { workspace: CodexWorkspace; requestedThread?: CodexThread; onActivity?: (activity: CodexActivity) => void; catalog?: CodexModelPage }) {
   const client = workspace.client;
   const state = useSyncExternalStore(client.subscribe, client.state);
   const settings = useSyncExternalStore(workspace.subscribe, workspace.state);
-  const models = useCodexPage<CodexModel>({ type: "models", page: { limit: 50 } }, model => model.id);
+  const localModels = useCodexPage<CodexModel>(catalog ? null : { type: "models", page: { limit: 50 } }, model => model.id);
+  const models = catalog ?? localModels;
   const [localError, setLocalError] = useState<string | null>(null);
   const [reviewed, setReviewed] = useState(false);
   const [resetReviewed, setResetReviewed] = useState(false);
@@ -53,7 +56,7 @@ function Conversation({ workspace, requestedThread, onActivity }: { workspace: C
   const pending = state.pending;
   const canCompose = state.phase === "live" && !state.sending && !pending && !state.operation && !state.recoveryBlocked && settings.draftTarget === state.context?.providerSessionId;
   const canSend = canCompose && !!settings.draft.trim() && !state.busy && state.queue !== null && !state.queue.items.length;
-  const activity: CodexActivity = state.phase === "detached" ? "detached" : state.approvals.length ? "approval" : state.busy || state.phase === "starting" || state.phase === "stopping" ? "running" : state.pending || state.recoveryBlocked ? "confirmation" : "idle";
+  const activity = codexActivity(state);
   useEffect(() => { onActivity?.(activity); }, [activity, onActivity]);
   useEffect(() => { setReviewed(false); }, [pending?.commandId, state.recoveryBlocked]);
   useEffect(() => {
@@ -151,7 +154,7 @@ function Conversation({ workspace, requestedThread, onActivity }: { workspace: C
     <Queue client={client} state={state} />
   </section>;
 }
-export default function CodexConversation({ defaultCwd, requestedThread, onActivity, workspace: injected }: { defaultCwd: string; requestedThread?: CodexThread; onActivity?: (activity: CodexActivity) => void; workspace?: CodexWorkspace }) {
+export default function CodexConversation({ defaultCwd, requestedThread, onActivity, workspace: injected, catalog }: { defaultCwd: string; requestedThread?: CodexThread; onActivity?: (activity: CodexActivity) => void; workspace?: CodexWorkspace; catalog?: CodexModelPage }) {
   const [setup] = useState(() => { try { return { workspace: injected ?? desktopCodexWorkspace(defaultCwd), error: null }; } catch (error) { return { workspace: null, error: String(error) }; } });
-  return setup.workspace ? <Conversation workspace={setup.workspace} requestedThread={requestedThread} onActivity={onActivity} /> : <p role="alert">{setup.error}</p>;
+  return setup.workspace ? <Conversation workspace={setup.workspace} requestedThread={requestedThread} onActivity={onActivity} catalog={catalog} /> : <p role="alert">{setup.error}</p>;
 }

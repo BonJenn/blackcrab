@@ -53,12 +53,22 @@ export class CodexWorkspace {
     if (this.value.draft === text && this.value.draftTarget === target) this.update({ draft: "" });
   }
 }
-let workspace: CodexWorkspace | undefined;
-export function desktopCodexWorkspace(defaultCwd: string): CodexWorkspace {
-  if (workspace) return workspace;
+const workspaces = new Map<string, CodexWorkspace>();
+export function desktopCodexWorkspace(defaultCwd: string, pane = "primary"): CodexWorkspace {
+  if (pane !== "primary" && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(pane)) throw new Error("Invalid Codex pane identity");
+  const existing = workspaces.get(pane);
+  if (existing) return existing;
   if (!("__TAURI_INTERNALS__" in window)) throw new Error("Codex conversations require the desktop app");
   const label = getCurrentWindow().label;
-  const client = new CodexLiveClient(`codex-${label}`, nativeCodexLiveBackend, localStorage);
-  workspace = new CodexWorkspace(client, localStorage, CODEX_WORKSPACE_PREFIX + label, defaultCwd);
+  // Preserve the original preview's owner, draft and recovery keys.
+  const suffix = pane === "primary" ? label : `${label}.${pane}`;
+  const client = new CodexLiveClient(`codex-${suffix}`, nativeCodexLiveBackend, localStorage);
+  const workspace = new CodexWorkspace(client, localStorage, CODEX_WORKSPACE_PREFIX + suffix, defaultCwd);
+  workspaces.set(pane, workspace);
   return workspace;
+}
+export function releaseDesktopCodexWorkspace(pane: string, workspace: CodexWorkspace) {
+  if (pane === "primary" || workspaces.get(pane) !== workspace) return;
+  workspaces.delete(pane);
+  workspace.client.dispose();
 }

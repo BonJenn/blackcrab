@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import CodexHistory from "./CodexHistory";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("./CodexConversation", () => ({ default: ({ requestedThread, onActivity }: { requestedThread?: { id: string }; onActivity?: (value: "running") => void }) => <section data-testid="conversation-stub">Selected thread: {requestedThread?.id}<button onClick={() => onActivity?.("running")}>Simulate background activity</button></section> }));
+vi.mock("./CodexPanes", () => ({ default: ({ requestedThread, onActivity }: { requestedThread?: { id: string }; onActivity?: (value: "running") => void }) => <section data-testid="conversation-stub">Selected thread: {requestedThread?.id}<button onClick={() => onActivity?.("running")}>Simulate background activity</button></section> }));
 const call = vi.mocked(invoke);
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let element: HTMLDivElement;

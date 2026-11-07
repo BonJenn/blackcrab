@@ -10,8 +10,13 @@ payloads.
 
 The native host and read services are connected to the dedicated **Codex** panel.
 It includes history/account/model browsing and a **Conversation preview** for
-explicit single-workspace start/resume, plain-text sends, streamed output, queue
-controls and one-time command/file approvals. General single/grid provider
+up to six independently owned conversations, explicit start/resume, plain-text
+sends, streamed output, queue controls and one-time command/file approvals.
+Single/grid views retain hidden runs and drafts; history preparation targets the
+selected pane. The original preview keeps its existing owner and storage keys.
+Pane removal requires a stopped/idle owner, resolved recovery, known empty queues
+for existing sessions and no unsent draft. Removing a pane retains its saved
+workspace and provider history; it never stops a running session. General single/grid provider
 selection and provider-aware mobile controls still expose Claude. Discovery
 therefore keeps Codex `clientReady: false`; the dedicated preview does not imply
 provider-wide readiness. An isolated macOS native run has verified the dedicated

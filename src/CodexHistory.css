@@ -1,0 +1,16 @@
+.codex-history-dialog { color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 12px; width: min(1100px, 94vw); max-height: 90vh; padding: 24px; overflow: auto; }
+.codex-history-dialog::backdrop { background: #0009; }
+.codex-history-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.codex-history-dialog nav, .codex-page-actions, .codex-history-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.codex-history-dialog button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.codex-history-dialog input:not([type="checkbox"]) { display: block; width: min(420px, 70vw); padding: 6px; }
+.codex-history-columns { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 24px; }
+.codex-thread-list, .codex-history-turns { list-style: none; margin: 0; padding: 0; }
+.codex-thread-list li { margin: 8px 0; }
+.codex-thread-list button { display: flex; flex-direction: column; width: 100%; gap: 4px; padding: 10px; text-align: left; color: inherit; background: transparent; border: 1px solid var(--border); border-radius: 6px; overflow-wrap: anywhere; }
+.codex-history-turns > li, .codex-history-dialog article { border-bottom: 1px solid var(--border); padding: 12px 0; }
+.codex-history-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 480px; overflow: auto; font-size: 12px; }
+.codex-history-item { padding: 8px; border: 1px solid var(--border); margin: 8px 0; }
+.codex-history-dialog p, .codex-history-dialog dd { overflow-wrap: anywhere; }
+.codex-history-dialog [role="alert"] { color: var(--err); }
+@media (max-width: 700px) { .codex-history-columns { grid-template-columns: 1fr; } }

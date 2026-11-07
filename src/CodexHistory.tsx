@@ -3,6 +3,7 @@ import { codexQuery, historyItem, type CodexAccount, type CodexItem, type CodexM
 import { useCodexPage } from "./useCodexPage";
 import "./CodexHistory.css";
 import type { CodexActivity } from "./CodexConversation";
+import { ProviderSwitcher } from "./ProviderSwitcher";
 const CodexDesktop = lazy(() => import("./CodexPanes"));
 
 type Tab = "history" | "models" | "account" | "conversation";
@@ -96,27 +97,29 @@ function Account() {
     <p>Configure login and account changes in the Codex CLI.</p><button type="button" className="btn btn-secondary" disabled={state.loading} onClick={() => setRevision(value => value + 1)}>Refresh account</button>
   </section>;
 }
-export default function CodexHistory({ onClose, open = true, defaultCwd = "", onActivity }: { onClose: () => void; open?: boolean; defaultCwd?: string; onActivity?: (activity: CodexActivity) => void }) {
+export default function CodexHistory({ onClose, open = true, defaultCwd = "", onActivity, presentation = "dialog", saveError }: { onClose: () => void; open?: boolean; defaultCwd?: string; onActivity?: (activity: CodexActivity) => void; presentation?: "dialog" | "workspace"; saveError?: string | null }) {
   const [tab, setTab] = useState<Tab>("history");
   const [conversationLoaded, setConversationLoaded] = useState(false);
   const [requestedThread, setRequestedThread] = useState<CodexThread>();
   const chooseThread = useCallback((thread: CodexThread) => { setRequestedThread({ ...thread }); setConversationLoaded(true); setTab("conversation"); }, []);
   const dialog = useRef<HTMLDialogElement>(null);
+  const workspace = useRef<HTMLElement>(null);
   const title = useId();
   useEffect(() => {
     if (!open) return;
-    const node = dialog.current;
+    const node = presentation === "workspace" ? workspace.current : dialog.current;
     const previous = document.activeElement as HTMLElement | null;
-    if (node && !node.open) node.showModal();
-    node?.querySelector<HTMLButtonElement>("button")?.focus();
-    return () => { if (node?.open) node.close(); if (previous?.isConnected) previous.focus(); };
-  }, [open]);
-  return <dialog className="codex-history-dialog" ref={dialog} aria-labelledby={title} onCancel={event => { event.preventDefault(); onClose(); }}>
-    <header><h2 id={title}>Codex</h2><button type="button" className="btn btn-secondary" onClick={onClose}>Close</button></header>
+    if (presentation === "dialog" && dialog.current && !dialog.current.open) dialog.current.showModal();
+    node?.querySelector<HTMLElement>("select, button")?.focus();
+    return () => { if (dialog.current?.open) dialog.current.close(); if (previous?.isConnected) previous.focus(); };
+  }, [open, presentation]);
+  const content = <>
+    <header><h2 id={title}>{presentation === "workspace" ? "Blackcrab · Codex" : "Codex"}</h2>{presentation === "workspace" ? <ProviderSwitcher provider="codex" onChange={value => { if (value === "claude") onClose(); }} error={saveError} /> : <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>}</header>
     <p>Read your CLI history, models and account, or open a conversation preview.</p>
     <nav aria-label="Codex sections">{(["history", "models", "account", "conversation"] as const).map(value => <button key={value} type="button" className="btn btn-secondary" aria-pressed={tab === value} onClick={() => { if (value === "conversation") setConversationLoaded(true); setTab(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
     <div className="codex-history-body">{tab === "history" ? <HistoryBrowser onChoose={chooseThread} /> : tab === "models" ? <Models /> : tab === "account" ? <Account /> : null}
       {conversationLoaded && <div hidden={tab !== "conversation"}><Suspense fallback={<p role="status">Loading conversation…</p>}><CodexDesktop defaultCwd={defaultCwd} requestedThread={requestedThread} onActivity={onActivity} /></Suspense></div>}
     </div>
-  </dialog>;
+  </>;
+  return presentation === "workspace" ? <main className="codex-history-surface codex-history-workspace" ref={workspace} hidden={!open} inert={!open} aria-labelledby={title}>{content}</main> : <dialog className="codex-history-surface codex-history-dialog" ref={dialog} aria-labelledby={title} onCancel={event => { event.preventDefault(); onClose(); }}>{content}</dialog>;
 }

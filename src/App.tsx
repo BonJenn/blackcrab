@@ -33,6 +33,9 @@ import { QueueControls } from "./QueueControls";
 import { queueClient, startQueuedSession, type AcceptedEvent } from "./queueClient";
 import { usePanelQueue } from "./usePanelQueue";
 import type { CodexActivity } from "./CodexConversation";
+import { DesktopProviderViews } from "./DesktopProviderViews";
+import { ProviderSwitcher } from "./ProviderSwitcher";
+import { readDesktopProvider, saveDesktopProvider, type DesktopProvider } from "./desktopProvider";
 import {
   patchSessionInfoList,
   removeSessionInfoFromList,
@@ -85,7 +88,6 @@ const TerminalPanel = lazy(() =>
   import("./Terminal").then((mod) => ({ default: mod.TerminalPanel })),
 );
 const ComputerUseEntryView = lazy(() => import("./ComputerUseEntryView"));
-const CodexHistory = lazy(() => import("./CodexHistory"));
 
 type AvailableUpdate = NonNullable<Awaited<ReturnType<typeof check>>>;
 
@@ -1330,13 +1332,18 @@ function App() {
   const appLaunchTrackedRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cwd, setCwd] = useState<string>(() => appSettings.startupCwd);
-  const [codexHistoryOpen, setCodexHistoryOpen] = useState(false);
-  const [codexLoaded, setCodexLoaded] = useState(false);
+  const [desktopProvider, setDesktopProvider] = useState<DesktopProvider>(() => readDesktopProvider(localStorage));
+  const [providerSaveError, setProviderSaveError] = useState<string | null>(null);
+  const [claudeGridLoaded, setClaudeGridLoaded] = useState(desktopProvider === "claude");
+  useEffect(() => { if (desktopProvider === "claude") setClaudeGridLoaded(true); }, [desktopProvider]);
+  const chooseDesktopProvider = useCallback((provider: DesktopProvider) => {
+    setDesktopProvider(provider);
+    setProviderSaveError(saveDesktopProvider(localStorage, provider) ? null : "Provider selection is only saved for this app session.");
+  }, []);
   const [codexActivity, setCodexActivity] = useState<CodexActivity>("idle");
   const openCodexPanel = useCallback(() => {
-    setCodexLoaded(true);
-    setCodexHistoryOpen(true);
-  }, []);
+    chooseDesktopProvider("codex");
+  }, [chooseDesktopProvider]);
   const [model, setModel] = useState<string>(() => appSettings.defaultModel);
   const [permissionMode, setPermissionMode] = useState<string>(
     () => appSettings.defaultPermissionMode,
@@ -2535,6 +2542,7 @@ function App() {
   });
 
   useEffect(() => {
+    if (desktopProvider !== "claude") return;
     const onKey = (e: KeyboardEvent) => {
       const editable = isEditableTarget(e.target);
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
@@ -2601,7 +2609,7 @@ function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openNextAttentionSession, openRelativeSession]);
+  }, [desktopProvider, openNextAttentionSession, openRelativeSession]);
 
   // Grid-scoped keyboard shortcuts. Only fire when gridMode is on and
   // focus isn't captured by an editable (composer, title input, etc.),
@@ -2611,7 +2619,7 @@ function App() {
   //                        macOS's "close window" menu item)
   //   ⌘⇧D / Ctrl+⇧D      → duplicate focused panel (new tile in same cwd)
   useEffect(() => {
-    if (!gridMode) return;
+    if (!gridMode || desktopProvider !== "claude") return;
     const onKey = (e: KeyboardEvent) => {
       if (!e.metaKey && !e.ctrlKey) return;
       const tgt = e.target as HTMLElement | null;
@@ -2684,6 +2692,7 @@ function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
+    desktopProvider,
     gridMode,
     gridPanels,
     selectedGridPanelId,
@@ -2697,6 +2706,7 @@ function App() {
   // to get real file paths instead of just File blobs.
   useEffect(() => {
     if (!canUseTauriEventApi()) return;
+    let disposed = false;
     let unlisten: (() => void) | null = null;
     let currentWebview: ReturnType<typeof getCurrentWebview>;
     try {
@@ -2707,6 +2717,7 @@ function App() {
     let listenPromise: Promise<() => void>;
     try {
       listenPromise = currentWebview.onDragDropEvent((e) => {
+        if (disposed || desktopProvider !== "claude") return;
         if (e.payload.type === "enter" || e.payload.type === "over") {
           setDragOver(true);
         } else if (e.payload.type === "leave") {
@@ -2756,13 +2767,15 @@ function App() {
     }
     listenPromise
       .then((fn) => {
-        unlisten = fn;
+        if (disposed) fn();
+        else unlisten = fn;
       })
       .catch(reportListenerError("native drag-drop listener failed"));
     return () => {
+      disposed = true;
       if (unlisten) unlisten();
     };
-  }, [reportListenerError]);
+  }, [reportListenerError, desktopProvider]);
 
   // DOM-level file drop handler. Tauri's `onDragDropEvent` only fires
   // when `dragDropEnabled: true` in tauri.conf.json, which is off so
@@ -2776,7 +2789,7 @@ function App() {
       if (!e.dataTransfer) return;
       if (Array.from(e.dataTransfer.types).includes("Files")) {
         e.preventDefault();
-        setDragOver(true);
+        setDragOver(desktopProvider === "claude");
       }
     };
     const onDragLeave = (e: DragEvent) => {
@@ -2787,6 +2800,7 @@ function App() {
       if (!e.dataTransfer?.files?.length) return;
       e.preventDefault();
       setDragOver(false);
+      if (desktopProvider !== "claude") return;
       const files = Array.from(e.dataTransfer.files);
       const dropX = e.clientX;
       const dropY = e.clientY;
@@ -2833,7 +2847,7 @@ function App() {
       window.removeEventListener("dragleave", onDragLeave);
       window.removeEventListener("drop", onDrop);
     };
-  }, []);
+  }, [desktopProvider]);
   const [resumingId, setResumingId] = useState<string | null>(null);
   const [branchInfo, setBranchInfo] = useState<BranchInfo | null>(null);
   const [switchingBranch, setSwitchingBranch] = useState(false);
@@ -5395,7 +5409,7 @@ function App() {
           onDismiss={() => setUpdateDismissed(true)}
         />
       )}
-      {shouldShowOnboarding && (
+      {shouldShowOnboarding && desktopProvider === "claude" && (
         <ClaudeOnboardingOverlay
           status={claudePreflight}
           loading={claudePreflightLoading}
@@ -5833,16 +5847,6 @@ function App() {
           onImportBackup={importBackup}
         />
       )}
-      {codexLoaded && (
-        <Suspense fallback={<div role="status">Loading Codex browser…</div>}>
-          <CodexHistory
-            open={codexHistoryOpen}
-            defaultCwd={cwd}
-            onActivity={setCodexActivity}
-            onClose={() => setCodexHistoryOpen(false)}
-          />
-        </Suspense>
-      )}
       {diagnosticsOpen && (
         <DiagnosticsPanel
           cwd={cwd}
@@ -5980,6 +5984,7 @@ function App() {
           onCancel={() => setRenamePrompt(null)}
         />
       )}
+      <DesktopProviderViews provider={desktopProvider} defaultCwd={cwd} onChange={chooseDesktopProvider} onCodexActivity={setCodexActivity} error={providerSaveError}>
       <Sidebar
         sessions={sessions}
         activeId={sidebarActiveId}
@@ -6187,18 +6192,13 @@ function App() {
             >
               ⊞ grid
             </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={openCodexPanel}
-            >
-              Codex{codexActivity !== "idle" ? ` · ${codexActivity}` : ""}
-            </button>
+            <ProviderSwitcher provider={desktopProvider} onChange={chooseDesktopProvider} error={providerSaveError} />
+            {codexActivity !== "idle" && <button type="button" className="btn btn-secondary" onClick={openCodexPanel}>Codex · {codexActivity}</button>}
           </div>
         </header>
 
         <div className={`grid-wrap ${gridMode ? "" : "hidden"}`}>
-          <LiveGrid
+          {(claudeGridLoaded || desktopProvider === "claude") && <LiveGrid
             key={gridInstanceKey}
             panels={gridPanels}
             sessions={sessions}
@@ -6248,7 +6248,7 @@ function App() {
                 return next;
               });
             }}
-          />
+          />}
         </div>
         <section className={`transcript-wrap ${gridMode ? "hidden" : ""}`}>
           {searchOpen && (
@@ -6833,7 +6833,7 @@ function App() {
           </div>
         )}
       </main>
-      {previewOpen && (
+      {previewOpen && desktopProvider === "claude" && (
         <>
           <div
             className="preview-resizer"
@@ -6850,6 +6850,7 @@ function App() {
           />
         </>
       )}
+      </DesktopProviderViews>
     </div>
   );
 }

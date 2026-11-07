@@ -97,7 +97,7 @@ it("hands history to the preview without starting and keeps its view mounted acr
   call.mockResolvedValueOnce(reply("turns", page([])));
   await act(async () => element.querySelector<HTMLButtonElement>(".codex-thread-list button")!.click());
   await click("Continue in conversation");
-  await act(async () => { await import("./CodexConversation"); });
+  await act(async () => { await import("./CodexPanes"); });
   expect(element.textContent).toContain("Selected thread: chosen-thread");
   await click("Simulate background activity");
   expect(activity).toHaveBeenCalledWith("running");
@@ -110,4 +110,28 @@ it("hands history to the preview without starting and keeps its view mounted acr
   expect(element.textContent).toContain("Selected thread: chosen-thread");
   expect(call.mock.calls.length).toBe(reads);
   expect(call.mock.calls.every(([method]) => method === "codex_query")).toBe(true);
+});
+it("renders a full workspace without a modal and preserves its view while inactive", async () => {
+  const opener = document.createElement("button"); document.body.append(opener); opener.focus();
+  call.mockResolvedValueOnce(reply("threads", page([])));
+  await act(async () => root.render(<CodexHistory presentation="workspace" open={true} onClose={close} saveError="Selection is only saved for this app session" />));
+  expect(element.querySelector("dialog")).toBeNull();
+  const main = element.querySelector<HTMLElement>("main")!;
+  expect(main.hidden).toBe(false);
+  const picker = main.querySelector<HTMLSelectElement>(".desktop-provider-switcher select")!;
+  expect(document.activeElement).toBe(picker);
+  expect(element.textContent).toContain("Selection is only saved for this app session");
+  await click("Conversation");
+  const conversation = element.querySelector('[data-testid="conversation-stub"]');
+  expect(conversation).not.toBeNull();
+  await act(async () => { picker.value = "claude"; picker.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(close).toHaveBeenCalledOnce();
+  await act(async () => root.render(<CodexHistory presentation="workspace" open={false} onClose={close} />));
+  expect(main.hidden).toBe(true); expect(main.hasAttribute("inert")).toBe(true);
+  expect(element.querySelector('[data-testid="conversation-stub"]')).toBe(conversation);
+  expect(document.activeElement).toBe(opener);
+  await act(async () => root.render(<CodexHistory presentation="workspace" open={true} onClose={close} />));
+  expect(main.hidden).toBe(false); expect(element.querySelector('[data-testid="conversation-stub"]')).toBe(conversation);
+  expect(call.mock.calls.every(([method]) => method === "codex_query")).toBe(true);
+  opener.remove();
 });

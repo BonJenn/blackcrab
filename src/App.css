@@ -135,6 +135,11 @@ body {
   max-height: 100vh;
   overflow: hidden;
 }
+.claude-desktop-view { display: contents; }
+.claude-desktop-view[hidden] { display: none; }
+.desktop-provider-switcher label { display: flex; align-items: center; gap: 8px; }
+.desktop-provider-switcher select { color: var(--text); background: var(--bg-elev); border: 1px solid var(--border); padding: 6px; border-radius: 6px; }
+.desktop-provider-switcher [role="alert"] { color: var(--err); font-size: 12px; }
 
 .app {
   flex: 1;

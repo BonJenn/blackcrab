@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("react-native", () => ({
   View: ({ children }: { children: ReactNode }) => createElement("div", null, children),
   Text: ({ children }: { children: ReactNode }) => createElement("span", null, children),
-  Pressable: ({ children, onPress, disabled }: { children: ReactNode; onPress: () => void; disabled?: boolean }) => createElement("button", { onClick: onPress, disabled }, children),
+  Pressable: ({ children, onPress, disabled, accessibilityLabel }: { children: ReactNode; onPress: () => void; disabled?: boolean; accessibilityLabel?: string }) => createElement("button", { onClick: onPress, disabled, "aria-label": accessibilityLabel }, children),
   FlatList: ({ data, renderItem, ListEmptyComponent }: { data: unknown[]; renderItem: (value: { item: unknown }) => ReactNode; ListEmptyComponent: ReactNode }) => createElement("div", null, data.length ? data.map((item, index) => createElement("div", { key: index }, renderItem({ item }))) : ListEmptyComponent),
   StyleSheet: { create: (value: unknown) => value },
 }));
@@ -65,4 +65,24 @@ it("does not present stored host online metadata as a live connection", () => {
   const host: StoredPairedHost = { hostId: "one", displayName: "Desktop", platform: "macos", appVersion: "1", lastSeenAt: "2026-11-07T00:00:00Z", online: true, pairedAt: "2026-11-07T00:00:00Z", pairingSource: "manual_code" };
   act(() => root.render(<PairedHostsScreen loading={false} storedHosts={[host]} onForgetHost={vi.fn()} onPairHost={vi.fn()} />));
   expect(element.textContent).toContain("not connected"); expect(element.textContent).not.toContain("online");
+});
+
+it("connects and reconnects the selected stored host, opens its chats and disconnects explicitly", () => {
+  const host: StoredPairedHost = { hostId: "one", displayName: "Desktop", platform: "macos", appVersion: "1", lastSeenAt: "2026-11-07T00:00:00Z", online: true, pairedAt: "2026-11-07T00:00:00Z", pairingSource: "desktop_payload", remoteToken: "fixture-token", lanHost: "127.0.0.1", lanPort: 1234 };
+  const connect = vi.fn(), disconnect = vi.fn(), chats = vi.fn();
+  const render = (active: boolean, state: TransportStatus["state"]) => act(() => root.render(<PairedHostsScreen loading={false} storedHosts={[host]} activeHostId={active ? "one" : null} activeStatus={{ state, hostId: "one", sinceMs: 1 }} onForgetHost={vi.fn()} onPairHost={vi.fn()} onConnectHost={connect} onDisconnectHost={disconnect} onViewSessions={chats} />));
+  const button = (text: string) => Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find(value => value.textContent === text)!;
+  render(false, "disconnected"); act(() => button("Connect").click()); expect(connect).toHaveBeenLastCalledWith("one", false);
+  render(true, "error"); act(() => button("Reconnect").click()); expect(connect).toHaveBeenLastCalledWith("one", true);
+  render(true, "connecting"); expect(button("Connecting…").disabled).toBe(true);
+  render(true, "connected"); act(() => button("Open chats").click()); expect(chats).toHaveBeenCalledOnce();
+  act(() => button("Disconnect").click()); expect(disconnect).toHaveBeenCalledOnce(); expect(connect).toHaveBeenCalledTimes(2);
+});
+it("offers pairing again when stored credentials cannot establish a connection", () => {
+  const host: StoredPairedHost = { hostId: "manual", displayName: "Manual", platform: "macos", appVersion: "1", lastSeenAt: "2026-11-07T00:00:00Z", online: false, pairedAt: "2026-11-07T00:00:00Z", pairingSource: "manual_code" };
+  const pair = vi.fn(), connect = vi.fn();
+  act(() => root.render(<PairedHostsScreen loading={false} storedHosts={[host]} onForgetHost={vi.fn()} onPairHost={pair} onConnectHost={connect} connectionError="Connection unavailable" />));
+  expect(element.textContent).toContain("Connection unavailable");
+  const button = Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find(value => value.textContent === "Pair again")!;
+  act(() => button.click()); expect(pair).toHaveBeenCalledOnce(); expect(connect).not.toHaveBeenCalled();
 });

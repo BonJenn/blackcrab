@@ -35,6 +35,8 @@ jobs:
 
       - run: npm test --workspaces
 
+      - run: npm run test:managed-host
+
       - run: npm run build
 
   rust:

@@ -35,7 +35,11 @@
     "smoke": "node scripts/smoke-check.mjs",
     "smoke:native": "node scripts/smoke-check.mjs --native",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:managed-host": "node scripts/build-managed-host.mjs",
+    "verify:managed-host": "node scripts/verify-managed-host.mjs",
+    "smoke:managed-host": "node scripts/smoke-managed-host.mjs",
+    "test:managed-host": "node --test managed-host/artifact.test.mjs managed-host/source.test.mjs managed-host/rust-notices.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",

@@ -137,6 +137,10 @@ history, render transcript tails quickly, and export conversations.
 
 ## Repository Map
 
+Provider launch behavior and the capability API are documented in
+[`docs/providers.md`](docs/providers.md). Claude Code is the currently
+implemented provider.
+
 - `src/App.tsx`: main application state, transcript UI, sidebar, command
   palette, grid mode, preview panel, and top-level Claude event handling.
 - `src/LivePanel.tsx`: self-contained grid panel with its own subprocess,
@@ -144,6 +148,8 @@ history, render transcript tails quickly, and export conversations.
 - `src/Terminal.tsx`: xterm.js wrapper for the Rust PTY backend.
 - `src/markdown.ts`: Markdown rendering, syntax highlighting, and PR
   linkification.
+- `src-tauri/src/provider.rs`: provider launch validation, capability metadata,
+  and message framing.
 - `src-tauri/src/lib.rs`: Tauri commands for Claude process management,
   session indexing/search, git helpers, native preview navigation, and PTY I/O.
 - `apps/mobile/`: experimental Expo/React Native scaffold for the future mobile

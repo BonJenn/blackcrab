@@ -1,5 +1,6 @@
 mod crypto;
 mod pairing;
+mod provider;
 mod relay_client;
 mod transport;
 
@@ -21,9 +22,11 @@ use crate::pairing::{
     now_unix_ms as pairing_now_ms, PairedDevice, PairingAcceptResponse, PairingService,
     PairingStartResponse, PAIRING_DEFAULT_TTL_SECS,
 };
+use crate::provider::{prepare_launch, LaunchRequest, Provider, ProviderInfo};
 use crate::transport::{RemoteCommand, TransportEndpoint, TransportServer};
 
 struct Session {
+    provider: Provider,
     child: Child,
     stdin: ChildStdin,
 }
@@ -166,10 +169,6 @@ fn normalize_model_name(model: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
-}
-
-fn normalize_model_arg(model: Option<String>) -> Option<String> {
-    model.and_then(|m| normalize_model_name(&m))
 }
 
 fn auth_env_conflict_present() -> bool {
@@ -322,6 +321,7 @@ fn resolve_claude_auth_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::normalize_model_arg;
 
     fn cursor(id: &str, at_ms: i64) -> ReadCursor {
         ReadCursor {
@@ -1035,6 +1035,13 @@ async fn reserve_session_owner(
 }
 
 #[tauri::command]
+fn list_providers() -> Vec<ProviderInfo> {
+    let provider = Provider::Claude;
+    let installed = find_executable_in_path(provider.executable(), &claude_path_env()).is_some();
+    vec![provider.info(installed)]
+}
+
+#[tauri::command]
 async fn start_session(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -1044,92 +1051,31 @@ async fn start_session(
     model: Option<String>,
     resume_id: Option<String>,
     use_worktree: Option<bool>,
+    provider: Option<String>,
 ) -> Result<(), String> {
-    let resume_id = resume_id.and_then(|s| {
-        let trimmed = s.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
-    });
+    // Validate before touching the existing panel process or its ownership.
+    let launch = prepare_launch(
+        LaunchRequest {
+            provider,
+            cwd,
+            permission_mode,
+            model,
+            resume_id,
+            use_worktree: use_worktree.unwrap_or(false),
+        },
+        std::env::var_os("HOME").and_then(|home| home.into_string().ok()),
+    )?;
+    let resume_id = launch.resume_id;
+    let cwd = launch.cwd;
+    let mut cmd = Command::new(launch.provider.executable());
+    cmd.args(&launch.args);
+
     let mut guard = state.sessions.lock().await;
     if let Some(mut s) = guard.remove(&panel_id) {
         let _ = s.child.start_kill();
     }
     release_panel_session_owners(&state.session_owners, &panel_id).await;
 
-    let mode = permission_mode.unwrap_or_else(|| "bypassPermissions".to_string());
-
-    let mut cmd = Command::new("claude");
-    cmd.arg("-p")
-        .arg("--input-format").arg("stream-json")
-        .arg("--output-format").arg("stream-json")
-        .arg("--verbose")
-        .arg("--include-partial-messages")
-        .arg("--permission-mode").arg(&mode);
-
-    // The CLI has a second security layer separate from --permission-mode:
-    // a directory sandbox that limits which paths tools can touch. By
-    // default that's just the cwd, which blocks cross-project access. We
-    // extend it based on the caller's intent:
-    //   - bypassPermissions: the user opted into "let claude do anything",
-    //     so we pass `--add-dir /` to remove the dir sandbox entirely.
-    //     Otherwise an "allow & retry" from a denial overlay wouldn't
-    //     actually unblock system paths like /etc or /tmp.
-    //   - any other mode: cover the whole home dir, which is where work
-    //     typically lives.
-    if mode == "bypassPermissions" {
-        cmd.arg("--add-dir").arg("/");
-    } else if let Some(home) =
-        std::env::var_os("HOME").and_then(|h| h.into_string().ok())
-    {
-        cmd.arg("--add-dir").arg(home);
-    }
-
-    let is_resume = resume_id.is_some();
-
-    // Pin the requested model only for fresh sessions. On --resume we omit
-    // --model: the conversation is restored on the user's current default
-    // model, and forcing the session's *historical* model id breaks resume
-    // once that model has been retired — the CLI rejects it with "the selected
-    // model may not exist". (Claude Code's normal resume doesn't pass --model.)
-    if !is_resume {
-        if let Some(m) = normalize_model_arg(model) {
-            cmd.arg("--model").arg(m);
-        }
-    }
-
-    if let Some(rid) = resume_id.as_deref() {
-        cmd.arg("--resume").arg(rid);
-    }
-
-    // When the caller asks for an isolated worktree, delegate the
-    // worktree creation to the claude CLI itself (it handles the
-    // `git worktree add`, places the session inside the new dir, and
-    // records the path in its own session metadata). Skipped on
-    // --resume since the worktree was already created on first spawn,
-    // and skipped silently if the cwd isn't a git repo (claude would
-    // otherwise bail out and kill the session with a broken pipe).
-    if use_worktree.unwrap_or(false) && !is_resume {
-        let dot_git = std::path::Path::new(&cwd).join(".git");
-        if dot_git.exists() {
-            cmd.arg("--worktree");
-        }
-    }
-
-    // Bail early with a clear error if the cwd doesn't exist — otherwise
-    // spawn fails with a bare ENOENT that looks identical to the binary
-    // not being found. Important not to silently swap in $HOME: for a
-    // --resume, claude resolves the session file relative to the cwd's
-    // project folder, so the wrong cwd would trigger error_during_execution
-    // far from the actual source of the problem.
-    if cwd.is_empty() || !std::path::Path::new(&cwd).is_dir() {
-        return Err(format!(
-            "project directory doesn't exist: {} — pick a new cwd or remove this session",
-            if cwd.is_empty() { "(none)" } else { cwd.as_str() }
-        ));
-    }
     cmd.current_dir(&cwd)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1282,7 +1228,11 @@ async fn start_session(
         }
     });
 
-    guard.insert(panel_id, Session { child, stdin });
+    guard.insert(panel_id, Session {
+        provider: launch.provider,
+        child,
+        stdin,
+    });
     Ok(())
 }
 
@@ -1298,11 +1248,7 @@ async fn deliver_user_message(
     let session = guard
         .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
-    let msg = serde_json::json!({
-        "type": "user",
-        "message": { "role": "user", "content": text }
-    });
-    let line = format!("{}\n", msg);
+    let line = session.provider.user_message(text);
     session
         .stdin
         .write_all(line.as_bytes())
@@ -4146,6 +4092,7 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             claude_preflight,
+            list_providers,
             claude_token_status,
             save_claude_oauth_token,
             clear_claude_oauth_token,

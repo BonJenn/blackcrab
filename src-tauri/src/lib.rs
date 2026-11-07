@@ -4,6 +4,8 @@ mod codex_runtime;
 mod codex_services;
 mod crypto;
 mod execution;
+mod managed_artifact;
+mod managed_host;
 mod pairing;
 mod provider;
 mod relay_client;
@@ -34,6 +36,62 @@ use crate::pairing::{
 };
 use crate::provider::{prepare_launch, LaunchRequest, Provider, ProviderInfo};
 use crate::transport::{RemoteCommand, TransportEndpoint, TransportServer};
+
+// Managed web content receives no native command access or legacy session ownership.
+fn require_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != "main" {
+        return Err("This command is available only in the main Blackcrab window".into());
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn managed_host_status(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+) -> Result<managed_host::HostStatus, String> {
+    require_main_window(&window)?;
+    Ok(host.status().await)
+}
+#[tauri::command]
+async fn managed_host_start(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+    artifact_path: String,
+) -> Result<managed_host::HostStatus, String> {
+    require_main_window(&window)?;
+    host.start(Some(PathBuf::from(artifact_path))).await
+}
+#[tauri::command]
+async fn managed_workspace_open(
+    window: tauri::WebviewWindow,
+    app: AppHandle,
+    host: State<'_, managed_host::ManagedHost>,
+) -> Result<(), String> {
+    require_main_window(&window)?;
+    let url = host.window_url().await?;
+    let navigation = host.navigation_guard();
+    if let Some(existing) = app.get_webview_window("managed-workspace") {
+        existing
+            .navigate(url)
+            .map_err(|_| "Could not reconnect the managed workspace window")?;
+        existing
+            .set_focus()
+            .map_err(|_| "Could not focus the managed workspace window")?;
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::new(&app, "managed-workspace", tauri::WebviewUrl::External(url))
+        .title("Blackcrab — Managed workspace")
+        .inner_size(1200.0, 820.0)
+        .min_inner_size(720.0, 480.0)
+        .on_navigation(move |destination| {
+            navigation.lock()
+                .map(|allowed| allowed.as_ref() == Some(&destination.origin()))
+                .unwrap_or(false)
+        })
+        .build()
+        .map_err(|_| "Could not open the managed workspace window")?;
+    Ok(())
+}
 
 struct Session {
     provider: Provider,
@@ -4992,6 +5050,9 @@ pub fn run() {
         .manage(AppState::default())
         .manage(codex_services::Service::default())
         .invoke_handler(tauri::generate_handler![
+            managed_host_status,
+            managed_host_start,
+            managed_workspace_open,
             claude_preflight,
             list_providers,
             codex_query,
@@ -5050,6 +5111,9 @@ pub fn run() {
             pairing_revoke
         ])
         .setup(|app| {
+            app.manage(managed_host::ManagedHost::new(
+                app.path().app_data_dir()?.join("managed-host/v1"),
+            ));
             let execution_root = app.path().app_data_dir()?.join("execution");
             let store =
                 Arc::new(ExecutionStore::open(&execution_root).map_err(std::io::Error::other)?);

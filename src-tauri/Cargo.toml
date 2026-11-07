@@ -33,6 +33,10 @@ futures-util = "0.3"
 crypto_secretbox = "0.1"
 base64 = "0.22"
 getrandom = "0.2"
+sha2 = "0.10.9"
+hmac = "0.12.1"
+reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls-no-provider"] }
+rustls = { version = "0.23.39", default-features = false, features = ["std", "ring", "tls12"] }
 rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

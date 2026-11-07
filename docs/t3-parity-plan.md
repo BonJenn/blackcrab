@@ -63,7 +63,7 @@ client action before its backend works.
 | 18 | Browser, files, visual tools and voice | Shared browser automation/capture/annotations; file/media/citations; dictation review/cancel | Pending |
 | 19 | Thread/pane interaction and settings | Pin/settle/snooze/undo, scratch-to-project, resizable panes/windows, keybindings | Pending |
 | 20 | Secrets, maintenance and distribution | Scoped secret references, diagnostics/triage, provider updates, tested macOS/Windows/Linux/headless packaging | Pending |
-| 21 | Complete parity ledger | Every target user doc, RPC/MCP action and setting mapped to scenarios and evidence per supported client/provider | Pending |
+| 21 | Complete parity ledger | Every target user doc, RPC/MCP action and setting mapped to scenarios and evidence per supported client/provider | [Scenario inventory](t3-parity-ledger.md) covers 47 user docs plus contract/settings registries; all scenarios still require accepted evidence; full certification pending |
 
 ## Implementation decisions
 

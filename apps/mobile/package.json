@@ -16,6 +16,10 @@
   "dependencies": {
     "@blackcrab/remote-protocol": "*",
     "@expo/metro-runtime": "~6.1.2",
+    "@noble/hashes": "1.8.0",
+    "@t3tools/client-runtime": "*",
+    "@t3tools/contracts": "*",
+    "effect": "4.1.2",
     "expo": "^54.0.0",
     "expo-asset": "~12.0.13",
     "expo-camera": "~17.0.10",
@@ -23,6 +27,7 @@
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.23",
     "expo-image-picker": "~17.0.11",
+    "expo-network": "~8.0.8",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "expo-updates": "~29.0.18",
@@ -35,6 +40,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "~54.0.11",
     "typescript": "~5.9.2"
   }
 }

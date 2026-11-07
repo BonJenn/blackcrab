@@ -1,0 +1,21 @@
+{
+  "name": "@t3tools/provider-opencode",
+  "version": "0.1.7",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./src/client.ts"
+    }
+  },
+  "dependencies": {
+    "@t3tools/contracts": "file:../contracts",
+    "@t3tools/provider-core": "file:../provider-core",
+    "effect": "4.1.2"
+  },
+  "files": [
+    "src"
+  ]
+}

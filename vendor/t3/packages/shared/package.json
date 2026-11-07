@@ -1,0 +1,89 @@
+{
+  "name": "@t3tools/shared",
+  "version": "0.1.7",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./advertisedEndpoint": {
+      "types": "./src/advertisedEndpoint.ts",
+      "import": "./src/advertisedEndpoint.ts"
+    },
+    "./dpopCommon": {
+      "types": "./src/dpopCommon.ts",
+      "import": "./src/dpopCommon.ts"
+    },
+    "./git": {
+      "types": "./src/git.ts",
+      "import": "./src/git.ts"
+    },
+    "./hostClassification": {
+      "types": "./src/hostClassification.ts",
+      "import": "./src/hostClassification.ts"
+    },
+    "./httpObservability": {
+      "types": "./src/httpObservability.ts",
+      "import": "./src/httpObservability.ts"
+    },
+    "./model": {
+      "types": "./src/model.ts",
+      "import": "./src/model.ts"
+    },
+    "./oauthScope": {
+      "types": "./src/oauthScope.ts",
+      "import": "./src/oauthScope.ts"
+    },
+    "./orchestrationV2BoundedSnapshot": {
+      "types": "./src/orchestrationV2BoundedSnapshot.ts",
+      "import": "./src/orchestrationV2BoundedSnapshot.ts"
+    },
+    "./orchestrationV2PendingBackgroundWork": {
+      "types": "./src/orchestrationV2PendingBackgroundWork.ts",
+      "import": "./src/orchestrationV2PendingBackgroundWork.ts"
+    },
+    "./path": {
+      "types": "./src/path.ts",
+      "import": "./src/path.ts"
+    },
+    "./relayJwt": {
+      "types": "./src/relayJwt.ts",
+      "import": "./src/relayJwt.ts"
+    },
+    "./relayTracing": {
+      "types": "./src/relayTracing.ts",
+      "import": "./src/relayTracing.ts"
+    },
+    "./relayUrl": {
+      "types": "./src/relayUrl.ts",
+      "import": "./src/relayUrl.ts"
+    },
+    "./remote": {
+      "types": "./src/remote.ts",
+      "import": "./src/remote.ts"
+    },
+    "./socketFrameParts": {
+      "types": "./src/socketFrameParts.ts",
+      "import": "./src/socketFrameParts.ts"
+    },
+    "./sourceControl": {
+      "types": "./src/sourceControl.ts",
+      "import": "./src/sourceControl.ts"
+    },
+    "./telemetryId": {
+      "types": "./src/telemetryId.ts",
+      "import": "./src/telemetryId.ts"
+    },
+    "./threadPullRequests": {
+      "types": "./src/threadPullRequests.ts",
+      "import": "./src/threadPullRequests.ts"
+    }
+  },
+  "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "@t3tools/contracts": "file:../contracts",
+    "effect": "4.1.2"
+  },
+  "files": [
+    "src"
+  ]
+}

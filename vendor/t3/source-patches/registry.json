@@ -1,0 +1,13 @@
+[
+  {
+    "id": "rpc-send-parameter-types",
+    "target": "packages/client-runtime/src/rpc/session.ts",
+    "file": "001-rpc-send-parameter-types.patch",
+    "beforeSha256": "c71fc43eb268e757194ff06b82ae36dcdda8a176581da7a6566877e55650483c",
+    "afterSha256": "cc9f18c16c434b27813c477b95862b687821ad5c24421091b5b3e052ae86a0be",
+    "emittedJavaScriptSha256": "eb62e887f23fb75f4700fa8fe1c113dd3accf179e972bcbfb0ef65848d3c4800",
+    "before": "          send: (clientId, request, transferables) =>",
+    "after": "          send: (\n            clientId: Parameters<typeof protocol.send>[0],\n            request: Parameters<typeof protocol.send>[1],\n            transferables: Parameters<typeof protocol.send>[2],\n          ) =>",
+    "sha256": "985fc5b1db81348ebada9376b1bfa9ebec6ad53ab2fc5ba8a338f766c1971f34"
+  }
+]

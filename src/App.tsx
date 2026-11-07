@@ -1333,6 +1333,10 @@ function App() {
   const [codexHistoryOpen, setCodexHistoryOpen] = useState(false);
   const [codexLoaded, setCodexLoaded] = useState(false);
   const [codexActivity, setCodexActivity] = useState<CodexActivity>("idle");
+  const openCodexPanel = useCallback(() => {
+    setCodexLoaded(true);
+    setCodexHistoryOpen(true);
+  }, []);
   const [model, setModel] = useState<string>(() => appSettings.defaultModel);
   const [permissionMode, setPermissionMode] = useState<string>(
     () => appSettings.defaultPermissionMode,
@@ -5404,6 +5408,8 @@ function App() {
           }}
           onSaveToken={saveClaudeToken}
           onClearToken={clearClaudeToken}
+          onOpenCodex={openCodexPanel}
+          codexActivity={codexActivity}
           onContinue={() => {
             setAuthIssue("");
             setOnboardingDismissed(true);
@@ -6184,10 +6190,7 @@ function App() {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => {
-                setCodexLoaded(true);
-                setCodexHistoryOpen(true);
-              }}
+              onClick={openCodexPanel}
             >
               Codex{codexActivity !== "idle" ? ` · ${codexActivity}` : ""}
             </button>
@@ -11622,7 +11625,7 @@ function TextPromptModal({
   );
 }
 
-function ClaudeOnboardingOverlay({
+export function ClaudeOnboardingOverlay({
   status,
   loading,
   authIssue,
@@ -11633,6 +11636,8 @@ function ClaudeOnboardingOverlay({
   onClearToken,
   onContinue,
   onOpenTerminalCommand,
+  onOpenCodex,
+  codexActivity = "idle",
 }: {
   status: ClaudePreflight | null;
   loading: boolean;
@@ -11644,6 +11649,8 @@ function ClaudeOnboardingOverlay({
   onClearToken: () => void;
   onContinue: () => void;
   onOpenTerminalCommand: (command: string, label: string) => void;
+  onOpenCodex: () => void;
+  codexActivity?: CodexActivity;
 }) {
   const installCommand = "npm install -g @anthropic-ai/claude-code";
   const loginCommand = "claude";
@@ -11687,6 +11694,16 @@ function ClaudeOnboardingOverlay({
           Claude Code token in macOS Keychain and pass it only to spawned
           Claude subprocesses.
         </p>
+        <div className="onboarding-provider-choice">
+          <p>Using Codex? Its dedicated preview uses your Codex CLI account and does not require Claude setup.</p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onOpenCodex}
+          >
+            Open Codex preview{codexActivity !== "idle" ? ` · ${codexActivity}` : ""}
+          </button>
+        </div>
         <div className="onboarding-status-list">
           <div className={`onboarding-status ${isInstalled ? "ok" : loading ? "" : "bad"}`}>
             <span className="onboarding-status-dot" />

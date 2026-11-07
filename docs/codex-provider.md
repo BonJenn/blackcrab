@@ -309,6 +309,14 @@ prepares a selected thread; it does not start or resume it automatically.
 
 ## Dedicated conversation preview
 
+First-run Claude setup includes **Open Codex preview**, including when Claude is
+missing, still being checked, or has an authentication error. This action opens
+the Codex panel without dismissing Claude setup, marking Claude authenticated,
+saving a token or launching a Claude command. The existing Claude grid startup
+gate therefore stays in place. Codex activity remains visible on that setup
+entry while its native modal is closed. **Continue anyway** retains its separate,
+existing Claude behavior.
+
 The Conversation tab owns one Codex panel per native window label. The workspace
 is initialized only when that tab is chosen. **Start session** / **Resume session**
 are explicit and separate from submitting a message. Model IDs come from the CLI
@@ -487,3 +495,11 @@ Development-isolation validation: full smoke passed with 130 desktop tests, 126
 native tests (CLI probe ignored), typecheck, Cargo check and production build.
 The change is limited to the existing product-event guard; production opt-in
 behavior remains unchanged. Native rendering is still not verified.
+
+Provider-setup entry validation: full smoke passed with 132 desktop tests, 126
+native tests (CLI probe ignored), typecheck, Cargo check and production build.
+Two new setup DOM tests cover pending/missing/failed Claude setup, Codex activity
+visibility, and an independent Codex action that does not invoke Claude continue,
+recheck, terminal, token-save or token-clear callbacks. The main opener and setup
+entry share the same Codex panel callback. Native visual behavior and real CLI
+turns remain unverified; general provider readiness is unchanged.

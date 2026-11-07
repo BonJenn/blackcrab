@@ -6,13 +6,21 @@ export const CODEX_DESKTOP_PREFIX = "blackcrab.codexDesktop.v1.";
 export const MAX_CODEX_PANES = 6;
 export const MAX_SAVED_CODEX_PANES = 24;
 type Layout = "single" | "grid";
-type DesktopState = { panes: string[]; retained: string[]; selected: string; layout: Layout; error: string | null; revision: number };
+export type CodexGridSizes = { column: number; rows: [number, number, number] };
+export const DEFAULT_CODEX_GRID_SIZES: CodexGridSizes = { column: 50, rows: [1, 1, 1] };
+export function validCodexGridSizes(value: unknown): value is CodexGridSizes {
+  const sizes = value as CodexGridSizes | null;
+  return !!sizes && Number.isFinite(sizes.column) && sizes.column >= 20 && sizes.column <= 80
+    && Array.isArray(sizes.rows) && sizes.rows.length === 3 && sizes.rows.every(row => Number.isFinite(row) && row >= 0.2 && row <= 2.6)
+    && Math.abs(sizes.rows.reduce((sum, row) => sum + row, 0) - 3) < 0.000001;
+}
+type DesktopState = { panes: string[]; retained: string[]; selected: string; layout: Layout; sizes: CodexGridSizes; error: string | null; revision: number };
 type StorageBackend = Pick<Storage, "getItem" | "setItem">;
 const validId = isCodexPaneId;
 
 /** Window-scoped owners survive view switches. No action here starts or sends a turn. */
 export class CodexDesktop {
-  private value: DesktopState = { panes: ["primary"], retained: [], selected: "primary", layout: "single", error: null, revision: 0 };
+  private value: DesktopState = { panes: ["primary"], retained: [], selected: "primary", layout: "single", sizes: { column: 50, rows: [1, 1, 1] }, error: null, revision: 0 };
   private listeners = new Set<() => void>();
   private owners = new Map<string, CodexWorkspace>();
   private subscriptions = new Map<string, () => void>();
@@ -23,10 +31,12 @@ export class CodexDesktop {
       const raw = storage.getItem(key);
       if (raw) {
         const saved = JSON.parse(raw);
-        if (![1, 2].includes(saved?.version) || !Array.isArray(saved.panes) || saved.panes.length < 1 || saved.panes.length > MAX_CODEX_PANES || saved.panes[0] !== "primary" || !saved.panes.every(validId) || new Set(saved.panes).size !== saved.panes.length || !saved.panes.includes(saved.selected) || !["single", "grid"].includes(saved.layout)) throw new Error("Saved Codex panes could not be read");
+        if (![1, 2, 3].includes(saved?.version) || !Array.isArray(saved.panes) || saved.panes.length < 1 || saved.panes.length > MAX_CODEX_PANES || saved.panes[0] !== "primary" || !saved.panes.every(validId) || new Set(saved.panes).size !== saved.panes.length || !saved.panes.includes(saved.selected) || !["single", "grid"].includes(saved.layout)) throw new Error("Saved Codex panes could not be read");
         const retained = saved.version === 1 ? [] : saved.retained;
         if (!Array.isArray(retained) || retained.length + saved.panes.length > MAX_SAVED_CODEX_PANES || !retained.every((id: unknown) => validId(id) && id !== "primary" && !saved.panes.includes(id)) || new Set(retained).size !== retained.length) throw new Error("Saved retained Codex panes could not be read");
-        this.value = { ...this.value, panes: saved.panes, retained, selected: saved.selected, layout: saved.layout };
+        const sizes = saved.version < 3 ? { column: 50, rows: [1, 1, 1] } as CodexGridSizes : saved.sizes;
+        if (!validCodexGridSizes(sizes)) throw new Error("Saved Codex pane sizes could not be read");
+        this.value = { ...this.value, panes: saved.panes, retained, selected: saved.selected, layout: saved.layout, sizes };
       }
     } catch (error) { this.unreadable = true; this.value.error = `${String(error)}. Saved pane data is preserved until you explicitly reset the layout.`; }
     for (const id of this.value.panes) this.workspace(id);
@@ -68,7 +78,7 @@ export class CodexDesktop {
   private save(next: DesktopState, reset = false): boolean {
     if (this.unreadable && !reset) return false;
     try {
-      this.storage.setItem(this.key, JSON.stringify({ version: 2, panes: next.panes, retained: next.retained, selected: next.selected, layout: next.layout }));
+      this.storage.setItem(this.key, JSON.stringify({ version: 3, panes: next.panes, retained: next.retained, selected: next.selected, layout: next.layout, sizes: next.sizes }));
       this.unreadable = false; this.value = { ...next, error: null }; this.emit(); return true;
     } catch (error) { this.value = { ...this.value, error: `Could not save Codex panes: ${String(error)}. The previous layout is retained.` }; this.emit(); return false; }
   }
@@ -77,6 +87,11 @@ export class CodexDesktop {
     return id === this.value.selected || this.save({ ...this.value, selected: id });
   }
   layout(layout: Layout): boolean { return this.save({ ...this.value, layout }); }
+  resize(sizes: CodexGridSizes): boolean {
+    if (this.unreadable || !validCodexGridSizes(sizes)) return false;
+    return this.save({ ...this.value, sizes: { column: sizes.column, rows: [...sizes.rows] } });
+  }
+  equalize(): boolean { return this.resize(DEFAULT_CODEX_GRID_SIZES); }
   add(): string | null {
     if (this.unreadable || this.value.panes.length >= MAX_CODEX_PANES || this.value.panes.length + this.value.retained.length >= MAX_SAVED_CODEX_PANES) return null;
     const id = this.newId();

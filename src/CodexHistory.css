@@ -27,13 +27,21 @@
 @media (max-width: 700px) { .codex-launch { grid-template-columns: 1fr; } }
 
 .codex-conversation [aria-label="Codex live transcript"] { max-height: 52vh; overflow: auto; overscroll-behavior: contain; }
-.codex-panes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.codex-panes-grid { display: grid; height: max(640px, 75vh); }
+.codex-panes-grid > .codex-pane { min-height: 0; overflow: auto; }
+.codex-grid-divider { touch-action: none; user-select: none; background: transparent; border-radius: 4px; }
+.codex-grid-divider:hover, .codex-grid-divider:focus-visible { background: var(--accent); outline: 2px solid var(--accent); outline-offset: -3px; }
+.codex-grid-divider-column { cursor: col-resize; margin: 2px 4px; }
+.codex-grid-divider-row { cursor: row-resize; margin: 4px 2px; }
 .codex-pane { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
 .codex-pane[data-selected="true"] { border-color: var(--accent); }
 .codex-pane[hidden] { display: none; }
 .codex-panes-grid .codex-launch { grid-template-columns: 1fr; }
 .codex-panes-grid .codex-conversation [aria-label="Codex live transcript"] { max-height: 35vh; }
-@media (max-width: 900px) { .codex-panes-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .codex-panes-grid { display: block; height: auto; }
+  .codex-panes-grid > .codex-pane[data-selected="false"], .codex-panes-grid > .codex-grid-divider { display: none; }
+}
 
 .codex-history-workspace { flex: 1; min-width: 0; padding: 24px; overflow: auto; color: var(--text); background: var(--bg); }
 .codex-history-workspace[hidden] { display: none; }

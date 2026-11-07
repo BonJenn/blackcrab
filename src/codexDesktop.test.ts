@@ -127,7 +127,7 @@ it("retains removed addresses across reload and reopens the original saved works
   f.saved.set(`outbox-${id}`, "unconfirmed identity remains untouched");
   expect(f.desktop.remove(id)).toBe(true);
   expect(f.desktop.state().retained).toEqual([id]);
-  expect(JSON.parse(f.saved.get("desktop")!)).toMatchObject({ version: 2, retained: [id] });
+  expect(JSON.parse(f.saved.get("desktop")!)).toMatchObject({ version: 3, retained: [id] });
   const restored = fixture(undefined, f.saved);
   expect(restored.owners.size).toBe(1); // Retained owners are not inspected on startup.
   expect(restored.desktop.reopen(id)).toBe(true);
@@ -201,4 +201,37 @@ it("does not let a retired inspection mark a reopened pane ready", async () => {
   expect(desktop.removalProblem(id)).toContain("inspection");
   resolves[1](true); await desktop.workspace(id).ready;
   expect(desktop.removalProblem(id)).toBeNull();
+});
+
+it("restores bounded pane sizes without replacing owners, drafts or retained identities", async () => {
+  const f = fixture(), id = f.desktop.add()!; await f.desktop.workspace(id).ready;
+  const owner = f.desktop.workspace(id); owner.update({ draft: "keep this draft" });
+  expect(f.desktop.resize({ column: 65, rows: [0.7, 1.3, 1] })).toBe(true);
+  expect(f.desktop.workspace(id)).toBe(owner); expect(owner.state().draft).toBe("keep this draft");
+  f.desktop.layout("grid"); f.desktop.layout("single"); f.desktop.layout("grid");
+  const restored = fixture(undefined, f.saved);
+  expect(restored.desktop.state()).toMatchObject({ panes: ["primary", id], selected: id, layout: "grid", sizes: { column: 65, rows: [0.7, 1.3, 1] } });
+  expect(restored.desktop.workspace(id).state().draft).toBe("keep this draft");
+  expect(f.desktop.equalize()).toBe(true); expect(f.desktop.state().sizes).toEqual({ column: 50, rows: [1, 1, 1] });
+});
+it("loads old equal grids without rewriting and preserves invalid saved sizes until reviewed reset", () => {
+  for (const version of [1, 2]) {
+    const raw = JSON.stringify({ version, panes: ["primary"], retained: [], selected: "primary", layout: "grid" });
+    const f = fixture(raw); expect(f.desktop.state().sizes).toEqual({ column: 50, rows: [1, 1, 1] });
+    expect(f.saved.get("desktop")).toBe(raw); expect(f.storage.setItem).not.toHaveBeenCalled();
+  }
+  for (const sizes of [null, { column: 10, rows: [1, 1, 1] }, { column: 50, rows: [1, 1] }, { column: 50, rows: [0.1, 1.9, 1] }, { column: 50, rows: [1, 1, 2] }]) {
+    const raw = JSON.stringify({ version: 3, panes: ["primary"], retained: [], selected: "primary", layout: "grid", sizes });
+    const f = fixture(raw); expect(f.desktop.layoutBlocked()).toBe(true);
+    expect(f.desktop.equalize()).toBe(false); expect(f.saved.get("desktop")).toBe(raw);
+    expect(f.desktop.resetLayout(true)).toBe(true); expect(f.desktop.state().sizes).toEqual({ column: 50, rows: [1, 1, 1] });
+  }
+});
+it("rejects invalid resizing and rolls back failed size persistence", () => {
+  const f = fixture();
+  expect(f.desktop.resize({ column: NaN, rows: [1, 1, 1] })).toBe(false);
+  expect(f.desktop.resize({ column: 50, rows: [Infinity, 1, 1] })).toBe(false);
+  f.storage.setItem.mockImplementationOnce(() => { throw new Error("quota"); });
+  expect(f.desktop.resize({ column: 60, rows: [1, 1, 1] })).toBe(false);
+  expect(f.desktop.state().sizes.column).toBe(50); expect(f.desktop.state().error).toContain("previous layout is retained");
 });

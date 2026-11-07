@@ -46,7 +46,13 @@ records are removed; crash temp files may remain. OS/browser backups may include
 this app data. Forgetting a paired host does not erase recovery records. See the
 [mobile queue guide](apps/mobile/README.md#follow-up-queues).
 
-Composer drafts are keyed by session id and pruned after 30 days by the app.
+Mobile text drafts are stored separately per host/session as unencrypted JSON
+in `documentDirectory/drafts-v1`, or `blackcrab.mobile.draft.v1.*` localStorage on
+web. They contain text and edit identity, have no automatic expiry, and survive
+forgetting a pairing. OS/browser backups may include them; crashes may leave
+temporary files. See the [mobile draft guide](apps/mobile/README.md#durable-text-drafts).
+
+Desktop composer drafts are keyed by session id and pruned after 30 days by the app.
 Unconfirmed desktop queue submissions retain their original text, attachment paths,
 command ID and draft identity in localStorage until confirmed. These unencrypted
 recovery records do not expire automatically, are excluded from settings backups,

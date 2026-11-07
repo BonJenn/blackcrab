@@ -95,3 +95,18 @@ Host selection validation: 71 mobile tests and 46 protocol tests passed, mobile
 TypeScript passed, iOS Hermes export succeeded, and full repository smoke passed
 with 147 desktop and 127 native tests (one ignored), Cargo check and production
 frontend build. These checks do not establish signed or real-device operation.
+
+### Durable draft increment
+
+M2 now has per-host/session offline text drafts, serialized persistent saves,
+explicit storage retry/reset, and revision-safe composer transfer. Queue recovery
+carries local edit identity so confirmation after restart clears only the
+original draft, preserves newer edits, and completes draft persistence before
+removing the outbox record. Reconnect generations cannot delete a newer outbox.
+Attachments still lack durable receipt recovery; independent-host lifecycle,
+notifications and native device validation remain pending.
+
+Validation: 87 mobile tests, 46 protocol tests and all workspace TypeScript checks
+passed, and iOS Hermes bundle export succeeded. The combined desktop/mobile tree passed repository smoke (152 desktop,
+127 native tests, Cargo check and production build). CI now typechecks workspaces
+as well as the root application. No signed build or real-device claim is made.

@@ -21,6 +21,7 @@ import type {
   TranscriptEntry,
 } from "@blackcrab/remote-protocol";
 
+import { mobileDrafts } from "./src/drafts/useDraft";
 import { MobileQueueClient } from "./src/queue/client";
 import { queueStorage, queueId } from "./src/queue/storage";
 
@@ -59,7 +60,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export default function App() {
-  const [queueClient] = useState(() => new MobileQueueClient(queueStorage,queueId));
+  const [queueClient] = useState(() => new MobileQueueClient(queueStorage,queueId,10000,(hostId,sessionId,transfer)=>mobileDrafts.confirmTransfer(hostId,sessionId,transfer)));
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
@@ -306,8 +307,8 @@ export default function App() {
   }
 
   function sendToFocused(body: string, attachments?: RemoteAttachment[]) {
-    if (!activeTransport || !focusedSession || focusedSession.hostId!==activeHostId) return;
-    activeTransport.sendAction({
+    if (!activeTransport || !focusedSession || focusedSession.hostId!==activeHostId) return false;
+    return activeTransport.sendAction({
       type: "send_message",
       hostId: focusedSession.hostId,
       sessionId: focusedSession.sessionId,

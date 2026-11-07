@@ -28,6 +28,8 @@ import {
 import { QueueControls } from "../queue/QueueControls";
 import { useQueue } from "../queue/useQueue";
 import type { MobileQueueClient } from "../queue/client";
+import type { MobileDraftClient } from "../drafts/client";
+import { useDraft } from "../drafts/useDraft";
 
 import { pickFile, pickPhoto, takePhoto } from "../attachments";
 import { Markdown } from "../components/Markdown";
@@ -52,6 +54,7 @@ function easeNext() {
 
 export interface TranscriptScreenProps {
   queueClient: MobileQueueClient;
+  draftClient?: MobileDraftClient;
   hostId: string;
   /** Live transcript tail pushed by the host. Null until this session has a host snapshot. */
   entries?: TranscriptEntry[] | null;
@@ -68,7 +71,7 @@ export interface TranscriptScreenProps {
   /** Dismiss the detail and slide back to the list. */
   onBack?: () => void;
   /** Send a follow-up message (with optional attachments) to this session. */
-  onSend?: (body: string, attachments?: RemoteAttachment[]) => void;
+  onSend?: (body: string, attachments?: RemoteAttachment[]) => boolean;
   /** Stop this session's current turn. */
   onStop?: () => void;
   /** Bumped by the host reporting a failed action; flips stuck sends to failed. */
@@ -86,6 +89,7 @@ function collapse(s: string): string {
 
 export function TranscriptScreen({
   queueClient,
+  draftClient,
   hostId,
   entries,
   sessionId,
@@ -103,8 +107,11 @@ export function TranscriptScreen({
   const live = entries != null;
   const hostData = entries ?? EMPTY_ENTRIES;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
-  const [draft, setDraft] = useState("");
-  const draftRevision = useRef(0);
+  const savedDraft = useDraft(hostId, sessionId || "", draftClient);
+  const draft = savedDraft.text;
+  const [draftResetReviewed, setDraftResetReviewed] = useState(false);
+  useEffect(() => { setDraftResetReviewed(false); }, [hostId, sessionId, savedDraft.blocked]);
+  const draftReady = savedDraft.loaded && !savedDraft.blocked && !savedDraft.saving && savedDraft.savedRevision === savedDraft.revision;
   // Files staged in the composer, and whether a picker is currently open.
   const [pendingAttachments, setPendingAttachments] = useState<RemoteAttachment[]>([]);
   const [attaching, setAttaching] = useState(false);
@@ -256,15 +263,17 @@ export function TranscriptScreen({
     const body = draft.trim();
     const atts = pendingAttachments;
     // Allow sending text, attachments, or both.
-    if ((!body && atts.length === 0) || !connected || !sessionId) {
+    if ((!body && atts.length === 0) || !connected || !sessionId || !draftReady) {
       return;
     }
     if (atts.length===0) {
-      const original=draft, revision=draftRevision.current;
-      if (await queueClient.enqueue(hostId,sessionId,body) && draftRevision.current===revision) setDraft(current=>current===original ? "" : current);
+      const original = draft, revision = savedDraft.revision;
+      if (await queueClient.enqueue(hostId,sessionId,body,{ editId: savedDraft.editId, text: original })) savedDraft.client.clearAccepted(hostId, sessionId, original, revision);
       return;
     }
     if (!onSend || sessionState==="running" || queue.busy || queue.pending || (queue.queue?.items.length ?? 0)>0) return;
+    const original = draft, revision = savedDraft.revision;
+    if (!onSend(body, atts)) { Alert.alert("Not sent", "The files were not handed to the host connection. Your text and files are retained."); return; }
     optimisticSeq.current += 1;
     const echoId = `optimistic-${optimisticSeq.current}`;
     const echo: TranscriptEntry = {
@@ -283,8 +292,7 @@ export function TranscriptScreen({
       }));
     }
     setJustSent(true);
-    onSend(body, atts.length > 0 ? atts : undefined);
-    setDraft("");
+    savedDraft.client.clearAccepted(hostId, sessionId, original, revision);
     setPendingAttachments([]);
     atBottomRef.current = true;
     scrollToEnd(true);
@@ -298,7 +306,7 @@ export function TranscriptScreen({
   }
 
   const queueReady=queue.loaded && queue.support==="available" && !!queue.queue && !queue.busy && !queue.pending && !queue.needsRefresh;
-  const canSend = connected && (pendingAttachments.length>0
+  const canSend = connected && draftReady && (pendingAttachments.length>0
     ? sessionState!=="running" && !queue.busy && !queue.pending && (queue.queue?.items.length ?? 0)===0
     : queueReady && draft.trim().length>0);
 
@@ -388,6 +396,15 @@ export function TranscriptScreen({
       />
 
       <QueueControls client={queueClient} state={queue} hostId={hostId} sessionId={sessionId || ""}/>
+      {!savedDraft.loaded && <Text style={screenStyles.note}>Loading saved draft…</Text>}
+      {savedDraft.saving && <Text style={screenStyles.note}>Saving draft…</Text>}
+      {savedDraft.error && <View><Text accessibilityRole="alert" style={screenStyles.note}>{savedDraft.error}</Text>
+        {savedDraft.blocked ? <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Retry loading draft" onPress={() => void savedDraft.client.open(hostId, sessionId || "")}><Text>Retry loading draft</Text></Pressable>
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: draftResetReviewed }} onPress={() => setDraftResetReviewed(value => !value)}><Text>{draftResetReviewed ? "✓ " : ""}I reviewed the saved draft and want to replace it with an empty draft.</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={!draftResetReviewed} onPress={() => { savedDraft.client.reset(hostId, sessionId || "", true); setDraftResetReviewed(false); }}><Text>Replace saved draft</Text></Pressable>
+        </> : <Pressable accessibilityRole="button" accessibilityLabel="Retry saving draft" disabled={savedDraft.saving} onPress={() => void savedDraft.client.retrySave(hostId, sessionId || "")}><Text>Retry saving draft</Text></Pressable>}
+      </View>}
       {pendingAttachments.length > 0 && (
         <View style={localStyles.attachTray}>
           {pendingAttachments.map((a, i) => (
@@ -422,9 +439,10 @@ export function TranscriptScreen({
         <TextInput
           style={localStyles.input}
           value={draft}
-          onChangeText={value=>{draftRevision.current++;setDraft(value);}}
-          editable={connected}
-          placeholder={connected ? "Message…" : "Not connected"}
+          onChangeText={value => savedDraft.client.edit(hostId, sessionId || "", value)}
+          editable={savedDraft.loaded && !savedDraft.blocked}
+          maxLength={1048576}
+          placeholder={connected ? "Message…" : "Draft saved when offline"}
           placeholderTextColor="#6b7480"
           onSubmitEditing={handleSend}
           returnKeyType="send"

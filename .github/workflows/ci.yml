@@ -29,6 +29,8 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm run typecheck --workspaces --if-present
+
       - run: npm test
 
       - run: npm test --workspaces

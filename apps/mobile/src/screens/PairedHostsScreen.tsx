@@ -17,6 +17,9 @@ interface PairedHostsScreenProps {
   activeHostId?: HostId | null;
   activeStatus?: TransportStatus | null;
   connectionError?: string | null;
+  selectionError?: string | null;
+  savingSelection?: boolean;
+  onRetrySelection?: () => void;
   onConnectHost?: (hostId: HostId, reconnect: boolean) => void;
   onDisconnectHost?: () => void;
   onViewSessions?: () => void;
@@ -30,6 +33,9 @@ export function PairedHostsScreen({
   activeHostId,
   activeStatus,
   connectionError,
+  selectionError,
+  savingSelection,
+  onRetrySelection,
   onConnectHost,
   onDisconnectHost,
   onViewSessions,
@@ -57,6 +63,12 @@ export function PairedHostsScreen({
       >
         <Text style={localStyles.secondaryButtonText}>Pair desktop</Text>
       </Pressable>
+      {savingSelection && <Text style={screenStyles.note}>Saving startup host…</Text>}
+      {selectionError && <View>
+        <Text accessibilityRole="alert" style={screenStyles.note}>{selectionError}</Text>
+        {onRetrySelection && <Pressable accessibilityRole="button" onPress={onRetrySelection} disabled={savingSelection} style={localStyles.secondaryButton}><Text style={localStyles.secondaryButtonText}>Retry saving startup host</Text></Pressable>}
+      </View>}
+      {onDisconnectHost && !activeHostId && !loading && <Pressable accessibilityRole="button" onPress={onDisconnectHost} style={localStyles.secondaryButton}><Text style={localStyles.secondaryButtonText}>Disconnect on startup</Text></Pressable>}
       {connectionError && <Text accessibilityRole="alert" style={screenStyles.note}>{connectionError}</Text>}
       {onDisconnectHost && <Text style={screenStyles.note}>Disconnecting closes this phone connection. Agent runs continue on the host.</Text>}
       <FlatList

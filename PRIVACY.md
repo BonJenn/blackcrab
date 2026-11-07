@@ -52,6 +52,11 @@ web. They contain text and edit identity, have no automatic expiry, and survive
 forgetting a pairing. OS/browser backups may include them; crashes may leave
 temporary files. See the [mobile draft guide](apps/mobile/README.md#durable-text-drafts).
 
+Mobile startup host selection stores only a host ID or disconnected choice under
+`blackcrab.mobile.hostSelection.v1` in native SecureStore or web localStorage.
+Disconnect/forgetting the selected host replaces it with a disconnected choice.
+It is separate from pairing credentials and does not erase draft/recovery data.
+
 Desktop composer drafts are keyed by session id and pruned after 30 days by the app.
 Unconfirmed desktop queue submissions retain their original text, attachment paths,
 command ID and draft identity in localStorage until confirmed. These unencrypted

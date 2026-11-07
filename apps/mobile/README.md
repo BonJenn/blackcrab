@@ -188,3 +188,23 @@ still uses the separate legacy socket handoff, without durable queue receipts.
 Validation: 87 mobile and 46 protocol tests passed, including storage failures,
 restart recovery, newer-edit preservation and reconnect races. Workspace
 TypeScript checks and iOS Hermes bundle export passed. Native iOS installation and device tests remain open.
+
+## Remembered startup host
+
+Successful explicit Connect/Reconnect and pairing select the host for the next
+launch. Disconnect saves a disconnected startup choice, and forgetting the
+selected host clears that choice. Closing the app or a rejected connection does
+not change it. With no saved choice, startup keeps the legacy most-recent
+connectable host default. A saved host that is missing or needs pairing, or an
+unreadable saved choice, leaves the phone disconnected and asks you to choose;
+it never silently substitutes another host.
+
+Selection writes are serialized. A failed save leaves the current connection
+unchanged and shows Retry saving startup host; the previous saved choice may
+return after restart until saving succeeds. A late startup read cannot override
+an explicit connection, disconnect or forgotten host. No agent action is replayed.
+
+The preference `blackcrab.mobile.hostSelection.v1` contains only a version and a
+host ID, or null for disconnect. Native uses SecureStore; web uses unencrypted
+localStorage. Storage unavailability is reported without an in-memory fallback.
+Pairing credentials and draft/recovery records remain in their existing stores.

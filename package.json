@@ -44,7 +44,9 @@
     "build:shared-runtime": "node scripts/build-shared-runtime.mjs",
     "test:shared-runtime": "node --test shared-runtime/*.test.mjs",
     "verify:shared-runtime": "node scripts/verify-shared-runtime.mjs vendor/t3",
-    "bundle:shared-runtime:ios": "node scripts/bundle-shared-runtime-ios.mjs"
+    "bundle:shared-runtime:ios": "node scripts/bundle-shared-runtime-ios.mjs",
+    "prepare:mobile:ios": "node scripts/prepare-mobile-ios.mjs",
+    "test:mobile:ios-preparation": "node --test scripts/prepare-mobile-ios.test.mjs apps/mobile/plugins/with-ios-pod-floor.test.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",

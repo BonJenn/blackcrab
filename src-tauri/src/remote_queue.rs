@@ -317,8 +317,7 @@ mod tests {
                 provider: Provider::Claude,
                 execution: context.clone(),
                 process_finished: Arc::new(AtomicBool::new(false)),
-                child,
-                stdin,
+                io: SessionIo::Claude { child, stdin },
             },
         )])));
         let owners = Arc::new(Mutex::new(HashMap::from([(
@@ -460,8 +459,7 @@ mod tests {
                 provider: Provider::Claude,
                 execution: context.clone(),
                 process_finished: Arc::new(AtomicBool::new(false)),
-                child,
-                stdin,
+                io: SessionIo::Claude { child, stdin },
             },
         )])));
         let owners = Arc::new(Mutex::new(HashMap::from([(

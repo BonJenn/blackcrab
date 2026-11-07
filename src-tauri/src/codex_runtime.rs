@@ -39,14 +39,12 @@ impl Error {
 pub(crate) enum Sandbox {
     ReadOnly,
     WorkspaceWrite,
-    DangerFullAccess,
 }
 impl Sandbox {
     fn wire(self) -> &'static str {
         match self {
             Self::ReadOnly => "read-only",
             Self::WorkspaceWrite => "workspace-write",
-            Self::DangerFullAccess => "danger-full-access",
         }
     }
 }
@@ -353,6 +351,7 @@ impl Runtime {
         })?;
         result.await.unwrap_or(Err(Error::Closed))
     }
+    #[cfg(test)]
     pub fn provider_turn_id(&self, command_id: &str) -> Result<Option<String>, String> {
         self.execution.store.provider_turn_id(command_id)
     }

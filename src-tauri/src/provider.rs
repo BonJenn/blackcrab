@@ -4,6 +4,7 @@ use std::path::Path;
 #[serde(rename_all = "lowercase")]
 pub(crate) enum Provider {
     Claude,
+    Codex,
 }
 
 #[derive(serde::Serialize)]
@@ -13,6 +14,7 @@ pub(crate) struct ProviderInfo {
     pub display_name: &'static str,
     pub executable: &'static str,
     pub installed: bool,
+    pub client_ready: bool,
     pub capabilities: ProviderCapabilities,
 }
 
@@ -42,6 +44,8 @@ pub(crate) struct LaunchSpec {
     pub cwd: String,
     pub args: Vec<String>,
     pub resume_id: Option<String>,
+    pub model: Option<String>,
+    pub permission_mode: String,
 }
 
 const CLAUDE_MODES: &[&str] = &["default", "acceptEdits", "plan", "bypassPermissions"];
@@ -50,6 +54,7 @@ impl Provider {
     pub fn parse(id: Option<&str>) -> Result<Self, String> {
         match id {
             None | Some("claude") => Ok(Self::Claude),
+            Some("codex") => Ok(Self::Codex),
             Some(other) => Err(format!("unsupported provider: {other}")),
         }
     }
@@ -57,12 +62,14 @@ impl Provider {
     pub fn id(self) -> &'static str {
         match self {
             Self::Claude => "claude",
+            Self::Codex => "codex",
         }
     }
 
     pub fn executable(self) -> &'static str {
         match self {
             Self::Claude => "claude",
+            Self::Codex => "codex",
         }
     }
 
@@ -73,6 +80,7 @@ impl Provider {
                 display_name: "Claude Code",
                 executable: self.executable(),
                 installed,
+                client_ready: true,
                 capabilities: ProviderCapabilities {
                     resume: true,
                     streaming: true,
@@ -82,11 +90,29 @@ impl Provider {
                     steering: false,
                 },
             },
+            Self::Codex => ProviderInfo {
+                id: self,
+                display_name: "Codex",
+                executable: self.executable(),
+                installed,
+                client_ready: false,
+                capabilities: ProviderCapabilities {
+                    resume: true,
+                    streaming: true,
+                    model_selection: true,
+                    permission_modes: &["default", "readOnly"],
+                    worktrees: false,
+                    steering: false,
+                },
+            },
         }
     }
 
     pub fn control_message(self, line: &str) -> Result<String, String> {
         match self {
+            Self::Codex => Err(
+                "Codex uses typed approval and interrupt commands; raw input is unavailable".into(),
+            ),
             Self::Claude => {
                 let value: serde_json::Value =
                     serde_json::from_str(line).map_err(|e| e.to_string())?;
@@ -98,15 +124,16 @@ impl Provider {
         }
     }
 
-    pub fn user_message(self, text: &str) -> String {
+    pub fn user_message(self, text: &str) -> Result<String, String> {
         match self {
-            Self::Claude => format!(
+            Self::Claude => Ok(format!(
                 "{}\n",
                 serde_json::json!({
                     "type": "user",
                     "message": { "role": "user", "content": text }
                 })
-            ),
+            )),
+            Self::Codex => Err("Codex user input must use the journal-backed runtime".into()),
         }
     }
 }
@@ -137,13 +164,34 @@ pub(crate) fn prepare_launch(
             }
         ));
     }
-    let mode = request
-        .permission_mode
-        .unwrap_or_else(|| "bypassPermissions".into());
+    let mode = request.permission_mode.unwrap_or_else(|| {
+        if provider == Provider::Codex {
+            "default".into()
+        } else {
+            "bypassPermissions".into()
+        }
+    });
+    let model = normalize_model_arg(request.model);
+    let resume_id = nonblank(request.resume_id);
+    if provider == Provider::Codex {
+        if !["default", "readOnly"].contains(&mode.as_str()) {
+            return Err(format!("unsupported Codex permission mode: {mode}"));
+        }
+        if request.use_worktree {
+            return Err("Codex managed worktrees are not implemented yet".into());
+        }
+        return Ok(LaunchSpec {
+            provider,
+            cwd: request.cwd,
+            args: vec!["app-server".into(), "--listen".into(), "stdio://".into()],
+            resume_id,
+            model,
+            permission_mode: mode,
+        });
+    }
     if !CLAUDE_MODES.contains(&mode.as_str()) {
         return Err(format!("unsupported Claude permission mode: {mode}"));
     }
-    let resume_id = nonblank(request.resume_id);
     let mut args: Vec<String> = [
         "-p",
         "--input-format",
@@ -168,8 +216,8 @@ pub(crate) fn prepare_launch(
     if let Some(id) = &resume_id {
         args.extend(["--resume".into(), id.clone()]);
     } else {
-        if let Some(model) = normalize_model_arg(request.model) {
-            args.extend(["--model".into(), model]);
+        if let Some(model) = &model {
+            args.extend(["--model".into(), model.clone()]);
         }
         if request.use_worktree && Path::new(&request.cwd).join(".git").exists() {
             args.push("--worktree".into());
@@ -180,6 +228,8 @@ pub(crate) fn prepare_launch(
         cwd: request.cwd,
         args,
         resume_id,
+        model,
+        permission_mode: mode,
     })
 }
 
@@ -249,7 +299,7 @@ mod tests {
     #[test]
     fn invalid_requests_fail_during_preparation() {
         let mut req = request();
-        req.provider = Some("codex".into());
+        req.provider = Some("unknown-provider".into());
         assert!(prepare_launch(req, None)
             .unwrap_err()
             .contains("unsupported provider"));
@@ -310,10 +360,49 @@ mod tests {
 
     #[test]
     fn message_framing_preserves_multiline_text_as_one_json_line() {
-        let wire = Provider::Claude.user_message("line one\n\"two\"");
+        let wire = Provider::Claude.user_message("line one\n\"two\"").unwrap();
         assert_eq!(wire.lines().count(), 1);
         let value: serde_json::Value = serde_json::from_str(&wire).unwrap();
         assert_eq!(value["message"]["content"], "line one\n\"two\"");
         assert!(wire.ends_with('\n'));
+    }
+}
+
+#[cfg(test)]
+mod codex_tests {
+    use super::*;
+    fn request() -> LaunchRequest {
+        LaunchRequest {
+            provider: Some("codex".into()),
+            cwd: std::env::temp_dir().to_string_lossy().into_owned(),
+            permission_mode: None,
+            model: Some(" chosen-model ".into()),
+            resume_id: Some(" thread-id ".into()),
+            use_worktree: false,
+        }
+    }
+    #[test]
+    fn codex_launch_validates_its_own_contract_without_claiming_client_readiness() {
+        let spec = prepare_launch(request(), Some("/unused".into())).unwrap();
+        assert_eq!(spec.provider, Provider::Codex);
+        assert_eq!(spec.args, ["app-server", "--listen", "stdio://"]);
+        assert_eq!(spec.permission_mode, "default");
+        assert_eq!(spec.model.as_deref(), Some("chosen-model"));
+        assert_eq!(spec.resume_id.as_deref(), Some("thread-id"));
+        let info = serde_json::to_value(Provider::Codex.info(true)).unwrap();
+        assert_eq!(info["clientReady"], false);
+        assert_eq!(info["capabilities"]["worktrees"], false);
+        for mode in ["bypassPermissions", "plan", "typo"] {
+            let mut req = request();
+            req.permission_mode = Some(mode.into());
+            assert!(prepare_launch(req, None).is_err());
+        }
+        let mut req = request();
+        req.use_worktree = true;
+        assert!(prepare_launch(req, None).unwrap_err().contains("worktrees"));
+        assert!(Provider::Codex.user_message("untracked").is_err());
+        assert!(Provider::Codex
+            .control_message(r#"{"type":"control_response"}"#)
+            .is_err());
     }
 }

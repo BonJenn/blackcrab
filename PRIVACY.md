@@ -11,8 +11,11 @@ Blackcrab is designed as a local desktop app.
 
 ## What Blackcrab Sends
 
-Blackcrab sends messages to your local `claude` CLI subprocess. The CLI is
-responsible for any network requests to Anthropic or configured providers.
+Blackcrab sends messages to your local `claude` CLI subprocess. The native API
+also supports explicitly requested Codex app-server sessions; Codex client controls
+remain disabled until their integration is complete. Each CLI is responsible for
+network requests to its configured provider. Typed provider events can contain
+prompt/tool output and are sent to the local app window, not analytics.
 
 Blackcrab does not proxy Claude traffic or ask for Anthropic credentials.
 

@@ -1,7 +1,5 @@
-// Private provider core until host session routing and clients are connected.
-#[allow(dead_code)]
+mod codex_host;
 mod codex_rpc;
-#[allow(dead_code)]
 mod codex_runtime;
 mod crypto;
 mod execution;
@@ -39,8 +37,27 @@ struct Session {
     provider: Provider,
     execution: ExecutionContext,
     process_finished: Arc<AtomicBool>,
-    child: Child,
-    stdin: ChildStdin,
+    io: SessionIo,
+}
+enum SessionIo {
+    Claude { child: Child, stdin: ChildStdin },
+    Codex(codex_runtime::Runtime),
+}
+impl Session {
+    fn codex(&self) -> Option<codex_runtime::Runtime> {
+        match &self.io {
+            SessionIo::Codex(runtime) => Some(runtime.clone()),
+            _ => None,
+        }
+    }
+    async fn stop_io(&mut self) {
+        match &mut self.io {
+            SessionIo::Claude { child, .. } => {
+                let _ = child.start_kill();
+            }
+            SessionIo::Codex(runtime) => runtime.stop().await,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -48,6 +65,8 @@ struct Session {
 struct SessionExecutionInfo {
     thread_id: String,
     run_id: String,
+    provider: Provider,
+    provider_session_id: Option<String>,
     process_finished: bool,
 }
 
@@ -61,6 +80,10 @@ async fn session_execution(
         .get(&panel_id)
         .ok_or("no active session for this panel")?;
     Ok(SessionExecutionInfo {
+        provider: session.provider,
+        provider_session_id: session
+            .codex()
+            .map(|runtime| runtime.info.provider_thread_id),
         thread_id: session.execution.thread_id.clone(),
         run_id: session.execution.run_id.clone(),
         process_finished: session.process_finished.load(Ordering::SeqCst),
@@ -90,11 +113,11 @@ struct Terminal {
 
 #[derive(Default)]
 struct AppState {
-    // Each panel gets its own claude subprocess, keyed by a frontend-supplied
+    // Each panel gets its own provider runtime, keyed by a frontend-supplied
     // panel_id. In single-panel mode the frontend uses the literal "main".
     sessions: Arc<Mutex<HashMap<String, Session>>>,
     terminals: Arc<StdMutex<HashMap<String, Terminal>>>,
-    // Session ownership: session_id -> panel_id that currently has a live
+    // Session ownership: native Claude id or codex:<id> -> panel_id with a live
     // subprocess resuming it. Enforces one writer per session file so two
     // panels can't both append to the same JSONL and diverge.
     session_owners: Arc<Mutex<HashMap<String, String>>>,
@@ -692,8 +715,7 @@ mod tests {
                 provider: Provider::Claude,
                 execution: context.clone(),
                 process_finished: Arc::new(AtomicBool::new(false)),
-                child,
-                stdin,
+                io: SessionIo::Claude { child, stdin },
             },
         )])));
         let db = rusqlite::Connection::open(root.join("state.sqlite3")).unwrap();
@@ -783,8 +805,7 @@ mod tests {
                 provider: Provider::Claude,
                 execution: context.clone(),
                 process_finished: Arc::new(AtomicBool::new(false)),
-                child,
-                stdin,
+                io: SessionIo::Claude { child, stdin },
             },
         )])));
         let error =
@@ -837,8 +858,7 @@ mod tests {
                 provider: Provider::Claude,
                 execution: context.clone(),
                 process_finished: Arc::new(AtomicBool::new(false)),
-                child,
-                stdin,
+                io: SessionIo::Claude { child, stdin },
             },
         )])));
         deliver_user_message_command(&sessions, "panel", "working", Some("active".into()))
@@ -906,8 +926,7 @@ mod tests {
                 provider: Provider::Claude,
                 execution: replacement.clone(),
                 process_finished: Arc::new(AtomicBool::new(false)),
-                child,
-                stdin,
+                io: SessionIo::Claude { child, stdin },
             },
         );
         assert!(
@@ -972,8 +991,7 @@ mod tests {
             provider: Provider::Claude,
             execution: context.clone(),
             process_finished: Arc::new(AtomicBool::new(false)),
-            child,
-            stdin,
+            io: SessionIo::Claude { child, stdin },
         };
         let db = rusqlite::Connection::open(root.join("state.sqlite3")).unwrap();
         db.execute_batch("CREATE TRIGGER refuse_pause BEFORE UPDATE ON queue_lanes BEGIN SELECT RAISE(ABORT, 'fixture pause failure'); END;").unwrap();
@@ -982,7 +1000,10 @@ mod tests {
             .unwrap_err()
             .contains("session stopped"));
         assert!(session.process_finished.load(Ordering::SeqCst));
-        assert!(!session.child.wait().await.unwrap().success());
+        let SessionIo::Claude { child, .. } = &mut session.io else {
+            panic!("expected Claude fixture")
+        };
+        assert!(!child.wait().await.unwrap().success());
         let sessions = Arc::new(Mutex::new(HashMap::from([("panel".to_string(), session)])));
         assert!(
             dispatch_next_queued(&sessions, "panel", &context.run_id, None)
@@ -1405,9 +1426,14 @@ async fn reserve_session_owner(
 
 #[tauri::command]
 fn list_providers() -> Vec<ProviderInfo> {
-    let provider = Provider::Claude;
-    let installed = find_executable_in_path(provider.executable(), &claude_path_env()).is_some();
-    vec![provider.info(installed)]
+    [Provider::Claude, Provider::Codex]
+        .into_iter()
+        .map(|provider| {
+            let installed =
+                find_executable_in_path(provider.executable(), &claude_path_env()).is_some();
+            provider.info(installed)
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -1434,6 +1460,44 @@ async fn start_session(
         },
         std::env::var_os("HOME").and_then(|home| home.into_string().ok()),
     )?;
+    if launch.provider == Provider::Codex {
+        let app_emit = app.clone();
+        let panel = panel_id.clone();
+        let sink: codex_host::EventSink = Arc::new(move |event, context| {
+            let _ = app_emit.emit(
+                "provider-event",
+                serde_json::json!({
+                    "panel_id": panel, "run_id": context.run_id,
+                    "provider": "codex", "event": event
+                }),
+            );
+            match event {
+                codex_runtime::Event::User { text, receipt } => emit_queue_dispatch(
+                    &app_emit,
+                    &panel,
+                    context,
+                    &QueuedDispatch {
+                        text: text.clone(),
+                        receipt: receipt.clone(),
+                    },
+                ),
+                codex_runtime::Event::Queue { .. } => {
+                    emit_queue_changed(&app_emit, &panel, context)
+                }
+                _ => {}
+            }
+        });
+        return codex_host::start(
+            &state.sessions,
+            &state.session_owners,
+            app.state::<Arc<ExecutionStore>>().inner().clone(),
+            panel_id,
+            launch,
+            None,
+            sink,
+        )
+        .await;
+    }
     let resume_id = launch.resume_id;
     let cwd = launch.cwd;
     let store = app.state::<Arc<ExecutionStore>>().inner().clone();
@@ -1451,7 +1515,7 @@ async fn start_session(
     let mut guard = state.sessions.lock().await;
     if let Some(mut s) = guard.remove(&panel_id) {
         s.process_finished.store(true, Ordering::SeqCst);
-        let _ = s.child.start_kill();
+        s.stop_io().await;
         execution::io(move || {
             s.execution
                 .finish("interrupted", Some("Panel process replaced"))
@@ -1657,8 +1721,7 @@ async fn start_session(
             provider: launch.provider,
             execution,
             process_finished,
-            child,
-            stdin,
+            io: SessionIo::Claude { child, stdin },
         },
     );
     Ok(())
@@ -1672,9 +1735,14 @@ async fn deliver_user_message(
     panel_id: &str,
     text: &str,
 ) -> Result<(), String> {
-    deliver_user_message_command(sessions, panel_id, text, None)
-        .await
-        .map(|_| ())
+    let mut guard = sessions.lock().await;
+    let session = guard
+        .get_mut(panel_id)
+        .ok_or_else(|| format!("no active session for panel {panel_id}"))?;
+    if session.provider != Provider::Claude {
+        return Err("legacy remote sends are only available for Claude sessions".into());
+    }
+    deliver_stdio_message(session, text, None).await.map(|_| ())
 }
 
 async fn deliver_user_message_command(
@@ -1683,10 +1751,26 @@ async fn deliver_user_message_command(
     text: &str,
     command_id: Option<String>,
 ) -> Result<TurnReceipt, String> {
+    if let Some(runtime) = codex_host::runtime(sessions, panel_id).await {
+        let id = command_id
+            .map(Ok)
+            .unwrap_or_else(|| execution::new_id("command"))?;
+        return runtime.send(&id, text).await.map_err(codex_host::error);
+    }
     let mut guard = sessions.lock().await;
     let session = guard
         .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
+    deliver_stdio_message(session, text, command_id).await
+}
+async fn deliver_stdio_message(
+    session: &mut Session,
+    text: &str,
+    command_id: Option<String>,
+) -> Result<TurnReceipt, String> {
+    if session.provider != Provider::Claude {
+        return Err("session provider changed; retry using the current session".into());
+    }
     if session.process_finished.load(Ordering::SeqCst) {
         return Err("session process has ended; resume it before sending another message".into());
     }
@@ -1713,15 +1797,18 @@ async fn write_prepared_turn(
     text: &str,
     command_id: &str,
 ) -> Result<TurnReceipt, String> {
-    let line = session.provider.user_message(text);
+    let line = session.provider.user_message(text)?;
+    let SessionIo::Claude { child, stdin } = &mut session.io else {
+        return Err("prepared input requires Claude stdio".into());
+    };
     let write = async {
-        session.stdin.write_all(line.as_bytes()).await?;
-        session.stdin.flush().await
+        stdin.write_all(line.as_bytes()).await?;
+        stdin.flush().await
     }
     .await;
     if let Err(error) = write {
         session.process_finished.store(true, Ordering::SeqCst);
-        let _ = session.child.start_kill();
+        let _ = child.start_kill();
         let context = session.execution.clone();
         execution::io(move || {
             context.finish(
@@ -1749,7 +1836,10 @@ async fn dispatch_next_queued(
     let Some(session) = guard.get_mut(panel_id) else {
         return Ok(None);
     };
-    if session.execution.run_id != expected_run || session.process_finished.load(Ordering::SeqCst) {
+    if session.codex().is_some()
+        || session.execution.run_id != expected_run
+        || session.process_finished.load(Ordering::SeqCst)
+    {
         return Ok(None);
     }
     let context = session.execution.clone();
@@ -1786,11 +1876,30 @@ async fn queue_message(
     text: String,
     command_id: String,
 ) -> Result<TurnReceipt, String> {
+    enqueue_panel_message(&state.sessions, panel_id, text, command_id, Some(&app)).await
+}
+
+async fn enqueue_panel_message(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: String,
+    text: String,
+    command_id: String,
+    app: Option<&AppHandle>,
+) -> Result<TurnReceipt, String> {
+    if let Some(runtime) = codex_host::runtime(sessions, &panel_id).await {
+        return runtime
+            .enqueue(&command_id, &text)
+            .await
+            .map_err(codex_host::error);
+    }
     let context = {
-        let guard = state.sessions.lock().await;
+        let guard = sessions.lock().await;
         let session = guard
             .get(&panel_id)
             .ok_or("no active session for this panel")?;
+        if session.provider != Provider::Claude {
+            return Err("session provider changed; retry using the current session".into());
+        }
         if session.process_finished.load(Ordering::SeqCst) {
             return Err("resume the session before adding queued messages".into());
         }
@@ -1800,9 +1909,10 @@ async fn queue_message(
         execution::io(move || submit.enqueue(&id, &text)).await?;
         context
     };
-    let dispatched =
-        dispatch_next_queued(&state.sessions, &panel_id, &context.run_id, Some(&app)).await;
-    emit_queue_changed(&app, &panel_id, &context);
+    let dispatched = dispatch_next_queued(sessions, &panel_id, &context.run_id, app).await;
+    if let Some(app) = app {
+        emit_queue_changed(app, &panel_id, &context);
+    }
     dispatched?;
     let store = context.store.clone();
     execution::io(move || store.receipt(&command_id)).await
@@ -1813,6 +1923,11 @@ async fn session_queue(
     state: State<'_, AppState>,
     panel_id: String,
 ) -> Result<QueueSnapshot, String> {
+    if let Some(runtime) = codex_host::runtime(&state.sessions, &panel_id).await {
+        if let Ok(queue) = runtime.queue().await {
+            return Ok(queue);
+        }
+    }
     let context = state
         .sessions
         .lock()
@@ -1832,11 +1947,37 @@ async fn update_session_queue(
     expected_revision: i64,
     change: QueueChange,
 ) -> Result<QueueSnapshot, String> {
+    change_panel_queue(
+        &state.sessions,
+        panel_id,
+        expected_revision,
+        change,
+        Some(&app),
+    )
+    .await
+}
+
+async fn change_panel_queue(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: String,
+    expected_revision: i64,
+    change: QueueChange,
+    app: Option<&AppHandle>,
+) -> Result<QueueSnapshot, String> {
+    if let Some(runtime) = codex_host::runtime(sessions, &panel_id).await {
+        return runtime
+            .change_queue(expected_revision, change)
+            .await
+            .map_err(codex_host::error);
+    }
     let context = {
-        let guard = state.sessions.lock().await;
+        let guard = sessions.lock().await;
         let session = guard
             .get(&panel_id)
             .ok_or("no active session for this panel")?;
+        if session.provider != Provider::Claude {
+            return Err("session provider changed; retry using the current session".into());
+        }
         if matches!(change, QueueChange::Resume) && session.process_finished.load(Ordering::SeqCst)
         {
             return Err("resume the session before resuming its queue".into());
@@ -1846,9 +1987,10 @@ async fn update_session_queue(
         execution::io(move || edit.update_queue(expected_revision, change)).await?;
         context
     };
-    let dispatched =
-        dispatch_next_queued(&state.sessions, &panel_id, &context.run_id, Some(&app)).await;
-    emit_queue_changed(&app, &panel_id, &context);
+    let dispatched = dispatch_next_queued(sessions, &panel_id, &context.run_id, app).await;
+    if let Some(app) = app {
+        emit_queue_changed(app, &panel_id, &context);
+    }
     dispatched?;
     execution::io(move || context.queue_snapshot()).await
 }
@@ -1871,15 +2013,35 @@ async fn terminate_panel(
     session_owners: &Arc<Mutex<HashMap<String, String>>>,
     panel_id: &str,
 ) -> Result<(), String> {
-    let journal_result = {
-        let mut guard = sessions.lock().await;
-        if let Some(mut s) = guard.remove(panel_id) {
-            s.process_finished.store(true, Ordering::SeqCst);
-            let _ = s.child.start_kill();
-            execution::io(move || s.execution.finish("interrupted", Some("Session stopped"))).await
-        } else {
-            Ok(())
+    terminate_panel_checked(sessions, session_owners, panel_id, None).await
+}
+async fn terminate_panel_checked(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    session_owners: &Arc<Mutex<HashMap<String, String>>>,
+    panel_id: &str,
+    expected: Option<Provider>,
+) -> Result<(), String> {
+    let mut guard = sessions.lock().await;
+    if let Some(expected) = expected {
+        if guard
+            .get(panel_id)
+            .is_some_and(|session| session.provider != expected)
+        {
+            return Err("legacy remote stop is only available for Claude sessions".into());
         }
+    }
+
+    let journal_result = if let Some(mut session) = guard.remove(panel_id) {
+        session.process_finished.store(true, Ordering::SeqCst);
+        session.stop_io().await;
+        execution::io(move || {
+            session
+                .execution
+                .finish("interrupted", Some("Session stopped"))
+        })
+        .await
+    } else {
+        Ok(())
     };
     let mut owners = session_owners.lock().await;
     owners.retain(|_, owner| owner != panel_id);
@@ -1926,6 +2088,15 @@ async fn execution_receipt(
     execution::io(move || store.receipt(&command_id)).await
 }
 
+#[tauri::command]
+async fn execution_provider_turn(
+    store: State<'_, Arc<ExecutionStore>>,
+    command_id: String,
+) -> Result<Option<String>, String> {
+    let store = store.inner().clone();
+    execution::io(move || store.provider_turn_id(&command_id)).await
+}
+
 /// Write a provider control message to a panel's subprocess stdin.
 /// Shared by the `send_raw` command and the remote approval consumer.
 async fn deliver_raw_line(
@@ -1938,12 +2109,14 @@ async fn deliver_raw_line(
         .get_mut(panel_id)
         .ok_or_else(|| format!("no active session for panel {}", panel_id))?;
     let body = session.provider.control_message(line)?;
-    session
-        .stdin
+    let SessionIo::Claude { stdin, .. } = &mut session.io else {
+        return Err("raw control is unavailable for this provider".into());
+    };
+    stdin
         .write_all(body.as_bytes())
         .await
-        .map_err(|e| e.to_string())?;
-    session.stdin.flush().await.map_err(|e| e.to_string())?;
+        .map_err(|error| error.to_string())?;
+    stdin.flush().await.map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -2228,7 +2401,7 @@ async fn hold_before_interrupt(session: &mut Session) -> Result<(), String> {
     let context = session.execution.clone();
     if let Err(error) = execution::io(move || context.pause_owned_queue()).await {
         session.process_finished.store(true, Ordering::SeqCst);
-        let _ = session.child.start_kill();
+        session.stop_io().await;
         return Err(format!(
             "session stopped because its queue could not be held: {error}"
         ));
@@ -2242,27 +2415,56 @@ async fn interrupt_session(
     state: State<'_, AppState>,
     panel_id: String,
 ) -> Result<(), String> {
-    let mut guard = state.sessions.lock().await;
+    interrupt_panel(&state.sessions, panel_id, Some(&app)).await
+}
+async fn interrupt_panel(
+    sessions: &Arc<Mutex<HashMap<String, Session>>>,
+    panel_id: String,
+    app: Option<&AppHandle>,
+) -> Result<(), String> {
+    if let Some(runtime) = codex_host::runtime(sessions, &panel_id).await {
+        return runtime.interrupt().await.map_err(codex_host::error);
+    }
+    let mut guard = sessions.lock().await;
     let Some(session) = guard.get_mut(&panel_id) else {
         return Ok(());
     };
+    if session.provider != Provider::Claude {
+        return Err("session provider changed; retry using the current session".into());
+    }
     let context = session.execution.clone();
     let held = hold_before_interrupt(session).await;
-    emit_queue_changed(&app, &panel_id, &context);
+    if let Some(app) = app {
+        emit_queue_changed(app, &panel_id, &context);
+    }
     held?;
+    let SessionIo::Claude { child, stdin } = &mut session.io else {
+        return Err("provider does not support raw interrupt".into());
+    };
     #[cfg(unix)]
-    if let Some(pid) = session.child.id() {
+    let _ = &stdin;
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
         unsafe {
             libc::kill(pid as i32, libc::SIGINT);
         }
     }
     #[cfg(windows)]
-    session
-        .stdin
+    stdin
         .write_all(&[0x03])
         .await
         .map_err(|e| format!("failed to write interrupt to session: {e}"))?;
     Ok(())
+}
+
+#[tauri::command]
+async fn answer_provider_approval(
+    state: State<'_, AppState>,
+    panel_id: String,
+    approval_id: String,
+    decision: String,
+) -> Result<(), String> {
+    codex_host::answer(&state.sessions, &panel_id, &approval_id, &decision).await
 }
 
 #[tauri::command]
@@ -3680,7 +3882,15 @@ async fn run_remote_command_consumer(
             }
             RemoteCommand::StopSession { session_id } => {
                 match panel_for_session(&session_owners, &session_id).await {
-                    Some(panel_id) => terminate_panel(&sessions, &session_owners, &panel_id).await,
+                    Some(panel_id) => {
+                        terminate_panel_checked(
+                            &sessions,
+                            &session_owners,
+                            &panel_id,
+                            Some(Provider::Claude),
+                        )
+                        .await
+                    }
                     None => Err(format!("no live session for {session_id}")),
                 }
             }
@@ -4763,9 +4973,11 @@ pub fn run() {
             session_execution,
             update_session_queue,
             execution_receipt,
+            execution_provider_turn,
             send_raw,
             stop_session,
             interrupt_session,
+            answer_provider_approval,
             default_cwd,
             list_sessions,
             load_session,

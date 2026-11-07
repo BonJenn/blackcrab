@@ -86,3 +86,14 @@ it("offers pairing again when stored credentials cannot establish a connection",
   const button = Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find(value => value.textContent === "Pair again")!;
   act(() => button.click()); expect(pair).toHaveBeenCalledOnce(); expect(connect).not.toHaveBeenCalled();
 });
+
+it("offers explicit startup selection storage retry and disconnect without implying a live connection", () => {
+  const retry = vi.fn(), disconnect = vi.fn();
+  act(() => root.render(<PairedHostsScreen loading={false} storedHosts={[]} onForgetHost={vi.fn()} onPairHost={vi.fn()} selectionError="Host selection was not saved" onRetrySelection={retry} onDisconnectHost={disconnect} />));
+  expect(element.textContent).toContain("Host selection was not saved");
+  const button = (text: string) => Array.from(element.querySelectorAll<HTMLButtonElement>("button")).find(value => value.textContent === text)!;
+  act(() => button("Retry saving startup host").click()); expect(retry).toHaveBeenCalledOnce();
+  act(() => button("Disconnect on startup").click()); expect(disconnect).toHaveBeenCalledOnce();
+  act(() => root.render(<PairedHostsScreen loading={false} storedHosts={[]} onForgetHost={vi.fn()} onPairHost={vi.fn()} savingSelection selectionError="Host selection was not saved" onRetrySelection={retry} />));
+  expect(button("Retry saving startup host").disabled).toBe(true); expect(element.textContent).toContain("Saving startup host");
+});

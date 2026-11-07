@@ -87,9 +87,9 @@ are not replayed by connection management.
 Controller and React screen tests cover those transitions. New-session submission
 checks the current transport before closing its form; this is not durable
 provider-side start deduplication. Native iOS and real multi-host network tests
-remain required. Launch still chooses the most recently paired connectable host;
-persisting a last-used environment and simultaneous multi-host connections remain
-future work.
+remain required. The initial increment chose the most recently paired connectable host. The
+remembered-startup-host increment below adds persistent explicit selection;
+simultaneous multi-host connections remain future work.
 
 Host selection validation: 71 mobile tests and 46 protocol tests passed, mobile
 TypeScript passed, iOS Hermes export succeeded, and full repository smoke passed
@@ -110,3 +110,23 @@ Validation: 87 mobile tests, 46 protocol tests and all workspace TypeScript chec
 passed, and iOS Hermes bundle export succeeded. The combined desktop/mobile tree passed repository smoke (152 desktop,
 127 native tests, Cargo check and production build). CI now typechecks workspaces
 as well as the root application. No signed build or real-device claim is made.
+
+### Remembered startup host increment
+
+Explicit connection/pairing choices now persist independently of pairing order.
+Disconnect and forgetting the selected host persist a disconnected startup
+choice. Missing preferences alone use the legacy default; unavailable, corrupt
+or unreadable saved selections do not select another host. Serialized writes
+surface save failures with explicit retry, and delayed startup reads cannot
+overwrite newer user intent. Cleanup and fatal rejection retain the saved choice.
+Native storage uses SecureStore without a memory fallback; web uses localStorage.
+Only host identity is stored, with no new credentials or provider writes.
+
+Controller, storage and Hosts-screen scenarios cover startup choice, unavailable
+hosts, read/write failures, rapid selection/disconnect, failed connection attempts,
+forget during delayed reads and disposal. Native iOS lifecycle and real multi-host
+network evidence remain pending.
+
+Remembered-host validation: 102 mobile tests and 46 protocol tests passed, all
+workspace TypeScript checks passed, and final iOS Hermes export succeeded. These
+are controller/build checks; native device and real network scenarios remain open.

@@ -40,7 +40,8 @@ import {
   type StoredPairedHost,
 } from "./src/pairingStore";
 import { connectWithFailover } from "./src/transport/failoverTransport";
-import { firstConnectableHost } from "./src/transport/reconnect";
+import { MobileHostSelection } from "./src/transport/hostSelection";
+import { hostSelectionStorage } from "./src/transport/hostSelectionStorage";
 import type { Transport, TransportStatus } from "./src/transport/types";
 import { subscribeToHost } from "./src/transport/activeHost";
 import { MobileHostConnection } from "./src/transport/hostConnection";
@@ -65,7 +66,7 @@ export default function App() {
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);
   const [pairing, setPairing] = useState(false);
-  const [hostConnection] = useState(() => new MobileHostConnection((host, onFatalReject) => connectWithFailover(host, { onFatalReject })));
+  const [hostConnection] = useState(() => new MobileHostSelection(new MobileHostConnection((host, onFatalReject) => connectWithFailover(host, { onFatalReject })), hostSelectionStorage));
   const connection = useSyncExternalStore(hostConnection.subscribe, hostConnection.state);
   const { transport: activeTransport, hostId: activeHostId } = connection;
   const [activeStatus, setActiveStatus] = useState<TransportStatus | null>(null);
@@ -113,12 +114,10 @@ export default function App() {
       .then((hosts) => {
         if (!mounted) return;
         setStoredHosts(hosts);
-        // Re-establish the most-recent connectable host without re-pairing,
-        // preferring LAN and falling back to the relay off-network.
-        const host = firstConnectableHost(hosts);
-        if (!host) return;
-        hostConnection.connect(host);
+        // Restore only the saved environment; an intentional disconnect stays disconnected.
+        return hostConnection.restore(hosts);
       })
+      .catch(() => { if (mounted) Alert.alert("Couldn’t load hosts", "Paired hosts could not be read. Reopen the app to retry."); })
       .finally(() => {
         if (mounted) {
           setLoadingHosts(false);
@@ -253,9 +252,11 @@ export default function App() {
   useEffect(() => { queueClient.bind(activeTransport,activeHostId); return () => queueClient.bind(null,null); }, [queueClient,activeTransport,activeHostId]);
 
   async function handleForgetHost(hostId: HostId) {
-    const hosts = await forgetStoredHost(hostId);
-    setStoredHosts(hosts);
-    hostConnection.forget(hostId);
+    try {
+      const hosts = await forgetStoredHost(hostId);
+      setStoredHosts(hosts);
+      hostConnection.forget(hostId);
+    } catch { Alert.alert("Couldn’t forget host", "Stored pairings could not be updated. The pairing and connection were retained."); }
   }
 
   // Record that the user read up to `messageId` in a session: tell the host
@@ -402,6 +403,9 @@ export default function App() {
             activeHostId={activeHostId}
             activeStatus={activeStatus}
             connectionError={connection.error}
+            selectionError={connection.selectionError}
+            savingSelection={connection.savingSelection}
+            onRetrySelection={connection.selectionRetryable ? () => hostConnection.retrySave() : undefined}
             onConnectHost={selectHost}
             onDisconnectHost={() => hostConnection.disconnect()}
             onViewSessions={() => setTab("sessions")}

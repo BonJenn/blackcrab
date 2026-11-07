@@ -146,6 +146,58 @@ Legacy remote sends/stops and raw approval input reject a Codex-owned panel.
 The host still belongs to the desktop app; this does not create an independent
 host or guarantee background operation after app exit.
 
+## Account, model and history reads
+
+`codex_query({query})` is a separate read-only native command. Its tagged query
+forms are:
+
+```json
+{"type":"account"}
+{"type":"models","page":{"cursor":null,"limit":50}}
+{"type":"threads","page":{},"cwd":"/absolute/project","archived":false}
+{"type":"thread","threadId":"native-thread-id"}
+{"type":"turns","threadId":"native-thread-id","page":{},"itemsView":"notLoaded"}
+{"type":"items","threadId":"native-thread-id","turnId":"native-turn-id","page":{}}
+```
+
+Each response is `{provider: "codex", result: {type, data}}`. Page data contains
+`data`, `nextCursor` and `backwardsCursor`; pass opaque cursors unchanged with the
+same filters. Limits default to 50 and must be 1–100. Turn pages are newest first,
+item pages oldest first; times from the CLI remain in their documented units
+(thread/turn timestamps in seconds, item timestamps in milliseconds).
+
+Account reads set `refreshToken: false` and return only account type, ChatGPT
+email/plan/workspace when present, and `requiresOpenaiAuth`. They do not log in,
+log out or return tokens. Models come from the CLI catalog, including its exact
+model IDs, effort choices and service tiers; no catalog or availability is
+hardcoded. Hidden models are excluded. Catalog scope is the app-server's normal
+CLI configuration, not the history `cwd` filter.
+
+History listing covers CLI, VS Code and app-server sources across model
+providers. It uses the state DB without scanning/repairing rollout metadata;
+older unindexed history may need CLI-side repair before it appears. Thread
+metadata reads use `includeTurns: false`. Turn reads default to `notLoaded`;
+clients may explicitly request `summary` or `full` items for one bounded turn
+page, including legacy history. Item pagination depends on CLI/history support;
+unsupported reads return a useful error without resuming a thread or falling
+back to unbounded hydration. Unknown item types remain tagged data for future
+renderers, and all history text is untrusted content.
+
+At most two discovery requests run concurrently, each on a temporary stdio
+app-server connection with existing transport limits/deadlines. The connection
+is closed/reaped after success or failure, and dropping a cancelled request
+closes its transport. These requests never take the live session registry lock,
+create/resume a thread, start a model turn, accept approvals, request proactive account refresh or supply external
+auth credentials. Unexpected server requests fail closed. RPC diagnostics
+and incompatible payloads are not echoed to the UI; account/model/thread DTOs
+exclude unrecognized fields. Thread status is the temporary server's view and
+must be reconciled with `session_execution` for Blackcrab's live runs.
+
+Sources: [official app-server API overview](https://learn.chatgpt.com/docs/app-server#api-overview),
+[history pagination](https://learn.chatgpt.com/docs/app-server#list-threads-with-pagination--filters),
+and the generated local CLI 0.166.0 schemas. Login/logout and live account/catalog
+subscriptions remain subsequent work. Client readiness is still false.
+
 ## Verification
 
 The Python stand-in under `src-tauri/tests/fixtures/codex_rpc.py` uses real pipes
@@ -207,3 +259,12 @@ real-pipe host fixtures cover shared idempotent dispatch, queue/interrupt/resume
 opaque one-time approval routing, and stop/restart ownership. They also reject
 legacy phone sends/stops against Codex and unsupported launch modes without
 replacing the current run. No live model turn, UI or device scenario was run.
+
+Final 05c2 validation: full smoke passed with 123 native tests (the installed-CLI
+probe remains ignored), 84 desktop tests, typecheck, Cargo check and production
+build. Eight discovery/history tests cover pagination and explicit full turn
+pages, dynamic model choices, account/token and diagnostic filtering, invalid
+actions/fields, foreign/malformed responses, unsupported methods, interactive
+requests, timeout, cancellation/reaping and bounded admission. The final native
+run includes all preceding Claude/runtime/host/queue tests. No live CLI account,
+catalog/history query, model turn, UI or device scenario was run in this step.

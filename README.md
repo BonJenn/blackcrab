@@ -154,8 +154,9 @@ implemented provider.
   linkification.
 - `src-tauri/src/execution.rs`: durable thread mappings, turn receipts, and
   host recovery leases.
-- `src-tauri/src/codex_rpc.rs`, `codex_runtime.rs` and `codex_host.rs`: app-server
-  transport, journal-backed runtime and native host routing. Codex client controls
+- `src-tauri/src/codex_rpc.rs`, `codex_runtime.rs`, `codex_host.rs` and
+  `codex_services.rs`: app-server transport, journal-backed runtime, native host
+  routing and bounded account/model/history reads. Codex client controls
   remain disabled until the history/presentation layer is connected. See [`docs/codex-provider.md`](docs/codex-provider.md).
 - `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
   command support, with shared desktop controls in `src/QueueControls.tsx`.

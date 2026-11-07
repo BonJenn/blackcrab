@@ -1,6 +1,7 @@
 mod codex_host;
 mod codex_rpc;
 mod codex_runtime;
+mod codex_services;
 mod crypto;
 mod execution;
 mod pairing;
@@ -1422,6 +1423,14 @@ async fn reserve_session_owner(
     }
     owners.insert(session_id.to_string(), panel_id.to_string());
     Ok(Some(session_id.to_string()))
+}
+
+#[tauri::command]
+async fn codex_query(
+    service: State<'_, codex_services::Service>,
+    query: codex_services::Query,
+) -> Result<codex_services::Reply, String> {
+    service.query(query).await
 }
 
 #[tauri::command]
@@ -4958,9 +4967,11 @@ pub fn run() {
             }
         })
         .manage(AppState::default())
+        .manage(codex_services::Service::default())
         .invoke_handler(tauri::generate_handler![
             claude_preflight,
             list_providers,
+            codex_query,
             claude_token_status,
             save_claude_oauth_token,
             clear_claude_oauth_token,

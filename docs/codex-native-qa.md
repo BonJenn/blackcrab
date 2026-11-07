@@ -2,7 +2,7 @@
 
 Run `node scripts/native-codex-qa.mjs` on macOS with the repository dependencies,
 Rust toolchain and Python 3 installed. The runner builds an unsigned debug
-`Blackcrab QA.app` with a fresh bundle identifier and app-data directory. It
+`Blackcrab QA.app` with a fresh bundle identifier, copied bundle path and app-data directory. It
 prints a manifest containing the project, receipt database, fixture state, logs
 and owned process ID. Open that exact bundle when using native automation.
 
@@ -60,3 +60,42 @@ This is native UI → Tauri → runtime → SQLite → local CLI → UI evidence
 not establish real-provider compatibility, paid model execution, production
 signing, multi-window ownership or general grid integration. Codex discovery
 continues to advertise `clientReady: false` while those gates remain open.
+
+## Multi-conversation workspace evidence, 2026-11-07
+
+The dedicated Codex preview now supports six independently owned panes in single
+or grid view. Use **Add conversation** to prepare another owner without starting
+it. Select the intended conversation before continuing a thread from History.
+Each pane has independent drafts, permissions, run/turn controls, queues and
+approvals; the model catalog is shared. Closing the dialog or changing views
+keeps owners alive. Pane selection and view mode are saved per window.
+
+A second native fixture run verified two simultaneous provider threads, with a
+different thread ID in each pane. The first pane's unsent draft remained intact
+while the second requested approval. Switching to the first pane showed the
+second pane's approval badge, and grid view displayed both panes side by side.
+Allow once produced one successful receipt in the second thread and one accept
+at the fixture, with a committed dispatching receipt before input. There were no
+fixture errors. Stopping the second run left removal disabled while its draft
+remained.
+
+After explicitly stopping both sessions, restarting the same isolated app
+restored both drafts, pane identities, the selected second pane and single view.
+Both owners remained idle, with read-only permissions and explicit resume
+controls. The second pane required resume/queue review before removal. After
+explicit resume, stop and clearing its disposable draft, removal succeeded and
+the first draft remained intact. Both fixture history files remained on disk.
+The fixture recorded two initial starts, one explicit resume and one model
+catalog request per app load; pane switching and grid view added no starts,
+inputs or catalog requests.
+
+The first attempt reused the build output's bundle path, which native automation
+resolved to an older cached app identity. Copying the bundle into the unique QA
+directory fixed attachment; the launcher now performs that copy. The native
+scenarios above ran from that unique path.
+
+Capacity, corrupt-layout preservation, failed-storage rollback, pending-send and
+held-queue removal guards, owner disposal, legacy owner/key compatibility, and
+history-to-selected-owner routing have automated regression coverage. Native
+evidence covers two panes in one window; six concurrent provider processes,
+multiple windows, mixed Claude/Codex grids and real model turns remain open gates.

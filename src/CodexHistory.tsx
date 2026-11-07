@@ -3,7 +3,7 @@ import { codexQuery, historyItem, type CodexAccount, type CodexItem, type CodexM
 import { useCodexPage } from "./useCodexPage";
 import "./CodexHistory.css";
 import type { CodexActivity } from "./CodexConversation";
-const CodexConversation = lazy(() => import("./CodexConversation"));
+const CodexDesktop = lazy(() => import("./CodexPanes"));
 
 type Tab = "history" | "models" | "account" | "conversation";
 function date(seconds: number) { return new Date(seconds * 1000).toLocaleString(); }
@@ -116,7 +116,7 @@ export default function CodexHistory({ onClose, open = true, defaultCwd = "", on
     <p>Read your CLI history, models and account, or open a conversation preview.</p>
     <nav aria-label="Codex sections">{(["history", "models", "account", "conversation"] as const).map(value => <button key={value} type="button" className="btn btn-secondary" aria-pressed={tab === value} onClick={() => { if (value === "conversation") setConversationLoaded(true); setTab(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
     <div className="codex-history-body">{tab === "history" ? <HistoryBrowser onChoose={chooseThread} /> : tab === "models" ? <Models /> : tab === "account" ? <Account /> : null}
-      {conversationLoaded && <div hidden={tab !== "conversation"}><Suspense fallback={<p role="status">Loading conversation…</p>}><CodexConversation defaultCwd={defaultCwd} requestedThread={requestedThread} onActivity={onActivity} /></Suspense></div>}
+      {conversationLoaded && <div hidden={tab !== "conversation"}><Suspense fallback={<p role="status">Loading conversation…</p>}><CodexDesktop defaultCwd={defaultCwd} requestedThread={requestedThread} onActivity={onActivity} /></Suspense></div>}
     </div>
   </dialog>;
 }

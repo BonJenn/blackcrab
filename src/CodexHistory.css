@@ -27,3 +27,10 @@
 @media (max-width: 700px) { .codex-launch { grid-template-columns: 1fr; } }
 
 .codex-conversation [aria-label="Codex live transcript"] { max-height: 52vh; overflow: auto; overscroll-behavior: contain; }
+.codex-panes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.codex-pane { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.codex-pane[data-selected="true"] { border-color: var(--accent); }
+.codex-pane[hidden] { display: none; }
+.codex-panes-grid .codex-launch { grid-template-columns: 1fr; }
+.codex-panes-grid .codex-conversation [aria-label="Codex live transcript"] { max-height: 35vh; }
+@media (max-width: 900px) { .codex-panes-grid { grid-template-columns: 1fr; } }

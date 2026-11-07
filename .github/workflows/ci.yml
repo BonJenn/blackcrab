@@ -99,3 +99,18 @@ jobs:
       - name: cargo check (windows)
         working-directory: src-tauri
         run: cargo check --locked
+
+  host-core-prototype:
+    name: host core (isolated process smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: experiments/host-core-prototype
+      - name: build without desktop dependencies
+        run: cargo build --locked --manifest-path experiments/host-core-prototype/Cargo.toml
+      - name: verify process ownership and reconnect
+        run: python3 experiments/host-core-prototype/smoke.py

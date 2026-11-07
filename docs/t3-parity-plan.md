@@ -39,13 +39,15 @@ client action before its backend works.
 | 05c3b4c2 | Main desktop provider views | Full-width Codex workspace, persistent provider selection, retained owners/drafts, provider-scoped input and Claude setup | Merged #190; all 3 CI checks passed; smoke, 147 desktop / 127 native tests and Cargo check/build; native provider switch, retained Codex run/drafts and restart passed; mixed-provider grid/window and real model gates remain open |
 | 05c3b4c3 | Desktop pane ownership and focus | Disjoint new-pane addresses, preserved legacy identities, window-scoped caches and focus routing | Merged #193; all 3 checks passed; smoke (152 desktop / 127 native), production build and one-window native fixture; multi-window certification remains open |
 | 05c3b4c4 | Retained desktop conversations | Removed panes remain discoverable after reload and reopen their original workspace without starting or replaying work | Merged #195; all 3 checks passed; smoke (159 desktop / 127 native), production build and native remove/reopen/restart fixture passed; pre-index removals and cross-window migration remain open |
+| 05c3b4c5 | Resizable desktop grid | Persistent aligned dividers, pointer/keyboard/equalize, stable owners and narrow selected view | Merged #198; all 3 checks passed; smoke (167 desktop / 133 native), native four-pane drag/bounds/restart/narrow scenarios passed |
 | 05c3b4c | General desktop integration and verification | Single/grid provider selection, owner/window scenarios, visual checks and opt-in real turns; advertise only verified readiness/capabilities | Pending |
 | 05c4a | Authoritative mobile host state | Remove demo data, scope snapshots/approvals to active host/session, retire stale callbacks and disable disconnected decisions | Merged #191; all 3 CI checks passed; 64 mobile / 46 protocol tests, mobile typecheck, iOS Hermes export and smoke (147 desktop / 127 native); full remote iOS scope in [delivery plan](mobile-ios-parity-plan.md) |
 | 05c4b | Mobile host selection and connection ownership | Connect/reconnect/disconnect from Hosts; retired connection failures cannot clear another host; startup/pairing/forget use one owner | Merged #192; all 3 CI checks passed; 71 mobile / 46 protocol tests, mobile typecheck, iOS Hermes export and smoke (147 desktop / 127 native) |
 | 05c4c | Durable mobile text drafts | Host/session draft persistence, revision-safe queue transfer and reconnect recovery | Merged #194; all 3 checks passed; 87 mobile / 46 protocol tests, workspace typechecks and iOS Hermes export; combined-tree smoke (152 desktop / 127 native); native iOS remains unverified |
 | 05c4d | Remembered mobile startup host | Explicit selection/disconnect survives restart; failed saves and stale startup reads cannot silently change hosts | Merged #196; all 3 checks passed; 102 mobile / 46 protocol tests, workspace typechecks and iOS Hermes export; device evidence remains open |
-| 05c4e | Remote provider discovery | Authenticated shared LAN/relay discovery, correlated results and honest per-client support on the phone | Implemented; 109 mobile / 48 protocol tests, workspace typechecks, iOS export and combined smoke (167 desktop / 133 native) passed; PR pending; typed Codex remote actions remain pending |
+| 05c4e | Remote provider discovery | Authenticated shared LAN/relay discovery, correlated results and honest per-client support on the phone | Merged #197; all 3 checks passed; 109 mobile / 48 protocol tests, workspace typechecks, iOS export and combined smoke (167 desktop / 133 native) passed; typed Codex remote actions remain pending |
 | 05c4 | Codex mobile integration | Provider-aware remote actions, history/queue/approval UI and device scenarios | Pending, after 05c3b4c merges |
+| 06a | Independent-host architecture prototypes | Isolated runtime extraction and pinned T3 source/bundle startup, authentication and persistence evidence; packaging comparison | Implemented; both prototypes and required smoke passed; PR pending; decision in [host architecture](independent-host-architecture.md); production host remains pending |
 | 06 | Independent host and reconnect | Host outlives UI; desktop plus second client converge; no duplicate writer or replayed side effects | Pending |
 | 07 | Managed worktrees and project scripts | Provider-independent create/reuse/setup/cleanup; failures recover; dirty user work protected | Pending |
 | 08 | Turn checkpoints and diffs | Before/after snapshots, per-turn and branch/commit comparison; upstream-only changes excluded from turn view | Pending |
@@ -65,12 +67,14 @@ client action before its backend works.
 
 ## Implementation decisions
 
-Start by extracting the existing Claude launch contract behind a typed provider
-boundary. Keep the current Rust/Tauri backend during this compatibility step.
-Do not migrate user transcripts or introduce a second process writer. Before
-making the host independent (06), compare a small isolated T3 backend reuse
-prototype with extracting Rust services; record the outcome and packaging costs.
-No copied T3 implementation is needed for the launch extraction.
+The provider compatibility steps preserved the existing Rust/Tauri backend.
+The required isolated comparison now demonstrates both Rust runtime extraction
+and pinned T3 backend reuse. The [architecture decision](independent-host-architecture.md)
+selects T3 backend/contracts/shared client-runtime reuse for new managed
+workspaces, preserving existing views and pairings while production integration
+lands. Package and supervise a separate managed host before connecting clients;
+provider-session migration must never introduce a second writer. Neither the
+prototypes nor the source/bundle startup checks complete phase 06.
 
 Persist execution state on the host, not in React components or only in browser
 localStorage. Transcripts remain provider-owned, while Blackcrab owns command

@@ -51,6 +51,12 @@ acceptance evidence, and [`docs/t3-parity.md`](docs/t3-parity.md) for the
 source comparison. Changes target `stage`; release to `main` is separate.
 Existing remote-hardening PRs must be evaluated for reuse before overlapping work.
 
+The independent-host comparison selects pinned T3 backend/contracts reuse for
+new managed workspaces while retaining existing Blackcrab views and pairings. See
+[the architecture decision](docs/independent-host-architecture.md). Next gates are
+relocated runtime packaging, independent supervision, authenticated client
+attachment and single-writer migration; the prototypes are not a shipped host.
+
 ## Next
 
 Near-term, grounded follow-ups:

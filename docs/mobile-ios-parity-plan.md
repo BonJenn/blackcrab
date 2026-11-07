@@ -183,10 +183,19 @@ production frontend build.
 The local Xcode 27.1 build exposed existing Expo 54 tooling issues: a pod resource
 target below the SDK minimum and shell commands that split the external volume's
 space-containing path. An isolated QA project built after local-only workarounds
-and rendered the actual Hermes product entry in an iOS 26.2 simulator. Its initial
-unsigned build could not read secure storage; native connection acceptance remains
-open while signing and durable native storage are verified. These workarounds are
+and rendered the actual Hermes product entry in an iOS 26.2 simulator. The initial
+unsigned build could not read secure storage. Rebuilding with Xcode-generated
+simulator entitlements resolved that QA setup failure. The actual native app then
+paired the isolated packaged host, displayed its live project and idle thread,
+persisted its catalog and explicit selection across process restarts, preserved
+disconnect and cached data through restart, reconnected with saved credentials,
+and stayed empty after forgetting and restarting. The captured host process and
+public descriptor remained available after phone process exit and forget. No
+provider turn was started.
+
+These simulator observations used Expo 54.0.35 / React Native 0.81.5 and the actual
+product-entry Hermes bundle at source head `436a3b5`, with real SecureStore,
+filesystem, network and WebSocket adapters. The local-only build workarounds are
 not shipping build evidence or repository dependency patches. The next native
 build increment must provide a reproducible physical staging workspace and pod
-floor adjustment, then verify native storage and connection end to end. No signed
-release or physical-device claim is made.
+floor adjustment. No distribution-signed release or physical-device claim is made.

@@ -84,6 +84,7 @@ const TerminalPanel = lazy(() =>
   import("./Terminal").then((mod) => ({ default: mod.TerminalPanel })),
 );
 const ComputerUseEntryView = lazy(() => import("./ComputerUseEntryView"));
+const CodexHistory = lazy(() => import("./CodexHistory"));
 
 type AvailableUpdate = NonNullable<Awaited<ReturnType<typeof check>>>;
 
@@ -1328,6 +1329,7 @@ function App() {
   const appLaunchTrackedRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cwd, setCwd] = useState<string>(() => appSettings.startupCwd);
+  const [codexHistoryOpen, setCodexHistoryOpen] = useState(false);
   const [model, setModel] = useState<string>(() => appSettings.defaultModel);
   const [permissionMode, setPermissionMode] = useState<string>(
     () => appSettings.defaultPermissionMode,
@@ -5822,6 +5824,11 @@ function App() {
           onImportBackup={importBackup}
         />
       )}
+      {codexHistoryOpen && (
+        <Suspense fallback={<div role="status">Loading Codex browser…</div>}>
+          <CodexHistory onClose={() => setCodexHistoryOpen(false)} />
+        </Suspense>
+      )}
       {diagnosticsOpen && (
         <DiagnosticsPanel
           cwd={cwd}
@@ -6165,6 +6172,13 @@ function App() {
               title="grid mode (show up to 6 conversations)"
             >
               ⊞ grid
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setCodexHistoryOpen(true)}
+            >
+              Codex history
             </button>
           </div>
         </header>

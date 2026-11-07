@@ -157,7 +157,9 @@ implemented provider.
 - `src-tauri/src/codex_rpc.rs`, `codex_runtime.rs`, `codex_host.rs` and
   `codex_services.rs`: app-server transport, journal-backed runtime, native host
   routing and bounded account/model/history reads. Codex client controls
-  remain disabled until the history/presentation layer is connected. See [`docs/codex-provider.md`](docs/codex-provider.md).
+  remain disabled until live conversation controls are connected. The top bar's
+  **Codex history** browser reads CLI history, account status and models without
+  starting a conversation. See [`docs/codex-provider.md`](docs/codex-provider.md).
 - `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
   command support, with shared desktop controls in `src/QueueControls.tsx`.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,

@@ -198,6 +198,34 @@ Sources: [official app-server API overview](https://learn.chatgpt.com/docs/app-s
 and the generated local CLI 0.166.0 schemas. Login/logout and live account/catalog
 subscriptions remain subsequent work. Client readiness is still false.
 
+## Desktop browser
+
+The top bar's **Codex history** button opens a lazy-loaded native modal browser.
+It reads CLI/VS Code/app-server thread history across model providers, filters by
+an absolute project directory or archived status, and loads additional pages
+only on request. Selecting a thread loads its turn summaries; **View items** reads
+one selected turn's item pages. The explicit **Include full items in each turn
+page** option supports legacy history without automatic full-transcript loading.
+Unknown item types retain their data in expandable details. Text/tool output is
+rendered as inert React text, including angle brackets and potential HTML.
+
+**Models** and **Account** fetch only when selected. The model catalog shows
+CLI-provided IDs, effort choices, modalities and service tiers; account status
+has an explicit refresh and directs login/account changes to the CLI. Failures
+stay visible and failed next pages keep their original cursor for explicit
+retry. Concurrent identical reads share only the pending request, without caching settled
+account/history data. Filter/tab/thread changes discard late responses, so an older page cannot
+replace the current selection. Modal close/Escape restores focus to the opener;
+native dialog behavior supplies focus containment.
+
+This is a read-only desktop feature. It never invokes session start/resume/send,
+changes permissions, accepts an approval, edits history or logs in. Existing
+Claude single/grid flows remain separate. Codex still reports `clientReady:
+false` because desktop conversation controls, live renderer/approvals, recovery,
+and provider-aware mobile flows have not been connected. The browser tests use
+mock native query responses; native rendering, real account/catalog/history and
+live model scenarios require separate evidence.
+
 ## Verification
 
 The Python stand-in under `src-tauri/tests/fixtures/codex_rpc.py` uses real pipes
@@ -268,3 +296,13 @@ actions/fields, foreign/malformed responses, unsupported methods, interactive
 requests, timeout, cancellation/reaping and bounded admission. The final native
 run includes all preceding Claude/runtime/host/queue tests. No live CLI account,
 catalog/history query, model turn, UI or device scenario was run in this step.
+
+Final 05c3a validation: full smoke passed with 92 desktop tests, 123 native tests
+(the installed-CLI probe remains ignored), typecheck, Cargo check and production
+build. Eight new desktop/client tests cover failed page retry and deduplication,
+stale filter responses, turn/item and explicit legacy pages, inert text/unknown
+items, lazy account/catalog reads, account retry, modal cancel/focus restoration,
+response identity/cursor checks and shared pending reads. The React quality
+review covered effect cleanup/dependencies, native modal accessibility, lazy
+loading, stable page identity and escaped output. Native visual rendering, real
+CLI reads, live model turns and device workflows remain unverified in this step.

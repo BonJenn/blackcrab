@@ -29,6 +29,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { compileMarkdown } from "./markdown";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
+import { QueueControls } from "./QueueControls";
+import { queueClient, startQueuedSession, type AcceptedEvent } from "./queueClient";
+import { usePanelQueue } from "./usePanelQueue";
 import {
   patchSessionInfoList,
   removeSessionInfoFromList,
@@ -3634,6 +3637,46 @@ function App() {
     (sessionId: string, cwd: string, body: string) => void
   >(() => {});
 
+  const mainQueue = usePanelQueue(activePanelIdRef.current, activeSessionId || undefined, sessionOn, !gridMode && !readOnly && isTauriRuntime());
+
+  useEffect(() => {
+    if (!canUseTauriEventApi()) return;
+    const clearTransferredDraft = ({panelId,submission}: AcceptedEvent) => {
+      if (!isSinglePanelId(panelId) || submission.draftText === undefined) return;
+      const key = submission.draftKey;
+      if (key && (key !== NEW_SESSION_KEY || activePanelIdRef.current === panelId)) {
+        const drafts = loadDrafts();
+        if (drafts[key]?.text === submission.draftText) { delete drafts[key]; saveDrafts(drafts); }
+      }
+      if (activePanelIdRef.current !== panelId) return;
+      setInput(current => current === submission.draftText ? "" : current);
+      const sent = new Set(submission.attachmentIds);
+      setAttachments(current => current.filter(file => !sent.has(file.id)));
+    };
+    const offPrepared = queueClient.onPrepared(clearTransferredDraft);
+    const offAccepted = queueClient.onAccepted(clearTransferredDraft);
+    const offDispatch = queueClient.onDispatch(event => {
+      if (!isSinglePanelId(event.panel_id)) return;
+      const transcriptId = panelTranscriptIdsRef.current.get(event.panel_id) ?? NEW_SESSION_KEY;
+      setEntriesForTranscript(transcriptId, entries => entries.some(entry => entry.id === event.receipt.commandId) ? entries : [...entries,{kind:"user",id:event.receipt.commandId,text:event.text}]);
+      setPanelBusy(event.panel_id,true);
+      setPanelOn(event.panel_id,true);
+      if (activePanelIdRef.current === event.panel_id) lastUserMessageRef.current = event.text;
+      if (transcriptId !== NEW_SESSION_KEY) markSessionActivity(transcriptId,"running","working");
+    });
+    return () => { offPrepared(); offAccepted(); offDispatch(); };
+  }, []);
+
+  async function ensureQueueSession() {
+    const panelId = activePanelIdRef.current;
+    const resumeId = activeSessionIdRef.current || null;
+    const useCwd = panelCwdsRef.current.get(panelId) || cwd;
+    const info = await invoke<{runId:string;processFinished:boolean}>("session_execution",{panelId}).catch(() => null);
+    if (info && !info.processFinished) { if (queueClient.state(panelId).context?.runId !== info.runId) await queueClient.attach(panelId,resumeId || undefined); setPanelOn(panelId,true); return; }
+    setPanelOn(panelId,false);
+    await startPanelSession({panelId,panelCwd:useCwd,panelPermissionMode:permissionMode,panelModel:normalizeModelValue(model),resumeId});
+  }
+
   function scrollToBottom() {
     const el = transcriptScrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -3644,9 +3687,9 @@ function App() {
   useEffect(() => {
     if (!canUseTauriEventApi()) return;
     const pending: Promise<() => void>[] = [
-      listen<{ panel_id: string; line: string }>("claude-event", (e) => {
+      listen<{ panel_id: string; run_id?: string; line: string }>("claude-event", (e) => {
         const panelId = e.payload?.panel_id ?? "main";
-        if (!isSinglePanelId(panelId)) return;
+        if (!isSinglePanelId(panelId) || !queueClient.acceptsRun(panelId,e.payload?.run_id)) return;
         const line = e.payload?.line;
         if (typeof line !== "string") return;
         // Any event from the subprocess counts as activity for the
@@ -3663,9 +3706,9 @@ function App() {
         reportListenerError("claude event listener failed")(e);
         return () => {};
       }),
-      listen<{ panel_id: string; line: string }>("claude-stderr", (e) => {
+      listen<{ panel_id: string; run_id?: string; line: string }>("claude-stderr", (e) => {
         const panelId = e.payload?.panel_id ?? "main";
-        if (!isSinglePanelId(panelId)) return;
+        if (!isSinglePanelId(panelId) || !queueClient.acceptsRun(panelId,e.payload?.run_id)) return;
         const line = e.payload?.line ?? "";
         if (!line) return;
         // stderr counts too — claude logs progress there during long
@@ -3686,9 +3729,9 @@ function App() {
         reportListenerError("claude stderr listener failed")(e);
         return () => {};
       }),
-      listen<{ panel_id: string }>("claude-done", (e) => {
+      listen<{ panel_id: string; run_id?: string }>("claude-done", (e) => {
         const panelId = e.payload?.panel_id ?? "main";
-        if (!isSinglePanelId(panelId)) return;
+        if (!isSinglePanelId(panelId) || !queueClient.acceptsRun(panelId,e.payload?.run_id)) return;
         // Ignore the done event from a subprocess we just killed to switch
         // to another session; otherwise the transcript flickers a spurious
         // "session ended" message.
@@ -4240,7 +4283,7 @@ function App() {
     panelPermissionModesRef.current.set(panelId, panelPermissionMode);
     const normalizedModel = normalizeModelValue(panelModel);
     if (normalizedModel) panelModelsRef.current.set(panelId, normalizedModel);
-    const startPromise = invoke("start_session", {
+    const startPromise = startQueuedSession({
       panelId,
       cwd: panelCwd,
       permissionMode: panelPermissionMode,
@@ -5037,123 +5080,25 @@ function App() {
   // by the yes/no quick-reply buttons. Mirrors send() minus the input
   // and attachment handling.
   async function sendQuickReply(text: string) {
-    if (busy || !text) return;
+    if (!text || readOnly) return;
     const panelId = activePanelIdRef.current;
-    requestSidebarEngagementTop(activeSessionIdRef.current);
-    const pendingStart = panelStartPromisesRef.current.get(panelId);
-    if (pendingStart) {
-      try {
-        await pendingStart;
-      } catch {
-        // start failed — sessionOn was flipped back to false; fall
-        // through to spawn a fresh subprocess below.
-      }
-    }
-    if (!panelOnRef.current.get(panelId)) {
-      try {
-        await startPanelSession({
-          panelId,
-          panelCwd: cwd,
-          panelPermissionMode: permissionMode,
-          panelModel: normalizeModelValue(model),
-          resumeId: activeSessionId || null,
-        });
-      } catch (e) {
-        markSessionActivity(activeSessionIdRef.current, "error", "failed to start");
-        setEntries((es) => [
-          ...es,
-          { kind: "system", id: randomId(), text: `failed to start: ${e}` },
-        ]);
-        notifyErr("failed to start session")(e);
-        return;
-      }
-    }
-    setEntries((es) => [
-      ...es,
-      { kind: "user", id: randomId(), text },
-    ]);
-    lastUserMessageRef.current = text;
-    setPanelBusy(panelId, true);
-    setStuckToBottom(true);
-    setHasNewBelow(false);
     try {
-      await invoke("send_message", { panelId, text });
-    } catch (e) {
-      setPanelBusy(panelId, false);
-      markSessionActivity(activeSessionIdRef.current, "error", "send failed");
-      setEntries((es) => [
-        ...es,
-        { kind: "system", id: randomId(), text: `send failed: ${e}` },
-      ]);
-      notifyErr("send failed")(e);
-    }
+      await ensureQueueSession();
+      await queueClient.submit(panelId,text);
+    } catch (error) { queueClient.report(panelId,error); }
   }
 
   async function send() {
     const text = input.trim();
-    if ((!text && attachments.length === 0) || busy) return;
-    if (readOnly) return; // observing another panel's session; can't reply here
+    if ((!text && attachments.length === 0) || readOnly) return;
     const panelId = activePanelIdRef.current;
-    requestSidebarEngagementTop(activeSessionIdRef.current);
-
-    const pendingStart = panelStartPromisesRef.current.get(panelId);
-    if (pendingStart) {
-      try {
-        await pendingStart;
-      } catch {
-        // start failed — sessionOn was flipped back to false; fall
-        // through to spawn a fresh subprocess below.
-      }
-    }
-
-    if (!panelOnRef.current.get(panelId)) {
-      try {
-        // Resume the session the user is looking at if there is one;
-        // otherwise start fresh. Previously we always passed
-        // resumeId:null, which meant sending mid-resume spawned a
-        // brand-new subprocess pointed at a session the UI wasn't
-        // displaying — leading to "thinking forever" on the visible
-        // transcript.
-        await startPanelSession({
-          panelId,
-          panelCwd: cwd,
-          panelPermissionMode: permissionMode,
-          panelModel: normalizeModelValue(model),
-          resumeId: activeSessionId || null,
-        });
-      } catch (e) {
-        markSessionActivity(activeSessionIdRef.current, "error", "failed to start");
-        setEntries((es) => [
-          ...es,
-          { kind: "system", id: randomId(), text: `failed to start: ${e}` },
-        ]);
-        notifyErr("failed to start session")(e);
-        return;
-      }
-    }
-
-    // Attachments become a trailing section of the message so claude's
-    // Read / Bash / Glob tools can pick them up by path.
-    const body = buildAttachmentBody(text, attachments);
-
-    setInput("");
-    setAttachments([]);
-    setEntries((es) => [
-      ...es,
-      { kind: "user", id: randomId(), text: body },
-    ]);
-    lastUserMessageRef.current = body;
-    setPanelBusy(panelId, true);
-    setStuckToBottom(true);
-    setHasNewBelow(false);
+    const body = buildAttachmentBody(text,attachments);
+    const draft = {draftText:input,draftKey:activeSessionId || NEW_SESSION_KEY,attachmentIds:attachments.map(file => file.id)};
     try {
-      await invoke("send_message", { panelId, text: body });
-    } catch (e) {
-      setPanelBusy(panelId, false);
-      markSessionActivity(activeSessionIdRef.current, "error", "send failed");
-      setEntries((es) => [...es, { kind: "system", id: randomId(), text: `send failed: ${e}` }]);
-      notifyErr("send failed")(e);
-    }
+      await ensureQueueSession();
+      requestSidebarEngagementTop(activeSessionId);
+      await queueClient.submit(panelId,body,draft);
+    } catch (error) { queueClient.report(panelId,error); }
   }
 
   // Fetch the cwd's git-tracked files (ls-files) once per cwd change.
@@ -6407,6 +6352,7 @@ function App() {
           {pendingDenials && (
             <PermissionDenialOverlay
               denials={pendingDenials}
+              disabled={mainQueue.saving || !!mainQueue.pending}
               onDismiss={() => setPendingDenials(null)}
               onAllowAndRetry={async () => {
                 // Upgrading mid-session via set_permission_mode doesn't
@@ -6422,7 +6368,7 @@ function App() {
                 panelPermissionModesRef.current.set(panelId, "bypassPermissions");
                 setPermissionMode("bypassPermissions");
                 try {
-                  await invoke("start_session", {
+                  await startQueuedSession({
                     panelId,
                     cwd: useCwd,
                     permissionMode: "bypassPermissions",
@@ -6432,19 +6378,7 @@ function App() {
                   setPanelOn(panelId, true);
                   if (resendText) {
                     requestSidebarEngagementTop(sid);
-                    setEntries((es) => [
-                      ...es,
-                      {
-                        kind: "user",
-                        id: randomId(),
-                        text: resendText,
-                      },
-                    ]);
-                    setPanelBusy(panelId, true);
-                    await invoke("send_message", {
-                      panelId,
-                      text: resendText,
-                    });
+                    await queueClient.retryDenied(panelId,resendText);
                   }
                 } catch (e) {
                   setPanelBusy(panelId, false);
@@ -6580,6 +6514,7 @@ function App() {
               </button>
             </div>
           )}
+          {!readOnly && <QueueControls key={activePanelIdRef.current} panelId={activePanelIdRef.current} state={mainQueue} busy={busy} live={sessionOn} sessionId={activeSessionId || undefined} ensureSession={ensureQueueSession} />}
           <div className="composer-row">
             <textarea
               ref={inputRef}
@@ -6604,36 +6539,12 @@ function App() {
                   ? "Read-only — take over this conversation to reply."
                   : "message Claude…  (Enter to send, Shift+Enter for newline; drop files anywhere; type @ for file autocomplete)"
               }
-              disabled={busy || readOnly}
+              disabled={readOnly || mainQueue.saving || !!mainQueue.pending}
               rows={3}
             />
-            {busy ? (
-              <button className="btn btn-interrupt" onClick={interruptTurn} title="interrupt turn">
-                interrupt
-              </button>
-            ) : (
-              <>
-                <button
-                  className="btn btn-handoff"
-                  onClick={() => void startInlineComputerUse()}
-                  disabled={
-                    readOnly || (!input.trim() && attachments.length === 0)
-                  }
-                  title="hand off this task to an interactive computer-use session"
-                >
-                  GUI
-                </button>
-                <button
-                  className="btn btn-send"
-                  onClick={send}
-                  disabled={
-                    readOnly || (!input.trim() && attachments.length === 0)
-                  }
-                >
-                  send
-                </button>
-              </>
-            )}
+            {busy && <button className="btn btn-interrupt" onClick={interruptTurn} title="interrupt turn">interrupt</button>}
+            {!busy && <button className="btn btn-handoff" onClick={() => void startInlineComputerUse()} disabled={readOnly || mainQueue.saving || !!mainQueue.pending || (!input.trim() && attachments.length === 0)} title="hand off this task to an interactive computer-use session">GUI</button>}
+            <button className="btn btn-send" onClick={send} disabled={readOnly || mainQueue.saving || !!mainQueue.pending || (!input.trim() && attachments.length === 0)}>{busy || (mainQueue.queue?.items.length ?? 0) > 0 ? "queue" : "send"}</button>
           </div>
           {dragOver && (
             <div className="drag-hint">drop files to attach</div>
@@ -11958,10 +11869,12 @@ function CommandCopyRow({
 
 function PermissionDenialOverlay({
   denials,
+  disabled = false,
   onAllowAndRetry,
   onDismiss,
 }: {
   denials: Array<{ tool_name: string; tool_input?: unknown }>;
+  disabled?: boolean;
   onAllowAndRetry: () => void;
   onDismiss: () => void;
 }) {
@@ -12011,6 +11924,7 @@ function PermissionDenialOverlay({
             type="button"
             className="btn btn-primary"
             onClick={onAllowAndRetry}
+            disabled={disabled}
           >
             Allow all tools &amp; retry
           </button>

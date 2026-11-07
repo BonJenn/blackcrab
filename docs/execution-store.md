@@ -32,8 +32,8 @@ return an error directing the caller to review the transcript before explicitly
 starting a new command. Only one turn can be dispatching/running in a thread.
 Immediate sends are rejected while a turn is active or follow-up messages remain
 pending.
-The host follow-up queue API persists additional work separately; desktop/mobile
-queue controls follow in separate PRs. See [`follow-up-queues.md`](follow-up-queues.md).
+The host follow-up queue API persists additional work separately; desktop single/grid
+composers expose it, with mobile integration following separately. See [`follow-up-queues.md`](follow-up-queues.md).
 
 Each live store holds an OS file lease. Opening another instance recovers only
 turns whose original host lease can be acquired; it leaves live hosts alone.
@@ -85,5 +85,5 @@ Unknown newer schemas and database errors fail explicitly. The app does not
 silently replace a corrupt database or launch an unjournaled structured session.
 Schema version 2 adds host follow-up queues through an atomic migration from
 version 1, preserving existing receipts. Older binaries that only understand
-version 1 will refuse the upgraded database. Full client recovery, queue controls
-and scoped remote access build on this boundary in later parity PRs.
+version 1 will refuse the upgraded database. Desktop queue controls and ambiguous-submission recovery build on this boundary;
+mobile queue integration and scoped remote access follow in later parity PRs.

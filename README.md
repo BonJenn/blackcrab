@@ -28,6 +28,8 @@ with Claude Code, Tauri, and local developer tools.
 - Use an integrated terminal backed by a native PTY.
 - Launch an interactive Claude Code computer-use session from Blackcrab.
 - Attach dropped files to messages.
+- Queue follow-ups during a turn in single or grid panels; edit, remove, reorder,
+  pause and explicitly resume held messages. See [`docs/follow-up-queues.md`](docs/follow-up-queues.md).
 - Track context and output-token usage per session.
 - Keep durable turn receipts with duplicate-command protection and explicit
   interrupted/uncertain delivery states. See [`docs/execution-store.md`](docs/execution-store.md).
@@ -153,7 +155,7 @@ implemented provider.
 - `src-tauri/src/execution.rs`: durable thread mappings, turn receipts, and
   host recovery leases.
 - `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
-  command support; client queue controls are the next parity step.
+  command support, with shared desktop controls in `src/QueueControls.tsx`.
 - `src-tauri/src/provider.rs`: provider launch validation, capability metadata,
   and message framing.
 - `src-tauri/src/lib.rs`: Tauri commands for Claude process management,

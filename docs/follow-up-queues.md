@@ -1,11 +1,36 @@
 # Host follow-up queues
 
 The host can persist, edit, cancel, reorder, pause and resume follow-up messages.
-This PR supplies the native service and dispatch path. **The current desktop and
-mobile composers do not expose queue controls yet.** Their UI and remote protocol
-integration are separate steps 04b and 04c in the parity plan. Existing
-`send_message` calls remain immediate and reject running turns or pending queues.
-No browser-local queue or new foreground-only remote fallback is introduced.
+Desktop single and grid composers expose the host queue: send while a turn is
+running, edit/remove/reorder pending messages, pause, and explicitly resume held
+work. The mobile protocol and controls remain a separate step 04c in the parity
+plan. Existing direct `send_message` integrations remain immediate and reject
+running turns or pending queues.
+
+## Desktop controls and recovery
+
+The composer remains available during a turn. Its Queue action persists work in
+the native host; queued messages appear in the conversation only when dispatched.
+Single and grid panels share the same client and controls. Grid queues start
+collapsed. Stop remains a separate action and holds pending messages. Restarting
+a process does not resume held work; review it and choose **Resume queue**.
+
+Edits, removal and reordering use the revision displayed when the action began.
+If another client changes the queue during an edit, the editor preserves its text
+and blocks saving until cancelled and reopened. Dispatch events are reconciled
+by command ID and current run so an acknowledgement cannot add a second bubble
+or an old process update a replacement panel.
+
+Before native submission, the desktop saves one unconfirmed message per thread
+under `blackcrab.queueSubmission.v1.<threadId>` in localStorage. This contains its
+original text (including attachment paths), command ID and composer draft identity.
+The record is removed after confirmation, and exists only to retry an ambiguous
+acknowledgement with the same ID and original payload. Reloading never submits it
+automatically: **Retry message** explicitly confirms or retries it. New sends are
+blocked while confirmation is unresolved. A storage failure leaves the draft
+untouched. New draft text and attachments are preserved when an older send clears.
+The recovery record is unencrypted, has no automatic expiry while unresolved, and
+is excluded from settings backups; it is not an authoritative browser queue.
 
 ## Ordering and execution
 
@@ -96,8 +121,8 @@ ID rather than append the message twice.
 
 Claude stream/done/stderr events also include run IDs where supplied by the
 reader, and queue dispatch requires the current panel generation. Clients must
-ignore events from an older run. Frontend run/state reconciliation is part of
-04b; this native PR does not claim its UI is already implemented.
+ignore events from an older run. Desktop queue events are reconciled against the current run and thread. Mobile
+queue reconciliation remains part of 04c.
 
 ## Storage and compatibility
 
@@ -109,5 +134,5 @@ rules in [execution-store.md](execution-store.md) apply. Cancelling a queued
 message removes pending work, not its local deduplication history.
 
 Steering, queue-specific attachment upload, remote queue RPCs and persistent
-approval state are not added by this host-service PR. It does not create a
+approval state remain outside this desktop queue step. It does not create a
 standalone host: native processes still belong to the running desktop app.

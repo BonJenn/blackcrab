@@ -35,6 +35,9 @@ A backup is a single `blackcrab-backup-<date>.json` file containing:
 - **Execution journal.** Host-owned thread mappings and turn receipts under the
   application data directory are not part of this UI-settings export. See
   [`execution-store.md`](execution-store.md).
+- **Unconfirmed queue submissions** (`blackcrab.queueSubmission.v1.*`). These
+  retain a local retry identity and original message until acknowledged; restoring
+  settings never replays host work.
 - **Your sign-in token.** The Claude OAuth token lives in the OS keychain and is
   never written to a backup. After restoring on a new machine, re-authenticate
   via Settings → Claude.

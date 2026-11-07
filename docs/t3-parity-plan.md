@@ -14,8 +14,10 @@ client action before its backend works.
 |---|---|---|---|
 | 01 | Pin target, plan, staging CI | Stage exists; PR and stage pushes run CI; baseline is traceable | Merged [#171](https://github.com/BonJenn/blackcrab/pull/171), all 3 CI checks passed |
 | 02 | Provider-neutral launch boundary | Claude argument/auth/resume behavior preserved; invalid providers fail before replacing a process; capability discovery is honest | Merged [#172](https://github.com/BonJenn/blackcrab/pull/172), smoke + all 3 CI checks passed |
-| 03 | Durable execution store | Stable thread/turn/command identity, atomic state updates, idempotent receipts; crash/reload recovery tested | Implemented; smoke and native failure/race fixtures passed; awaiting CI and merge |
-| 04 | Durable follow-up queues | Queue/edit/remove/reorder, explicit resume after restart/stop, same behavior in single/grid/remote paths | Pending |
+| 03 | Durable execution store | Stable thread/turn/command identity, atomic state updates, idempotent receipts; crash/reload recovery tested | Merged [#173](https://github.com/BonJenn/blackcrab/pull/173), smoke + all 3 CI checks passed |
+| 04a | Host follow-up queues | Atomic queue/edit/remove/reorder/claim, held work after stop/restart, native APIs and events; real-pipe fixture | Implemented; smoke, 81 native tests and final cargo check passed; awaiting CI and merge |
+| 04b | Desktop queue controls | Single/grid composer queue action, edit/remove/reorder, held/resume indicator, event reconciliation and integrated UI validation | Pending, after 04a merges |
+| 04c | Mobile queue controls | Shared remote actions/snapshots, stable IDs, mobile queue UI and reconnect/conflict validation | Pending, after 04b merges |
 | 05 | Codex adapter and history | Real create/resume/stream/tools/usage/stop/approvals; fake protocol fixture plus opt-in live smoke; account/model settings | Pending |
 | 06 | Independent host and reconnect | Host outlives UI; desktop plus second client converge; no duplicate writer or replayed side effects | Pending |
 | 07 | Managed worktrees and project scripts | Provider-independent create/reuse/setup/cleanup; failures recover; dirty user work protected | Pending |

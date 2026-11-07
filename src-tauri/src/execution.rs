@@ -1,3 +1,5 @@
+pub(crate) mod queue;
+
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
@@ -122,7 +124,7 @@ impl ExecutionStore {
         let version: i64 = tx
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if version > 1 {
+        if version > 2 {
             return Err(format!(
                 "execution store version {version} requires a newer Blackcrab"
             ));
@@ -153,12 +155,15 @@ impl ExecutionStore {
                 PRAGMA user_version=1;
             ").map_err(|e| e.to_string())?;
         }
+        if version < 2 {
+            queue::migrate(&tx)?;
+        }
         tx.commit().map_err(|e| e.to_string())?;
 
         let hosts: Vec<String> = {
             let mut statement = db
                 .prepare(
-                    "SELECT DISTINCT host_id FROM turns WHERE status IN ('dispatching','running')",
+                    "SELECT host_id FROM turns WHERE status IN ('dispatching','running') UNION SELECT host_id FROM queue_lanes WHERE paused=0",
                 )
                 .map_err(|e| e.to_string())?;
             let rows = statement
@@ -171,7 +176,12 @@ impl ExecutionStore {
             let old_lease = lock_file(&lease_path(root, &old_host)?)?;
             match old_lease.try_lock() {
                 Ok(()) => {
-                    db.execute("UPDATE turns SET status='interrupted', updated_at_ms=?1, detail='Host exited before a terminal result; review the transcript before retrying' WHERE host_id=?2 AND status IN ('dispatching','running')", params![now_ms(), old_host]).map_err(|e| e.to_string())?;
+                    let tx = db
+                        .transaction_with_behavior(TransactionBehavior::Immediate)
+                        .map_err(|e| e.to_string())?;
+                    tx.execute("UPDATE turns SET status='interrupted', updated_at_ms=?1, detail='Host exited before a terminal result; review the transcript before retrying' WHERE host_id=?2 AND status IN ('dispatching','running')", params![now_ms(), old_host]).map_err(|e| e.to_string())?;
+                    tx.execute("UPDATE queue_lanes SET paused=1,revision=revision+1 WHERE host_id=?1 AND paused=0",[&old_host]).map_err(|e|e.to_string())?;
+                    tx.commit().map_err(|e| e.to_string())?;
                 }
                 Err(TryLockError::WouldBlock) => {}
                 Err(e) => return Err(format!("execution recovery lease: {e}")),
@@ -223,7 +233,7 @@ impl ExecutionStore {
 
     pub fn history(&self, provider: &str, session_id: &str) -> Result<Vec<TurnReceipt>, String> {
         let db = self.connection.lock().map_err(|e| e.to_string())?;
-        let mut statement = db.prepare(&format!("SELECT {RECEIPT_COLUMNS} FROM turns WHERE thread_id=(SELECT thread_id FROM threads WHERE provider=?1 AND provider_session_id=?2) ORDER BY created_at_ms, rowid")).map_err(|e| e.to_string())?;
+        let mut statement = db.prepare(&format!("SELECT {RECEIPT_COLUMNS} FROM turns WHERE thread_id=(SELECT thread_id FROM threads WHERE provider=?1 AND provider_session_id=?2) ORDER BY rowid")).map_err(|e| e.to_string())?;
         let rows = statement
             .query_map(params![provider, session_id], row_receipt)
             .map_err(|e| e.to_string())?;
@@ -233,25 +243,36 @@ impl ExecutionStore {
 
     pub fn receipt(&self, command_id: &str) -> Result<TurnReceipt, String> {
         let db = self.connection.lock().map_err(|e| e.to_string())?;
-        db.query_row(
-            &format!("SELECT {RECEIPT_COLUMNS} FROM turns WHERE command_id=?1"),
-            [command_id],
-            row_receipt,
-        )
-        .map_err(|e| e.to_string())
+        if let Some(receipt) = db
+            .query_row(
+                &format!("SELECT {RECEIPT_COLUMNS} FROM turns WHERE command_id=?1"),
+                [command_id],
+                row_receipt,
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+        {
+            return Ok(receipt);
+        }
+        queue::queued_receipt(&db, command_id)?
+            .map(|v| v.0)
+            .ok_or_else(|| "command receipt not found".into())
     }
+}
+
+fn validate_message(command_id: &str, text: &str) -> Result<(), String> {
+    if command_id.is_empty() || command_id.len() > 128 || command_id.trim() != command_id {
+        return Err("command ID must contain 1–128 bytes without surrounding whitespace".into());
+    }
+    if text.trim().is_empty() {
+        return Err("message is empty".into());
+    }
+    Ok(())
 }
 
 impl ExecutionContext {
     pub fn begin(&self, command_id: &str, text: &str) -> Result<BeginTurn, String> {
-        if command_id.is_empty() || command_id.len() > 128 || command_id.trim() != command_id {
-            return Err(
-                "command ID must contain 1–128 bytes without surrounding whitespace".into(),
-            );
-        }
-        if text.trim().is_empty() {
-            return Err("message is empty".into());
-        }
+        validate_message(command_id, text)?;
         let mut db = self.store.connection.lock().map_err(|e| e.to_string())?;
         let tx = db
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -272,6 +293,22 @@ impl ExecutionContext {
                 receipt,
                 dispatch: false,
             });
+        }
+        if let Some((receipt, original)) = queue::queued_receipt(&tx, command_id)? {
+            if receipt.thread_id != self.thread_id || original != text {
+                return Err("command ID was already used for a different message or thread".into());
+            }
+            return Ok(BeginTurn {
+                receipt,
+                dispatch: false,
+            });
+        }
+        let queued: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM queued_messages WHERE thread_id=?1 AND status='pending')",[&self.thread_id],|r|r.get(0)).map_err(|e|e.to_string())?;
+        if queued {
+            return Err(
+                "session has queued messages; resume or remove them before sending immediately"
+                    .into(),
+            );
         }
         let busy: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM turns WHERE thread_id=?1 AND status IN ('dispatching','running'))", [&self.thread_id], |r| r.get(0)).map_err(|e| e.to_string())?;
         if busy {
@@ -304,11 +341,27 @@ impl ExecutionContext {
     }
 
     pub fn finish(&self, status: &str, detail: Option<&str>) -> Result<(), String> {
+        self.finish_with_hold(status, detail, status != "succeeded")
+    }
+
+    fn finish_with_hold(
+        &self,
+        status: &str,
+        detail: Option<&str>,
+        hold: bool,
+    ) -> Result<(), String> {
         if !["succeeded", "failed", "interrupted", "uncertain"].contains(&status) {
             return Err("invalid terminal turn state".into());
         }
-        let db = self.store.connection.lock().map_err(|e| e.to_string())?;
-        db.execute("UPDATE turns SET status=?1, detail=?2, updated_at_ms=?3 WHERE run_id=?4 AND status IN ('dispatching','running')", params![status, detail, now_ms(), self.run_id]).map_err(|e| e.to_string())?;
+        let mut db = self.store.connection.lock().map_err(|e| e.to_string())?;
+        let tx = db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        tx.execute("UPDATE turns SET status=?1, detail=?2, updated_at_ms=?3 WHERE run_id=?4 AND status IN ('dispatching','running')", params![status, detail, now_ms(), self.run_id]).map_err(|e| e.to_string())?;
+        if hold {
+            queue::hold_run(&tx, &self.run_id)?;
+        }
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -342,7 +395,17 @@ impl ExecutionContext {
         if event.get("type").and_then(|v| v.as_str()) == Some("result") {
             let success = event.get("subtype").and_then(|v| v.as_str()) == Some("success")
                 && event.get("is_error").and_then(|v| v.as_bool()) != Some(true);
-            self.finish(if success { "succeeded" } else { "failed" }, None)?;
+            let denied = event
+                .get("permission_denials")
+                .and_then(|v| v.as_array())
+                .is_some_and(|items| !items.is_empty());
+            self.finish_with_hold(
+                if success { "succeeded" } else { "failed" },
+                denied.then_some(
+                    "Provider denied a tool; review permissions before resuming queued work",
+                ),
+                !success || denied,
+            )?;
         }
         Ok(())
     }

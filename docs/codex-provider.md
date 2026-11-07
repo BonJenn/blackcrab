@@ -535,3 +535,20 @@ remains pending. This is not a claim of complete multi-window parity.
 Pointer interaction and keyboard focus inside a grid pane select that owner.
 History preparation uses that selection; choosing an already-selected pane does
 not rewrite the saved layout. Active-run and draft transfer guards still apply.
+
+## Reopening retained panes
+
+Removing a stopped, reviewed pane now records its original address in a retained
+conversation list. **Reopen retained conversation** restores that address and
+its existing workspace/outbox keys, then inspects the session without starting,
+resuming or submitting work. Active panes remain limited to six. Up to 24 active
+and retained addresses are indexed per window; at that limit, reopen and reuse a
+retained pane instead of creating another address. No entry is silently evicted.
+
+The existing layout key now saves version 2 data with a retained-address list.
+Version 1 layouts load without rewriting until the next layout change. Malformed
+lists and failed writes preserve the previous record and block destructive
+layout changes until reviewed reset. A downgrade cannot read the version 2 list;
+reviewed reset replaces that list, while workspace and outbox data remain.
+Panes removed before this increment were not indexed and cannot be discovered
+retroactively through this list. Cross-window migration remains a separate gate.

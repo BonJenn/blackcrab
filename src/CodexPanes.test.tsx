@@ -116,3 +116,30 @@ it("routes history to the grid owner selected by pointer or keyboard focus", asy
   expect(f.desktop.workspace("primary").state().resumeId).toBe("first-target");
   expect(f.start).not.toHaveBeenCalled();
 });
+
+it("reopens a retained pane from the UI with its original settings and without starting work", async () => {
+  const f = fixture();
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} />));
+  await click("Add conversation");
+  await act(async () => f.desktop.workspace(second).update({ cwd: "/retained", model: "retained-model" }));
+  await click("Remove pane", pane(2));
+  expect(element.querySelectorAll(".codex-pane")).toHaveLength(1);
+  expect(element.querySelector('[aria-label="Retained conversations"]')!.textContent).toContain("never starts or submits work");
+  await click("Reopen retained conversation 1");
+  expect(element.querySelectorAll(".codex-pane")).toHaveLength(2);
+  expect(pane(2).hidden).toBe(false);
+  expect(f.desktop.workspace(second).state()).toMatchObject({ cwd: "/retained", model: "retained-model" });
+  expect(f.desktop.state().retained).toEqual([]);
+  expect(f.start).not.toHaveBeenCalled(); expect(f.control).not.toHaveBeenCalled();
+});
+it("does not reapply an old history request after the target pane is removed and reopened", async () => {
+  const f = fixture();
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} />));
+  await click("Add conversation");
+  const thread = { id: "old-history-target", cwd: "/old", model: "old-model" } as CodexThread;
+  await act(async () => root.render(<CodexPanes defaultCwd="" desktop={f.desktop} requestedThread={thread} />));
+  await act(async () => f.desktop.workspace(second).update({ resumeId: "", cwd: "/new-choice", model: "new-model" }));
+  await click("Remove pane", pane(2)); await click("Reopen retained conversation 1");
+  expect(f.desktop.workspace(second).state()).toMatchObject({ resumeId: "", cwd: "/new-choice", model: "new-model" });
+  expect(f.start).not.toHaveBeenCalled();
+});

@@ -3,7 +3,7 @@ import CodexConversation from "./CodexConversation";
 import type { CodexActivity } from "./codexActivity";
 import { useCodexPage } from "./useCodexPage";
 import type { CodexModel, CodexThread } from "./codexClient";
-import { CodexDesktop as Desktop, desktopCodexPanes, MAX_CODEX_PANES } from "./codexDesktop";
+import { CodexDesktop as Desktop, desktopCodexPanes, MAX_CODEX_PANES, MAX_SAVED_CODEX_PANES } from "./codexDesktop";
 
 function Panes({ desktop, requestedThread, onActivity }: { desktop: Desktop; requestedThread?: CodexThread; onActivity?: (activity: CodexActivity) => void }) {
   const state = useSyncExternalStore(desktop.subscribe, desktop.state);
@@ -17,14 +17,20 @@ function Panes({ desktop, requestedThread, onActivity }: { desktop: Desktop; req
     // never transfer the requested thread or an existing draft to another pane.
     if (requestedThread) setRequest({ pane: desktop.state().selected, thread: requestedThread });
   }, [requestedThread, desktop]);
+  useEffect(() => { setRequest(current => current && !state.panes.includes(current.pane) ? undefined : current); }, [state.panes]);
   return <section className="codex-desktop" aria-label="Codex workspace">
-    <p>Each conversation has its own session, draft, queue and approvals. Switching views keeps runs alive. Stop a session before removing its pane.</p>
-    {state.error && <section role="alert"><p>{state.error}</p><label><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /> I reviewed the saved layout; replace its pane list with the visible panes. Saved drafts, recovery records and provider history are retained.</label><button type="button" className="btn btn-secondary" disabled={!reviewed} onClick={() => { desktop.resetLayout(true); setReviewed(false); }}>Reset saved layout</button></section>}
+    <p>Each conversation has its own session, draft, queue and approvals. Switching views keeps runs alive. Stop a session before removing its pane. Removed panes remain available in Retained conversations.</p>
+    {state.error && <section role="alert"><p>{state.error}</p><label><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /> I reviewed the saved layout; replace its pane list with the visible panes. Saved drafts, recovery records and provider history are retained; unreadable conversation lists cannot be recovered by this reset.</label><button type="button" className="btn btn-secondary" disabled={!reviewed} onClick={() => { desktop.resetLayout(true); setReviewed(false); }}>Reset saved layout</button></section>}
     <nav aria-label="Codex conversations">{state.panes.map((id, index) => <button key={id} type="button" className="btn btn-secondary" disabled={desktop.layoutBlocked()} aria-pressed={state.selected === id} onClick={() => desktop.select(id)}>Conversation {index + 1}{desktop.activity(id) !== "idle" ? ` · ${desktop.activity(id)}` : ""}</button>)}</nav>
-    <div className="codex-page-actions"><button type="button" className="btn btn-secondary" disabled={desktop.layoutBlocked() || state.panes.length >= MAX_CODEX_PANES} onClick={() => desktop.add()}>Add conversation</button>
+    <div className="codex-page-actions"><button type="button" className="btn btn-secondary" disabled={desktop.layoutBlocked() || state.panes.length >= MAX_CODEX_PANES || state.panes.length + state.retained.length >= MAX_SAVED_CODEX_PANES} onClick={() => desktop.add()}>Add conversation</button>
       <button type="button" className="btn btn-secondary" disabled={desktop.layoutBlocked()} aria-pressed={state.layout === "single"} onClick={() => desktop.layout("single")}>Single view</button>
       <button type="button" className="btn btn-secondary" disabled={desktop.layoutBlocked()} aria-pressed={state.layout === "grid"} onClick={() => desktop.layout("grid")}>Grid view</button>
     </div>
+    {state.retained.length > 0 && <section aria-label="Retained conversations">
+      <h3>Retained conversations</h3><p>Reopen a removed pane with its original saved settings and message recovery records. Reopening only inspects its session; it never starts or submits work. The workspace keeps up to {MAX_SAVED_CODEX_PANES} active and retained conversations; reopen a retained conversation when that limit is reached.</p>
+      {state.retained.map((id, index) => <button key={id} type="button" className="btn btn-secondary" disabled={desktop.layoutBlocked() || state.panes.length >= MAX_CODEX_PANES} title={id} onClick={() => desktop.reopen(id)}>Reopen retained conversation {index + 1}</button>)}
+      {state.panes.length >= MAX_CODEX_PANES && <p>Remove a stopped pane before reopening a retained conversation.</p>}
+    </section>}
     <div className={`codex-panes codex-panes-${state.layout}`}>{state.panes.map((id, index) => {
       const problem = desktop.removalProblem(id);
       return <section key={id} className="codex-pane" aria-label={`Conversation ${index + 1}`} data-selected={state.selected === id} hidden={state.layout === "single" && state.selected !== id} onPointerDownCapture={() => desktop.select(id)} onFocusCapture={() => desktop.select(id)}>

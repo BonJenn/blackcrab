@@ -80,6 +80,13 @@ impl EmbeddedPayload {
             cache_root,
         })
     }
+    /// Native selection anchor only; generic artifact digests cannot replace it.
+    pub(super) fn expected_host_manifest_sha256(&self) -> Option<&str> {
+        match self.role {
+            PayloadRole::Host => Some(&self.manifest_sha256),
+            PayloadRole::Desktop => None,
+        }
+    }
     pub fn target_directory(&self) -> PathBuf {
         self.cache_root.join(format!(
             "{}-{}-{}",
@@ -223,7 +230,7 @@ fn regular(_path: &Path) -> Result<File, String> {
 // mounted with ownership ignored. Archive resources may live there; executable
 // cache state and its initialization lease must live on an ownership-aware volume.
 #[cfg(target_os = "macos")]
-fn ownership_filesystem(path: &Path) -> Result<(), String> {
+pub(super) fn ownership_filesystem(path: &Path) -> Result<(), String> {
     use std::os::fd::AsRawFd;
     let directory = OpenOptions::new()
         .read(true)
@@ -242,11 +249,11 @@ fn ownership_filesystem(path: &Path) -> Result<(), String> {
     Ok(())
 }
 #[cfg(all(unix, not(target_os = "macos")))]
-fn ownership_filesystem(_path: &Path) -> Result<(), String> {
+pub(super) fn ownership_filesystem(_path: &Path) -> Result<(), String> {
     Ok(())
 }
 #[cfg(unix)]
-fn private_dir(path: &Path) -> Result<(), String> {
+pub(super) fn private_dir(path: &Path) -> Result<(), String> {
     ownership_filesystem(path)?;
     let m = fs::symlink_metadata(path).map_err(|_| invalid())?;
     if !m.is_dir()
@@ -288,7 +295,7 @@ fn bounded_lock(file: &File) -> Result<(), String> {
     }
 }
 #[cfg(unix)]
-fn owned_lock(path: &Path, create: bool) -> Result<File, String> {
+pub(super) fn owned_lock(path: &Path, create: bool) -> Result<File, String> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -403,7 +410,7 @@ fn cache_lease(root: &Path) -> Result<File, String> {
     Ok(lease)
 }
 #[cfg(unix)]
-fn publish_no_replace(from: &Path, to: &Path) -> Result<(), String> {
+pub(super) fn publish_no_replace(from: &Path, to: &Path) -> Result<(), String> {
     use std::os::unix::ffi::OsStrExt;
     let from = std::ffi::CString::new(from.as_os_str().as_bytes()).map_err(|_| invalid())?;
     let to = std::ffi::CString::new(to.as_os_str().as_bytes()).map_err(|_| invalid())?;
@@ -744,7 +751,7 @@ fn extract(file: File, root: &Path) -> Result<(), String> {
     Ok(())
 }
 #[cfg(unix)]
-fn sync_directories(root: &Path) -> Result<(), String> {
+pub(super) fn sync_directories(root: &Path) -> Result<(), String> {
     for entry in fs::read_dir(root).map_err(|_| invalid())? {
         let entry = entry.map_err(|_| invalid())?;
         if entry.file_type().map_err(|_| invalid())?.is_dir() {
@@ -1254,5 +1261,4 @@ mod tests {
         assert!(initialize_cache_root(&target).is_err());
         assert!(!target.exists());
     }
-
 }

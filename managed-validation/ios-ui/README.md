@@ -162,3 +162,5 @@ controller now requests cooperative abort from the still-live owner first. A
 real subprocess/socket regression verifies owner cleanup before interruption,
 including when the resource low-water flag is set. Missing actual host closure
 still fails acceptance and retains evidence.
+
+A real SDK host-only abort preflight passed: zero runs/provider sessions, aborted acceptance remained failed, the live owner closed its actual host Child, and no framework interruption signals were needed. Original SDK source/package hashes remained unchanged. No device or UI was used.

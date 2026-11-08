@@ -1,0 +1,46 @@
+--- a/apps/server/src/cloud/selfUpdate.ts
++++ b/apps/server/src/cloud/selfUpdate.ts
+@@ -53,8 +53,8 @@
+   readonly desktopManaged: boolean;
+   readonly launcherManaged: boolean;
+ }): ServerSelfUpdateCapability | null {
+-  if (input.desktopManaged) return "desktop-managed" as const;
+-  return input.launcherManaged ? ("boot-service" as const) : null;
++  // Owning a service is not evidence of an owned release distribution adapter.
++  return null;
+ }
+ 
+ export class ServerSelfUpdate extends Context.Service<
+@@ -139,12 +139,10 @@
+     Option.getOrUndefined(yield* Config.String(CLI_RELEASE_BASE_URL_ENV).pipe(Config.option));
+   const inFlight = yield* Ref.make(false);
+ 
+-  yield* pruneRuntimesOnStart({ baseDir: serverConfig.baseDir, managed: launcher.managed }).pipe(
+-    Effect.forkScoped,
+-  );
++  // Owned payload-layout pruning is unavailable until its profile-aware publisher is configured.
+ 
+   const capability: ServerSelfUpdateCapability | null =
+-    serverConfig.mode === "desktop" ? "desktop-managed" : launcher.managed ? "boot-service" : null;
++    resolveServerSelfUpdateCapability({desktopManaged: serverConfig.mode === "desktop", launcherManaged: launcher.managed});
+   const failWith = (reason: string, cause?: unknown) =>
+     cause === undefined
+       ? new ServerSelfUpdateError({ reason })
+@@ -185,7 +183,7 @@
+     }
+     if (capability === null) {
+       return yield* failWith(
+-        "Remote updates require the T3 Code background service. Run `t3 service install` on the server machine.",
++        "Blackcrab remote updates are unavailable until an owned release installer is configured.",
+       );
+     }
+ 
+@@ -322,7 +320,7 @@
+     update,
+     commitDesktopUpdate: Effect.fn("ServerSelfUpdate.commitDesktopUpdate")(
+       function (requestId, onHandoffAccepted) {
+-        return desktopAppUpdate.commit(requestId, onHandoffAccepted);
++        return failWith("Blackcrab remote updates are unavailable until an owned release installer is configured.");
+       },
+     ),
+   });

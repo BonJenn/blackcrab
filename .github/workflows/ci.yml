@@ -39,6 +39,8 @@ jobs:
 
       - run: npm run test:managed-host
 
+      - run: node --test fork-integration/identity/*.test.mjs fork-integration/owner-control/*.test.mjs fork-integration/boot-service/*.test.mjs
+
       - run: node --test managed-desktop/*.test.mjs
 
       - run: node --test src-tauri/src/managed_desktop.contract.test.mjs

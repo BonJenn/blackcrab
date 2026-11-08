@@ -1,0 +1,12 @@
+--- a/apps/server/src/cloud/serviceProtocol.ts
++++ b/apps/server/src/cloud/serviceProtocol.ts
+@@ -1,7 +1,8 @@
+ import type { ServerSelfUpdateOutcome } from "@t3tools/contracts";
+ 
+ // Bump for incompatible runtime layout changes; launchers survive self-updates. Protocol 3 requires standalone executables.
+-export const SERVICE_LAUNCHER_PROTOCOL = 3 as const;
++// Blackcrab payload subdirectory is an independent layout; protocol3 launchers are not adopted.
++export const SERVICE_LAUNCHER_PROTOCOL = 4 as const;
+ export const SERVICE_LAUNCHER_CONTEXT_ENV = "T3_SERVICE_LAUNCHER_CONTEXT";
+ export const SERVICE_ENV_FILE = "service.env";
+ export const SERVICE_STATE_FILE = "service-state.json";

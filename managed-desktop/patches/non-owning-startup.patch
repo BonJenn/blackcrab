@@ -1,0 +1,18 @@
+--- a/apps/desktop/src/app/DesktopApp.ts
++++ b/apps/desktop/src/app/DesktopApp.ts
+@@ -193,6 +193,15 @@
+ 
+   yield* snapShot.initialize;
+ 
++  // The managed owner already owns host state, port, lifecycle and exposure.
++  if (settings.localEnvironmentEnabled) {
++    yield* (yield* DesktopBackendPool.DesktopBackendPool).primary.pipe(Effect.flatMap(primary => primary.start));
++    yield* appActivation.start;
++  } else {
++    yield* desktopWindow.createMainIfBackendReady;
++  }
++  return;
++
+   if (!settings.localEnvironmentEnabled) {
+     yield* logBootstrapInfo("bootstrap skipping local environment (disabled in settings)");
+     if (!(yield* Ref.get(state.quitting))) {

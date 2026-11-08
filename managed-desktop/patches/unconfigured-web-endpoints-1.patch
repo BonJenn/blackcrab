@@ -1,0 +1,10 @@
+--- a/packages/shared/src/threadLinks.ts
++++ b/packages/shared/src/threadLinks.ts
+@@ -34,6 +34,7 @@
+ 
+ /** Opens the thread from anywhere: the hosted app offers the desktop app, the mobile app, or itself. */
+ export function hostedThreadLink(ref: ScopedThreadRef, origin = DEFAULT_HOSTED_APP_URL): string {
++  if (origin === "") return threadLinkHref(ref);
+   const path = `/threads/${hostedSegment(ref.environmentId)}/${hostedSegment(ref.threadId)}`;
+   return new URL(path, origin).toString();
+ }

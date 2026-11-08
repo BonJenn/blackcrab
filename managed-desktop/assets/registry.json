@@ -1,0 +1,26 @@
+[
+  {
+    "file": "favicon-16x16.png",
+    "target": "apps/server/dist/client/favicon-16x16.png",
+    "beforeSha256": "347273f37a0bcdc0e9b168ff1252a33ad297271f5a84ad412c18c5e5ede8f450",
+    "afterSha256": "20d79ee852631a3267f582a2838354b200d7834e705a7801114c04b055101f22"
+  },
+  {
+    "file": "favicon-32x32.png",
+    "target": "apps/server/dist/client/favicon-32x32.png",
+    "beforeSha256": "25f17fd73b3ecdebf05609b7f7625b824f490e017147ed56dc1dcb85251754e4",
+    "afterSha256": "49d71353c34420bc6dfc7dbcb28f3c049603e2670e8ac653e864aba603d645f3"
+  },
+  {
+    "file": "manifest.webmanifest",
+    "target": "apps/server/dist/client/manifest.webmanifest",
+    "beforeSha256": "04eefdf28c32615283fe9785051edb6e40c5a3640aa4ac5236015ea5ade8920b",
+    "afterSha256": "8ee9c383022f8699864b39431de6038c6291993d60b79040484d9c503b4b8629"
+  },
+  {
+    "file": "apple-touch-icon.png",
+    "target": "apps/server/dist/client/apple-touch-icon.png",
+    "beforeSha256": "fad33de6f872c80ac881ad8dac340f5283a7d30300b48a763799377e1c7fc913",
+    "afterSha256": "6c064eaf6cd8ed5d2411ad4f7820c6e98d6066fa6bedecc47d271bcd5a529b5f"
+  }
+]

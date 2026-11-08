@@ -1,0 +1,10 @@
+--- a/apps/web/src/components/promptLinks/copyPromptLink.ts
++++ b/apps/web/src/components/promptLinks/copyPromptLink.ts
+@@ -27,6 +27,7 @@
+     readonly model: string | null;
+   },
+ ): string | null {
++  if (!configuredHostedAppUrl()) return null;
+   const trimmed = isAttachmentOnlyBootstrapPrompt(prompt) ? "" : prompt.trim();
+   if (trimmed.length === 0 || trimmed.length > PROMPT_LINK_MAX_PROMPT_LENGTH) return null;
+   return buildNewThreadLink({ prompt: trimmed, ...context, origin: configuredHostedAppUrl() });

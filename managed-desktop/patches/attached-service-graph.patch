@@ -1,0 +1,39 @@
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -1,3 +1,6 @@
++import "./app/ManagedBootstrap.mjs";
++import * as ManagedAttached from "./app/ManagedAttached.ts";
++import * as ManagedAuth from "./app/ManagedAuth.ts";
+ import * as MacPermissions from "./permissions/MacPermissions.ts";
+ for (const stream of [process.stdout, process.stderr]) {
+   stream.on("error", (err: NodeJS.ErrnoException) => {
+@@ -187,9 +190,9 @@
+   Layer.provide(layerDesktopWindow),
+ );
+ 
+-const layerDesktopBackend = DesktopBackendPool.layer.pipe(
++const layerDesktopBackend = ManagedAttached.layerPool.pipe(
+   Layer.provideMerge(DesktopAppIdentity.layer),
+-  Layer.provideMerge(DesktopBackendConfiguration.layer),
++  Layer.provideMerge(ManagedAttached.layerConfiguration),
+   Layer.provideMerge(DesktopWslEnvironment.layer),
+   Layer.provideMerge(DesktopWslServerTree.layer),
+   Layer.provideMerge(DesktopTelemetryPublisher.layer),
+@@ -201,7 +204,7 @@
+   Layer.provideMerge(layerDesktopBackend),
+ );
+ 
+-const layerDesktopLocalEnvironmentAuth = DesktopLocalEnvironmentAuth.layer.pipe(
++const layerDesktopLocalEnvironmentAuth = ManagedAuth.layer.pipe(
+   Layer.provideMerge(layerDesktopBackend),
+ );
+ 
+@@ -217,7 +220,7 @@
+   Layer.provideMerge(layerDesktopSnapShot),
+   Layer.provideMerge(
+     DesktopUpdates.layer.pipe(
+-      Layer.provide(DesktopUpdatePolicy.layer),
++      Layer.provide(ManagedAttached.layerUpdatePolicy),
+       // The same layer as the foundation's, so the policy is still read once.
+       Layer.provide(DesktopManagedPolicy.layer),
+     ),

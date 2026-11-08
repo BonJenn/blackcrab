@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/app/DesktopStatePaths.ts
++++ b/apps/desktop/src/app/DesktopStatePaths.ts
+@@ -16,7 +16,7 @@
+   readonly t3Home: Option.Option<string>;
+ }): string {
+   return Option.getOrElse(normalizeConfiguredBaseDir(input.t3Home), () =>
+-    input.joinPath(input.homeDirectory, ".t3"),
++    (() => { throw Error("Blackcrab owner FD descriptor is required"); })(),
+   );
+ }
+ 

@@ -1,0 +1,17 @@
+--- a/apps/web/src/components/settings/pairingUrls.ts
++++ b/apps/web/src/components/settings/pairingUrls.ts
+@@ -1,4 +1,4 @@
+-import { buildHostedPairingUrl } from "../../hostedPairing";
++import { buildHostedPairingUrl, configuredHostedAppUrl } from "../../hostedPairing";
+ import { setPairingTokenOnUrl } from "@t3tools/shared/remote";
+ 
+ export function resolveDesktopPairingUrl(endpointUrl: string, credential: string): string {
+@@ -9,7 +9,7 @@
+ 
+ export function resolveHostedPairingUrl(endpointUrl: string, credential: string): string | null {
+   const url = new URL(endpointUrl);
+-  if (url.protocol !== "https:") {
++  if (!configuredHostedAppUrl() || url.protocol !== "https:") {
+     return null;
+   }
+ 

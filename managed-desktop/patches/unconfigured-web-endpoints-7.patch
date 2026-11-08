@@ -1,0 +1,10 @@
+--- a/packages/shared/src/promptLinks.ts
++++ b/packages/shared/src/promptLinks.ts
+@@ -171,6 +171,7 @@
+   readonly model?: string | null;
+   readonly origin?: string;
+ }): string {
++  if (input.origin === "") throw new Error("Blackcrab hosted prompt links are not configured.");
+   const url = new URL("/new", input.origin ?? DEFAULT_HOSTED_APP_URL);
+   url.searchParams.set("prompt", input.prompt);
+   if (input.repository) {

@@ -1,0 +1,1 @@
+export function createAccessSession(input:{credential:string;renew:()=>Promise<string>;exchange:(credential:string)=>Promise<{access_token:string;expires_in:number}>;validate:(token:string)=>Promise<boolean>;now?:()=>number;onRevoked?:()=>void}):Readonly<{get:()=>Promise<string>}>;

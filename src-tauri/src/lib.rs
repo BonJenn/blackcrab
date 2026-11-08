@@ -13,6 +13,7 @@ mod managed_desktop;
 mod managed_host;
 mod managed_native_entry;
 mod managed_payload;
+mod managed_service_install;
 mod pairing;
 mod provider;
 mod relay_client;

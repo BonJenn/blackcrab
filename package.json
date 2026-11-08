@@ -40,7 +40,7 @@
     "build:managed-host": "node scripts/build-managed-host.mjs",
     "verify:managed-host": "node scripts/verify-managed-host.mjs",
     "smoke:managed-host": "node scripts/smoke-managed-host.mjs",
-    "test:managed-host": "node --test managed-host/artifact.test.mjs managed-host/source.test.mjs managed-host/rust-notices.test.mjs",
+    "test:managed-host": "node --test managed-host/*.test.mjs",
     "build:shared-runtime": "node scripts/build-shared-runtime.mjs",
     "test:shared-runtime": "node --test shared-runtime/*.test.mjs",
     "verify:shared-runtime": "node scripts/verify-shared-runtime.mjs vendor/t3",

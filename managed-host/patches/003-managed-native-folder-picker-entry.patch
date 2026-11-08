@@ -1,0 +1,21 @@
+--- a/apps/web/src/components/CommandPalette.tsx
++++ b/apps/web/src/components/CommandPalette.tsx
+@@ -106,7 +106,7 @@
+ } from "./promptLinks/copyPromptLink";
+ import { useClientSettings } from "../hooks/useSettings";
+ import { useStableCallback } from "../hooks/useStableCallback";
+-import { readLocalApi } from "../localApi";
++import { hasBlackcrabNativeBridge, readLocalApi } from "../localApi";
+ import { configuredHostedAppUrl } from "../hostedPairing";
+ import { desktopLocalBackendId } from "../connection/desktopLocal";
+ import { filesystemEnvironment, useFilesystemReadAccess } from "../state/filesystem";
+@@ -2436,7 +2436,8 @@
+     (browseEnvironmentId === primaryEnvironmentId ||
+       (browseEnvironmentIsDesktopLocal && browseDesktopInstanceId !== null)) &&
+     typeof window !== "undefined" &&
+-    window.desktopBridge !== undefined;
++    (window.desktopBridge !== undefined ||
++      (browseEnvironmentId === primaryEnvironmentId && hasBlackcrabNativeBridge()));
+   const fileManagerInitialPath = (() => {
+     if (!canOpenProjectFromFileManager) {
+       return undefined;

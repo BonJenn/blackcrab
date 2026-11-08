@@ -16,5 +16,45 @@
         "after": "\"@betteroffice/fonts-cjk\": NodeURL.fileURLToPath(new URL(\n          \"./src/components/files/office/fonts-cjk.ts\",\n          import.meta.url,\n        )),"
       }
     ]
+  },
+  {
+    "id": "managed-native-local-api",
+    "file": "002-managed-native-local-api.patch",
+    "target": "apps/web/src/localApi.ts",
+    "sha256": "778c18ebc0648150908876b40764bf136d17c0bf46d056fc5f8d78a4537181b9",
+    "beforeSha256": "c3c005ae5ab7eaf2c482ef1a660b7693afdc6951fcd647a43957f4b5227d2e9d",
+    "afterSha256": "61ced8f099792fe2bb9cec3eef6708e2ac6f910383e29472ed573d5996873e05",
+    "replacements": [
+      {
+        "before": "let cachedApi: LocalApi | undefined;",
+        "after": "type BlackcrabNativeBridge = Readonly<{\n  apiVersion: 1;\n  pickFolder: LocalApi[\"dialogs\"][\"pickFolder\"];\n  openExternal: (url: string) => Promise<boolean>;\n}>;\n\ndeclare global {\n  interface Window {\n    readonly blackcrabNative?: BlackcrabNativeBridge;\n  }\n}\n\nfunction readBlackcrabNativeBridge(): BlackcrabNativeBridge | undefined {\n  const bridge = typeof window === \"undefined\" ? undefined : window.blackcrabNative;\n  return bridge?.apiVersion === 1 &&\n    typeof bridge.pickFolder === \"function\" &&\n    typeof bridge.openExternal === \"function\"\n    ? bridge\n    : undefined;\n}\n\nexport function hasBlackcrabNativeBridge(): boolean {\n  return readBlackcrabNativeBridge() !== undefined;\n}\n\nlet cachedApi: LocalApi | undefined;"
+      },
+      {
+        "before": "      pickFolder: async (options) => {\n        if (!window.desktopBridge) return null;",
+        "after": "      pickFolder: async (options) => {\n        const nativeBridge = readBlackcrabNativeBridge();\n        if (nativeBridge) return nativeBridge.pickFolder(options);\n        if (!window.desktopBridge) return null;"
+      },
+      {
+        "before": "      openExternal: async (url) => {\n        if (window.desktopBridge) {",
+        "after": "      openExternal: async (url) => {\n        const nativeBridge = readBlackcrabNativeBridge();\n        if (nativeBridge) {\n          if (!(await nativeBridge.openExternal(url))) {\n            throw new Error(\"Unable to open link.\");\n          }\n          return;\n        }\n        if (window.desktopBridge) {"
+      }
+    ]
+  },
+  {
+    "id": "managed-native-folder-picker-entry",
+    "file": "003-managed-native-folder-picker-entry.patch",
+    "target": "apps/web/src/components/CommandPalette.tsx",
+    "sha256": "114b862fdca80c4cad0a61487ad603a9546570412c39106a9a0be4a12e05b9e7",
+    "beforeSha256": "74e9cfa70bc9a5f284c40e88fde496f897781d68ac5f5c3acf57b1c8b124902f",
+    "afterSha256": "e0166f6ff7d806a7dc9ba2ea420747171c419b0135ad142fe43640cc34ea0c6c",
+    "replacements": [
+      {
+        "before": "import { readLocalApi } from \"../localApi\";",
+        "after": "import { hasBlackcrabNativeBridge, readLocalApi } from \"../localApi\";"
+      },
+      {
+        "before": "    typeof window !== \"undefined\" &&\n    window.desktopBridge !== undefined;",
+        "after": "    typeof window !== \"undefined\" &&\n    (window.desktopBridge !== undefined ||\n      (browseEnvironmentId === primaryEnvironmentId && hasBlackcrabNativeBridge()));"
+      }
+    ]
   }
 ]

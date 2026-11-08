@@ -17,11 +17,45 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "vendor/t3/packages/*"
+    "vendor/t3-mobile/packages/*"
   ],
   "overrides": {
-    "expo": "54.0.35",
-    "react-native": "0.81.5"
+    "expo": "58.0.14",
+    "react-native": "0.88.0",
+    "@react-navigation/native-stack": {
+      ".": "7.21.0",
+      "react-native-screens": "5.0.0-t3.48"
+    },
+    "react-native-image-viewing": "0.2.2",
+    "mdast-util-math": "3.0.0",
+    "micromark-extension-llm-math": "3.1.0",
+    "micromark-extension-gfm-table": "2.1.1",
+    "micromark": "4.0.2",
+    "mdast-util-to-hast": "13.2.1",
+    "expo-audio": "58.0.9",
+    "expo-video": "58.0.11",
+    "expo-network": "58.0.3",
+    "@clerk/expo-native-components": "0.4.0",
+    "@expo/metro-config": "58.0.14",
+    "expo-sharing": "58.0.19",
+    "expo-widgets": "58.0.20",
+    "@legendapp/list": "3.3.5",
+    "@pierre/diffs": "1.6.1",
+    "@react-native-ai/apple": "0.12.0",
+    "@react-native-menu/menu": "2.0.0",
+    "react-native-gesture-handler": "3.3.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-keyboard-controller": "1.22.8",
+    "react-native-pdf-jsi": "5.0.0",
+    "react-native-webview": "14.0.1",
+    "@expo/ui": "58.0.20",
+    "expo-modules-core": "58.0.22",
+    "@expo/fingerprint": "0.21.5",
+    "remark-math": {
+      "micromark-extension-math": "npm:micromark-extension-llm-math@3.1.0"
+    },
+    "@react-navigation/core": "7.24.0",
+    "expo-modules-jsi": "58.0.15"
   },
   "scripts": {
     "dev": "node scripts/tauri-dev.mjs",
@@ -49,7 +83,11 @@
     "test:mobile:ios-preparation": "node --test scripts/prepare-mobile-ios.test.mjs apps/mobile/plugins/with-ios-pod-floor.test.cjs",
     "test:mobile:experience": "node --test mobile-experience/*.test.mjs",
     "test:managed-acceptance": "vitest run --config managed-validation/vitest.config.ts",
-    "typecheck:managed-acceptance": "tsc --project managed-validation/tsconfig.json"
+    "typecheck:managed-acceptance": "tsc --project managed-validation/tsconfig.json",
+    "postinstall": "node mobile-experience/apply-installed.mjs",
+    "verify:mobile:consumers": "node mobile-experience/verify-consumers-cli.mjs vendor/t3-mobile",
+    "prepare:mobile:resources": "node mobile-experience/resources-cli.mjs",
+    "test:mobile:resolution": "node --test apps/mobile/metro-resolution.test.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
@@ -76,9 +114,18 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.1.1",
-    "typescript": "~6.0.3",
+    "typescript": "6.0.3",
     "vite": "^8.0.11",
     "vitest": "^4.1.5",
-    "yaml": "2.9.0"
+    "yaml": "2.9.0",
+    "tailwindcss": "4.3.3",
+    "@blackcrab/mobile-stream-builder": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+  },
+  "packageManager": "npm@12.2.2",
+  "engines": {
+    "node": "26.12.1"
+  },
+  "allowScripts": {
+    "file:vendor/t3-mobile/apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz": true
   }
 }

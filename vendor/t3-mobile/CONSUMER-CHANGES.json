@@ -1,0 +1,175 @@
+{
+  "sourcePatches": [
+    {
+      "id": "rpc-send-parameter-types",
+      "target": "packages/client-runtime/src/rpc/session.ts",
+      "sha256": "985fc5b1db81348ebada9376b1bfa9ebec6ad53ab2fc5ba8a338f766c1971f34",
+      "beforeSha256": "c71fc43eb268e757194ff06b82ae36dcdda8a176581da7a6566877e55650483c",
+      "afterSha256": "cc9f18c16c434b27813c477b95862b687821ad5c24421091b5b3e052ae86a0be",
+      "emittedJavaScriptSha256": "eb62e887f23fb75f4700fa8fe1c113dd3accf179e972bcbfb0ef65848d3c4800"
+    }
+  ],
+  "packageManifests": [
+    {
+      "path": "packages/client-runtime/package.json",
+      "originalPath": "original-manifests/packages/client-runtime/package.json",
+      "beforeSha256": "cf20a029d0a2a27357b65d8ed95386247e6dc2e8c9c987fd59ed22c40016d195",
+      "afterSha256": "efe9f6351dd00c37198c772371191172ba808a8c8918ece4a2f2e37578c49673",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "originalPath": "original-manifests/packages/contracts/package.json",
+      "beforeSha256": "9a0bbab153c1964d6e1cec1c1a29e0e881af25779f9a1569eae3ab3e04b47dfb",
+      "afterSha256": "637cc3f5ebbaafbf9b21618dc6e3eb205a0cfc0329dfcc74bb1c083278c930bf",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-acp-registry/package.json",
+      "originalPath": "original-manifests/packages/provider-acp-registry/package.json",
+      "beforeSha256": "fa02309cbf19e8ad8e9749247552e9e740a799173629a2809492d562442fa19e",
+      "afterSha256": "206ccabbb8519a3f9e9f0c03a2eed52e292e628f1217ef5e248e89bbbc04b2b9",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-core/package.json",
+      "originalPath": "original-manifests/packages/provider-core/package.json",
+      "beforeSha256": "a33e00cf0701594b454789bf11d4f59b64e5093cff10f4b68f9b520d99e9836f",
+      "afterSha256": "8d5bc2ed61ef058d23ad1c21d45a86c74dcb15ee9cf0fe450382d6d42590cee6",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-cursor/package.json",
+      "originalPath": "original-manifests/packages/provider-cursor/package.json",
+      "beforeSha256": "c8b03e823102f941814b1ebbf1a441391be7d1a8929c43ae2afdfd5f9f2c1962",
+      "afterSha256": "c722396f6a606fcee734c6a28a895d3d3c6635046fd7f290798f8f900eb6e000",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-fx/package.json",
+      "originalPath": "original-manifests/packages/provider-fx/package.json",
+      "beforeSha256": "df2d63ea438968f77add4e9821e3c7f2584a76c9ebcdabb6365428f4850bca94",
+      "afterSha256": "a2921dd1012dad62d6cf984a7d9333d0f0876ff6c871d830147a3f477aa46b35",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-grok/package.json",
+      "originalPath": "original-manifests/packages/provider-grok/package.json",
+      "beforeSha256": "50cca40439fda251219b1136650a76da51a19fbb9a2d41a3cf1436a79ae9220c",
+      "afterSha256": "e8c826f413ab09488cf83930a79ef353506073a5c86dd162ed39509067d36a1c",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-kiro/package.json",
+      "originalPath": "original-manifests/packages/provider-kiro/package.json",
+      "beforeSha256": "1d3e5a16560fa1d6dc45b64cdfba0aa62bc40ca8c1cf05b6833df3b0e05e8af1",
+      "afterSha256": "e75430bb77d1532e7f4a1e81a1e8114d7dc802c33b5a2a2367fa709a786d8b73",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-muse/package.json",
+      "originalPath": "original-manifests/packages/provider-muse/package.json",
+      "beforeSha256": "c33ac734059bb68e0d4a6b9592f0bc5affed1dbd39aaf11e467450f58aebe36d",
+      "afterSha256": "848c54340ad13674c751ed9a395346d0fe408b77ebc4e233ad8cee4861f189a7",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-opencode/package.json",
+      "originalPath": "original-manifests/packages/provider-opencode/package.json",
+      "beforeSha256": "6576799cab12cc8233fd29c470f3a12b349d762d18a10d24afb2bfd247ab3017",
+      "afterSha256": "f59ddbf29198e364bdcd5ec129309a9eb3769b0d41c350144d7ea3108385f56a",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/provider-pi/package.json",
+      "originalPath": "original-manifests/packages/provider-pi/package.json",
+      "beforeSha256": "388ad7ef7f8f7534ebf2539a61eeb8493f19d262143af1bff0f4dc0e9ed18f68",
+      "afterSha256": "f2115bfc76cb462fa310b0cab2db7ac4cb1242fb0a466ee0fc181eb35bea09cd",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/secret-provider-core/package.json",
+      "originalPath": "original-manifests/packages/secret-provider-core/package.json",
+      "beforeSha256": "031f1e532893da3affa2360d4ce1ac5d39f37ada6c7b038fc439c7d21e6499d8",
+      "afterSha256": "fc7507ea170c91e7c53dddf91fddfb55d09ddb6e0850aeef7f192381f47b3464",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/secret-provider-definitions/package.json",
+      "originalPath": "original-manifests/packages/secret-provider-definitions/package.json",
+      "beforeSha256": "27c13e5782532aab98bb7977853e6cc39f1585b4c441959317a81604d0d953b7",
+      "afterSha256": "52a10a80fd6f475430fdf993c133b8ad646f90c2f1881975f14063eaa70c8374",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/secret-provider-onepassword/package.json",
+      "originalPath": "original-manifests/packages/secret-provider-onepassword/package.json",
+      "beforeSha256": "37f29d8b2cc203e5e61efa41232aa0f0e4e85f376e724a2e0420186345a84278",
+      "afterSha256": "c644b45b28cc5d411ded8268f614078c039c6533a2ea936970651a4a3419c99e",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/shared/package.json",
+      "originalPath": "original-manifests/packages/shared/package.json",
+      "beforeSha256": "0999e2e0521960e1846197be2873aa8d39fdc643f5c6e1be6894ce4255d84cb8",
+      "afterSha256": "11568fd23562b4e03dbcb932b080109c8f18a99b0b54d124fd43a949524e5b8f",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-azure-devops/package.json",
+      "originalPath": "original-manifests/packages/source-control-azure-devops/package.json",
+      "beforeSha256": "c1773655c6948f7d3263c754c447339a617815475675e7ad2d8abe202b503c20",
+      "afterSha256": "7e0dd4220d32f2bab437a60309f1f6b1797f1588dac684680cf2d79b426cc9f0",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-bitbucket/package.json",
+      "originalPath": "original-manifests/packages/source-control-bitbucket/package.json",
+      "beforeSha256": "ffe7725c8eb192eaf877e12002b8e17a5060b7a078f7549a525a7ac6ef0846a5",
+      "afterSha256": "0206168e145809f3bd44dc0cf0619bd357f36f37b3358878638301b58cab5ebb",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-core/package.json",
+      "originalPath": "original-manifests/packages/source-control-core/package.json",
+      "beforeSha256": "b17d257f7fbe3b7e32c99b74e317d719d0d07e48394a2172118118aae93eb089",
+      "afterSha256": "2ee649b20ce3aee602b98a5dcd9889633413aa45341e387e3b998aae50a52dbf",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-definitions/package.json",
+      "originalPath": "original-manifests/packages/source-control-definitions/package.json",
+      "beforeSha256": "de675a4c558fa39d168386ea9a42cefe6bed407f03d7bfdb1ff78e015f50a102",
+      "afterSha256": "044d670106776000536307ff7d57dfa6e7922d5a69618655b5069d31b29dcb84",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-forgejo/package.json",
+      "originalPath": "original-manifests/packages/source-control-forgejo/package.json",
+      "beforeSha256": "45e10aa9fee2d0c30d624a12d7ba955879f29ad19557704c2a954ce1d5525ac3",
+      "afterSha256": "569be47ec6ee4c760eaf0bb2333e4495cc4075c255f8c0f31db51305e578f342",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-gitcafe/package.json",
+      "originalPath": "original-manifests/packages/source-control-gitcafe/package.json",
+      "beforeSha256": "2af54d478bddfc4181174296915daf3db916c73bcffb18563073d34b152f518d",
+      "afterSha256": "63d781710883b46a428828a3e4e5f311ff27b5f126a4fa7a9decb28819110fc8",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-github/package.json",
+      "originalPath": "original-manifests/packages/source-control-github/package.json",
+      "beforeSha256": "a1f3be021fe3ae4cec8fa617ccfa9125b9ebab8b692ae0aa9cd4d8c7968bd479",
+      "afterSha256": "39311877fda486cc8cd2c4fe7978bfaf689853eb7bf6e288623cbfadedb33203",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    },
+    {
+      "path": "packages/source-control-gitlab/package.json",
+      "originalPath": "original-manifests/packages/source-control-gitlab/package.json",
+      "beforeSha256": "132cbb7f8241fe6aff64379d493c7b53d1ddaa6f7424a850486cc710583dc49b",
+      "afterSha256": "048df1a19115b105bb830a29f305b06319d332d0cdb2e6174ab42e052eb7925a",
+      "reason": "Only actual runtime/type source imports and existing six public direct connection entries; exact owned lock pins; no server executors/dev tools."
+    }
+  ]
+}

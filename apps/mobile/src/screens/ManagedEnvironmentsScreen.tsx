@@ -159,7 +159,7 @@ export function ManagedEnvironmentsScreen({ client }: { client: ManagedEnvironme
     data={threads}
     keyExtractor={item => item.id}
     ListHeaderComponent={header}
-    ListEmptyComponent={selected ? <Text style={screenStyles.note}>{live ? "No threads in this workspace." : "No saved threads are available."}</Text> : null}
+    ListEmptyComponent={selected ? <Text style={screenStyles.note}>{live ? "No threads in this workspace." : "No saved threads are available."}</Text> : undefined}
     renderItem={({ item }) => <View style={styles.listRow}>
       <Text style={styles.name}>{item.title}</Text>
       <Text style={styles.address}>{item.status}{item.projectId ? ` · ${projectTitles.get(item.projectId) ?? "Project"}` : ""}</Text>

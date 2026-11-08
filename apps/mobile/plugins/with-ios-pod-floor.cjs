@@ -1,7 +1,7 @@
-// Blackcrab build integration for Expo SDK 54's generated Podfile.
+// Blackcrab build integration for Expo SDK 58's generated Podfile.
 // No upstream dependency sources or script phases are modified.
 const { withPodfile, withPodfileProperties } = require('@expo/config-plugins');
-const FLOOR = '15.1';
+const FLOOR = '18.0';
 const START = '    # @generated begin blackcrab-ios-pod-floor';
 const END = '    # @generated end blackcrab-ios-pod-floor';
 const BLOCK = `${START}
@@ -27,10 +27,10 @@ function applyPodFloor(contents) {
     }
     contents = contents.slice(0, start) + contents.slice(end + END.length).replace(/^\r?\n/, '');
   }
-  // SDK 54 template has exactly one installer hook. Fail closed when Expo changes it.
+  // SDK 58 template has exactly one installer hook. Fail closed when Expo changes it.
   const hooks = [...contents.matchAll(/^([ \t]*)post_install do \|installer\|[ \t]*\r?$/gm)];
   if (hooks.length !== 1 || !contents.includes('react_native_post_install(')) {
-    throw new Error('Unsupported generated iOS Podfile: expected the Expo SDK 54 post_install hook.');
+    throw new Error('Unsupported generated iOS Podfile: expected the Expo SDK 58 post_install hook.');
   }
   const hook = hooks[0];
   const position = hook.index + hook[0].length;

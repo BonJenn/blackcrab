@@ -94,7 +94,7 @@ export function PairedHostsScreen({
         )}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
         ListEmptyComponent={
-          loading ? <Text style={screenStyles.note}>Loading hosts...</Text> : null
+          loading ? <Text style={screenStyles.note}>Loading hosts...</Text> : undefined
         }
       />
     </View>

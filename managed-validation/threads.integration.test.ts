@@ -74,7 +74,7 @@ describe.skipIf(!enabled)("managed packaged-host thread acceptance", () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), "blackcrab-managed-acceptance-")));
     const project = join(root, "project"), data = join(root, "state"), home = join(root, "home"), temporary = join(root, "tmp");
     for (const folder of [project, data, home, temporary]) await mkdir(folder);
-    const env = { PATH: "/usr/bin:/bin:/usr/sbin:/sbin", HOME: home, TMPDIR: temporary, CI: "1", NODE_ENV: "production", OTEL_SDK_DISABLED: "true", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
+    const env = { PATH: "/usr/bin:/bin:/usr/sbin:/sbin", HOME: home, TMPDIR: temporary, CI: "1", NODE_ENV: "production" as const, OTEL_SDK_DISABLED: "true", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
     const port = await freePort(), address = `http://127.0.0.1:${port}`;
     let host: ChildProcess | undefined, writer: ReturnType<typeof client> | undefined, reader: ReturnType<typeof client> | undefined;
     const writerStorage = new Map<string, string>(), readerStorage = new Map<string, string>();

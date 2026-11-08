@@ -25,6 +25,8 @@ import { OrchestrationV2Command, ORCHESTRATION_V2_WS_METHODS as methods, ThreadI
 import { Connection, ConnectionOnboarding, EnvironmentRegistry } from "@t3tools/client-runtime/connection";
 import * as Rpc from "@t3tools/client-runtime/rpc";
 import { ShellSnapshotLoader, makeEnvironmentShellState } from "@t3tools/client-runtime/state/shell";
+import { ConnectionCatalogDocument } from "@t3tools/client-runtime/platform";
+import { MANAGED_CATALOG_KEY } from "../apps/mobile/src/managed/catalog";
 import { makeManagedPlatformLayer } from "../apps/mobile/src/managed/platform";
 import { makeManagedStorageLayer } from "../apps/mobile/src/managed/storage";
 
@@ -78,11 +80,13 @@ describe.skipIf(!enabled)("managed packaged-host thread acceptance", () => {
     const writerStorage = new Map<string, string>(), readerStorage = new Map<string, string>();
     const report: Record<string, unknown> = { passed: false, providerTurns: 0, root };
     let starts = 0;
+    let bootstrapCredential = "";
     async function start() {
       starts++;
+      bootstrapCredential = randomUUID();
       host = spawn(resolve(executable!), ["serve", "--mode", "web", "--host", "127.0.0.1", "--port", String(port), "--base-dir", data, "--no-browser", "--bootstrap-fd", "3"], { cwd: project, env, detached: true, stdio: ["ignore", "pipe", "pipe", "pipe"] });
       host.stdio[3]!.on("error", () => {});
-      (host.stdio[3] as import("node:stream").Writable).end(JSON.stringify({ mode: "desktop", noBrowser: true, port, t3Home: data, host: "127.0.0.1", desktopBootstrapToken: randomUUID(), shellEnvironmentPrepared: true, tailscaleServeEnabled: false, tailscaleServePort: 443 }) + "\n");
+      (host.stdio[3] as import("node:stream").Writable).end(JSON.stringify({ mode: "desktop", noBrowser: true, port, t3Home: data, host: "127.0.0.1", desktopBootstrapToken: bootstrapCredential, shellEnvironmentPrepared: true, tailscaleServeEnabled: false, tailscaleServePort: 443 }) + "\n");
       let output = "";
       const capture = (bytes: Buffer) => { output = (output + bytes.toString("utf8")).slice(-128_000); };
       host.stdout!.on("data", capture); host.stderr!.on("data", capture);
@@ -96,6 +100,31 @@ describe.skipIf(!enabled)("managed packaged-host thread acceptance", () => {
       if (!url) throw Error("No private fixture pairing URL.");
       return url;
     }
+    async function ownerProbeToken() {
+      const response = await fetch(address + "/oauth/token", {
+        method: "POST",
+        body: new URLSearchParams({
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: bootstrapCredential,
+          subject_token_type: "urn:t3:params:oauth:token-type:environment-bootstrap",
+          requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          scope: "orchestration:read",
+          client_label: "Blackcrab owner probe fixture",
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw Error("Private owner probe exchange failed.");
+      const result = await response.json();
+      if (typeof result.access_token !== "string" || !result.access_token) throw Error("Private owner probe token missing.");
+      return result.access_token as string;
+    }
+    const authenticatedSession = async (token: string) => {
+      const response = await fetch(address + "/api/auth/session", {
+        headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw Error("Private fixture session check failed.");
+      return (await response.json()).authenticated;
+    };
     try {
       const identity = await start();
       await execute(resolve(executable!), ["project", "add", project, "--title", "Acceptance fixture", "--base-dir", data], { cwd: project, env, timeout: 30_000, maxBuffer: 1_000_000 });
@@ -111,6 +140,18 @@ describe.skipIf(!enabled)("managed packaged-host thread acceptance", () => {
       const dispatch = (command: ReturnType<typeof decode>) => writer!.runtime.runPromise(services.registry.run(id, Rpc.requestGuarded(methods.dispatchCommand, command)).pipe(Effect.timeout("15 seconds")));
       const first = await dispatch(create); expect(await dispatch(create)).toEqual(first); report.commandDeduplication = true;
       const projection = () => writer!.runtime.runPromise(services.registry.run(id, Rpc.request(methods.getThreadProjection, { threadId })).pipe(Effect.timeout("15 seconds")));
+      const catalog = Schema.decodeUnknownSync(Schema.fromJsonString(ConnectionCatalogDocument))(writerStorage.get(MANAGED_CATALOG_KEY)!);
+      const pairedToken = catalog.credentials[0]?.credential.token;
+      if (!pairedToken) throw Error("Private paired fixture session missing.");
+      expect(await authenticatedSession(pairedToken)).toBe(true);
+      const firstOwnerToken = await ownerProbeToken();
+      expect(await authenticatedSession(firstOwnerToken)).toBe(true);
+      const secondOwnerToken = await ownerProbeToken();
+      expect(await authenticatedSession(secondOwnerToken)).toBe(true);
+      expect(await authenticatedSession(firstOwnerToken)).toBe(false);
+      expect(await authenticatedSession(pairedToken)).toBe(true);
+      expect((await projection()).thread.id).toBe(threadId);
+      report.independentPairedSessionSurvivesOwnerProbeRotation = true;
       await dispatch(decode({ type: "thread.metadata.update", commandId: randomUUID(), threadId, title: "Acceptance retained", expectedEmpty: true }));
       await dispatch(decode({ type: "thread.archive", commandId: randomUUID(), threadId }));
       expect((await projection()).thread.archivedAt).not.toBeNull();

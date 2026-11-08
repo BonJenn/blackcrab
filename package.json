@@ -55,7 +55,8 @@
       "micromark-extension-math": "npm:micromark-extension-llm-math@3.1.0"
     },
     "@react-navigation/core": "7.24.0",
-    "expo-modules-jsi": "58.0.15"
+    "expo-modules-jsi": "58.0.15",
+    "micromark-util-types": "2.0.2"
   },
   "scripts": {
     "dev": "node scripts/tauri-dev.mjs",
@@ -120,7 +121,8 @@
     "vitest": "^4.1.5",
     "yaml": "2.9.0",
     "tailwindcss": "4.3.3",
-    "@blackcrab/mobile-stream-builder": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+    "@blackcrab/mobile-stream-builder": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "micromark-util-types": "2.0.2"
   },
   "packageManager": "npm@12.2.2",
   "engines": {

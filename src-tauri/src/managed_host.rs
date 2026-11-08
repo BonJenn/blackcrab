@@ -13,6 +13,10 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+#[path = "managed_desktop_policy.rs"]
+pub(super) mod desktop_policy;
+use self::desktop_policy::{native_pair_expiry, valid_native_pair};
+
 const MARKER: &str = "blackcrab-managed-host-v1\n";
 const MAX_JSON: u64 = 1024 * 1024;
 
@@ -67,19 +71,55 @@ enum Probe {
     Attached(Attached),
 }
 
+/// Internal native-client authority. Never serialized with owner credentials.
+#[allow(dead_code)]
+#[derive(Clone, PartialEq, Eq)]
+pub(super) struct DesktopHostBinding {
+    pub(super) generation: u64,
+    pub(super) environment_id: String,
+    pub(super) origin: String,
+}
+#[allow(dead_code)]
+pub(super) struct DesktopPairGrant {
+    pub(super) credential: String,
+    pub(super) expires_at: u64,
+}
+#[derive(Default)]
+struct DesktopEpoch {
+    generation: u64,
+    binding: Option<DesktopHostBinding>,
+}
+impl DesktopEpoch {
+    fn invalidate(&mut self) -> Result<(), String> {
+        let mut bytes = [0u8; 8];
+        getrandom::getrandom(&mut bytes).map_err(|_| "Native owner entropy unavailable")?;
+        let next = (u64::from_le_bytes(bytes) & 9_007_199_254_740_991).max(1);
+        self.generation = if next == self.generation {
+            next % 9_007_199_254_740_991 + 1
+        } else {
+            next
+        };
+        self.binding = None;
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
 pub(crate) struct ManagedHost {
     root: PathBuf,
-    operation: Mutex<()>,
+    operation: Arc<Mutex<()>>,
+    desktop: Arc<StdMutex<DesktopEpoch>>,
     navigation: Arc<StdMutex<Option<url::Origin>>>,
-    bridge: StdMutex<Option<crate::managed_bridge::Grant>>,
+    bridge: Arc<StdMutex<Option<crate::managed_bridge::Grant>>>,
 }
 impl ManagedHost {
     pub(crate) fn new(root: PathBuf) -> Self {
         Self {
             root,
-            operation: Mutex::new(()),
+            operation: Arc::new(Mutex::new(())),
+            desktop: Arc::new(StdMutex::new(DesktopEpoch::default())),
             navigation: Arc::new(StdMutex::new(None)),
-            bridge: StdMutex::new(None),
+            bridge: Arc::new(StdMutex::new(None)),
         }
     }
 
@@ -177,6 +217,183 @@ impl ManagedHost {
             }
             _ => Err("Managed host identity changed".into()),
         }
+    }
+    /// Native launcher only: initial explicit launch may ensure an owned host is running.
+    #[allow(dead_code)]
+    pub(super) async fn desktop_binding(&self) -> Result<DesktopHostBinding, String> {
+        let _operation = self.operation.lock().await;
+        let attached = self.ensure_started(None).await?;
+        if attached.origin.port().is_none() || !desktop_policy::uuid(&attached.environment_id) {
+            return Err("Native host needs an explicit loopback port".into());
+        }
+        let mut epoch = self
+            .desktop
+            .lock()
+            .map_err(|_| "Native owner unavailable")?;
+        let origin = attached.origin.as_str().to_owned();
+        if !epoch
+            .binding
+            .as_ref()
+            .is_some_and(|b| b.origin == origin && b.environment_id == attached.environment_id)
+        {
+            epoch.invalidate()?;
+            epoch.binding = Some(DesktopHostBinding {
+                generation: epoch.generation,
+                environment_id: attached.environment_id,
+                origin,
+            });
+        }
+        epoch
+            .binding
+            .clone()
+            .ok_or_else(|| "Native owner unavailable".into())
+    }
+    #[allow(dead_code)]
+    pub(super) fn desktop_profile_root(&self) -> PathBuf {
+        self.root.join("native-desktop-profile-v1")
+    }
+    /// Renewal never starts/replaces a host and never returns the controller bearer/seed.
+    #[allow(dead_code)]
+    pub(super) async fn desktop_pair_grant(
+        &self,
+        expected: &DesktopHostBinding,
+    ) -> Result<DesktopPairGrant, String> {
+        let _operation = self.operation.lock().await;
+        self.desktop_binding_current(expected)?;
+        let config = self.read_config()?.ok_or("Managed host unavailable")?;
+        match self.probe(&config).await? {
+            Probe::Attached(a)
+                if a.environment_id == expected.environment_id
+                    && a.origin.as_str() == expected.origin => {}
+            _ => return Err("Native host identity changed".into()),
+        }
+        let origin =
+            url::Url::parse(&expected.origin).map_err(|_| "Invalid native owner origin")?;
+        let tls = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .map_err(io_error)?
+        .with_root_certificates(rustls::RootCertStore::empty())
+        .with_no_client_auth();
+        let http = reqwest::Client::builder()
+            .tls_backend_preconfigured(tls)
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(2))
+            .build()
+            .map_err(|_| "Native owner HTTP unavailable")?;
+        // Pinned AuthStandardClientScopes; no scope field is accepted from the client.
+        let scopes = [
+            "orchestration:read",
+            "orchestration:operate",
+            "settings:write",
+            "providers:manage",
+            "environment:maintain",
+            "preview:operate",
+            "diagnostics:read",
+            "terminal:read",
+            "terminal:operate",
+            "source-control:write",
+            "filesystem:read",
+            "filesystem:write",
+            "relay:read",
+            "access:read",
+            "access:write",
+            "relay:write",
+        ];
+        let credential = bootstrap_token(&config.bootstrap_secret, now_ms()?)?;
+        let body = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair(
+                "grant_type",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            )
+            .append_pair("subject_token", &credential)
+            .append_pair(
+                "subject_token_type",
+                "urn:t3:params:oauth:token-type:environment-bootstrap",
+            )
+            .append_pair(
+                "requested_token_type",
+                "urn:ietf:params:oauth:token-type:access_token",
+            )
+            .append_pair("scope", &scopes.join(" "))
+            .append_pair("client_label", "Blackcrab native owner controller")
+            .finish();
+        let token = bounded_json(
+            http.post(origin.join("oauth/token").map_err(io_error)?)
+                .header("content-type", "application/x-www-form-urlencoded")
+                .body(body)
+                .send()
+                .await
+                .map_err(|_| "Native owner authentication failed")?,
+        )
+        .await
+        .map_err(|_| "Native owner authentication refused")?;
+        let bearer = token
+            .get("access_token")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .ok_or("Invalid owner session")?;
+        let session = bounded_json(
+            http.get(origin.join("api/auth/session").map_err(io_error)?)
+                .bearer_auth(bearer)
+                .send()
+                .await
+                .map_err(|_| "Owner session check failed")?,
+        )
+        .await
+        .map_err(|_| "Owner session check refused")?;
+        if session.get("authenticated") != Some(&Value::Bool(true)) {
+            return Err("Owner session is not authenticated".into());
+        }
+        self.desktop_binding_current(expected)?;
+        let paired = bounded_json(
+            http.post(origin.join("api/auth/pairing-token").map_err(io_error)?)
+                .bearer_auth(bearer)
+                .json(&json!({"label":"Blackcrab Desktop","scopes":scopes}))
+                .send()
+                .await
+                .map_err(|_| "Native pairing request failed")?,
+        )
+        .await
+        .map_err(|_| "Native pairing request refused")?;
+        self.desktop_binding_current(expected)?;
+        let credential = paired
+            .get("credential")
+            .and_then(Value::as_str)
+            .filter(|s| valid_native_pair(s))
+            .ok_or("Invalid native pairing response")?
+            .to_owned();
+        let expires_at = paired
+            .get("expiresAt")
+            .and_then(Value::as_str)
+            .and_then(native_pair_expiry)
+            .ok_or("Invalid native pairing expiry")?;
+        let now = now_ms()?;
+        if expires_at <= now || expires_at > now.saturating_add(86_400_000) {
+            return Err("Invalid native pairing lifetime".into());
+        }
+        Ok(DesktopPairGrant {
+            credential,
+            expires_at,
+        })
+    }
+    pub(super) fn desktop_binding_current(
+        &self,
+        expected: &DesktopHostBinding,
+    ) -> Result<(), String> {
+        if self
+            .desktop
+            .lock()
+            .map_err(|_| "Native owner unavailable")?
+            .binding
+            .as_ref()
+            != Some(expected)
+        {
+            return Err("Expired native owner generation".into());
+        }
+        Ok(())
     }
     pub(crate) fn navigation_guard(&self) -> Arc<StdMutex<Option<url::Origin>>> {
         self.navigation.clone()
@@ -367,6 +584,10 @@ impl ManagedHost {
             .bridge
             .lock()
             .map_err(|_| "Managed bridge unavailable")? = None;
+        self.desktop
+            .lock()
+            .map_err(|_| "Native owner unavailable")?
+            .invalidate()?;
         let launched = self.spawn(&artifact, &config, port)?;
         #[cfg(feature = "managed-bridge-qa")]
         crate::managed_bridge_qa::record_captured_host(launched.id(), &self.root);
@@ -525,6 +746,26 @@ impl ManagedHost {
         }
         let descriptor = bounded_json(response).await?;
         let environment_id = validate_descriptor(&descriptor, config.environment_id.as_deref())?;
+        // No bootstrap-derived credential is sent until this exact live endpoint
+        // proves possession of the protected owner secret with a fresh challenge.
+        let nonce = random_secret()?;
+        let mut challenge = origin
+            .join(".well-known/blackcrab/managed-host-proof")
+            .map_err(io_error)?;
+        challenge.query_pairs_mut().append_pair("nonce", &nonce);
+        let proof = http
+            .get(challenge)
+            .send()
+            .await
+            .map_err(|_| HOST_PROOF_ERROR)?;
+        let proof = bounded_json(proof).await.map_err(|_| HOST_PROOF_ERROR)?;
+        verify_host_proof(
+            &proof,
+            &nonce,
+            &environment_id,
+            origin.as_str(),
+            &config.bootstrap_secret,
+        )?;
         let credential = bootstrap_token(&config.bootstrap_secret, now_ms()?)?;
         let body = url::form_urlencoded::Serializer::new(String::new())
             .append_pair(
@@ -594,6 +835,62 @@ fn random_secret() -> Result<String, String> {
     let mut bytes = [0u8; 32];
     getrandom::getrandom(&mut bytes).map_err(io_error)?;
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+const HOST_PROOF_ERROR: &str = "Managed host identity proof failed or is unavailable; rebuild the managed host package with identity-proof support. No attachment credential was sent and no replacement was started";
+fn host_proof_mac(
+    secret: &str,
+    nonce: &str,
+    environment: &str,
+    origin: &str,
+) -> Result<Hmac<Sha256>, String> {
+    let message = serde_json::to_vec(&json!([
+        "blackcrab-managed-host-proof-v1",
+        nonce,
+        environment,
+        origin,
+        "0.1.7",
+        2
+    ]))
+    .map_err(|_| HOST_PROOF_ERROR)?;
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(secret.as_bytes()).map_err(|_| HOST_PROOF_ERROR)?;
+    mac.update(&message);
+    Ok(mac)
+}
+fn verify_host_proof(
+    value: &Value,
+    nonce: &str,
+    environment: &str,
+    origin: &str,
+    secret: &str,
+) -> Result<(), String> {
+    let fail = || HOST_PROOF_ERROR.to_owned();
+    if value.as_object().map(|v| v.len()) != Some(7)
+        || value["version"] != 1
+        || value["nonce"] != nonce
+        || value["environmentId"] != environment
+        || value["origin"] != origin
+        || value["serverVersion"] != "0.1.7"
+        || value["orchestrationProtocolVersion"] != 2
+    {
+        return Err(fail());
+    }
+    let hex = value["proof"].as_str().ok_or_else(fail)?;
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(fail());
+    }
+    let bytes: Vec<u8> = (0..64)
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+        .collect();
+    // Mac::verify_slice compares tags in constant time.
+    host_proof_mac(secret, nonce, environment, origin)?
+        .verify_slice(&bytes)
+        .map_err(|_| fail())
 }
 fn bootstrap_token(secret: &str, now: u64) -> Result<String, String> {
     let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).map_err(io_error)?;
@@ -743,6 +1040,110 @@ mod tests {
         ));
         fs::create_dir(&root).unwrap();
         root
+    }
+    fn signed_proof(secret: &str, nonce: &str, env: &str, origin: &str) -> Value {
+        let tag = host_proof_mac(secret, nonce, env, origin)
+            .unwrap()
+            .finalize()
+            .into_bytes();
+        let proof: String = tag.iter().map(|b| format!("{b:02x}")).collect();
+        json!({"version":1,"nonce":nonce,"environmentId":env,"origin":origin,"serverVersion":"0.1.7","orchestrationProtocolVersion":2,"proof":proof})
+    }
+    #[test]
+    fn host_identity_proof_binds_fresh_nonce_identity_origin_and_secret() {
+        let nonce = "a".repeat(64);
+        let origin = "http://127.0.0.1:32145/";
+        let proof = signed_proof("owner", &nonce, "env_fixture", origin);
+        assert_eq!(
+            proof["proof"],
+            "a19ecfaa35c45cdbf2901b3823936cc64c3f6ede9b91966e4ac603e55ceb5f02"
+        );
+        assert!(verify_host_proof(&proof, &nonce, "env_fixture", origin, "owner").is_ok());
+        for (key, value) in [
+            ("nonce", json!("c".repeat(64))),
+            ("environmentId", json!("other")),
+            ("origin", json!("http://127.0.0.1:32146/")),
+            ("proof", json!("0".repeat(64))),
+        ] {
+            let mut altered = proof.clone();
+            altered[key] = value;
+            assert!(verify_host_proof(&altered, &nonce, "env_fixture", origin, "owner").is_err());
+        }
+        assert!(verify_host_proof(&proof, &nonce, "env_fixture", origin, "impostor").is_err());
+    }
+    #[tokio::test]
+    async fn fake_host_receives_no_bootstrap_credential_when_identity_proof_fails() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let origin = loopback_origin(listener.local_addr().unwrap().port()).unwrap();
+        let server = std::thread::spawn(move || {
+            listener.set_nonblocking(true).unwrap();
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            for index in 0..2 {
+                let (mut stream, _) = loop {
+                    match listener.accept() {
+                        Ok(c) => break c,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(std::time::Instant::now() < deadline);
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(e) => panic!("fixture: {e}"),
+                    }
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = Vec::new();
+                while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                    let mut b = [0u8; 1024];
+                    let n = stream.read(&mut b).unwrap();
+                    assert!(n > 0);
+                    request.extend_from_slice(&b[..n]);
+                    assert!(request.len() < 8192);
+                }
+                let request = String::from_utf8(request).unwrap();
+                assert!(request.starts_with("GET /.well-known/"));
+                assert!(!request.to_ascii_lowercase().contains("authorization:"));
+                assert!(!request.contains("subject_token"));
+                let body = if index == 0 {
+                    descriptor()
+                } else {
+                    // Even a correctly signed proof for another port must not
+                    // authorize sending a credential to this listener.
+                    let target = request
+                        .lines()
+                        .next()
+                        .unwrap()
+                        .split_whitespace()
+                        .nth(1)
+                        .unwrap();
+                    let challenge = url::Url::parse(&format!("http://127.0.0.1{target}")).unwrap();
+                    let nonce = challenge
+                        .query_pairs()
+                        .find(|(key, _)| key == "nonce")
+                        .unwrap()
+                        .1
+                        .into_owned();
+                    signed_proof(
+                        &"b".repeat(64),
+                        &nonce,
+                        "env_fixture",
+                        "http://127.0.0.1:1/",
+                    )
+                }
+                .to_string();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+            }
+            std::thread::sleep(Duration::from_millis(150));
+            assert_eq!(
+                listener.accept().unwrap_err().kind(),
+                std::io::ErrorKind::WouldBlock,
+                "no OAuth request may follow failed proof"
+            );
+        });
+        let host = ManagedHost::new(PathBuf::from("unused-forged-host-root"));
+        let error = host.probe_at(&config(), origin, false).await.err().unwrap();
+        assert!(error.contains("identity proof"));
+        server.join().unwrap();
     }
     fn config() -> Configuration {
         Configuration {
@@ -980,5 +1381,181 @@ mod tests {
         let state = host.start(Some(PathBuf::from(artifact))).await.unwrap();
         assert_eq!(state.state, "running");
         // Dropping the supervisor and exiting the launcher must not close host output pipes.
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn native_pairing_uses_fresh_private_controller_and_fixed_http_delegation() {
+        let base = fixture();
+        let host = ManagedHost::new(base.clone());
+        host.prepare().unwrap();
+        host.initialize_locked().unwrap();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let origin = format!("http://127.0.0.1:{port}/");
+        let env = "12345678-1234-1234-1234-123456789abc".to_owned();
+        let mut config = config();
+        config.environment_id = Some(env.clone());
+        host.save_config(&config).unwrap();
+        fs::create_dir_all(base.join("host/userdata")).unwrap();
+        write_new(
+            &base.join("host/userdata/server-runtime.json"),
+            serde_json::to_string(&json!({"version":1,"origin":origin,"port":port}))
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap();
+        let binding = DesktopHostBinding {
+            generation: 1,
+            environment_id: env.clone(),
+            origin,
+        };
+        host.desktop.lock().unwrap().binding = Some(binding.clone());
+        host.desktop.lock().unwrap().generation = 1;
+        let expiry = now_ms().unwrap() + 60_000;
+        let seconds = (expiry / 1000) as libc::time_t;
+        let mut tm = std::mem::MaybeUninit::<libc::tm>::uninit();
+        assert!(!unsafe { libc::gmtime_r(&seconds, tm.as_mut_ptr()) }.is_null());
+        let tm = unsafe { tm.assume_init() };
+        let iso = format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+            tm.tm_year + 1900,
+            tm.tm_mon + 1,
+            tm.tm_mday,
+            tm.tm_hour,
+            tm.tm_min,
+            tm.tm_sec,
+            expiry % 1000
+        );
+        let binding_origin = binding.origin.clone();
+        let server = std::thread::spawn(move || {
+            listener.set_nonblocking(true).unwrap();
+            let deadline = std::time::Instant::now() + Duration::from_secs(8);
+            for index in 0..7 {
+                let (mut stream, _) = loop {
+                    match listener.accept() {
+                        Ok(c) => break c,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(std::time::Instant::now() < deadline);
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(e) => panic!("fixture accept: {e}"),
+                    }
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let mut buffer = [0u8; 1024];
+                let (header_end, length) = loop {
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0);
+                    bytes.extend_from_slice(&buffer[..n]);
+                    assert!(bytes.len() < 16_384);
+                    if let Some(end) = bytes.windows(4).position(|s| s == b"\r\n\r\n") {
+                        let header = std::str::from_utf8(&bytes[..end]).unwrap();
+                        let length = header
+                            .lines()
+                            .find_map(|l| {
+                                l.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")
+                                    .and_then(|v| v.trim().parse::<usize>().ok())
+                            })
+                            .unwrap_or(0);
+                        break (end + 4, length);
+                    }
+                };
+                while bytes.len() < header_end + length {
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0);
+                    bytes.extend_from_slice(&buffer[..n]);
+                }
+                let header = std::str::from_utf8(&bytes[..header_end]).unwrap();
+                let body = &bytes[header_end..header_end + length];
+                let reply = match index {
+                    0 => {
+                        assert!(header.starts_with("GET /.well-known/t3/environment "));
+                        json!({"environmentId":env,"serverVersion":"0.1.7","orchestrationProtocolVersion":2,"capabilities":{}})
+                    }
+                    1 => {
+                        assert!(header
+                            .starts_with("GET /.well-known/blackcrab/managed-host-proof?nonce="));
+                        let request_path = header
+                            .lines()
+                            .next()
+                            .unwrap()
+                            .split_whitespace()
+                            .nth(1)
+                            .unwrap();
+                        let challenge =
+                            url::Url::parse(&format!("{}{}", binding_origin, &request_path[1..]))
+                                .unwrap();
+                        let nonce = challenge
+                            .query_pairs()
+                            .find(|(k, _)| k == "nonce")
+                            .unwrap()
+                            .1
+                            .into_owned();
+                        signed_proof(&"b".repeat(64), &nonce, &env, &binding_origin)
+                    }
+                    2 | 4 => {
+                        assert!(header.starts_with("POST /oauth/token "));
+                        let form: std::collections::HashMap<_, _> =
+                            url::form_urlencoded::parse(body).into_owned().collect();
+                        assert_eq!(
+                            form.get("subject_token_type").unwrap(),
+                            "urn:t3:params:oauth:token-type:environment-bootstrap"
+                        );
+                        assert_ne!(form.get("subject_token").unwrap(), &"b".repeat(64));
+                        if index == 4 {
+                            assert!(form
+                                .get("scope")
+                                .unwrap()
+                                .split(' ')
+                                .any(|s| s == "access:write"));
+                            json!({"access_token":"private-controller"})
+                        } else {
+                            json!({"access_token":"private-probe"})
+                        }
+                    }
+                    3 | 5 => {
+                        assert!(header.starts_with("GET /api/auth/session "));
+                        assert!(header.to_ascii_lowercase().contains(if index == 3 {
+                            "authorization: bearer private-probe"
+                        } else {
+                            "authorization: bearer private-controller"
+                        }));
+                        json!({"authenticated":true})
+                    }
+                    6 => {
+                        assert!(header.starts_with("POST /api/auth/pairing-token "));
+                        assert!(header
+                            .to_ascii_lowercase()
+                            .contains("authorization: bearer private-controller"));
+                        let body: Value = serde_json::from_slice(body).unwrap();
+                        assert_eq!(body.as_object().unwrap().len(), 2);
+                        assert_eq!(body["label"], "Blackcrab Desktop");
+                        assert_eq!(body["scopes"].as_array().unwrap().len(), 16);
+                        json!({"id":"87654321-1234-1234-1234-123456789abc","credential":"23456789ABCD","label":"Blackcrab Desktop","expiresAt":iso})
+                    }
+                    _ => unreachable!(),
+                };
+                let body = serde_json::to_vec(&reply).unwrap();
+                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",body.len()).unwrap();
+                stream.write_all(&body).unwrap();
+            }
+        });
+        let mut stale = binding.clone();
+        stale.generation = 2;
+        assert!(host.desktop_pair_grant(&stale).await.is_err());
+        let grant = host.desktop_pair_grant(&binding).await.unwrap();
+        assert_eq!(grant.credential, "23456789ABCD");
+        assert_eq!(grant.expires_at, expiry);
+        server.join().unwrap();
+        let clone = host.clone();
+        assert!(clone.desktop_binding_current(&binding).is_ok());
+        host.desktop.lock().unwrap().invalidate().unwrap();
+        assert!(clone.desktop_binding_current(&binding).is_err());
+        assert!(host.desktop_pair_grant(&binding).await.is_err());
+        fs::remove_dir_all(base).unwrap();
     }
 }

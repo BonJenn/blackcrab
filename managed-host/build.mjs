@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -15,13 +16,19 @@ async function absent(file) {
   throw new Error(`Output already exists: ${file}`);
 }
 export async function validateToolchain(node, pnpm) {
-  const version = (await exec(node, ['--version'])).stdout.trim();
-  if (version !== `v${NODE_VERSION}`) throw new Error(`Managed host requires Node ${NODE_VERSION}`);
-  const target = (await exec(node, ['-p', "process.platform + '-' + process.arch"])).stdout.trim();
-  if (target !== `${process.platform}-${process.arch}`) throw new Error('Managed host toolchain target differs from the build host');
-  const packageManager = (await exec(pnpm, ['--version'], { env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' } })).stdout.trim();
-  if (packageManager !== PNPM_VERSION) throw new Error(`Managed host requires pnpm ${PNPM_VERSION}`);
+  // pnpm 12 enforces the nearest packageManager before printing its version.
+  // Check tools outside the npm-managed source tree, without changing that tree.
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-host-toolchain-'));
+  try {
+    const version = (await exec(node, ['--version'], { cwd })).stdout.trim();
+    if (version !== `v${NODE_VERSION}`) throw new Error(`Managed host requires Node ${NODE_VERSION}`);
+    const target = (await exec(node, ['-p', "process.platform + '-' + process.arch"], { cwd })).stdout.trim();
+    if (target !== `${process.platform}-${process.arch}`) throw new Error('Managed host toolchain target differs from the build host');
+    const packageManager = (await exec(pnpm, ['--version'], { cwd, env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' } })).stdout.trim();
+    if (packageManager !== PNPM_VERSION) throw new Error(`Managed host requires pnpm ${PNPM_VERSION}`);
+  } finally { await fs.rm(cwd, { recursive: true, force: true }); }
 }
+
 async function rustNotices(source, output, env) {
   const manifest = path.join(source, 'native/resource-monitor/Cargo.toml');
   const compiler = (await exec('rustc', ['-vV'], { env })).stdout;

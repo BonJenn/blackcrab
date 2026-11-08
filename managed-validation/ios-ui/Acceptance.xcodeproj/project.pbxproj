@@ -1,0 +1,16 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+A00000000000000000000001 = {isa = PBXProject; buildConfigurationList = A00000000000000000000010; compatibilityVersion = "Xcode 14.0"; mainGroup = A00000000000000000000002; productRefGroup = A00000000000000000000003; projectDirPath = ""; targets = (A00000000000000000000004);};
+A00000000000000000000002 = {isa = PBXGroup; children = (A00000000000000000000005,A00000000000000000000003); sourceTree = "<group>";};
+A00000000000000000000003 = {isa = PBXGroup; name = Products; children = (A00000000000000000000006); sourceTree = "<group>";};
+A00000000000000000000004 = {isa = PBXNativeTarget; name = Acceptance; productName = Acceptance; productType = "com.apple.product-type.bundle.ui-testing"; productReference = A00000000000000000000006; buildConfigurationList = A00000000000000000000011; buildPhases = (A00000000000000000000008,A00000000000000000000009); buildRules = (); dependencies = ();};
+A00000000000000000000005 = {isa = PBXFileReference; path = Acceptance.swift; lastKnownFileType = sourcecode.swift; sourceTree = "<group>";};
+A00000000000000000000006 = {isa = PBXFileReference; path = Acceptance.xctest; explicitFileType = wrapper.cfbundle; sourceTree = BUILT_PRODUCTS_DIR;};
+A00000000000000000000007 = {isa = PBXBuildFile; fileRef = A00000000000000000000005;};
+A00000000000000000000008 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000007); runOnlyForDeploymentPostprocessing = 0;};
+A00000000000000000000009 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+A00000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug;};
+A00000000000000000000011 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000013); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug;};
+A00000000000000000000012 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {SDKROOT = iphonesimulator; IPHONEOS_DEPLOYMENT_TARGET = 18.0;};};
+A00000000000000000000013 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {PRODUCT_BUNDLE_IDENTIFIER = dev.blackcrab.acceptance.ui; PRODUCT_NAME = "$(TARGET_NAME)"; GENERATE_INFOPLIST_FILE = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; SDKROOT = iphonesimulator; IPHONEOS_DEPLOYMENT_TARGET = 18.0; CODE_SIGNING_ALLOWED = YES; CODE_SIGN_IDENTITY = "-"; DEVELOPMENT_TEAM = "";};};
+}; rootObject = A00000000000000000000001; }

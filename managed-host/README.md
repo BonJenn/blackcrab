@@ -49,6 +49,13 @@ macOS folder/link interface without advertising an Electron desktopBridge.
 Project icon patches extend the original settings dialog only for compatible
 local project selections, preserving the optional-capability/browser/Electron
 fallbacks. See [native workspace integration](desktop.md) for authorization and limitations.
+The renderer-origin patch adds the exact `blackcrab://app` and
+`blackcrab-dev://app` origins to the existing native cookie-session trust list.
+A second narrow CORS patch returns that exact production origin with an Origin
+cache variance marker, allowing the native client to distinguish compatible hosts.
+Other browser origins retain their existing CORS behavior. These changes preserve
+bearer authentication; full native attachment and Blackcrab cloud configuration
+remain separate work.
 
 A complete staging tree is hashed and checked before its final rename. The
 manifest records the upstream commit, source patch digests, host target and every

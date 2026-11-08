@@ -110,5 +110,33 @@
         "after": "      ? readExternalProjectFaviconPicker()"
       }
     ]
+  },
+  {
+    "id": "blackcrab-renderer-origin",
+    "file": "007-blackcrab-renderer-origin.patch",
+    "target": "apps/server/src/httpCors.ts",
+    "beforeSha256": "7aa0faadf442b1bc706e7606ae4cf799b98d593019b37c59c2d392a5df78b595",
+    "afterSha256": "60bfd1c632b30a2f5dbdaff47775396749eaaea4c7d0bddcb59eb4565d3fef3b",
+    "sha256": "591d8ed96fd2298f6f2bf2772938db7b70ea2d941e6827a58cb92d9e2e56f639",
+    "replacements": [
+      {
+        "before": "export const DESKTOP_RENDERER_ORIGINS = [\"t3code://app\", \"t3code-dev://app\"] as const;",
+        "after": "export const DESKTOP_RENDERER_ORIGINS = [\"t3code://app\", \"t3code-dev://app\", \"blackcrab://app\", \"blackcrab-dev://app\"] as const;"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-packaged-cors",
+    "file": "008-blackcrab-packaged-cors.patch",
+    "target": "apps/server/src/http.ts",
+    "beforeSha256": "0247640c83ee449c33e448719b44879085ca809df2645bcf428e6a713ba07829",
+    "afterSha256": "634108cc8ec2001e55368b9498411e0543d24293cd471c8b292da9aca4cdb325",
+    "sha256": "00a4fff2714cd4b4a3b8257e7fa695c0d8793655009b55eb877c80335e2f93ff",
+    "replacements": [
+      {
+        "before": "export const layerBrowserApiCors = Layer.unwrap(\n  Effect.gen(function* () {\n    const config = yield* ServerConfig.ServerConfig;\n    const devOrigin = config.devUrl?.origin;\n    // Credentialed dev requests need explicit Vite/Electron origins; packaged desktop uses the default wildcard.\n    return HttpRouter.cors({\n      ...(devOrigin\n        ? {\n            allowedOrigins: [devOrigin, ...DESKTOP_RENDERER_ORIGINS, ...config.devAllowedOrigins],\n            credentials: true,\n          }\n        : {}),\n      allowedMethods: browserApiCorsAllowedMethods,\n      allowedHeaders: browserApiCorsAllowedHeaders,\n      maxAge: 600,\n    });\n  }),\n);\n",
+        "after": "export const layerBrowserApiCors = Layer.unwrap(\n  Effect.gen(function* () {\n    const config = yield* ServerConfig.ServerConfig;\n    const devOrigin = config.devUrl?.origin;\n    // Credentialed dev requests need explicit Vite/Electron origins; packaged desktop uses the default wildcard.\n    const options = {\n      ...(devOrigin\n        ? {\n            allowedOrigins: [devOrigin, ...DESKTOP_RENDERER_ORIGINS, ...config.devAllowedOrigins],\n            credentials: true,\n          }\n        : {}),\n      allowedMethods: browserApiCorsAllowedMethods,\n      allowedHeaders: browserApiCorsAllowedHeaders,\n      maxAge: 600,\n    };\n    const cors = HttpMiddleware.cors(options);\n    const nativeCors = HttpMiddleware.cors({ ...options, allowedOrigins: [\"blackcrab://app\"] });\n    return HttpRouter.middleware(HttpMiddleware.make(app => Effect.gen(function* () {\n      const request = yield* HttpServerRequest.HttpServerRequest;\n      return yield* (request.headers.origin === \"blackcrab://app\" ? nativeCors(app) : cors(app));\n    })), { global: true });\n  }),\n);\n"
+      }
+    ]
   }
 ]

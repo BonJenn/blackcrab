@@ -1,0 +1,26 @@
+--- a/apps/server/src/http.ts
++++ b/apps/server/src/http.ts
+@@ -258,7 +258,7 @@
+     const config = yield* ServerConfig.ServerConfig;
+     const devOrigin = config.devUrl?.origin;
+     // Credentialed dev requests need explicit Vite/Electron origins; packaged desktop uses the default wildcard.
+-    return HttpRouter.cors({
++    const options = {
+       ...(devOrigin
+         ? {
+             allowedOrigins: [devOrigin, ...DESKTOP_RENDERER_ORIGINS, ...config.devAllowedOrigins],
+@@ -268,7 +268,13 @@
+       allowedMethods: browserApiCorsAllowedMethods,
+       allowedHeaders: browserApiCorsAllowedHeaders,
+       maxAge: 600,
+-    });
++    };
++    const cors = HttpMiddleware.cors(options);
++    const nativeCors = HttpMiddleware.cors({ ...options, allowedOrigins: ["blackcrab://app"] });
++    return HttpRouter.middleware(HttpMiddleware.make(app => Effect.gen(function* () {
++      const request = yield* HttpServerRequest.HttpServerRequest;
++      return yield* (request.headers.origin === "blackcrab://app" ? nativeCors(app) : cors(app));
++    })), { global: true });
+   }),
+ );
+ 

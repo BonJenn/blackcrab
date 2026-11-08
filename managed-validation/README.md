@@ -16,7 +16,9 @@ npm exec -- tsc --project managed-validation/tsconfig.json
 The test creates a project through the real CLI and pairs independent write and
 read-only clients. It checks command-ID deduplication, thread metadata updates,
 archive/unarchive, host-enforced rejection of read-only mutations and restoration
-after a complete host restart with the saved credential catalog. Empty run and
+after a complete host restart with the saved credential catalog. Repeated
+desktop-bootstrap exchanges revoke the prior owner bearer session while the
+independently paired client remains authenticated over HTTP and WebSocket. Empty run and
 provider-session projections confirm that no provider was started.
 
 The fixture intentionally supplies a no-prompt SDK permission guard so the
@@ -37,3 +39,9 @@ title; a read-only paired client could not change it. Command deduplication and
 empty run/provider-session projections also passed. The scoped TypeScript check
 passed. CI checks imports and types without opting into a missing native artifact;
 that skipped CI test does not replace the real packaged-host run.
+
+The extended owner/session coexistence check also passed against the same
+verified packaged runtime on 2026-11-07. The session-inspection endpoint returns
+HTTP 200 with `authenticated: false` for a revoked token; the fixture asserts
+that field rather than mistaking HTTP success for authenticated access. This
+server-side result does not certify the native client renewal broker.

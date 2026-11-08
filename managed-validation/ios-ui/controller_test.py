@@ -233,6 +233,42 @@ class InstalledModePolicy(unittest.TestCase):
     else:expected='0'*64
     with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
 
+class WidgetInstallModePolicy(unittest.TestCase):
+ def fixture(self,root,change=None):
+  import struct,plistlib,shutil
+  source=root/'source';widget=source/'PlugIns/ExpoWidgetsTarget.appex';widget.mkdir(parents=True)
+  metadata={'CFBundlePackageType':'XPC!','CFBundleIdentifier':c.APP+'.widgets','CFBundleExecutable':'ExpoWidgetsTarget','DTPlatformName':'iphonesimulator','CFBundleSupportedPlatforms':['iPhoneSimulator'],'MinimumOSVersion':'18.0'}
+  if change=='metadata':metadata['CFBundleIdentifier']='foreign.widgets'
+  (widget/'Info.plist').write_bytes(plistlib.dumps(metadata));(widget/'ExpoWidgetsTarget').write_bytes(b'extension-entry');(widget/'ExpoWidgetsTarget').chmod(0o755)
+  paths=list(c.INSTALL_WIDGET_DYLIB_MODES);policy={}
+  for name in paths:
+   binary=source/name;header=b'\xcf\xfa\xed\xfe'+struct.pack('<7I',0x0100000c,0,2 if change=='not-dylib' else 6,0,0,0,0)
+   if change=='wrong-cpu':header=header[:4]+struct.pack('<I',0x01000007)+header[8:]
+   if change=='truncated':header=header[:20]
+   binary.write_bytes(header);binary.chmod(0o755);policy[name]=c.sha(header)
+  installed=root/'installed';shutil.copytree(source,installed)
+  for name in paths:(installed/name).chmod(0o644)
+  if change=='source-sha':policy[paths[0]]='0'*64
+  if change=='entry-mode':(installed/'PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget').chmod(0o644)
+  if change=='unknown-dylib':
+   for app in [source,installed]:(app/'PlugIns/ExpoWidgetsTarget.appex/unknown.dylib').write_bytes(b'unknown')
+   (source/'PlugIns/ExpoWidgetsTarget.appex/unknown.dylib').chmod(0o755)
+  expected=c.sha(json.dumps(c.inventory(source),sort_keys=True).encode());return source,installed,expected,policy
+ def test_two_widget_dylibs_remain_byte_pinned_and_signature_checked(self):
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as d:
+   source,installed,expected,policy=self.fixture(pathlib.Path(d));calls=[]
+   with patch.object(c,'INSTALL_WIDGET_DYLIB_MODES',policy):
+    self.assertEqual(c.verify_installed_bundle(source,installed,expected,lambda p:calls.append(p)),sorted(policy));self.assertEqual(calls,[installed])
+    def refuse(_):raise ValueError('signature failed')
+    with self.assertRaises(ValueError):c.verify_installed_bundle(source,installed,expected,refuse)
+ def test_widget_entry_unknown_library_metadata_and_binary_changes_fail(self):
+  from unittest.mock import patch
+  for change in ['metadata','not-dylib','wrong-cpu','truncated','source-sha','entry-mode','unknown-dylib']:
+   with self.subTest(change=change),tempfile.TemporaryDirectory() as d:
+    source,installed,expected,policy=self.fixture(pathlib.Path(d),change)
+    with patch.object(c,'INSTALL_WIDGET_DYLIB_MODES',policy),self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
+
 class CleanupOwnershipGuards(unittest.TestCase):
  def test_cooperative_owner_closes_its_real_child_before_worker_interrupt(self):
   import sys,subprocess,time

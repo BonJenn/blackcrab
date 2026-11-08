@@ -8,6 +8,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "deploymentTarget": "18.0",
       "supportsTablet": true,
       "bundleIdentifier": "dev.blackcrab.remote",
       "infoPlist": {

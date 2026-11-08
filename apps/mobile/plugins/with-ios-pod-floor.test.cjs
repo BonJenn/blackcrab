@@ -43,3 +43,13 @@ test('fails closed on unknown or duplicated Expo Podfile hooks', async () => {
   const original = await template(); assert.throws(() => plugin.applyPodFloor(original + '\npost_install do |installer|\nend'), /Unsupported generated/);
   assert.throws(() => plugin.applyPodFloor(original + '\n    # @generated begin blackcrab-ios-pod-floor'), /incomplete/);
 });
+
+// expo-widgets reads config.ios.deploymentTarget directly; build-properties
+// and the generated Podfile floor do not configure the extension target.
+test('owned widget extension and app explicitly share the native dependency floor', () => {
+  const config = require('../app.json').expo;
+  assert.equal(config.ios.deploymentTarget, plugin.FLOOR);
+  const properties = config.plugins.find(value => Array.isArray(value) && value[0] === 'expo-build-properties');
+  assert.equal(properties[1].ios.deploymentTarget, config.ios.deploymentTarget);
+  assert.ok(config.plugins.some(value => Array.isArray(value) && value[0] === 'expo-widgets'));
+});

@@ -161,7 +161,7 @@ export async function verifyGeneratedPodFloor(repo) {
 }
 
 export function isolatedBuildEnvironment(root, original = process.env) {
-  const env = { PATH: path.dirname(process.execPath) + path.delimiter + original.PATH, HOME: path.join(root, 'home'), TMPDIR: path.join(root, 'tmp'), LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8', CI: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_GIT_STATUS: '1', COCOAPODS_DISABLE_STATS: 'true', NPM_CONFIG_USERCONFIG: path.join(root, 'npm-userconfig'), NPM_CONFIG_GLOBALCONFIG: path.join(root, 'npm-globalconfig'), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/usr/bin/false' };
+  const env = { PATH: path.dirname(process.execPath) + path.delimiter + original.PATH, HOME: path.join(root, 'home'), TMPDIR: path.join(root, 'tmp'), LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8', CI: '1', EXTRA_PACKAGER_ARGS: '--max-workers 2', EXPO_NO_TELEMETRY: '1', EXPO_NO_GIT_STATUS: '1', COCOAPODS_DISABLE_STATS: 'true', NPM_CONFIG_USERCONFIG: path.join(root, 'npm-userconfig'), NPM_CONFIG_GLOBALCONFIG: path.join(root, 'npm-globalconfig'), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/usr/bin/false' };
   if (original.DEVELOPER_DIR) env.DEVELOPER_DIR = original.DEVELOPER_DIR;
   return env;
 }
@@ -220,7 +220,7 @@ export async function prepareMobileIos(options = {}) {
       env.ENTRY_FILE = report.entryFile;
       const parent = options.derivedDataParent ? await fs.realpath(options.derivedDataParent) : stage.root;
       report.derivedData = await fs.mkdtemp(path.join(parent, 'blackcrab-ios-derived-'));
-      report.nativeBuild = { sdk: 'iphonesimulator', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: true, jobs: 2 };
+      report.nativeBuild = { sdk: 'iphonesimulator', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: true, jobs: 2, metroWorkers: 2 };
       report.nativeBuild.arguments = simulatorReleaseBuildArguments({ workspace: report.workspace, scheme: report.scheme, destination, derivedData: report.derivedData });
       await run('xcodebuild', 'xcodebuild', report.nativeBuild.arguments, mobile, 60 * 60_000);
       report.products = path.join(report.derivedData, 'Build/Products/Release-iphonesimulator');

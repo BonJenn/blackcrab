@@ -80,6 +80,7 @@ test('native commands preserve shell metacharacters as inert arguments and failu
 test('build environment excludes account/provider/npm credentials and user startup files', () => {
   const env = isolatedBuildEnvironment('/isolated', { PATH: '/tools', HOME: '/user', ANTHROPIC_API_KEY: 'private', EXPO_TOKEN: 'private', NPM_TOKEN: 'private', NODE_OPTIONS: '--require=/user/code', DEVELOPER_DIR: '/Xcode.app/Contents/Developer' });
   assert.equal(env.HOME, '/isolated/home'); assert.equal(env.DEVELOPER_DIR, '/Xcode.app/Contents/Developer');
+  assert.equal(env.EXTRA_PACKAGER_ARGS, '--max-workers 2');
   for (const key of ['ANTHROPIC_API_KEY', 'EXPO_TOKEN', 'NPM_TOKEN', 'NODE_OPTIONS']) assert.equal(env[key], undefined);
 });
 

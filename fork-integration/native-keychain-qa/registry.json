@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "state": "SOURCE_ONLY_NOT_BUILD_OR_LAUNCH_AUTHORITY",
+  "upstream": {
+    "repository": "BonJenn/t3code",
+    "commit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8"
+  },
+  "productionDesktopRegistrySha256": "69f7ccae10191e8449f826b29d5a7f42f402feabcf78b9c25ba9b9cdba323bb4",
+  "stagePredicate": {
+    "fixture": "fixtures/updateChannels.before.ts",
+    "sha256": "6d3892b81e5622234ab6948b138648e207b1b5a6837df726196a11697e5b3a44"
+  },
+  "targets": [
+    {
+      "target": "apps/desktop/src/app/DesktopEnvironment.ts",
+      "fixture": "fixtures/environment.before.ts",
+      "phase": "source",
+      "beforeSha256": "bc6c3cc38247e58fc322b85ae4d003d1eb683cc2377e60cba4efcd5538cb660f",
+      "productionPatchIds": [
+        "blackcrab-environment"
+      ]
+    },
+    {
+      "target": "apps/desktop/src/app/ManagedBootstrap.mjs",
+      "fixture": "fixtures/bootstrap.before.mjs",
+      "phase": "preserved-source",
+      "beforeSha256": "20c35c4e3909c4ea18188fb15dfcc499ef8839021334e514514bb439cb2eadef",
+      "productionPatchIds": [
+        "payload-ManagedBootstrap.mjs",
+        "native-owned-storage-paths"
+      ]
+    },
+    {
+      "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
+      "fixture": "fixtures/descriptor.before.mjs",
+      "phase": "source",
+      "beforeSha256": "bf0526ba6f5a32d00083771eb8a473dcff22353e1a8598234e2af4e298026576",
+      "productionPatchIds": [
+        "payload-descriptor.mjs"
+      ]
+    },
+    {
+      "target": "apps/desktop/src/app/DesktopAppIdentity.ts",
+      "fixture": "fixtures/identity.before.ts",
+      "phase": "preserved-source",
+      "beforeSha256": "89063852cf93ca9d303e0182c63b0c85e594d50634a3161d912f48b379b34dba",
+      "productionPatchIds": []
+    },
+    {
+      "target": "apps/desktop/src/electron/ElectronSafeStorage.ts",
+      "fixture": "fixtures/safe-storage.before.ts",
+      "phase": "preserved-source",
+      "beforeSha256": "ac7e34845e98b1c8302c757cd968c3d10478a0ecc9c2e4061bd8684c07f2f6e2",
+      "productionPatchIds": []
+    },
+    {
+      "target": "apps/desktop/src/main.ts",
+      "fixture": "fixtures/main.before.ts",
+      "phase": "preserved-source",
+      "beforeSha256": "a2dd1d5402d1a811c9682859c3d6a888ec43ba15553654ae74074483cbf75b5c",
+      "productionPatchIds": [
+        "attached-service-graph",
+        "unconfigured-ssh-runtime-distribution"
+      ]
+    },
+    {
+      "target": "Blackcrab.app/Contents/Resources/app/package.json",
+      "fixture": "fixtures/package.before.json",
+      "phase": "package",
+      "beforeSha256": "367f6d3865f8910d0732f53c1696e67f649a625932eac597909a2dc25c1f947e",
+      "artifactManifestSha256": "b7e3a5f37a383ad803803e7881257e6546a9d559a1d42d5e00076ad315d9b891"
+    },
+    {
+      "target": "Blackcrab.app/Contents/Info.plist",
+      "fixture": "fixtures/Info.before.plist",
+      "phase": "package",
+      "beforeSha256": "ce112236aaa06049b28bb12a567e1dc9fff0f190a46fdc9e9952912b2d1f6f68",
+      "artifactManifestSha256": "b7e3a5f37a383ad803803e7881257e6546a9d559a1d42d5e00076ad315d9b891"
+    },
+    {
+      "target": "apps/desktop/src/app/managed-desktop/environment.mjs",
+      "fixture": "fixtures/managed-environment.before.mjs",
+      "phase": "preserved-source",
+      "beforeSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
+      "productionPatchIds": [
+        "native-os-home-environment-mjs"
+      ]
+    }
+  ]
+}

@@ -133,11 +133,11 @@ window.addEventListener('message', async event => {
   if (p?.kind !== 'blackcrab-qa-start') return;
   const reply = value => parent.postMessage({kind:'blackcrab-qa-result',id:p.id,...value}, event.origin);
   if (p.mode === 'postMessage') {
-    try { window.webkit.messageHandlers.ipc.postMessage(JSON.stringify({cmd:'managed_native_open_external',callback:p.callback,error:p.error,payload:{generation:p.generation,url:'file:///tmp/blackcrab-qa-never-open'},__TAURI_INVOKE_KEY__:p.key})); }
+    try { window.webkit.messageHandlers.ipc.postMessage(JSON.stringify({cmd:p.command,callback:p.callback,error:p.error,payload:p.payload,__TAURI_INVOKE_KEY__:p.key})); }
     catch (error) { reply({transportFailure:String(error)}); }
   } else {
     try {
-      const response = await fetch('ipc://localhost/managed_native_open_external', {method:'POST',headers:{'Content-Type':'application/json','Tauri-Callback':String(p.callback),'Tauri-Error':String(p.error),'Tauri-Invoke-Key':p.key},body:JSON.stringify({generation:p.generation,url:'file:///tmp/blackcrab-qa-never-open'})});
+      const response = await fetch('ipc://localhost/'+p.command, {method:'POST',headers:{'Content-Type':'application/json','Tauri-Callback':String(p.callback),'Tauri-Error':String(p.error),'Tauri-Invoke-Key':p.key},body:JSON.stringify(p.payload)});
       reply({response:await response.text(),responseKind:response.headers.get('Tauri-Response')});
     } catch(error) { reply({transportFailure:String(error)}); }
   }
@@ -228,7 +228,7 @@ async fn run(
         .ok_or("Missing QA managed window")?;
     let report_url = format!("{}/report/{nonce}", first.origin);
     let encoded = json!({"reportUrl":report_url,"origins":[first.origin,second.origin],"key":app.invoke_key(),"grant":grant}).to_string();
-    let deadline = Instant::now() + Duration::from_secs(90);
+    let deadline = Instant::now() + Duration::from_secs(150);
     // eval waits for native initialization and actual authenticated page readiness.
     let main_script = format!(
         r#"(() => {{ if(window.__blackcrabQaMain) return; if(!window.__TAURI_INTERNALS__?.invoke)return; window.__blackcrabQaMain=true; const q={encoded}; window.__TAURI_INTERNALS__.invoke('default_cwd').then(value => fetch(q.reportUrl,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{kind:'main',passed:typeof value==='string',command:'default_cwd'}})}})).catch(error=>fetch(q.reportUrl,{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{kind:'main',passed:false,error:String(error)}})}})); }})();"#
@@ -274,11 +274,12 @@ window.__blackcrabQaManaged = true;
  const deny = value => /not allowed (?:on (?:window|origin)|by ACL)|explicitly denied on origin/i.test(String(value)) && !/QA_TIMEOUT/.test(String(value));
  const rejected = async (id,fn,check) => {try {const value=await bounded(fn());results.push({id,passed:false,error:'Unexpected success',value});}catch(error){results.push({id,passed:check(String(error)),error:String(error)});}};
  await rejected('managed-positive-validator',()=>window.blackcrabNative.openExternal('file:///tmp/blackcrab-qa-never-open'), e=>e.includes('External URL must use HTTP or HTTPS'));
+ await rejected('managed-favicon-local-target-validator',()=>window.blackcrabNative.pickProjectFavicon({targetEnvironmentId:'env_remote'}),e=>e.includes('Folder selection requires the local managed environment'));
  for(const [cmd,args] of [['list_sessions',{}],['read_text_file',{path:'/tmp/blackcrab-qa-never-read'}],['plugin:dialog|open',{}]]) {
    await rejected('managed-denied-'+cmd,()=>window.__TAURI_INTERNALS__.invoke(cmd,args),deny);
  }
- const frameTest = async (origin,mode,index) => {
-   const id=`cross-origin-${index}-${mode}`;
+ const frameTest = async (origin,mode,index,command) => {
+   const id=`cross-origin-${index}-${mode}-${command}`;
    const frame=document.createElement('iframe'); frame.src=origin+'/frame'; document.body.appendChild(frame);
    try { await bounded(new Promise((resolve,reject)=>{
      let started=false;
@@ -289,15 +290,15 @@ window.__blackcrabQaManaged = true;
      function onMessage(event) {
        if(event.source!==frame.contentWindow || event.origin!==origin)return;
        if(event.data?.kind==='blackcrab-qa-ready' && !started) {
-         started=true;frame.contentWindow.postMessage({kind:'blackcrab-qa-start',id,mode,key:q.key,generation:q.grant.generation,callback,error},origin);
+         started=true;frame.contentWindow.postMessage({kind:'blackcrab-qa-start',id,mode,command,key:q.key,payload:{generation:q.grant.generation,url:'file:///tmp/blackcrab-qa-never-open',options:{targetEnvironmentId:'env_remote'}},callback,error},origin);
        } else if(event.data?.kind==='blackcrab-qa-result' && event.data.id===id) success(event.data);
      }
      window.addEventListener('message',onMessage);
    })).then(value=>results.push({id,passed:value.responseKind==='error' && deny(value.response),responseKind:value.responseKind,error:String(value.response ?? value.transportFailure)}));
    }catch(error){results.push({id,passed:false,error:String(error)});}finally{frame.remove();}
  };
- for(let i=0;i<q.origins.length;i++)for(const mode of ['fetch','postMessage'])await frameTest(q.origins[i],mode,i);
- await fetch(q.reportUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'managed',passed:results.length===8 && results.every(r=>r.passed),results})});
+ for(let i=0;i<q.origins.length;i++)for(const mode of ['fetch','postMessage'])for(const command of ['managed_native_open_external','managed_native_pick_project_favicon'])await frameTest(q.origins[i],mode,i,command);
+ await fetch(q.reportUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'managed',passed:results.length===13 && results.every(r=>r.passed),results})});
 })().catch(async error=>{const q=__blackcrabQaConfig;await fetch(q.reportUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'managed',passed:false,error:String(error)})});});
 "#;
 

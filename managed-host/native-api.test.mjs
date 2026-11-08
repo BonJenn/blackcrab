@@ -7,15 +7,17 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 const original = await fs.readFile(new URL('./fixtures/local-api.before.ts', import.meta.url), 'utf8');
 const registry = JSON.parse(await fs.readFile(new URL('./patches/registry.json', import.meta.url), 'utf8'));
-const patch = registry.find(entry => entry.id === 'managed-native-local-api');
+const patches = registry.filter(entry => entry.target === 'apps/web/src/localApi.ts');
 const hash = text => createHash('sha256').update(text).digest('hex');
-assert.equal(hash(original), patch.beforeSha256);
 let patched = original;
-for (const replacement of patch.replacements) {
-  assert.equal(patched.split(replacement.before).length, 2);
-  patched = patched.replace(replacement.before, replacement.after);
+for (const patch of patches) {
+  assert.equal(hash(patched), patch.beforeSha256);
+  for (const replacement of patch.replacements) {
+    assert.equal(patched.split(replacement.before).length, 2);
+    patched = patched.replace(replacement.before, replacement.after);
+  }
+  assert.equal(hash(patched), patch.afterSha256);
 }
-assert.equal(hash(patched), patch.afterSha256);
 const javascript = ts.transpileModule(patched, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 function client(native, desktop, withWindow = true) {
   const calls = [], exports = {};
@@ -132,4 +134,61 @@ test('native adapter typechecks against the retained canonical LocalApi contract
   const program = ts.createProgram([root + 'localApi.ts', root + 'desktop.d.ts'], options, host);
   const diagnostics = ts.getPreEmitDiagnostics(program);
   assert.equal(diagnostics.length, 0, ts.formatDiagnostics(diagnostics, { getCurrentDirectory: () => process.cwd(), getCanonicalFileName: file => file, getNewLine: () => '\n' }));
+});
+
+test('optional project-icon capability preserves old bridges and forwards only local picker options', async () => {
+  const base = { apiVersion: 1, pickFolder: async () => null, openExternal: async () => true };
+  assert.equal(client(base).module.readBlackcrabNativeProjectFaviconPicker(), undefined);
+  const requests = [], native = { ...base, pickProjectFavicon: async options => { requests.push(options); return '/outside/project/Icon.ICNS'; } };
+  const c = client(native);
+  assert.equal(await c.module.readBlackcrabNativeProjectFaviconPicker()('/workspace'), '/outside/project/Icon.ICNS');
+  assert.deepEqual(JSON.parse(JSON.stringify(requests)), [{ initialPath: '/workspace' }]);
+  native.pickProjectFavicon = async () => null;
+  assert.equal(await c.module.readBlackcrabNativeProjectFaviconPicker()(), null);
+  native.pickProjectFavicon = async () => { throw Error('image picker unavailable'); };
+  await assert.rejects(c.module.readBlackcrabNativeProjectFaviconPicker()('/workspace'), /unavailable/);
+  for (const value of [null, 1, 'unsupported']) assert.equal(client({ ...base, pickProjectFavicon: value }).module.readBlackcrabNativeProjectFaviconPicker(), undefined);
+});
+async function patchedFixture(fixture, target) {
+  let text = await fs.readFile(new URL('./fixtures/' + fixture, import.meta.url), 'utf8');
+  for (const entry of registry.filter(entry => entry.target === target)) {
+    assert.equal(hash(text), entry.beforeSha256);
+    for (const replacement of entry.replacements) { assert.equal(text.split(replacement.before).length, 2); text = text.replace(replacement.before, replacement.after); }
+    assert.equal(hash(text), entry.afterSha256);
+  }
+  return text;
+}
+test('exported icon adapter preserves browser/Electron support and native cancellation/errors', async () => {
+  const source = await patchedFixture('project-favicon-picker.before.tsx', 'apps/web/src/components/settings/ProjectFaviconPickerDialog.tsx');
+  const tree = ts.createSourceFile('picker.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const adapter = tree.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'readExternalProjectFaviconPicker');
+  assert.ok(adapter);
+  const js = ts.transpileModule(adapter.getText(tree), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  function picker(native, desktop, withWindow = true) {
+    const c = client(native, desktop, withWindow), exports = {};
+    vm.runInNewContext(js, { exports, ...(withWindow ? { window: c.window } : {}), readBlackcrabNativeProjectFaviconPicker: c.module.readBlackcrabNativeProjectFaviconPicker });
+    return exports.readExternalProjectFaviconPicker();
+  }
+  assert.equal(picker(undefined, undefined), undefined);
+  assert.equal(picker(undefined, undefined, false), undefined);
+  const desktop = { pickProjectFavicon: async path => 'electron:' + path };
+  assert.equal(await picker(undefined, desktop)('/project'), 'electron:/project');
+  const base = { apiVersion: 1, pickFolder: async () => null, openExternal: async () => true };
+  assert.equal(await picker(base, desktop)('/project'), 'electron:/project');
+  assert.equal(await picker({ ...base, pickProjectFavicon: async () => null }, desktop)('/project'), null);
+  await assert.rejects(picker({ ...base, pickProjectFavicon: async () => { throw Error('native failure'); } }, desktop)('/project'), /native failure/);
+});
+test('project icon entry requires every member to remain primary and locally eligible', async () => {
+  const source = await patchedFixture('project-settings.before.tsx', 'apps/web/src/components/settings/ProjectSettingsPanel.tsx');
+  const match = source.match(/const pickProjectFavicon =([\s\S]*?);/); assert.ok(match);
+  function gate(members, withWindow = true) {
+    let adapterCalls = 0;
+    const chosen = vm.runInNewContext('(' + match[1] + ')', { ...(withWindow ? { window: {} } : {}), group: { memberProjects: members }, primaryEnvironmentId: 'primary', navigator: { platform: 'MacIntel' }, canPickExternalProjectFavicon: cwd => cwd.startsWith('/'), readExternalProjectFaviconPicker: () => { adapterCalls++; return 'picker'; } });
+    return { chosen, adapterCalls };
+  }
+  assert.deepEqual(gate([{ environmentId: 'primary', workspaceRoot: '/workspace' }]), { chosen: 'picker', adapterCalls: 1 });
+  for (const members of [[{ environmentId: 'remote', workspaceRoot: '/workspace' }], [{ environmentId: 'primary', workspaceRoot: '/workspace' }, { environmentId: 'remote', workspaceRoot: '/other' }], [{ environmentId: 'primary', workspaceRoot: 'C:\\WSL' }]]) {
+    assert.deepEqual(gate(members), { chosen: undefined, adapterCalls: 0 });
+  }
+  assert.deepEqual(gate([{ environmentId: 'primary', workspaceRoot: '/workspace' }], false), { chosen: undefined, adapterCalls: 0 });
 });

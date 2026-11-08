@@ -1,0 +1,19 @@
+--- a/apps/web/src/components/settings/ProjectSettingsPanel.tsx
++++ b/apps/web/src/components/settings/ProjectSettingsPanel.tsx
+@@ -46,6 +46,7 @@
+ } from "./settingsLayout";
+ import {
+   canPickExternalProjectFavicon,
++  readExternalProjectFaviconPicker,
+   ProjectFaviconPickerDialog,
+ } from "./ProjectFaviconPickerDialog";
+ import { ProjectActionsSettings } from "./ProjectActionsSettings";
+@@ -290,7 +291,7 @@
+         member.environmentId === primaryEnvironmentId &&
+         canPickExternalProjectFavicon(member.workspaceRoot, navigator.platform),
+     )
+-      ? window.desktopBridge?.pickProjectFavicon
++      ? readExternalProjectFaviconPicker()
+       : undefined;
+ 
+   const { updateProjectGroup, canOrganizeProjectGroup } = useProjectGroupUpdate();

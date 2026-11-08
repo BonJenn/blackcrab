@@ -32,8 +32,8 @@ one-time input pipe. Rotating HMAC tokens reach the web client in the URL
 fragment, which the client exchanges for an HttpOnly session cookie and removes.
 The frontend entry receives status only, never tokens or origins. The managed
 window may navigate only within the current verified host origin. On macOS it
-receives a narrowly scoped native capability for folder selection and HTTP(S)
-external links. It cannot invoke the main window's managed commands or general
+receives a narrowly scoped native capability for folder selection, project-icon
+selection and HTTP(S) external links. It cannot invoke the main window's managed commands or general
 file/dialog plugins. No partial Electron desktop bridge is injected.
 
 This first attachment uses the packaged web client in a Tauri window. It does not
@@ -82,7 +82,7 @@ QA app and host were stopped afterward. No user session was opened or resumed.
 ## Native folder and link integration
 
 The packaged web client uses a separate, immutable `window.blackcrabNative`
-version-1 interface. Its two methods implement the existing LocalApi folder and
+version-1 interface. Its initial two methods implement the existing LocalApi folder and
 external-link contracts. Browser and Electron behavior remain covered by source
 adapter tests. Native errors propagate without falling through to another opener.
 The Command Palette exposes native folder browsing only for the primary local
@@ -130,3 +130,35 @@ for its exact identifier and bundle path, including after a fresh automation
 session. The owned app and captured host were stopped after validating executable
 arguments, user, process group and data root. This limitation is not a folder
 interaction pass and does not close the corresponding parity scenario.
+
+## External project icons
+
+The optional version-1 `pickProjectFavicon` capability connects the original
+project settings dialog to the native single-file picker. Earlier version-1
+bridges continue to work without this optional method. Ordinary browser and
+Electron behavior remain available. The settings entry requires every selected
+project to belong to the primary environment and to have a compatible local
+workspace path; mixed or remote project groups never expose this picker.
+
+The picker accepts the 14 pinned image extensions, including `.icns`. Its filter
+is advisory: the returned path independently must be absolute, bounded, valid
+UTF-8, free of control characters and a regular non-symlink file with a supported
+extension. The authenticated grant is checked again after the dialog closes.
+Only a selected path is returned; image decoding, project persistence and signed
+image delivery remain in the existing host services. No general native file-read
+method is added.
+
+Validation passed for all 42 managed-host/source tests, eight focused native
+bridge/QA tests and the real WKWebView access fixture (13 managed checks plus the
+existing main-window command). The new command rejected cross-origin fetch and
+postMessage invocations, including the stale-capability origin. A real packaged
+host accepted a fixture external PNG, rejected a read-only update with HTTP 403,
+served signed PNG bytes and recovered the configured path/image after restart.
+This tests host persistence and asset handling; it does not certify native picker
+cancellation or selection, which remain unverified under the recorded computer
+automation limitation.
+
+The six-patch arm64 package contains 3,732 payload files / 355,980,384 bytes and
+manifest SHA-256
+`c3c509355f235db0b23e0d6a0c109368920f4767edacc5811f39cbeef4c73ea5`.
+Full native UI and cross-platform scenario parity remain open.

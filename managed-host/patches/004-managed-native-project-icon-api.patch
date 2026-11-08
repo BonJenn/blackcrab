@@ -1,0 +1,24 @@
+--- a/apps/web/src/localApi.ts
++++ b/apps/web/src/localApi.ts
+@@ -8,6 +8,7 @@
+   apiVersion: 1;
+   pickFolder: LocalApi["dialogs"]["pickFolder"];
+   openExternal: (url: string) => Promise<boolean>;
++  pickProjectFavicon?: (options?: Parameters<LocalApi["dialogs"]["pickFolder"]>[0]) => Promise<string | null>;
+ }>;
+ 
+ declare global {
+@@ -22,6 +23,13 @@
+     typeof bridge.pickFolder === "function" &&
+     typeof bridge.openExternal === "function"
+     ? bridge
++    : undefined;
++}
++
++export function readBlackcrabNativeProjectFaviconPicker(): ((initialPath?: string) => Promise<string | null>) | undefined {
++  const picker = readBlackcrabNativeBridge()?.pickProjectFavicon;
++  return typeof picker === "function"
++    ? (initialPath) => picker(initialPath === undefined ? undefined : { initialPath })
+     : undefined;
+ }
+ 

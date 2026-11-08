@@ -115,5 +115,18 @@ manifest SHA-256
 `0bcf99ef96fb7e0713d9503d8b917119c359e651fe010efc889ac9c79c3192d6`.
 Its three registered patches preserve exact pinned before/after/diff hashes.
 Native integration does not certify the remaining Electron facilities or full
-scenario parity. Folder-dialog interaction and final production smoke evidence
-will be recorded with this increment's validation results.
+scenario parity.
+
+The rebuilt package passed its two-start isolated smoke: protected project access
+returned 401, local client assets loaded, project state recovered after restart,
+and environment identity remained stable without host Node on PATH. Thirty-nine
+package/source adapter tests and seven focused native bridge/QA tests passed.
+A fresh real WKWebView fixture run passed all access-control checks and stayed
+alive after the test-only KEEP_OPEN fix. No provider was called.
+
+Native folder cancellation and selection remain unverified: computer automation
+recognized the live QA application but repeatedly returned `cgWindowNotFound`
+for its exact identifier and bundle path, including after a fresh automation
+session. The owned app and captured host were stopped after validating executable
+arguments, user, process group and data root. This limitation is not a folder
+interaction pass and does not close the corresponding parity scenario.

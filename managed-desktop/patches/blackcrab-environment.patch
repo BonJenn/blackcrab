@@ -1,0 +1,36 @@
+--- a/apps/desktop/src/app/DesktopEnvironment.ts
++++ b/apps/desktop/src/app/DesktopEnvironment.ts
+@@ -85,7 +85,7 @@
+   }
+ >()("@t3tools/desktop/app/DesktopEnvironment") {}
+ 
+-const APP_BASE_NAME = "T3 Code";
++const APP_BASE_NAME = "Blackcrab";
+ 
+ function resolveDesktopAppStageLabel(input: {
+   readonly isDevelopment: boolean;
+@@ -148,14 +148,7 @@
+   const homeDirectory = input.homeDirectory;
+   const devServerUrl = config.devServerUrl;
+   const isDevelopment = Option.isSome(devServerUrl);
+-  const appDataDirectory =
+-    input.platform === "win32"
+-      ? Option.getOrElse(config.appDataDirectory, () =>
+-          path.join(homeDirectory, "AppData", "Roaming"),
+-        )
+-      : input.platform === "darwin"
+-        ? path.join(homeDirectory, "Library", "Application Support")
+-        : Option.getOrElse(config.xdgConfigHome, () => path.join(homeDirectory, ".config"));
++  const appDataDirectory = path.join(Option.getOrElse(config.t3Home, () => { throw Error("Managed profile descriptor is required"); }), "app-data");
+   const baseDir = resolveDesktopBaseDir({
+     homeDirectory,
+     joinPath: path.join,
+@@ -228,7 +221,7 @@
+     branding,
+     displayName,
+     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
+-      isDevelopment ? "com.t3tools.t3code.dev" : "com.t3tools.t3code",
++      "com.blackcrab.desktop.managed",
+     ),
+     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
+     linuxApplicationsDir,

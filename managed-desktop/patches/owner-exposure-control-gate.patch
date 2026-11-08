@@ -1,0 +1,18 @@
+--- a/apps/desktop/src/ipc/methods/serverExposure.ts
++++ b/apps/desktop/src/ipc/methods/serverExposure.ts
+@@ -31,6 +31,7 @@
+   payload: DesktopServerExposureModeSchema,
+   result: DesktopServerExposureStateSchema,
+   handler: Effect.fn("desktop.ipc.serverExposure.setMode")(function* (mode) {
++    return yield* Effect.die("OwnerControl unavailable: server exposure");
+     const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+     const serverExposure = yield* DesktopServerExposure.DesktopServerExposure;
+     const change = yield* serverExposure.setMode(mode);
+@@ -46,6 +47,7 @@
+   payload: SetTailscaleServeEnabledInput,
+   result: DesktopServerExposureStateSchema,
+   handler: Effect.fn("desktop.ipc.serverExposure.setTailscaleServeEnabled")(function* (input) {
++    return yield* Effect.die("OwnerControl unavailable: Tailscale exposure");
+     const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+     const serverExposure = yield* DesktopServerExposure.DesktopServerExposure;
+     const change = yield* serverExposure.setTailscaleServeEnabled(input);

@@ -1,0 +1,19 @@
+--- a/apps/web/src/components/HostedEmptyState.tsx
++++ b/apps/web/src/components/HostedEmptyState.tsx
+@@ -150,14 +150,14 @@
+     <>
+       <p>Run on your computer:</p>
+       <CommandBlock command={command} className="mt-2" />
+-      <a
++      {DESKTOP_DOWNLOAD_URL ? <a
+         className="mt-2 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+         href={DESKTOP_DOWNLOAD_URL}
+         target="_blank"
+         rel="noreferrer noopener"
+       >
+         Or download the desktop app
+-      </a>
++      </a> : null}
+     </>
+   );
+ }

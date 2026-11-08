@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/app/DesktopCliCommand.ts
++++ b/apps/desktop/src/app/DesktopCliCommand.ts
+@@ -289,7 +289,7 @@
+     return yield* state;
+   }).pipe(Effect.withSpan("desktop.cliCommand.uninstall"));
+ 
+-  return DesktopCliCommand.of({ state, install, uninstall });
++  return DesktopCliCommand.of({ state: Effect.succeed({ supported: false, installedPath: null, onPath: false, launcherPath: null }), install: Effect.fail(new DesktopCliCommandError({ message: "Blackcrab CLI distribution/OwnerControl is not configured" })), uninstall: Effect.fail(new DesktopCliCommandError({ message: "Blackcrab CLI distribution/OwnerControl is not configured" })) });
+ });
+ 
+ export const layer = Layer.effect(DesktopCliCommand, make);

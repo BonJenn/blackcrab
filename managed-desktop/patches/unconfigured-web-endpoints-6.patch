@@ -1,0 +1,20 @@
+--- a/apps/web/src/lib/bootError.ts
++++ b/apps/web/src/lib/bootError.ts
+@@ -1,7 +1,7 @@
+ import type { DesktopBridge, DesktopUpdateState } from "@t3tools/contracts";
+ 
+ const FALLBACK_TRIAGE_COMMAND = "npx t3 triage";
+-const DOWNLOAD_URL = "https://t3.codes/download";
++const DOWNLOAD_URL = "";
+ const ISSUE_URL = "https://github.com/pingdotgg/t3code/issues/new";
+ const LAST_FAILURE_KEY = "t3code:boot-failed-at";
+ const REPEAT_FAILURE_MS = 5 * 60_000;
+@@ -354,7 +354,7 @@
+ 
+   const more = element("details", { open: isRepeatFailure(Date.now()) }, [
+     element("summary", { textContent: "More options if it keeps failing" }),
+-    ...(bridge
++    ...(bridge && DOWNLOAD_URL
+       ? [
+           link(
+             nightly ? `${DOWNLOAD_URL}?channel=nightly` : DOWNLOAD_URL,

@@ -1,0 +1,11 @@
+{
+  "descriptor": {
+    "version": 1,
+    "owner": {"kind":"blackcrab-managed-host","generation":1,"environmentId":"12345678-1234-1234-1234-123456789abc","origin":"http://127.0.0.1:32123/","serverVersion":"0.1.7","orchestrationProtocolVersion":2},
+    "profile": {"root":"/private/owned","namespace":"blackcrab-managed-v1","appId":"com.blackcrab.desktop.managed"},
+    "control": {"kind":"unavailable"},
+    "authorization": {"kind":"paired-credential","credential":"23456789ABCD","expiresAt":0,"renewal":{"kind":"owner-credential-fd-v1","fd":4}}
+  },
+  "request": {"version":1,"kind":"native-client-credential","requestId":"87654321-1234-1234-1234-123456789abc","generation":1,"environmentId":"12345678-1234-1234-1234-123456789abc"},
+  "reply": {"version":1,"kind":"paired-credential","requestId":"87654321-1234-1234-1234-123456789abc","generation":1,"environmentId":"12345678-1234-1234-1234-123456789abc","credential":"23456789ABCD","expiresAt":0}
+}

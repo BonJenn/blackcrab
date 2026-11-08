@@ -8,6 +8,7 @@ mod managed_artifact;
 mod managed_bridge;
 #[cfg(feature = "managed-bridge-qa")]
 mod managed_bridge_qa;
+mod managed_desktop;
 mod managed_host;
 mod pairing;
 mod provider;

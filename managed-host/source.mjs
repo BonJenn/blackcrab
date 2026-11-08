@@ -12,26 +12,71 @@ export async function archiveDigest(file) {
   for await (const bytes of createReadStream(file)) digest.update(bytes);
   return digest.digest('hex');
 }
-export async function applySourcePatches(root) {
-  const registry = JSON.parse(await fs.readFile(path.join(patchesRoot, 'registry.json'), 'utf8'));
-  const applied = [];
-  for (const patch of registry) {
-    const diff = await fs.readFile(path.join(patchesRoot, patch.file));
-    if (hash(diff) !== patch.sha256) throw new Error('Managed source patch digest mismatch');
-    const file = path.join(root, patch.target);
-    const stat = await fs.lstat(file);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Managed source patch target is not a regular file');
-    let contents = await fs.readFile(file, 'utf8');
-    if (hash(contents) !== patch.beforeSha256) throw new Error(`Pinned source differs before patch: ${patch.id}`);
-    for (const replacement of patch.replacements) {
-      if (contents.split(replacement.before).length !== 2) throw new Error(`Source patch does not match uniquely: ${patch.id}`);
-      contents = contents.replace(replacement.before, replacement.after);
-    }
-    if (hash(contents) !== patch.afterSha256) throw new Error(`Managed source patch result mismatch: ${patch.id}`);
-    await fs.writeFile(file, contents);
-    applied.push({ id: patch.id, sha256: patch.sha256 });
+const validHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+const relative = value => {
+  if (typeof value !== 'string' || !value || value.includes('\\') || value.includes(':') || (/[\r\n\0]/.test(value)) || value.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Unsafe managed patch path');
+  return value;
+};
+async function directory(value) {
+  const stat = await fs.lstat(value);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Managed patch directory is not a regular directory');
+  return fs.realpath(value);
+}
+async function targetWithin(base, name, missingParents) {
+  const parts = relative(name).split('/'); let current = base;
+  for (const part of parts.slice(0, -1)) {
+    current = path.join(current, part);
+    try { const stat = await fs.lstat(current); if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Managed patch parent is not a regular directory'); }
+    catch (error) { if (error.code !== 'ENOENT' || !missingParents) throw error; }
   }
-  return applied;
+  return path.join(base, ...parts);
+}
+/** Preflight the complete record chain before writing anything; payloads never overwrite files. */
+export async function applySourcePatchRecords(root, { records, patchDirectory = patchesRoot }) {
+  if (!Array.isArray(records) || records.length > 1024) throw new Error('Invalid managed source patch registry');
+  const sourceRoot = await directory(root), patchRoot = await directory(patchDirectory), states = new Map(), ids = new Set();
+  for (const patch of records) {
+    if (!patch || typeof patch.id !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(patch.id) || ids.has(patch.id) || !validHash(patch.sha256) || !validHash(patch.afterSha256) || (patch.kind !== undefined && patch.kind !== 'payload')) throw new Error('Invalid managed source patch record');
+    ids.add(patch.id);
+    const name = relative(patch.target), target = await targetWithin(sourceRoot, name, patch.kind === 'payload' || states.has(name));
+    const patchFile = await targetWithin(patchRoot, patch.file, false), patchStat = await fs.lstat(patchFile);
+    if (!patchStat.isFile() || patchStat.isSymbolicLink()) throw new Error('Managed patch data is not a regular file');
+    const bytes = await fs.readFile(patchFile);
+    if (hash(bytes) !== patch.sha256) throw new Error('Managed source patch digest mismatch');
+    let state = states.get(name);
+    if (!state) {
+      let contents = null;
+      try { const stat = await fs.lstat(target); if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) throw new Error('Managed source target is not a regular file'); contents = await fs.readFile(target); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      state = { target, initialExists: contents !== null, contents }; states.set(name, state);
+    }
+    let output;
+    if (patch.kind === 'payload') {
+      if (patch.beforeSha256 !== null || state.contents !== null) throw new Error('Managed payload target must be absent');
+      output = bytes;
+    } else {
+      if (!validHash(patch.beforeSha256) || state.contents === null || hash(state.contents) !== patch.beforeSha256) throw new Error(`Pinned source differs before patch: ${patch.id}`);
+      if (!Array.isArray(patch.replacements) || !patch.replacements.length) throw new Error('Managed patch replacements missing');
+      let contents = state.contents.toString('utf8');
+      if (!Buffer.from(contents).equals(state.contents)) throw new Error('Managed replacement target is not UTF-8');
+      for (const replacement of patch.replacements) {
+        if (typeof replacement.before !== 'string' || !replacement.before || typeof replacement.after !== 'string' || contents.split(replacement.before).length !== 2) throw new Error(`Source patch does not match uniquely: ${patch.id}`);
+        contents = contents.replace(replacement.before, () => replacement.after);
+      }
+      output = Buffer.from(contents);
+    }
+    if (hash(output) !== patch.afterSha256) throw new Error(`Managed source patch result mismatch: ${patch.id}`);
+    state.contents = output;
+  }
+  for (const state of states.values()) {
+    await fs.mkdir(path.dirname(state.target), { recursive: true });
+    await fs.writeFile(state.target, state.contents, state.initialExists ? undefined : { flag: 'wx' });
+  }
+  return records.map(({ id, sha256 }) => ({ id, sha256 }));
+}
+export async function applySourcePatches(root) {
+  const records = JSON.parse(await fs.readFile(path.join(patchesRoot, 'registry.json'), 'utf8'));
+  return applySourcePatchRecords(root, { records });
 }
 /** Only the exact archived target is extracted; callers never build a mutable user checkout. */
 export async function extractPinnedSourceArchive(archive, cacheDir) {

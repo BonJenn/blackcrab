@@ -57,6 +57,15 @@ Other browser origins retain their existing CORS behavior. These changes preserv
 bearer authentication; full native attachment and Blackcrab cloud configuration
 remain separate work.
 
+The managed owner challenges an existing loopback listener before sending its
+bootstrap credential. Patch 009 exposes a nonce-bound HMAC proof only on an
+explicit owned loopback binding with a bootstrap secret. The proof binds the
+configured origin, environment and protocol versions; request Host/Origin
+headers cannot choose those values. This authenticates possession of the
+owner secret at challenge time; it does not provide TLS or continuous channel
+attestation. Packages predating this patch must be rebuilt before attachment.
+An unrelated listener is refused without sending it the bootstrap credential.
+
 A complete staging tree is hashed and checked before its final rename. The
 manifest records the upstream commit, source patch digests, host target and every
 regular file's path, byte count, SHA-256 and executable flag. Extra/missing/changed

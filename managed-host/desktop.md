@@ -31,9 +31,10 @@ Bootstrap secrets are stored in private native configuration and sent over a
 one-time input pipe. Rotating HMAC tokens reach the web client in the URL
 fragment, which the client exchanges for an HttpOnly session cookie and removes.
 The frontend entry receives status only, never tokens or origins. The managed
-window may navigate only within the current verified host origin, has no remote
-Tauri capability and cannot invoke the main window's managed commands. No partial
-Electron desktop bridge is injected.
+window may navigate only within the current verified host origin. On macOS it
+receives a narrowly scoped native capability for folder selection and HTTP(S)
+external links. It cannot invoke the main window's managed commands or general
+file/dialog plugins. No partial Electron desktop bridge is injected.
 
 This first attachment uses the packaged web client in a Tauri window. It does not
 certify native desktop bridge features, full remote native iOS workflows, actual
@@ -77,3 +78,55 @@ matched, and a fresh native-secret-derived exchange authenticated successfully.
 The QA app's relaunch process ran, but automation could not expose a window
 (timeouts/noWindowsAvailable), so GUI relaunch is not certified. The captured
 QA app and host were stopped afterward. No user session was opened or resumed.
+
+## Native folder and link integration
+
+The packaged web client uses a separate, immutable `window.blackcrabNative`
+version-1 interface. Its two methods implement the existing LocalApi folder and
+external-link contracts. Browser and Electron behavior remain covered by source
+adapter tests. Native errors propagate without falling through to another opener.
+The Command Palette exposes native folder browsing only for the primary local
+environment; selecting a remote environment never opens this computer's picker.
+
+A grant binds an authenticated live environment, exact loopback origin/port, and
+random generation to a unique native window label. Host replacement retires the
+previous grant. Each invocation revalidates the live host, and folder selection
+revalidates after the dialog returns. Folder hints must be bounded absolute paths;
+external links accept bounded HTTP(S) URLs without credentials or control
+characters. Windows and Linux do not receive this interface pending native
+provenance and lifecycle verification.
+
+Capabilities deliberately contain no numeric command scopes: Tauri 2.11.1's
+runtime capability installation can reuse scope IDs. Unique window labels prevent
+older grants from authorizing a newly created managed window. macOS fetch IPC
+uses the browser-supplied Origin; fallback WKScriptMessage IPC uses the invoking
+frame's request URL. Cross-origin iframe rejection was tested on both transports,
+including an origin with a stale capability for a different window label.
+Same-URL sandboxed opaque-origin frame behavior remains unverified.
+
+The explicit `managed-bridge-qa` Cargo feature supplies disposable native fixtures
+and reports. It requires a QA bundle identifier; production builds exclude these
+fixtures, navigation exceptions, invoke-key access and process reports. Captured
+child process identity, rather than a runtime PID record, controls fixture cleanup.
+No provider request is needed for these checks.
+
+The rebuilt arm64 package contains 3,729 payload files / 355,973,950 bytes and
+manifest SHA-256
+`0bcf99ef96fb7e0713d9503d8b917119c359e651fe010efc889ac9c79c3192d6`.
+Its three registered patches preserve exact pinned before/after/diff hashes.
+Native integration does not certify the remaining Electron facilities or full
+scenario parity.
+
+The rebuilt package passed its two-start isolated smoke: protected project access
+returned 401, local client assets loaded, project state recovered after restart,
+and environment identity remained stable without host Node on PATH. Thirty-nine
+package/source adapter tests and seven focused native bridge/QA tests passed.
+A fresh real WKWebView fixture run passed all access-control checks and stayed
+alive after the test-only KEEP_OPEN fix. No provider was called.
+
+Native folder cancellation and selection remain unverified: computer automation
+recognized the live QA application but repeatedly returned `cgWindowNotFound`
+for its exact identifier and bundle path, including after a fresh automation
+session. The owned app and captured host were stopped after validating executable
+arguments, user, process group and data root. This limitation is not a folder
+interaction pass and does not close the corresponding parity scenario.

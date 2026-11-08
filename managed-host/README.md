@@ -40,10 +40,13 @@ third-party notices, Node's supplied license, and resource-monitor dependency
 license files. Published objc2 crates omit their workspace notice; exact crate
 versions and published Git revisions select vendored upstream notices plus the
 standard MIT text and original authors/metadata. Unknown omissions fail closed.
-Build-only source changes are recorded under `patches/`, applied
+Source integration changes are recorded under `patches/`, applied
 only to their exact original file hashes, and included in package provenance.
 The office font alias patch fixes file URLs on paths containing spaces and
 Windows drive paths; it preserves the feature rather than removing its assets.
+The native LocalApi and Command Palette patches connect the separate Blackcrab
+macOS folder/link interface without advertising an Electron desktopBridge.
+See [native workspace integration](desktop.md) for authorization and limitations.
 
 A complete staging tree is hashed and checked before its final rename. The
 manifest records the upstream commit, source patch digests, host target and every

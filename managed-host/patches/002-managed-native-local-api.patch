@@ -1,0 +1,57 @@
+--- a/apps/web/src/localApi.ts
++++ b/apps/web/src/localApi.ts
+@@ -3,6 +3,31 @@
+ import { requestConfirmDialog } from "./confirmDialog";
+ import { dismissContextMenu, showContextMenuFallback } from "./contextMenuFallback";
+ import { readBrowserClientSettings, writeBrowserClientSettings } from "./clientPersistenceStorage";
++
++type BlackcrabNativeBridge = Readonly<{
++  apiVersion: 1;
++  pickFolder: LocalApi["dialogs"]["pickFolder"];
++  openExternal: (url: string) => Promise<boolean>;
++}>;
++
++declare global {
++  interface Window {
++    readonly blackcrabNative?: BlackcrabNativeBridge;
++  }
++}
++
++function readBlackcrabNativeBridge(): BlackcrabNativeBridge | undefined {
++  const bridge = typeof window === "undefined" ? undefined : window.blackcrabNative;
++  return bridge?.apiVersion === 1 &&
++    typeof bridge.pickFolder === "function" &&
++    typeof bridge.openExternal === "function"
++    ? bridge
++    : undefined;
++}
++
++export function hasBlackcrabNativeBridge(): boolean {
++  return readBlackcrabNativeBridge() !== undefined;
++}
+ 
+ let cachedApi: LocalApi | undefined;
+ 
+@@ -10,6 +35,8 @@
+   return {
+     dialogs: {
+       pickFolder: async (options) => {
++        const nativeBridge = readBlackcrabNativeBridge();
++        if (nativeBridge) return nativeBridge.pickFolder(options);
+         if (!window.desktopBridge) return null;
+         return window.desktopBridge.pickFolder(options);
+       },
+@@ -19,6 +46,13 @@
+     },
+     shell: {
+       openExternal: async (url) => {
++        const nativeBridge = readBlackcrabNativeBridge();
++        if (nativeBridge) {
++          if (!(await nativeBridge.openExternal(url))) {
++            throw new Error("Unable to open link.");
++          }
++          return;
++        }
+         if (window.desktopBridge) {
+           const opened = await window.desktopBridge.openExternal(url);
+           if (!opened) {

@@ -71,6 +71,7 @@ pub(crate) struct ManagedHost {
     root: PathBuf,
     operation: Mutex<()>,
     navigation: Arc<StdMutex<Option<url::Origin>>>,
+    bridge: StdMutex<Option<crate::managed_bridge::Grant>>,
 }
 impl ManagedHost {
     pub(crate) fn new(root: PathBuf) -> Self {
@@ -78,6 +79,7 @@ impl ManagedHost {
             root,
             operation: Mutex::new(()),
             navigation: Arc::new(StdMutex::new(None)),
+            bridge: StdMutex::new(None),
         }
     }
 
@@ -122,6 +124,20 @@ impl ManagedHost {
         let config = self
             .read_config()?
             .ok_or("Managed host configuration disappeared")?;
+        let mut bridge = self
+            .bridge
+            .lock()
+            .map_err(|_| "Managed bridge unavailable")?;
+        if !bridge.as_ref().is_some_and(|g| {
+            g.origin == attached.origin.origin().ascii_serialization()
+                && g.environment_id == attached.environment_id
+        }) {
+            *bridge = Some(crate::managed_bridge::Grant::new(
+                &attached.origin,
+                attached.environment_id,
+            )?);
+        }
+        drop(bridge);
         let mut url = attached.origin;
         *self
             .navigation
@@ -132,6 +148,35 @@ impl ManagedHost {
             bootstrap_token(&config.bootstrap_secret, now_ms()?)?
         )));
         Ok(url)
+    }
+    pub(crate) fn bridge_grant(&self) -> Result<crate::managed_bridge::Grant, String> {
+        self.bridge
+            .lock()
+            .map_err(|_| "Managed bridge unavailable")?
+            .clone()
+            .ok_or_else(|| "Managed bridge unavailable".into())
+    }
+    pub(crate) async fn validate_bridge(
+        &self,
+        expected: &crate::managed_bridge::Grant,
+    ) -> Result<(), String> {
+        let _operation = self.operation.lock().await;
+        if self.bridge_grant()? != *expected {
+            return Err("Expired managed bridge".into());
+        }
+        let config = self.read_config()?.ok_or("Managed host unavailable")?;
+        // window_url verified the artifact before issuing this grant. Rehashing
+        // its entire payload for each click is unnecessary; authenticate the live
+        // host and exact environment again, without starting/replacing a host.
+        match self.probe(&config).await? {
+            Probe::Attached(attached)
+                if attached.origin.origin().ascii_serialization() == expected.origin
+                    && attached.environment_id == expected.environment_id =>
+            {
+                Ok(())
+            }
+            _ => Err("Managed host identity changed".into()),
+        }
     }
     pub(crate) fn navigation_guard(&self) -> Arc<StdMutex<Option<url::Origin>>> {
         self.navigation.clone()
@@ -316,7 +361,16 @@ impl ManagedHost {
         let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(io_error)?;
         let port = listener.local_addr().map_err(io_error)?.port();
         drop(listener);
-        let mut child = ReapChild(Some(self.spawn(&artifact, &config, port)?));
+        // A newly spawned host must never inherit a prior native window grant,
+        // even if the OS reuses its old port and the environment ID is stable.
+        *self
+            .bridge
+            .lock()
+            .map_err(|_| "Managed bridge unavailable")? = None;
+        let launched = self.spawn(&artifact, &config, port)?;
+        #[cfg(feature = "managed-bridge-qa")]
+        crate::managed_bridge_qa::record_captured_host(launched.id(), &self.root);
+        let mut child = ReapChild(Some(launched));
         let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
         let result = loop {
             if let Some(exit) = child.try_wait().map_err(io_error)? {

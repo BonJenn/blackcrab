@@ -5,12 +5,15 @@ mod codex_services;
 mod crypto;
 mod execution;
 mod managed_artifact;
+mod managed_bridge;
+#[cfg(feature = "managed-bridge-qa")]
+mod managed_bridge_qa;
 mod managed_host;
 mod pairing;
 mod provider;
 mod relay_client;
-mod remote_queue;
 mod remote_providers;
+mod remote_queue;
 mod transport;
 
 use std::collections::HashMap;
@@ -37,7 +40,7 @@ use crate::pairing::{
 use crate::provider::{prepare_launch, LaunchRequest, Provider, ProviderInfo};
 use crate::transport::{RemoteCommand, TransportEndpoint, TransportServer};
 
-// Managed web content receives no native command access or legacy session ownership.
+// Managed content receives only the separately scoped bridge; no legacy session ownership.
 fn require_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     if window.label() != "main" {
         return Err("This command is available only in the main Blackcrab window".into());
@@ -68,23 +71,51 @@ async fn managed_workspace_open(
     host: State<'_, managed_host::ManagedHost>,
 ) -> Result<(), String> {
     require_main_window(&window)?;
+    let previous_grant = host.bridge_grant().ok();
     let url = host.window_url().await?;
     let navigation = host.navigation_guard();
-    if let Some(existing) = app.get_webview_window("managed-workspace") {
-        existing
-            .navigate(url)
-            .map_err(|_| "Could not reconnect the managed workspace window")?;
-        existing
-            .set_focus()
-            .map_err(|_| "Could not focus the managed workspace window")?;
-        return Ok(());
+    let grant = host.bridge_grant()?;
+    if let Some(existing) = previous_grant
+        .as_ref()
+        .and_then(|g| app.get_webview_window(&g.window_label()))
+    {
+        if previous_grant.as_ref() == Some(&grant) {
+            existing
+                .navigate(url)
+                .map_err(|_| "Could not reconnect managed workspace")?;
+            existing
+                .set_focus()
+                .map_err(|_| "Could not focus managed workspace")?;
+            return Ok(());
+        }
     }
-    tauri::WebviewWindowBuilder::new(&app, "managed-workspace", tauri::WebviewUrl::External(url))
+    // Start may have invalidated an old grant before this open command. These
+    // labels are generated natively, and closing a webview never stops its host.
+    for (label, stale) in app.webview_windows() {
+        if label.starts_with("managed-workspace-") && label != grant.window_label() {
+            stale
+                .destroy()
+                .map_err(|_| "Could not retire stale managed workspace")?;
+        }
+    }
+    let bridge_script = if cfg!(target_os = "macos") {
+        managed_bridge::install_capability(&app, &grant)?;
+        managed_bridge::initialization_script(&grant)?
+    } else {
+        String::new()
+    };
+    tauri::WebviewWindowBuilder::new(&app, grant.window_label(), tauri::WebviewUrl::External(url))
+        .initialization_script(bridge_script)
         .title("Blackcrab — Managed workspace")
         .inner_size(1200.0, 820.0)
         .min_inner_size(720.0, 480.0)
         .on_navigation(move |destination| {
-            navigation.lock()
+            #[cfg(feature = "managed-bridge-qa")]
+            if managed_bridge_qa::allows_navigation(destination) {
+                return true;
+            }
+            navigation
+                .lock()
                 .map(|allowed| allowed.as_ref() == Some(&destination.origin()))
                 .unwrap_or(false)
         })
@@ -291,8 +322,7 @@ fn normalize_model_name(model: &str) -> Option<String> {
 }
 
 fn auth_env_conflict_present() -> bool {
-    env_var_present("ANTHROPIC_API_KEY")
-        || env_var_present("ANTHROPIC_AUTH_TOKEN")
+    env_var_present("ANTHROPIC_API_KEY") || env_var_present("ANTHROPIC_AUTH_TOKEN")
 }
 
 fn env_oauth_token_present() -> bool {
@@ -325,14 +355,11 @@ fn run_claude_auth_status(
     })?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    serde_json::from_str::<serde_json::Value>(&stdout)
-        .map_err(|e| (stdout, stderr, e.to_string()))
+    serde_json::from_str::<serde_json::Value>(&stdout).map_err(|e| (stdout, stderr, e.to_string()))
 }
 
 fn auth_status_logged_in(v: &serde_json::Value) -> bool {
-    v.get("loggedIn")
-        .and_then(|x| x.as_bool())
-        .unwrap_or(false)
+    v.get("loggedIn").and_then(|x| x.as_bool()).unwrap_or(false)
 }
 
 fn auth_status_method(v: &serde_json::Value) -> String {
@@ -458,34 +485,70 @@ mod tests {
     fn read_cursor_advances_forward_by_transcript_order() {
         let current = cursor("msg-2", 100);
         // msg-5 is later in the transcript than msg-2 → advance.
-        assert!(cursor_should_advance(Some(&current), "msg-5", Some(5), Some(2), 50));
+        assert!(cursor_should_advance(
+            Some(&current),
+            "msg-5",
+            Some(5),
+            Some(2),
+            50
+        ));
     }
 
     #[test]
     fn read_cursor_does_not_regress_to_an_earlier_message() {
         let current = cursor("msg-5", 100);
         // msg-2 is earlier even though it carries a newer timestamp → ignore.
-        assert!(!cursor_should_advance(Some(&current), "msg-2", Some(2), Some(5), 999));
+        assert!(!cursor_should_advance(
+            Some(&current),
+            "msg-2",
+            Some(2),
+            Some(5),
+            999
+        ));
     }
 
     #[test]
     fn read_cursor_advances_when_stored_fell_off_the_window() {
         let current = cursor("msg-old", 100);
         // Stored id is older than the loaded tail (None); new id is in it → advance.
-        assert!(cursor_should_advance(Some(&current), "msg-9", Some(9), None, 50));
+        assert!(cursor_should_advance(
+            Some(&current),
+            "msg-9",
+            Some(9),
+            None,
+            50
+        ));
     }
 
     #[test]
     fn read_cursor_is_noop_for_same_message() {
         let current = cursor("msg-3", 100);
-        assert!(!cursor_should_advance(Some(&current), "msg-3", Some(3), Some(3), 200));
+        assert!(!cursor_should_advance(
+            Some(&current),
+            "msg-3",
+            Some(3),
+            Some(3),
+            200
+        ));
     }
 
     #[test]
     fn read_cursor_falls_back_to_newest_when_order_unknown() {
         let current = cursor("msg-a", 100);
-        assert!(cursor_should_advance(Some(&current), "msg-b", None, None, 200));
-        assert!(!cursor_should_advance(Some(&current), "msg-b", None, None, 50));
+        assert!(cursor_should_advance(
+            Some(&current),
+            "msg-b",
+            None,
+            None,
+            200
+        ));
+        assert!(!cursor_should_advance(
+            Some(&current),
+            "msg-b",
+            None,
+            None,
+            50
+        ));
     }
 
     #[test]
@@ -587,12 +650,7 @@ mod tests {
 
     #[test]
     fn api_key_source_detection_is_case_insensitive() {
-        let current = auth_status(
-            true,
-            "api_key",
-            "firstParty",
-            Some("anthropic_api_key"),
-        );
+        let current = auth_status(true, "api_key", "firstParty", Some("anthropic_api_key"));
 
         let resolved = resolve_claude_auth_status(current, None, false, true);
 
@@ -614,7 +672,13 @@ mod tests {
             .unwrap_err();
         // The frontend keys off this exact prefix + owner panel id to drive the
         // session-conflict dialog; keep the encoding stable.
-        assert_eq!(err, format!("{}panel-a — session session-1 is already open there; close it first", SESSION_BUSY_PREFIX));
+        assert_eq!(
+            err,
+            format!(
+                "{}panel-a — session session-1 is already open there; close it first",
+                SESSION_BUSY_PREFIX
+            )
+        );
         assert!(err.starts_with(SESSION_BUSY_PREFIX));
 
         release_session_owner_if_matches(&owners, "session-1", "panel-a").await;
@@ -635,7 +699,9 @@ mod tests {
             panel_for_session(&owners, "session-1").await.as_deref(),
             Some("panel-a")
         );
-        assert!(panel_for_session(&owners, "session-unknown").await.is_none());
+        assert!(panel_for_session(&owners, "session-unknown")
+            .await
+            .is_none());
     }
 
     #[tokio::test]
@@ -713,7 +779,11 @@ mod tests {
         });
         assert_eq!(
             classify_transcript_record(&tool_call),
-            ("tool_call", "npm test".to_string(), Some("Bash".to_string()))
+            (
+                "tool_call",
+                "npm test".to_string(),
+                Some("Bash".to_string())
+            )
         );
 
         let tool_result = serde_json::json!({
@@ -780,7 +850,15 @@ mod tests {
         )])));
         let db = rusqlite::Connection::open(root.join("state.sqlite3")).unwrap();
         db.execute_batch("CREATE TRIGGER refuse_turn BEFORE INSERT ON turns BEGIN SELECT RAISE(ABORT, 'fixture persistence failure'); END;").unwrap();
-        assert!(deliver_user_message_command(&sessions, "panel", "must not reach the pipe", Some("rejected".into())).await.unwrap_err().contains("fixture persistence failure"));
+        assert!(deliver_user_message_command(
+            &sessions,
+            "panel",
+            "must not reach the pipe",
+            Some("rejected".into())
+        )
+        .await
+        .unwrap_err()
+        .contains("fixture persistence failure"));
         assert!(store.receipt("rejected").is_err());
         db.execute_batch("DROP TRIGGER refuse_turn;").unwrap();
         drop(db);
@@ -1083,10 +1161,8 @@ mod tests {
 
     #[test]
     fn extract_session_override_skips_files_without_restorable_metadata() {
-        let dir = std::env::temp_dir().join(format!(
-            "blackcrab-override-test-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("blackcrab-override-test-{}", std::process::id()));
         let _ = fs::create_dir_all(&dir);
 
         // No custom-title / archive-state records → nothing to restore.
@@ -1120,9 +1196,7 @@ mod tests {
 
         assert_eq!(
             path,
-            projects
-                .join("-Users-me-project")
-                .join("abc-123_DEF.jsonl")
+            projects.join("-Users-me-project").join("abc-123_DEF.jsonl")
         );
         assert!(session_path_under_projects(&projects, "../escape", "/Users/me").is_none());
         assert!(session_path_under_projects(&projects, "nested/path", "/Users/me").is_none());
@@ -1365,14 +1439,12 @@ fn claude_preflight() -> ClaudePreflight {
         };
     };
 
-    let without_credential_env = if managed_token_configured
-        || auth_env_conflict
-        || env_oauth_token_present()
-    {
-        auth_status_without_credential_env(&path_env)
-    } else {
-        None
-    };
+    let without_credential_env =
+        if managed_token_configured || auth_env_conflict || env_oauth_token_present() {
+            auth_status_without_credential_env(&path_env)
+        } else {
+            None
+        };
     let cli_without_overrides = without_credential_env
         .as_ref()
         .map(auth_status_logged_in)
@@ -1618,9 +1690,8 @@ async fn start_session(
     cmd.env("PATH", &path_env);
 
     let keychain_token = read_blackcrab_claude_token().ok().flatten();
-    let has_auth_override = keychain_token.is_some()
-        || env_oauth_token_present()
-        || auth_env_conflict_present();
+    let has_auth_override =
+        keychain_token.is_some() || env_oauth_token_present() || auth_env_conflict_present();
 
     // Prefer the normal Claude Code login whenever it is available without
     // credential override env vars. `claude auth status` reports "loggedIn"
@@ -2271,7 +2342,8 @@ fn save_dropped_file(name: String, bytes: Vec<u8>) -> Result<String, String> {
     std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir temp: {}", e))?;
     let path = dir.join(format!("{:x}-{}", prefix, fallback));
     let mut file = std::fs::File::create(&path).map_err(|e| format!("create: {}", e))?;
-    file.write_all(&bytes).map_err(|e| format!("write: {}", e))?;
+    file.write_all(&bytes)
+        .map_err(|e| format!("write: {}", e))?;
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -2284,7 +2356,7 @@ fn terminal_spawn(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+    use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     // If this id already exists, kill the old one first so the
     // frontend can hot-reload without leaking subprocesses.
     {
@@ -2672,7 +2744,13 @@ fn list_branches(cwd: String) -> BranchInfo {
 
     let current = run_git(&cwd, &["branch", "--show-current"])
         .ok()
-        .and_then(|(ok, out, _)| if ok { Some(out.trim().to_string()) } else { None })
+        .and_then(|(ok, out, _)| {
+            if ok {
+                Some(out.trim().to_string())
+            } else {
+                None
+            }
+        })
         .unwrap_or_default();
 
     let branches = run_git(&cwd, &["branch", "--format=%(refname:short)"])
@@ -2711,7 +2789,11 @@ fn switch_branch(cwd: String, branch: String) -> Result<(), String> {
         Ok(())
     } else {
         let msg = stderr.trim().to_string();
-        Err(if msg.is_empty() { "git checkout failed".into() } else { msg })
+        Err(if msg.is_empty() {
+            "git checkout failed".into()
+        } else {
+            msg
+        })
     }
 }
 
@@ -2819,12 +2901,8 @@ fn summarize_session_with_search(
                             first_user = s.to_string();
                         } else if let Some(arr) = content_val.as_array() {
                             for block in arr {
-                                if block.get("type").and_then(|x| x.as_str())
-                                    == Some("text")
-                                {
-                                    if let Some(s) =
-                                        block.get("text").and_then(|x| x.as_str())
-                                    {
+                                if block.get("type").and_then(|x| x.as_str()) == Some("text") {
+                                    if let Some(s) = block.get("text").and_then(|x| x.as_str()) {
                                         first_user = s.to_string();
                                         break;
                                     }
@@ -2845,8 +2923,10 @@ fn summarize_session_with_search(
                     model = m;
                 }
                 if let Some(usage) = v.pointer("/message/usage") {
-                    let input =
-                        usage.get("input_tokens").and_then(|x| x.as_u64()).unwrap_or(0);
+                    let input = usage
+                        .get("input_tokens")
+                        .and_then(|x| x.as_u64())
+                        .unwrap_or(0);
                     let cc = usage
                         .get("cache_creation_input_tokens")
                         .and_then(|x| x.as_u64())
@@ -2870,10 +2950,7 @@ fn summarize_session_with_search(
             }
             "result" => {
                 last_event_type = t.to_string();
-                last_result_is_error = v
-                    .get("is_error")
-                    .and_then(|x| x.as_bool())
-                    .unwrap_or(false);
+                last_result_is_error = v.get("is_error").and_then(|x| x.as_bool()).unwrap_or(false);
                 last_result_subtype = v
                     .get("subtype")
                     .and_then(|x| x.as_str())
@@ -2882,9 +2959,7 @@ fn summarize_session_with_search(
                 if let Some(cost) = v.get("total_cost_usd").and_then(|x| x.as_f64()) {
                     total_cost = cost;
                 }
-                if let Some(usage) =
-                    v.get("modelUsage").and_then(|x| x.as_object())
-                {
+                if let Some(usage) = v.get("modelUsage").and_then(|x| x.as_object()) {
                     let mut best_usage_model: Option<(String, u64)> = None;
                     for (model_name, info) in usage {
                         let normalized_name = match normalize_model_name(model_name) {
@@ -2900,17 +2975,12 @@ fn summarize_session_with_search(
                             .map(|(_, best_context_window)| context_window > *best_context_window)
                             .unwrap_or(true)
                         {
-                            best_usage_model =
-                                Some((normalized_name.clone(), context_window));
+                            best_usage_model = Some((normalized_name.clone(), context_window));
                         }
-                        if let Some(cw) = info
-                            .get("contextWindow")
-                            .and_then(|x| x.as_u64())
-                        {
+                        if let Some(cw) = info.get("contextWindow").and_then(|x| x.as_u64()) {
                             if cw > 0 {
-                                let entry = context_window_by_model
-                                    .entry(normalized_name)
-                                    .or_insert(0);
+                                let entry =
+                                    context_window_by_model.entry(normalized_name).or_insert(0);
                                 if cw > *entry {
                                     *entry = cw;
                                 }
@@ -3040,9 +3110,7 @@ fn search_sessions(query: String) -> Result<Vec<SessionSearchHit>, String> {
             if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
                 continue;
             }
-            if let Some((info, content_hit)) =
-                summarize_session_with_search(&path, Some(&needle))
-            {
+            if let Some((info, content_hit)) = summarize_session_with_search(&path, Some(&needle)) {
                 if let Some(hit) = build_session_search_hit(info, content_hit, &needle) {
                     let should_replace = by_id
                         .get(&hit.session_id)
@@ -3240,12 +3308,7 @@ fn search_content_value(
     }
 }
 
-fn search_text_fragment(
-    snippet: &str,
-    needle: &str,
-    match_count: &mut u32,
-    preview: &mut String,
-) {
+fn search_text_fragment(snippet: &str, needle: &str, match_count: &mut u32, preview: &mut String) {
     let haystack = snippet.to_lowercase();
     if let Some(pos) = haystack.find(needle) {
         *match_count = match_count.saturating_add(1);
@@ -3431,7 +3494,9 @@ fn session_path_under_projects(
     if encoded.is_empty() || encoded.contains('/') || encoded.contains('\\') {
         return None;
     }
-    let path = projects.join(encoded).join(safe_session_filename(session_id)?);
+    let path = projects
+        .join(encoded)
+        .join(safe_session_filename(session_id)?);
     if path.starts_with(projects) {
         Some(path)
     } else {
@@ -3647,10 +3712,7 @@ fn load_session_tail(
     const TAIL_BYTES: u64 = 4 * 1024 * 1024;
 
     let mut file = std::fs::File::open(&path).map_err(|e| e.to_string())?;
-    let size = file
-        .metadata()
-        .map_err(|e| e.to_string())?
-        .len();
+    let size = file.metadata().map_err(|e| e.to_string())?.len();
     let start_offset = size.saturating_sub(TAIL_BYTES);
     if start_offset > 0 {
         file.seek(SeekFrom::Start(start_offset))
@@ -3739,7 +3801,9 @@ fn hydrate_login_shell_env() {
             Ok(s) => s,
             Err(_) => continue,
         };
-        let Some((k, v)) = s.split_once('=') else { continue };
+        let Some((k, v)) = s.split_once('=') else {
+            continue;
+        };
         if k.is_empty() || SKIP.contains(&k) {
             continue;
         }
@@ -3779,8 +3843,7 @@ fn read_hostname() -> String {
     fn platform_hostname() -> Option<String> {
         let mut buf = [0u8; 256];
         // SAFETY: writing into our own stack buffer with a known length.
-        let result =
-            unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
+        let result = unsafe { libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) };
         if result != 0 {
             return None;
         }
@@ -3839,10 +3902,7 @@ fn pairing_start() -> Result<PairingStartResponse, String> {
 }
 
 #[tauri::command]
-fn pairing_accept(
-    code: String,
-    device_name: String,
-) -> Result<PairingAcceptResponse, String> {
+fn pairing_accept(code: String, device_name: String) -> Result<PairingAcceptResponse, String> {
     let svc = pairing_service()?;
     svc.accept_pairing(&code, &device_name, pairing_now_ms())
 }
@@ -3890,7 +3950,9 @@ async fn run_remote_command_consumer(
         let result = match command {
             RemoteCommand::Providers(request) => {
                 let result = remote_providers::execute(request, &remote_host_id_for_pairing());
-                push_remote_event(serde_json::to_value(result).expect("provider result serialization"));
+                push_remote_event(
+                    serde_json::to_value(result).expect("provider result serialization"),
+                );
                 Ok(())
             }
             RemoteCommand::Queue(request) => {
@@ -3987,9 +4049,10 @@ async fn run_remote_command_consumer(
             RemoteCommand::Approve { approval_id } => {
                 resolve_remote_approval(&sessions, &app, &approval_id, true, None).await
             }
-            RemoteCommand::Deny { approval_id, reason } => {
-                resolve_remote_approval(&sessions, &app, &approval_id, false, reason).await
-            }
+            RemoteCommand::Deny {
+                approval_id,
+                reason,
+            } => resolve_remote_approval(&sessions, &app, &approval_id, false, reason).await,
             RemoteCommand::FocusSession { session_id } => {
                 let next = if session_id.trim().is_empty() {
                     None
@@ -4057,9 +4120,7 @@ fn epoch_ms_to_iso8601(ms: u128) -> String {
     let tod = secs.rem_euclid(86_400);
     let (hour, minute, second) = (tod / 3600, (tod % 3600) / 60, tod % 60);
     let (year, month, day) = civil_from_days(days);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{millis:03}Z"
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{millis:03}Z")
 }
 
 /// Days since 1970-01-01 to a (year, month, day) civil date. Howard Hinnant's
@@ -4218,12 +4279,7 @@ fn tool_detail(name: &str, input: Option<&serde_json::Value>) -> String {
     let Some(input) = input else {
         return String::new();
     };
-    let get = |k: &str| {
-        input
-            .get(k)
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-    };
+    let get = |k: &str| input.get(k).and_then(|v| v.as_str()).map(|s| s.to_string());
     match name {
         "Bash" => get("command").unwrap_or_default(),
         "Read" | "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => {
@@ -4336,8 +4392,12 @@ fn remote_transcript_event_value() -> Option<serde_json::Value> {
         .filter(|id| !id.is_empty())
         .and_then(|id| sessions.iter().find(|s| s.id == id))
         .or_else(|| sessions.first())?;
-    let records =
-        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    let records = load_session_tail(
+        target.id.clone(),
+        target.cwd.clone(),
+        REMOTE_TRANSCRIPT_LIMIT,
+    )
+    .ok()?;
     let host_id = remote_host_id_for_pairing();
     let entries: Vec<serde_json::Value> = records
         .iter()
@@ -4434,8 +4494,12 @@ fn read_cursors() -> &'static StdMutex<HashMap<String, ReadCursor>> {
 fn transcript_index_of(session_id: &str, message_id: &str) -> Option<usize> {
     let sessions = list_sessions().ok()?;
     let target = sessions.iter().find(|s| s.id == session_id)?;
-    let records =
-        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    let records = load_session_tail(
+        target.id.clone(),
+        target.cwd.clone(),
+        REMOTE_TRANSCRIPT_LIMIT,
+    )
+    .ok()?;
     records.iter().enumerate().find_map(|(i, record)| {
         let id = record
             .get("uuid")
@@ -4461,7 +4525,7 @@ fn cursor_should_advance(
         Some(current) if current.last_read_message_id == message_id => false,
         Some(current) => match (new_idx, cur_idx) {
             (Some(n), Some(c)) => n > c,
-            (Some(_), None) => true,  // current fell off the window → new is ahead
+            (Some(_), None) => true, // current fell off the window → new is ahead
             (None, Some(_)) => false, // new is older than the window → behind
             (None, None) => at_ms > current.read_at_ms, // unknown order → newest wins
         },
@@ -4656,7 +4720,8 @@ fn write_remote_attachments(
     }
     let mut paths: Vec<String> = Vec::new();
     for att in attachments {
-        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(att.data_base64.as_bytes())
+        let Ok(bytes) =
+            base64::engine::general_purpose::STANDARD.decode(att.data_base64.as_bytes())
         else {
             continue;
         };
@@ -4702,8 +4767,12 @@ fn session_cwd(session_id: &str) -> Option<String> {
 fn latest_message_id(session_id: &str) -> Option<String> {
     let sessions = list_sessions().ok()?;
     let target = sessions.iter().find(|s| s.id == session_id)?;
-    let records =
-        load_session_tail(target.id.clone(), target.cwd.clone(), REMOTE_TRANSCRIPT_LIMIT).ok()?;
+    let records = load_session_tail(
+        target.id.clone(),
+        target.cwd.clone(),
+        REMOTE_TRANSCRIPT_LIMIT,
+    )
+    .ok()?;
     let last = records.len().checked_sub(1)?;
     let record = records.get(last)?;
     Some(
@@ -4846,7 +4915,10 @@ fn register_remote_approval(panel_id: &str, session_id: Option<&str>, line: &str
             .and_then(|x| x.as_str())
             .unwrap_or("unknown")
             .to_string(),
-        input: req.get("input").cloned().unwrap_or_else(|| serde_json::json!({})),
+        input: req
+            .get("input")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({})),
         requested_at_ms: now_unix_ms(),
     };
     pending_approvals()
@@ -4912,16 +4984,28 @@ fn note_local_control_response(line: &str) {
         return;
     }
     let response = v.get("response");
-    let request_id = match response.and_then(|r| r.get("request_id")).and_then(|x| x.as_str()) {
+    let request_id = match response
+        .and_then(|r| r.get("request_id"))
+        .and_then(|x| x.as_str())
+    {
         Some(id) => id.to_string(),
         None => return,
     };
-    if pending_approvals().lock().unwrap().remove(&request_id).is_some() {
+    if pending_approvals()
+        .lock()
+        .unwrap()
+        .remove(&request_id)
+        .is_some()
+    {
         let behavior = response
             .and_then(|r| r.get("response"))
             .and_then(|x| x.get("behavior"))
             .and_then(|x| x.as_str());
-        let resolution = if behavior == Some("deny") { "denied" } else { "approved" };
+        let resolution = if behavior == Some("deny") {
+            "denied"
+        } else {
+            "approved"
+        };
         push_remote_event(approval_resolved_value(&request_id, resolution));
     }
 }
@@ -4939,8 +5023,12 @@ fn remote_event_snapshot() -> Vec<serde_json::Value> {
         events.push(queue);
     }
     // Outstanding approvals, so a phone that connects mid-prompt catches up.
-    let pending: Vec<PendingApproval> =
-        pending_approvals().lock().unwrap().values().cloned().collect();
+    let pending: Vec<PendingApproval> = pending_approvals()
+        .lock()
+        .unwrap()
+        .values()
+        .cloned()
+        .collect();
     for approval in &pending {
         events.push(approval_requested_value(approval));
     }
@@ -4973,9 +5061,10 @@ fn maybe_start_relay_client() {
     if url.is_empty() || token.is_empty() {
         return;
     }
-    let (Some(commands), Some(broadcast)) =
-        (REMOTE_CMD_TX.get().cloned(), REMOTE_BROADCAST.get().cloned())
-    else {
+    let (Some(commands), Some(broadcast)) = (
+        REMOTE_CMD_TX.get().cloned(),
+        REMOTE_BROADCAST.get().cloned(),
+    ) else {
         eprintln!("relay client: channels not ready; skipping");
         return;
     };
@@ -5053,6 +5142,8 @@ pub fn run() {
             managed_host_status,
             managed_host_start,
             managed_workspace_open,
+            managed_bridge::managed_native_pick_folder,
+            managed_bridge::managed_native_open_external,
             claude_preflight,
             list_providers,
             codex_query,
@@ -5114,52 +5205,58 @@ pub fn run() {
             app.manage(managed_host::ManagedHost::new(
                 app.path().app_data_dir()?.join("managed-host/v1"),
             ));
-            let execution_root = app.path().app_data_dir()?.join("execution");
-            let store =
-                Arc::new(ExecutionStore::open(&execution_root).map_err(std::io::Error::other)?);
-            remote_queue::initialize(store.clone());
-            app.manage(store);
-            let server = transport_server();
+            #[cfg(feature = "managed-bridge-qa")]
+            managed_bridge_qa::start(app.handle().clone()).map_err(std::io::Error::other)?;
+            // The QA app starts only its owned managed host and fixture servers.
+            #[cfg(not(feature = "managed-bridge-qa"))]
+            {
+                let execution_root = app.path().app_data_dir()?.join("execution");
+                let store =
+                    Arc::new(ExecutionStore::open(&execution_root).map_err(std::io::Error::other)?);
+                remote_queue::initialize(store.clone());
+                app.manage(store);
+                let server = transport_server();
 
-            // Spawn the remote-action consumer before starting the server so
-            // the sender is registered by the time any connection authenticates.
-            let state = app.state::<AppState>();
-            let sessions = state.sessions.clone();
-            let session_owners = state.session_owners.clone();
-            // Stash a handle so the (sync) session snapshot can tell which
-            // sessions Blackcrab owns and thus are reachable for the phone.
-            let _ = SESSION_OWNERS.set(state.session_owners.clone());
-            let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
-            let _ = REMOTE_CMD_TX.set(tx);
-            // Real-time host->mobile push channel (approvals); the initial
-            // receiver is dropped — connections subscribe to the sender.
-            let (bcast, _bcast_rx) = broadcast::channel::<serde_json::Value>(64);
-            let _ = REMOTE_BROADCAST.set(bcast);
-            let consumer_app = app.handle().clone();
-            tauri::async_runtime::spawn(run_remote_command_consumer(
-                rx,
-                sessions,
-                session_owners,
-                consumer_app,
-            ));
+                // Spawn the remote-action consumer before starting the server so
+                // the sender is registered by the time any connection authenticates.
+                let state = app.state::<AppState>();
+                let sessions = state.sessions.clone();
+                let session_owners = state.session_owners.clone();
+                // Stash a handle so the (sync) session snapshot can tell which
+                // sessions Blackcrab owns and thus are reachable for the phone.
+                let _ = SESSION_OWNERS.set(state.session_owners.clone());
+                let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
+                let _ = REMOTE_CMD_TX.set(tx);
+                // Real-time host->mobile push channel (approvals); the initial
+                // receiver is dropped — connections subscribe to the sender.
+                let (bcast, _bcast_rx) = broadcast::channel::<serde_json::Value>(64);
+                let _ = REMOTE_BROADCAST.set(bcast);
+                let consumer_app = app.handle().clone();
+                tauri::async_runtime::spawn(run_remote_command_consumer(
+                    rx,
+                    sessions,
+                    session_owners,
+                    consumer_app,
+                ));
 
-            tauri::async_runtime::spawn(async move {
-                let pairing = match pairing_service() {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("transport: pairing service unavailable: {e}");
-                        return;
+                tauri::async_runtime::spawn(async move {
+                    let pairing = match pairing_service() {
+                        Ok(p) => p,
+                        Err(e) => {
+                            eprintln!("transport: pairing service unavailable: {e}");
+                            return;
+                        }
+                    };
+                    if let Err(e) = server.start(pairing, remote_hooks()).await {
+                        eprintln!("transport: failed to start: {e}");
                     }
-                };
-                if let Err(e) = server.start(pairing, remote_hooks()).await {
-                    eprintln!("transport: failed to start: {e}");
-                }
-            });
+                });
 
-            // Optional outbound relay client: only when both env vars are set.
-            // Lets paired phones reach this host off-LAN; the LAN server is
-            // unaffected.
-            maybe_start_relay_client();
+                // Optional outbound relay client: only when both env vars are set.
+                // Lets paired phones reach this host off-LAN; the LAN server is
+                // unaffected.
+                maybe_start_relay_client();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

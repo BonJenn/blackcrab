@@ -1507,4 +1507,31 @@ mod tests {
         assert!(same_tree_device(10, 10).is_ok());
         assert!(same_tree_device(10, 11).is_err());
     }
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "requires two explicitly supplied task-owned roots on distinct devices"]
+fn actual_distinct_device_tree_commit_refused() {
+    let first = PathBuf::from(std::env::var_os("BLACKCRAB_TEST_DEVICE_ROOT_A").unwrap());
+    let second = PathBuf::from(std::env::var_os("BLACKCRAB_TEST_DEVICE_ROOT_B").unwrap());
+    for root in [&first, &second] {
+        let m = fs::symlink_metadata(root).unwrap();
+        assert!(m.is_dir() && !m.file_type().is_symlink());
+        assert_eq!(m.uid(), unsafe { libc::geteuid() });
+        assert_eq!(m.mode() & 0o777, 0o700);
+        assert_eq!(fs::canonicalize(root).unwrap(), *root);
+    }
+    let a = fs::metadata(&first).unwrap().dev();
+    let b = fs::metadata(&second).unwrap().dev();
+    assert_ne!(a, b, "fixture must prove actual distinct st_dev");
+    let filename = first.join(format!("cross-device-file-{}", std::process::id()));
+    let file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&filename).unwrap();
+    assert!(sync_extracted_file(&file, &second).is_err());
+    assert!(sync_extracted_tree(&first, &second).is_err());
+    assert!(sync_extracted_parent(&second, &ExtractedTreeCommit { device: a }).is_err());
+    drop(file);
+    fs::remove_file(filename).unwrap();
+    assert_eq!(fs::read_dir(&first).unwrap().count(), 0);
+    assert_eq!(fs::read_dir(&second).unwrap().count(), 0);
+}
+
 }

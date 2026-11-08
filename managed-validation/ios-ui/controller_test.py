@@ -234,6 +234,45 @@ class InstalledModePolicy(unittest.TestCase):
     with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
 
 class CleanupOwnershipGuards(unittest.TestCase):
+ def test_cooperative_owner_closes_its_real_child_before_worker_interrupt(self):
+  import sys,subprocess,time
+  from unittest.mock import patch
+  worker=r'''
+import json,pathlib,signal,socket,subprocess,sys
+root=pathlib.Path(sys.argv[1]);child=None
+def interrupted(*_):raise SystemExit(2)
+signal.signal(signal.SIGTERM,interrupted)
+try:
+ child=subprocess.Popen([sys.executable,'-I','-c','import time;time.sleep(20)'])
+ (root/'captured-host.private.json').write_text(json.dumps({'closed':False}))
+ server=socket.socket(socket.AF_UNIX);server.bind(str(root/'native-acceptance.sock'));server.listen(1)
+ (root/'ready').write_text('ready')
+ with server.accept()[0] as connection:
+  data=b''
+  while not data.endswith(b'\n'):data+=connection.recv(4096)
+  assert json.loads(data)=={'op':'abort'}
+  child.terminate();child.wait(timeout=5)
+  (root/'captured-host.private.json').write_text(json.dumps({'closed':True}))
+  (root/'artifacts/native-ui-control-report.json').write_text(json.dumps({'hostClosed':True,'passed':False,'aborted':True}))
+  connection.sendall(b'{"ok":true,"result":{"aborted":true}}\n')
+ server.close()
+finally:
+ if child is not None and child.poll() is None:child.terminate();child.wait(timeout=5)
+'''
+  with tempfile.TemporaryDirectory(prefix='bcqa-') as d:
+   root=pathlib.Path(d);(root/'artifacts').mkdir();ctl=c.Controller.__new__(c.Controller);ctl.root=root;ctl.low=True
+   ctl.fixture=subprocess.Popen([sys.executable,'-I','-c',worker,str(root)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+   try:
+    end=time.monotonic()+5
+    while not (root/'ready').exists():
+     self.assertIsNone(ctl.fixture.poll());self.assertLess(time.monotonic(),end);time.sleep(.01)
+    with patch.object(c.os,'killpg',side_effect=AssertionError('cooperative cleanup must precede worker signals')):ctl.cleanup_fixture()
+    self.assertEqual(ctl.fixture.returncode,0)
+    self.assertTrue(json.loads((root/'captured-host.private.json').read_text())['closed'])
+    result=json.loads((root/'artifacts/native-ui-control-report.json').read_text());self.assertFalse(result['passed']);self.assertTrue(result['aborted'])
+   finally:
+    if ctl.fixture.poll() is None:ctl.fixture.terminate()
+    ctl.fixture.wait(timeout=5)
  def test_plausible_saved_host_record_never_authorizes_signal(self):
   from unittest.mock import patch
   from types import SimpleNamespace

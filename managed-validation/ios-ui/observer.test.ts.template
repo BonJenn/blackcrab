@@ -52,6 +52,7 @@ it("observes actual native catalog/control without requesting provider turns",as
    else if(command.op==="renameSDK"&&typeof command.title==="string"&&command.title.length>0&&command.title.length<=128){await dispatch({type:"thread.metadata.update",commandId:randomUUID(),threadId,title:command.title});result=await status();}
    else if(command.op==="expectNative"&&typeof command.title==="string"){const s=await status();expect(s.title).toBe(command.title);if(typeof command.archived==="boolean")expect(s.archivedAt!==null).toBe(command.archived);report.events.push({kind:"nativeMutationObservedBySDK",...s});result=s;}
    else if(command.op==="finish"){result=await status();report.final=result;report.passed=true;report.events.push({kind:"fixtureFinished",...result});finish();}
+   else if(command.op==="abort"){report.aborted=true;report.passed=false;report.events.push({kind:"fixtureAbortRequested"});result={aborted:true};finish();}
    else throw Error("Not an allowed fixture operation");
    await fs.writeFile(reportFile,JSON.stringify(report,null,2)+"\n",{mode:0o600});client.end(JSON.stringify({ok:true,result})+"\n");
   }catch{client.end(JSON.stringify({ok:false,error:"Owned fixture operation failed"})+"\n");}});});

@@ -1,0 +1,76 @@
+# Actual verified production manifest sha256 b70ebf30400ffbfcc93856b8ded0c5f08b4433f99e440877d243c999ce793d7c
+L	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Electron Framework	Versions/Current/Electron Framework
+L	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Helpers	Versions/Current/Helpers
+L	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Libraries	Versions/Current/Libraries
+L	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Resources	Versions/Current/Resources
+T	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Versions/A
+T	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework
+T	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers
+T	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries
+T	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources
+L	Blackcrab.app/Contents/Frameworks/Electron Framework.framework/Versions/Current	A
+L	Blackcrab.app/Contents/Frameworks/Mantle.framework/Mantle	Versions/Current/Mantle
+L	Blackcrab.app/Contents/Frameworks/Mantle.framework/Resources	Versions/Current/Resources
+T	Blackcrab.app/Contents/Frameworks/Mantle.framework/Versions/A
+T	Blackcrab.app/Contents/Frameworks/Mantle.framework/Versions/A/Mantle
+T	Blackcrab.app/Contents/Frameworks/Mantle.framework/Versions/A/Resources
+L	Blackcrab.app/Contents/Frameworks/Mantle.framework/Versions/Current	A
+L	Blackcrab.app/Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC	Versions/Current/ReactiveObjC
+L	Blackcrab.app/Contents/Frameworks/ReactiveObjC.framework/Resources	Versions/Current/Resources
+T	Blackcrab.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A
+T	Blackcrab.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/ReactiveObjC
+T	Blackcrab.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/Resources
+L	Blackcrab.app/Contents/Frameworks/ReactiveObjC.framework/Versions/Current	A
+L	Blackcrab.app/Contents/Frameworks/Squirrel.framework/Resources	Versions/Current/Resources
+L	Blackcrab.app/Contents/Frameworks/Squirrel.framework/Squirrel	Versions/Current/Squirrel
+T	Blackcrab.app/Contents/Frameworks/Squirrel.framework/Versions/A
+T	Blackcrab.app/Contents/Frameworks/Squirrel.framework/Versions/A/Resources
+T	Blackcrab.app/Contents/Frameworks/Squirrel.framework/Versions/A/Squirrel
+L	Blackcrab.app/Contents/Frameworks/Squirrel.framework/Versions/Current	A
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@clerk_electron-passkeys-0.0.3-f6dd03b7b6
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@clerk_electron-passkeys-0.0.3-f6dd03b7b6/node_modules/@clerk/electron-passkeys-darwin-arm64	../../../@clerk_electron-passkeys-darwin-arm64-0.0.3-531c7b7bb6
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@clerk_electron-passkeys-darwin-arm64-0.0.3-531c7b7bb6
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@crowecawcaw_xa11y-0.13.0-18cd47cc87
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@crowecawcaw_xa11y-0.13.0-18cd47cc87/node_modules/@crowecawcaw/xa11y-darwin-arm64	../../../@crowecawcaw_xa11y-darwin-arm64-0.13.0-a1db39984f
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@crowecawcaw_xa11y-darwin-arm64-0.13.0-a1db39984f
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@electron-webauthn_macos-1.3.1-f90de15a90
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@electron-webauthn_macos-1.3.1-f90de15a90/node_modules/@electron-webauthn/types	../../../@electron-webauthn_types-1.3.1-d8dcdc96ba
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@electron-webauthn_macos-1.3.1-f90de15a90/node_modules/@oslojs/webauthn	../../../@oslojs_webauthn-1.0.0-effeb3238f
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@electron-webauthn_macos-1.3.1-f90de15a90/node_modules/objc-js	../../objc-js-1.5.0-1c68cb79f5
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@electron-webauthn_types-1.3.1-d8dcdc96ba
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@napi-rs_keyring-1.3.0-98cacfdc5f
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@napi-rs_keyring-1.3.0-98cacfdc5f/node_modules/@napi-rs/keyring-darwin-arm64	../../../@napi-rs_keyring-darwin-arm64-1.3.0-6ca79fc342
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@napi-rs_keyring-darwin-arm64-1.3.0-6ca79fc342
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_asn1-1.0.0-c5d771394c
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_asn1-1.0.0-c5d771394c/node_modules/@oslojs/binary	../../../@oslojs_binary-1.0.0-fb42c0bc28
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_binary-1.0.0-fb42c0bc28
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_cbor-1.0.0-12d74bcc2d
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_cbor-1.0.0-12d74bcc2d/node_modules/@oslojs/binary	../../../@oslojs_binary-1.0.0-fb42c0bc28
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_crypto-1.0.0-e961ebe075
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_crypto-1.0.0-e961ebe075/node_modules/@oslojs/asn1	../../../@oslojs_asn1-1.0.0-c5d771394c
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_crypto-1.0.0-e961ebe075/node_modules/@oslojs/binary	../../../@oslojs_binary-1.0.0-fb42c0bc28
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_encoding-1.0.0-95e7c05f5b
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_webauthn-1.0.0-effeb3238f
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_webauthn-1.0.0-effeb3238f/node_modules/@oslojs/asn1	../../../@oslojs_asn1-1.0.0-c5d771394c
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_webauthn-1.0.0-effeb3238f/node_modules/@oslojs/binary	../../../@oslojs_binary-1.0.0-fb42c0bc28
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_webauthn-1.0.0-effeb3238f/node_modules/@oslojs/cbor	../../../@oslojs_cbor-1.0.0-12d74bcc2d
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_webauthn-1.0.0-effeb3238f/node_modules/@oslojs/crypto	../../../@oslojs_crypto-1.0.0-e961ebe075
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@oslojs_webauthn-1.0.0-effeb3238f/node_modules/@oslojs/encoding	../../../@oslojs_encoding-1.0.0-95e7c05f5b
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/@yuuang_ffi-rs-darwin-arm64-1.3.2-7d16f92667
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/electron-webauthn-1.3.1-cac2af4737
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/electron-webauthn-1.3.1-cac2af4737/node_modules/@electron-webauthn/macos	../../../@electron-webauthn_macos-1.3.1-f90de15a90
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/electron-webauthn-1.3.1-cac2af4737/node_modules/@electron-webauthn/types	../../../@electron-webauthn_types-1.3.1-d8dcdc96ba
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/ffi-rs-1.3.2-14a08f531c
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/ffi-rs-1.3.2-14a08f531c/node_modules/@yuuang/ffi-rs-darwin-arm64	../../../@yuuang_ffi-rs-darwin-arm64-1.3.2-7d16f92667
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/node-addon-api-8.9.2-16359a49c1
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/node-gyp-build-4.8.4-b2783d6b52
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/objc-js-1.5.0-1c68cb79f5
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/objc-js-1.5.0-1c68cb79f5/node_modules/node-addon-api	../../node-addon-api-8.9.2-16359a49c1
+L	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/objc-js-1.5.0-1c68cb79f5/node_modules/node-gyp-build	../../node-gyp-build-4.8.4-b2783d6b52
+T	Blackcrab.app/Contents/Resources/app/node_modules/.blackcrab/playwright-core-1.60.0-dc4729579b
+L	Blackcrab.app/Contents/Resources/app/node_modules/@clerk/electron-passkeys	../.blackcrab/@clerk_electron-passkeys-0.0.3-f6dd03b7b6
+L	Blackcrab.app/Contents/Resources/app/node_modules/@crowecawcaw/xa11y	../.blackcrab/@crowecawcaw_xa11y-0.13.0-18cd47cc87
+L	Blackcrab.app/Contents/Resources/app/node_modules/@napi-rs/keyring	../.blackcrab/@napi-rs_keyring-1.3.0-98cacfdc5f
+L	Blackcrab.app/Contents/Resources/app/node_modules/electron-webauthn	.blackcrab/electron-webauthn-1.3.1-cac2af4737
+L	Blackcrab.app/Contents/Resources/app/node_modules/ffi-rs	.blackcrab/ffi-rs-1.3.2-14a08f531c
+L	Blackcrab.app/Contents/Resources/app/node_modules/playwright-core	.blackcrab/playwright-core-1.60.0-dc4729579b

@@ -53,3 +53,13 @@ test('owned widget extension and app explicitly share the native dependency floo
   assert.equal(properties[1].ios.deploymentTarget, config.ios.deploymentTarget);
   assert.ok(config.plugins.some(value => Array.isArray(value) && value[0] === 'expo-widgets'));
 });
+
+test('owned sharing target floor raises SDK fallback and preserves higher versions', () => {
+  const { sharingDeploymentFloor } = require('./with-owned-share-name.cjs');
+  assert.equal(sharingDeploymentFloor('"16.4"', '18.0'), '18.0');
+  assert.equal(sharingDeploymentFloor(undefined, '18.0'), '18.0');
+  assert.equal(sharingDeploymentFloor('18.0', '18.0'), '18.0');
+  assert.equal(sharingDeploymentFloor('19.0', '18.0'), '19.0');
+  assert.throws(() => sharingDeploymentFloor('$(CUSTOM_TARGET)', '18.0'), /Unsupported sharing/);
+  assert.throws(() => sharingDeploymentFloor('16.4', undefined), /Unsupported sharing/);
+});

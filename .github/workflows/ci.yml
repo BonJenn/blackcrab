@@ -37,6 +37,10 @@ jobs:
 
       - run: npm run test:managed-host
 
+      - run: npm run typecheck:managed-acceptance
+
+      - run: npm run test:managed-acceptance
+
       - run: npm run test:mobile:ios-preparation
 
       - run: npm run test:mobile:experience

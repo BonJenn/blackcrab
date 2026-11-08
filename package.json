@@ -47,7 +47,9 @@
     "bundle:shared-runtime:ios": "node scripts/bundle-shared-runtime-ios.mjs",
     "prepare:mobile:ios": "node scripts/prepare-mobile-ios.mjs",
     "test:mobile:ios-preparation": "node --test scripts/prepare-mobile-ios.test.mjs apps/mobile/plugins/with-ios-pod-floor.test.cjs",
-    "test:mobile:experience": "node --test mobile-experience/*.test.mjs"
+    "test:mobile:experience": "node --test mobile-experience/*.test.mjs",
+    "test:managed-acceptance": "vitest run --config managed-validation/vitest.config.ts",
+    "typecheck:managed-acceptance": "tsc --project managed-validation/tsconfig.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",

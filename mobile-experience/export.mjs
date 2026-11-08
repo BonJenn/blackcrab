@@ -9,8 +9,8 @@ const sha = b => createHash('sha256').update(b).digest('hex');
 const json = value => JSON.stringify(value, null, 2) + '\n';
 const compare = (a,b) => a < b ? -1 : a > b ? 1 : 0;
 const GROUPS = ['dependencies','optionalDependencies','peerDependencies','devDependencies'];
-export const SUPPORT_ROOTS = ['apps/mobile','assets','scripts','patches'];
-export const SUPPORT_FILES = ['LICENSE','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.base.json','tsconfig.effect.json','third-party-licenses.config.json'];
+export const SUPPORT_ROOTS = ['apps/mobile','assets','scripts','patches','third-party-licenses/spdx'];
+export const SUPPORT_FILES = ['LICENSE','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.base.json','tsconfig.effect.json','third-party-licenses.config.json','apps/server/src/device/deviceToolVersions.json','native/libghostty-vt/LICENSE'];
 export const GENERATED_ALIASES = [
  {name:'@t3tools/mobile-device-stream',output:'apps/mobile/.generated/device-stream',generator:'apps/mobile/scripts/generate-device-stream.mts',entry:'apps/mobile/src/features/devices/device-stream.browser.ts'},
  {name:'@t3tools/mobile-preview-stream',output:'apps/mobile/.generated/preview-stream',generator:'apps/mobile/scripts/generate-device-stream.mts',entry:'apps/mobile/src/features/browser/preview-stream.browser.ts'},

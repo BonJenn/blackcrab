@@ -34,14 +34,16 @@ The bundle preserves original mobile source/configuration/assets/native modules,
 
 `DEPENDENCY-LOCK.json` records every selected owner's original dependency groups, original declaration, pinned lock specifier/resolution (including peer and patch hashes), explicit lock override, and actual external import-edge ownership. Local native peer dependencies record their provider and exact mobile-app lock resolution. The preserved raw lock also retains complete transitive snapshots/integrities. This is install preparation metadata, not an npm lock conversion or proof that all transitive native dependencies build on a different platform version. Generated aliases and type module aliases are handled explicitly; an unowned bare source dependency fails export.
 
-Actual authenticated export currently contains **3,099 payload files / 116,901,159 bytes**, including 1,457 graph-reachable source files, 24 original owner manifests, ten native modules and three generator aliases. Two independent builds must produce identical `VENDOR-MANIFEST.json` bytes. Full native compilation, npm consumer-manifest generation, own config patches and feature testing remain integration gates.
+Actual authenticated export currently contains **3,109 payload files / 116,930,797 bytes**, including 1,457 graph-reachable source files, 24 original owner manifests, ten native modules and three generator aliases. Two independent builds must produce identical `VENDOR-MANIFEST.json` bytes. Full native compilation, npm consumer-manifest generation, own config patches and feature testing remain integration gates.
 
 ## Recorded source preparation evidence
 
 Two independently extracted pinned archives produced identical manifest SHA-256
-`3a24abea95aac0787211583d7017e2b0776ba2be067610f79b65bfadd4788849`: 3,099 payload
-files / 116,901,159 bytes, 1,457 graph files, 24 package owners, ten native modules
+`1556f294c45b8bfe7d7c73bc32bb205d9a3e53160e8ac72c90fd179b4c861859`: 3,109 payload
+files / 116,930,797 bytes, 1,457 graph files, 24 package owners, ten native modules
 and three generated aliases. All 15 graph/export boundary tests passed, including
 archive rejection, changed metadata/provenance and source consistency. Run them
 with `npm run test:mobile:experience`. This preparation does not establish native
 platform compatibility or activate the mobile experience.
+
+License generation inputs additionally preserve all pinned third-party-licenses/spdx templates, apps/server/src/device/deviceToolVersions.json, and native/libghostty-vt/LICENSE (required by a mobile custom notice). These prevent the original license generator from needing omitted source inputs or fetching missing templates.

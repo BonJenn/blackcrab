@@ -1,0 +1,13 @@
+--- a/apps/server/src/cloud/serviceLauncherClient.ts
++++ b/apps/server/src/cloud/serviceLauncherClient.ts
+@@ -132,8 +132,8 @@
+ 
+ export const resolveServiceLauncherMode = Effect.fn("cloud.service_launcher_client.resolve_mode")(
+   function* () {
+-    const { managed } = yield* resolveStartup();
+-    return { managed };
++    const { managed, context } = yield* resolveStartup();
++    return { managed, ownedAuth: context?.ownedAuth };
+   },
+ );
+ 

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "status": "inactive-native-capture-wiring-pending-composed-acceptance",
+  "patches": [
+    {
+      "id": "owned-proof-config",
+      "target": "apps/server/src/cli/config.ts",
+      "beforeSha256": "ede97db37b80f98b96dab109492eb7ba1ce1c8068bcb87aa5849262edc7a85db",
+      "afterSha256": "637df027f3c3f8d7fdfa0db1e52d53aa311dee2567d06b2ac90f7fa7b2ce5518",
+      "file": "patches/config.patch",
+      "sha256": "0051c1eb8bedb5d7965ce4521753f05c00c703b9b739dbf7cb36df134f2d6c24",
+      "predecessor": "owned-auth-config"
+    },
+    {
+      "id": "owned-proof-serviceLauncherClient",
+      "target": "apps/server/src/cloud/serviceLauncherClient.ts",
+      "beforeSha256": "bc560af90a420886f23a3a0d6852d61f778fcc09ef1db5af4a7479d2ccccefb4",
+      "afterSha256": "df613a5a9c7b4c4fae3ff1adda0d23f145733f9fb405cbf157e73178cd3d6ab8",
+      "file": "patches/serviceLauncherClient.patch",
+      "sha256": "88130ae67e0536096c17a4149182b1225a0334902b839759be764d712070dddc",
+      "predecessor": "owned-auth-serviceLauncherClient"
+    },
+    {
+      "id": "owned-proof-http",
+      "target": "apps/server/src/http.ts",
+      "beforeSha256": "83505ce50c3e803115663e5987fc4217065cfd6928bf729e0e83921e9cd7742d",
+      "afterSha256": "264e4ef40c265a252624ed4dfe17d387e54c66dde6d3cf56014558b39cd631f5",
+      "file": "patches/http.patch",
+      "sha256": "895d40f6c5461cc0412afca43bafa5cad6517c53b0f6704f2130baffabdf6fe2",
+      "predecessor": "owner-control-identity-v2-http"
+    }
+  ],
+  "addedSources": [
+    {
+      "id": "owned-proof-concrete-source",
+      "target": "apps/server/src/OwnedServiceProof.ts",
+      "file": "OwnedServiceProof.ts",
+      "sha256": "55f0599172d39690143c8deb5bb0125e787ba51697f0a84f8a17df64d9230859"
+    }
+  ]
+}

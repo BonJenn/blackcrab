@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "status": "candidate-only-unregistered",
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "patches": [
+    {
+      "id": "owned-auth-config",
+      "target": "apps/server/src/cli/config.ts",
+      "beforeSha256": "b91c02c7fe7e3453b7ca10a47e40549fb37a4ce13706669e50a4f1bec1bfa1d0",
+      "afterSha256": "ede97db37b80f98b96dab109492eb7ba1ce1c8068bcb87aa5849262edc7a85db",
+      "file": "patches/config.patch",
+      "sha256": "3b0eb2f295dcfdade50fb171f7772eb5ecf3319306ffac7ee645e444560ab1ce",
+      "predecessor": "native-browser-host-2"
+    },
+    {
+      "id": "owned-auth-serviceProtocol",
+      "target": "apps/server/src/cloud/serviceProtocol.ts",
+      "beforeSha256": "8a0df5f6c2d2438666bc944bd1b4b9be1e7d176c4c86a6023d495fc696e3d9ef",
+      "afterSha256": "5f54ae565a89fdc522950a8848e88a15065d986b44a04616994253dc0bc6d546",
+      "file": "patches/serviceProtocol.patch",
+      "sha256": "b19507b68cbaf7c63cd07cb08eaef92ea540f3b1b9c11e222bd6ff6062e7e2b7",
+      "predecessor": "004-owned-layout-protocol"
+    },
+    {
+      "id": "owned-auth-serviceLauncherClient",
+      "target": "apps/server/src/cloud/serviceLauncherClient.ts",
+      "beforeSha256": "e4b376634f6168a04e49c26b59be914735f8128e4c59247fe74ff73e08859dda",
+      "afterSha256": "bc560af90a420886f23a3a0d6852d61f778fcc09ef1db5af4a7479d2ccccefb4",
+      "file": "patches/serviceLauncherClient.patch",
+      "sha256": "7bc3a359a8eef0b5bfacfb796099e0dc594a404e49c28bcc2aa643639cba4b57",
+      "predecessor": "pinned-original"
+    }
+  ],
+  "addedSources": [
+    {
+      "id": "owned-auth-bootstrap-source",
+      "target": "apps/server/src/OwnedServiceAuthBootstrap.ts",
+      "file": "OwnedServiceAuthBootstrap.ts",
+      "sha256": "2545fff1554c35ef54969bb17b52e0ed1ece487eae2a31d252775c502e307a01"
+    }
+  ]
+}

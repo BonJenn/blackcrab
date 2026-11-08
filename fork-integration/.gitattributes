@@ -2,3 +2,10 @@
 **/fixtures/*.ts -text whitespace=-blank-at-eol,-blank-at-eof
 owner-control/identity-v2/source-chain/* -text whitespace=-blank-at-eol,-blank-at-eof
 owner-control/identity-v2/patches/*.fragment -text whitespace=-blank-at-eof
+
+# Exact upstream snapshot fixtures for private service bootstrap validation.
+boot-service/owned-auth/fixtures/*.ts -whitespace
+boot-service/effective-config/fixtures/*.ts -whitespace
+boot-service/launcher-adapter/*.before.ts -whitespace
+boot-service/launcher-adapter/*.after.ts -whitespace
+boot-service/backend-identity/fixtures/*.ts -whitespace

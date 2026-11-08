@@ -1,0 +1,97 @@
+{
+  "schema": 2,
+  "status": "source-ready-native-retest-pending",
+  "files": [
+    {
+      "path": "src-tauri/src/managed_service_issuer.rs",
+      "bytes": 56839,
+      "sha256": "8c83a41dd079b54bebeeac5c481743c217144a53eb3cffde7afec68493b3da3d"
+    },
+    {
+      "path": "src-tauri/src/managed_service_boot_session.rs",
+      "bytes": 3791,
+      "sha256": "47beceac8babeef2e2b5f399e220c19a1f4500df5d120298459fc93591d18df2"
+    },
+    {
+      "path": "fork-integration/boot-service/registry.json",
+      "bytes": 9461,
+      "sha256": "c47d20733e6e8c3158b47d2af7a38407a441a0cb7f0a76916368524538c95492"
+    },
+    {
+      "path": "fork-integration/boot-service/owned-auth/registry.json",
+      "bytes": 1901,
+      "sha256": "bb6f9c1572e4c4c63a71c62e722a802b301f47417a7efbf6cfe44933d2686388"
+    },
+    {
+      "path": "fork-integration/boot-service/backend-identity/registry.json",
+      "bytes": 1747,
+      "sha256": "af846b78bc5503698946b5e0c328dfb380ebcb2a094c2660ec228723526a046c"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/LICENSE.upstream",
+      "bytes": 1070,
+      "sha256": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/OwnedLauncherBootstrap.ts",
+      "bytes": 14121,
+      "sha256": "a4bfd90ea954d907a17fde1e0a07aa2eb26918071397f349ab4f8c71dfb9054a"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/OwnedServiceLauncherLoss.ts",
+      "bytes": 1186,
+      "sha256": "67c4003bea6fe22775142516a3b8dcc43c144b480a457784fdba17a15c994390"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/cli-server.after.ts",
+      "bytes": 4331,
+      "sha256": "03e1266fda674c8e03d792475913142dcf88da15028dfc6a82310811a51872a8"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/cli-server.before.ts",
+      "bytes": 4056,
+      "sha256": "ace8a36b8019e89a42e011e9a043768f214c0e981a1c8d6f8fb79ad0dea249f6"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/cli-server.patch",
+      "bytes": 1267,
+      "sha256": "bc8be411d0a3e41adbb54f3e607fd2d51935b544f527670e02fdc91b5c412a6b"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/launcher-adapter.test.mjs",
+      "bytes": 11128,
+      "sha256": "71a951fb51560425ebcd897ba0190489597ceddf2767b36264034c18675ced40"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/launcher-loss.test.mjs",
+      "bytes": 2556,
+      "sha256": "0aec146291f99ac61e8bbb910c1270d3894547bafadd3c1ec79524e6f027af41"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/registry.json",
+      "bytes": 1690,
+      "sha256": "7fe66300ca754db54a19047b291c446006d3afbe7034f10582a15a945b1f9192"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/serviceLauncher.after.ts",
+      "bytes": 34428,
+      "sha256": "4645aa731eeadf09126f06be0e3a5b0ed60108429c4e466cf9d8e01cc49caeee"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/serviceLauncher.before.ts",
+      "bytes": 32816,
+      "sha256": "14652fabb08682c449991ef6049b98da0684b4b7899245b875f8176e535c26f1"
+    },
+    {
+      "path": "fork-integration/boot-service/launcher-adapter/serviceLauncher.patch",
+      "bytes": 5330,
+      "sha256": "257a013ceb597640959bf4370af34a9b112b07869c53eb0315b44e1bf4c3d411"
+    }
+  ],
+  "rustTestsAuthored": 19,
+  "kernelBootTestsAuthored": 2,
+  "nodeTestsPassed": 11,
+  "nativeCompilePerformedForLatestSlice": false,
+  "cliDispatchedLive": false,
+  "serviceActivated": false
+}

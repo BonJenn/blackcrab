@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "status": "candidate-only-unregistered-producer",
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "patches": [
+    {
+      "id": "owned-service-serviceLauncher",
+      "target": "apps/server/src/serviceLauncher.ts",
+      "predecessor": "003-launcher-payload-layout",
+      "beforeSha256": "14652fabb08682c449991ef6049b98da0684b4b7899245b875f8176e535c26f1",
+      "afterSha256": "4645aa731eeadf09126f06be0e3a5b0ed60108429c4e466cf9d8e01cc49caeee",
+      "file": "serviceLauncher.patch",
+      "sha256": "257a013ceb597640959bf4370af34a9b112b07869c53eb0315b44e1bf4c3d411"
+    },
+    {
+      "id": "owned-service-cli-server",
+      "target": "apps/server/src/cli/server.ts",
+      "predecessor": "authenticated-pinned-archive",
+      "beforeSha256": "ace8a36b8019e89a42e011e9a043768f214c0e981a1c8d6f8fb79ad0dea249f6",
+      "afterSha256": "03e1266fda674c8e03d792475913142dcf88da15028dfc6a82310811a51872a8",
+      "file": "cli-server.patch",
+      "sha256": "bc8be411d0a3e41adbb54f3e607fd2d51935b544f527670e02fdc91b5c412a6b"
+    }
+  ],
+  "addedSources": [
+    {
+      "id": "owned-service-OwnedLauncherBootstrap",
+      "target": "apps/server/src/OwnedLauncherBootstrap.ts",
+      "file": "OwnedLauncherBootstrap.ts",
+      "sha256": "a4bfd90ea954d907a17fde1e0a07aa2eb26918071397f349ab4f8c71dfb9054a"
+    },
+    {
+      "id": "owned-service-OwnedServiceLauncherLoss",
+      "target": "apps/server/src/OwnedServiceLauncherLoss.ts",
+      "file": "OwnedServiceLauncherLoss.ts",
+      "sha256": "67c4003bea6fe22775142516a3b8dcc43c144b480a457784fdba17a15c994390"
+    }
+  ]
+}

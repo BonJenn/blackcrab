@@ -1,0 +1,64 @@
+--- a/apps/server/src/http.ts
++++ b/apps/server/src/http.ts
+@@ -30,7 +30,7 @@
+ import { OtlpTracer, OtlpSerialization } from "effect/observability";
+ 
+ import * as ServerConfig from "./config.ts";
+-import { ManagedOwnerProofIssuer } from "./ManagedOwnerProofIssuer.ts";
++import { isOwnedServiceConfig, proveOwnedServiceIdentity } from "./OwnedServiceProof.ts";
+ import { ASSET_ROUTE_PREFIX, readMcpAppHtml, resolveAsset } from "./assets/AssetAccess.ts";
+ import { sourceControlMediaResponse } from "./assets/sourceControlMediaResponse.ts";
+ import { statMediaFile, streamMediaFile, type OpenMediaFile } from "./assets/MediaFile.ts";
+@@ -333,6 +333,26 @@
+     if (requestedVersion !== null && requestedVersion !== "1" && requestedVersion !== "2") {
+       return HttpServerResponse.empty({ status: 400 });
+     }
++    if (requestedVersion === "2") {
++      if (query.getAll("nonce").length !== 1 || query.getAll("version").length !== 1 ||
++          [...query.keys()].some(key => key !== "nonce" && key !== "version") ||
++          nonce === null || !/^[a-f0-9]{64}$/.test(nonce)) {
++        return HttpServerResponse.empty({ status: 400 });
++      }
++      if (!isOwnedServiceConfig(config)) return HttpServerResponse.empty({ status: 404 });
++      const descriptor = yield* (yield* ServerEnvironment.ServerEnvironment).getDescriptor;
++      // Listener binding may be LAN/Tailnet; the native control origin remains
++      // captured loopback. Host/Origin headers and query never choose identity.
++      try {
++        const proof = proveOwnedServiceIdentity(config, nonce, descriptor);
++        if (proof === undefined) return HttpServerResponse.empty({ status: 503 });
++        return HttpServerResponse.jsonUnsafe(proof, { headers: { "Cache-Control": "no-store" } });
++      } catch {
++        return HttpServerResponse.empty({ status: 503 });
++      }
++    }
++    // An owned service cannot downgrade to Direct's v1 proof.
++    if (isOwnedServiceConfig(config)) return HttpServerResponse.empty({ status: 404 });
+     if (!config.desktopBootstrapSecret || config.host !== "127.0.0.1" ||
+         !Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
+       return HttpServerResponse.empty({ status: 404 });
+@@ -342,25 +362,6 @@
+     }
+     const descriptor = yield* (yield* ServerEnvironment.ServerEnvironment).getDescriptor;
+     const origin = `http://127.0.0.1:${config.port}/`;
+-    if (requestedVersion === "2") {
+-      // Only a future native-private captured-child issuer can provide this service.
+-      // No manifest/profile/secret is accepted from request JSON, headers or query.
+-      if (query.getAll("nonce").length !== 1 || query.getAll("version").length !== 1 ||
+-          [...query.keys()].some(key => key !== "nonce" && key !== "version")) {
+-        return HttpServerResponse.empty({ status: 400 });
+-      }
+-      const issuer = yield* Effect.serviceOption(ManagedOwnerProofIssuer);
+-      if (Option.isNone(issuer)) return HttpServerResponse.empty({ status: 404 });
+-      const result = yield* issuer.value.prove(nonce);
+-      if (result.version !== 2 || result.nonce !== nonce ||
+-          result.environmentId !== descriptor.environmentId || result.origin !== origin ||
+-          result.serverVersion !== descriptor.serverVersion ||
+-          result.orchestrationProtocolVersion !== descriptor.orchestrationProtocolVersion ||
+-          result.layoutProfile !== "blackcrab-local-service-layout-v1" || result.serviceProtocol !== 4 ||
+-          !/^[a-f0-9]{64}$/.test(result.manifestSha256) || !/^[a-f0-9]{64}$/.test(result.proof) ||
+-          Object.keys(result).length !== 10) return HttpServerResponse.empty({ status: 503 });
+-      return HttpServerResponse.jsonUnsafe(result, { headers: { "Cache-Control": "no-store" } });
+-    }
+     const fields = ["blackcrab-managed-host-proof-v1", nonce, descriptor.environmentId,
+       origin, descriptor.serverVersion, descriptor.orchestrationProtocolVersion];
+     const proof = createHmac("sha256", config.desktopBootstrapSecret)

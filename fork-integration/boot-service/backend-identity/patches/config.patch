@@ -1,0 +1,15 @@
+--- a/apps/server/src/cli/config.ts
++++ b/apps/server/src/cli/config.ts
+@@ -1,3 +1,4 @@
++import { captureOwnedServiceProof } from "../OwnedServiceProof.ts";
+ import { readOwnedServiceAuthBootstrap } from "../OwnedServiceAuthBootstrap.ts";
+ import * as NetService from "@t3tools/shared/Net";
+ import {
+@@ -532,6 +533,7 @@
+     tailscaleServePort,
+   };
+ 
++  if (authEnvelope !== undefined) captureOwnedServiceProof(config, authEnvelope, launcherMode.childVersion);
+   return config;
+ });
+ 

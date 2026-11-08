@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "asset": "blackcrab.png",
+  "source": "src-tauri/icons/icon.png",
+  "sha256": "8def339575078d99231f51baa067379247219fd76b3ae53441fa1c03813c2bcf",
+  "adaptation": "Unchanged owned Blackcrab icon bytes; Expo performs target icon rasterization."
+}

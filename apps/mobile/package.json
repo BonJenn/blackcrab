@@ -11,7 +11,9 @@
     "android": "expo run:android",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pretypecheck": "node ../../mobile-experience/resources-cli.mjs --ui-only",
+    "pretest": "node ../../mobile-experience/resources-cli.mjs --ui-only"
   },
   "dependencies": {
     "@clerk/expo": "4.14.0",

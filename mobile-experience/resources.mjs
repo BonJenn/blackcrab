@@ -1,15 +1,32 @@
+import { ensureNativeUI } from "./activation/ensure.mjs";
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 const sha = b => createHash('sha256').update(b).digest('hex');
 /** Owned output paths; upstream configs/App are never imported. */
 export async function prepareMobileResources(repoRoot) {
+    await ensureNativeUI(repoRoot);
     const mobile = path.join(repoRoot, 'apps/mobile'), source = path.join(repoRoot, 'vendor/t3-mobile'), require = createRequire(path.join(repoRoot, 'package.json'));
     const { build } = await import(pathToFileURL(require.resolve('@blackcrab/mobile-stream-builder')).href);
     const records = [];
-    async function write(relative, bytes) { const target = path.join(mobile, relative); await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, bytes); records.push({ path: `apps/mobile/${relative}`, sha256: sha(bytes), bytes: Buffer.byteLength(bytes) }); }
+    async function write(relative, bytes) {
+        const target = path.join(mobile, relative);
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        let unchanged = false;
+        try {
+            const stat = await fs.lstat(target);
+            if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) throw Error('Generated resource is linked or not a regular file');
+            unchanged = Buffer.from(bytes).equals(await fs.readFile(target));
+        } catch (error) { if (error.code !== 'ENOENT') throw error; }
+        if (!unchanged) {
+            const pending = target + '.pending-' + randomUUID();
+            try { await fs.writeFile(pending, bytes, { flag: 'wx' }); await fs.rename(pending, target); }
+            finally { await fs.rm(pending, { force: true }); }
+        }
+        records.push({ path: `apps/mobile/${relative}`, sha256: sha(bytes), bytes: Buffer.byteLength(bytes) });
+    }
     for (const [feature, name] of [['devices', 'Device'], ['browser', 'Preview']]) {
         const stem = `${name.toLowerCase()}-stream`, entry = path.join(source, 'apps/mobile/src/features', feature, `${stem}.browser.ts`);
         const result = await build({ configFile: false, root: mobile, envDir: false, envPrefix: [], logLevel: 'silent', build: { write: false, target: 'es2022', minify: true, lib: { entry, name: `T3${name}Stream`, formats: ['iife'] } } });
@@ -48,6 +65,8 @@ export async function prepareMobileResources(repoRoot) {
     await write('.generated/third-party-licenses/package.json', '{"main":"index.js"}\n');
     for (const file of ['global.css', 'generated-uniwind-themes.css', 'generated-uniwind-theme-names.json', 'generated-uniwind-default-theme-variables.json', 'clerk-theme.json'])
         await write(`.generated/styles/${file}`, await fs.readFile(path.join(source, 'apps/mobile', file)));
-    await write('.generated/RESOURCE-MANIFEST.json', JSON.stringify({ schema: 1, records }, null, 2) + '\n');
+    const activationManifest = await fs.readFile(path.join(generatedRoot, 'native-ui/ACTIVATION-MANIFEST.json'));
+    const activation = JSON.parse(activationManifest);
+    await write('.generated/RESOURCE-MANIFEST.json', JSON.stringify({ schema: 1, source: { consumerManifestSha256: activation.consumerManifestSha256, activationRegistrySha256: activation.registrySha256, activationManifestSha256: sha(activationManifest) }, records }, null, 2) + '\n');
     return records;
 }

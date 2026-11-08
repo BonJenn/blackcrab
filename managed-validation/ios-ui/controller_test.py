@@ -51,6 +51,25 @@ class ResultAndCopyGuards(unittest.TestCase):
    with patch.object(c,'HOST_SHA',c.sha(b'{}')):
     records=c.copy_verified_host(src,dest);self.assertEqual(records,c.host_inventory(dest));self.assertEqual(dest.stat().st_mode&0o777,0o700)
     with self.assertRaises(AssertionError):c.copy_verified_host(src,dest)
+ def test_xcode_suffixed_attachment_keeps_all_receipt_guards(self):
+  with tempfile.TemporaryDirectory() as d:
+   root=pathlib.Path(d);p=root/'export.json';value={'kind':'blackcrab-phase-completion-v1','phase':'logging-canary','nonce':'N','deviceUUID':'OWN'};p.write_text(json.dumps(value))
+   label='blackcrab-phase-completion_0_A887C25F-B581-4787-83FF-59E0F5D0935A.json'
+   a={'exportedFileName':p.name,'suggestedHumanReadableName':label,'deviceId':'OWN','isAssociatedWithFailure':False};manifest=[{'testIdentifier':'T','attachments':[a]}]
+   self.assertEqual(c.completion_receipt(manifest,root,'T','logging-canary','N','OWN'),value)
+   for bad in ['../'+label,label.replace('_0_','_x_'),label.replace('A887C25F','notuuid!'),label+'.extra','unrelated.json',None,True]:
+    a['suggestedHumanReadableName']=bad
+    with self.subTest(label=bad),self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
+   a['suggestedHumanReadableName']=label
+   for key,bad in [('deviceId','OTHER'),('isAssociatedWithFailure',True)]:
+    original=a[key];a[key]=bad
+    with self.subTest(key=key),self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
+    a[key]=original
+   for key,bad in [('phase','different'),('nonce','wrong'),('deviceUUID','OTHER')]:
+    changed=dict(value);changed[key]=bad;p.write_text(json.dumps(changed))
+    with self.subTest(payload=key),self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
+   p.write_text(json.dumps(value));manifest[0]['attachments'].append(dict(a))
+   with self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
  def test_host_copy_rejects_copy_corruption(self):
   from unittest.mock import patch
   with tempfile.TemporaryDirectory() as d:
@@ -215,6 +234,45 @@ class InstalledModePolicy(unittest.TestCase):
     with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
 
 class CleanupOwnershipGuards(unittest.TestCase):
+ def test_cooperative_owner_closes_its_real_child_before_worker_interrupt(self):
+  import sys,subprocess,time
+  from unittest.mock import patch
+  worker=r'''
+import json,pathlib,signal,socket,subprocess,sys
+root=pathlib.Path(sys.argv[1]);child=None
+def interrupted(*_):raise SystemExit(2)
+signal.signal(signal.SIGTERM,interrupted)
+try:
+ child=subprocess.Popen([sys.executable,'-I','-c','import time;time.sleep(20)'])
+ (root/'captured-host.private.json').write_text(json.dumps({'closed':False}))
+ server=socket.socket(socket.AF_UNIX);server.bind(str(root/'native-acceptance.sock'));server.listen(1)
+ (root/'ready').write_text('ready')
+ with server.accept()[0] as connection:
+  data=b''
+  while not data.endswith(b'\n'):data+=connection.recv(4096)
+  assert json.loads(data)=={'op':'abort'}
+  child.terminate();child.wait(timeout=5)
+  (root/'captured-host.private.json').write_text(json.dumps({'closed':True}))
+  (root/'artifacts/native-ui-control-report.json').write_text(json.dumps({'hostClosed':True,'passed':False,'aborted':True}))
+  connection.sendall(b'{"ok":true,"result":{"aborted":true}}\n')
+ server.close()
+finally:
+ if child is not None and child.poll() is None:child.terminate();child.wait(timeout=5)
+'''
+  with tempfile.TemporaryDirectory(prefix='bcqa-') as d:
+   root=pathlib.Path(d);(root/'artifacts').mkdir();ctl=c.Controller.__new__(c.Controller);ctl.root=root;ctl.low=True
+   ctl.fixture=subprocess.Popen([sys.executable,'-I','-c',worker,str(root)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+   try:
+    end=time.monotonic()+5
+    while not (root/'ready').exists():
+     self.assertIsNone(ctl.fixture.poll());self.assertLess(time.monotonic(),end);time.sleep(.01)
+    with patch.object(c.os,'killpg',side_effect=AssertionError('cooperative cleanup must precede worker signals')):ctl.cleanup_fixture()
+    self.assertEqual(ctl.fixture.returncode,0)
+    self.assertTrue(json.loads((root/'captured-host.private.json').read_text())['closed'])
+    result=json.loads((root/'artifacts/native-ui-control-report.json').read_text());self.assertFalse(result['passed']);self.assertTrue(result['aborted'])
+   finally:
+    if ctl.fixture.poll() is None:ctl.fixture.terminate()
+    ctl.fixture.wait(timeout=5)
  def test_plausible_saved_host_record_never_authorizes_signal(self):
   from unittest.mock import patch
   from types import SimpleNamespace

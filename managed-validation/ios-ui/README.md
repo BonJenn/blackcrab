@@ -1,13 +1,20 @@
 # User-approved Apple native acceptance controller
 
-**The standalone runner build-for-testing passed. XCTest UI execution remains unverified.**
-The first owned canary booted a fresh iOS26.2 simulator and installed the pinned
-baseline, then stopped at the post-install inventory guard before XCTest. The
-reviewed mode-only guard correction passed against that installed bundle read-only
-and all25 portable unit tests. The first device was removed after identity-fenced
-shutdown checks; its private evidence remains retained. No host, pairing grant,
-credential or provider session was created. The corrected retry is held below the
-six-GiB stable internal resource gate. This harness does not establish full iOS parity.
+**The nonsecret native logging canary passed one test with no skips or failures.**
+The standalone runner build-for-testing also passed. The first owned attempt
+stopped before XCTest at an installed-framework mode guard. The corrected attempt
+ran the UI test successfully; its controller then rejected Xcode27's generated
+completion-attachment name. The narrow export-name correction revalidated that
+same retained official result without rerunning the UI. The coordinator reviewed
+the nonce/device/test-bound completion and private evidence and approved its
+receipt. Both canary devices were removed with identity checks; evidence remains
+private. Neither canary created a host, pairing grant or provider session.
+
+The real SDK fixture preflight now explicitly creates its owned project through
+`projects.mutate`, observes the resulting shell projection, then creates one idle
+thread. That preflight passed with zero runs/provider sessions and clean captured
+host closure. It is a prerequisite check; full-interface retained catalog, native
+rename and archive remain unverified. All27 portable controller tests passed.
 The user explicitly approved XCTest input into a fresh owned simulator and an
 isolated disposable loopback pairing credential for catalog retention, rename and
 archive validation, with no providers or existing-device actions. Resource GO and
@@ -47,14 +54,16 @@ match the receipt. No existing device is selected or controlled.
    Baseline native UI writes the existing managed catalog through its original
    secure fields. No app instrumentation or direct catalog insertion is used.
 3. The controller compares only the owned app's fixed legacy pairing/read-cursor
-   keychain rows and queue-recovery directory digests, terminates the app and
+   keychain rows and queue-recovery directory digests after Swift terminates it, and
    installs c603 over the same bundle ID **without uninstalling**.
 4. Full UI cold launch must show the existing nonce-named thread. Native rename
    and archive are independently checked through the actual SDK. Final runs and
    providerSessions must both be empty; legacy digests must be unchanged.
 5. Captured host cleanup is confirmed before any summary: the live fixture closes
-   its actual host Child, including during graceful interruption of the captured
-   fixture process. A saved PID/start/PGID/data-root receipt never authorizes a
+   its actual host Child. On failure the controller first requests cooperative
+   abort through the live owner socket and waits before interrupting the captured
+   fixture process. Abort records a failed acceptance, never a passing workflow.
+   A saved PID/start/PGID/data-root receipt never authorizes a
    signal. Missing or uncertain host closure stops acceptance and retains private
    evidence; the controller does not reconstruct a lost host handle. Only fixed booleans
    and counts go into the sanitized summary; raw logs/results are never exported.
@@ -70,9 +79,9 @@ paired host is disposable and stopped before report publication. Node/Xcode use
 isolated HOME/TMPDIR/module caches and do not inherit provider credentials.
 
 Exact native context-menu Rename, prompt and archive swipe accessibility have
-not yet been observed. The standalone project passed build-for-testing; live test execution is unverified. Runner
-simulator environment keys and the scoped keychain schema are fail-closed and
-must be validated after approval. Fresh-device legacy digests may be empty;
+not yet been observed. The logging canary validated runner identity and native
+secure-field input on the baseline app only. The scoped keychain and populated
+legacy-state checks remain separate acceptance gates. Fresh-device legacy digests may be empty;
 that result does not certify populated legacy queue recovery. iOS26.2 acceptance
 would not certify the failed iOS27.1 migration or physical-device distribution.
 
@@ -129,3 +138,29 @@ deep signature verification remains mandatory. Every other mode, path, entry typ
 missing/extra file and byte remains strict. This documents one observed install
 transform, not a universal Apple behavior. The first attempt executed no XCTest;
 the correction requires a separately authorized resource-scheduled retry.
+
+
+## Observed result-export spelling
+
+Xcode27 xcresulttool0.4.0 exported the completion name as
+`blackcrab-phase-completion_<index>_<UUID>.json`. The parser accepts only that
+anchored spelling or the original exact name. Exported basenames/canonical paths,
+expected test and device, nonfailure association, exact phase/nonce/device JSON,
+and a unique completion remain mandatory. Malformed names, wrong identity or
+payload, and duplicate completions are rejected. Raw tool errors remain private.
+The fixture records its controlled phase and bounded private error detail, so a
+future prerequisite failure is diagnosed before another device run.
+
+## Latest paired attempt
+
+The baseline pairing UI passed one official test without skips or failures. The
+controller then stopped before upgrade because it redundantly asked simctl to
+terminate an app that Swift had already terminated. That redundant command is
+removed. Upgrade, retained full-interface catalog, rename and archive remain
+unverified. Framework interruption also bypassed the fixture's cleanup; the
+controller now requests cooperative abort from the still-live owner first. A
+real subprocess/socket regression verifies owner cleanup before interruption,
+including when the resource low-water flag is set. Missing actual host closure
+still fails acceptance and retains evidence.
+
+A real SDK host-only abort preflight passed: zero runs/provider sessions, aborted acceptance remained failed, the live owner closed its actual host Child, and no framework interruption signals were needed. Original SDK source/package hashes remained unchanged. No device or UI was used.

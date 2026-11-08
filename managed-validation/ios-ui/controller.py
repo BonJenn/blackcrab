@@ -169,6 +169,12 @@ def passed_test_id(tree,device):
  devices=tree['devices'];assert len(devices)==1 and devices[0]['deviceId']==device
  return identifier
 
+def completion_attachment_name(value):
+ if value=='blackcrab-phase-completion.json':return True
+ # Observed xcresulttool 0.4.0 export spelling; the completion JSON, test,
+ # device, nonfailure flag and uniqueness remain the authority for this receipt.
+ return isinstance(value,str) and len(value)<=128 and re.fullmatch(r'blackcrab-phase-completion_[0-9]+_[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\.json',value) is not None
+
 def completion_receipt(manifest,root,test_id,phase,nonce,device):
  found=[];root=root.resolve(strict=True)
  assert isinstance(manifest,list)
@@ -177,7 +183,7 @@ def completion_receipt(manifest,root,test_id,phase,nonce,device):
   for a in test['attachments']:
    name=a['exportedFileName'];assert isinstance(name,str) and pathlib.Path(name).name==name and name not in ('.','..')
    path=root/name;assert not path.is_symlink() and path.resolve(strict=True).is_relative_to(root)
-   if a['suggestedHumanReadableName']=='blackcrab-phase-completion.json':
+   if completion_attachment_name(a['suggestedHumanReadableName']):
     assert a['deviceId']==device and a['isAssociatedWithFailure'] is False
     value=json.loads(path.read_text());assert value=={'kind':'blackcrab-phase-completion-v1','phase':phase,'nonce':nonce,'deviceUUID':device}
     found.append(value)
@@ -246,9 +252,9 @@ class Controller:
   assert xs[0]['dataPath']==r['dataPath'];return xs[0]
  def rpc(self,op,**kw):
   with socket.socket(socket.AF_UNIX) as s:
-   s.settimeout(20);s.connect(str(self.root/'native-acceptance.sock'));s.sendall((json.dumps(dict(op=op,**kw))+'\n').encode());b=b''
+   s.settimeout(5 if op=='abort' else 20);s.connect(str(self.root/'native-acceptance.sock'));s.sendall((json.dumps(dict(op=op,**kw))+'\n').encode());b=b''
    while not b.endswith(b'\n'):
-    assert not getattr(self,'low',False)
+    assert op=='abort' or not getattr(self,'low',False)
     chunk=s.recv(4096)
     if not chunk:raise RuntimeError('Private fixture RPC closed before complete frame')
     b+=chunk;assert len(b)<32768
@@ -373,7 +379,9 @@ class Controller:
     return
    pair=self.start_fixture(r,canary)
    self.test(r,'seed-baseline',pair,True)
-   self.run(['xcrun','simctl','terminate',u,APP]);assert self.legacy(r)==before
+   # Successful Swift completion already includes app.terminate(). A second
+   # simctl terminate returns ESRCH and must not prevent the upgrade phase.
+   assert self.legacy(r)==before
    initial=self.rpc('status');assert initial['runs']==0 and initial['providerSessions']==0
    self.run(['xcrun','simctl','install',u,str(NEW_APP)]);self.installed(r,pins['current']) # Deliberately never uninstall.
    assert self.legacy(r)==before
@@ -424,13 +432,19 @@ class Controller:
   import signal
   fixture_error=None
   if hasattr(self,'fixture') and self.fixture.poll() is None:
-   # Fixture's finally block closes its captured detached host on graceful SIGINT.
-   os.killpg(self.fixture.pid,signal.SIGINT)
-   try:self.fixture.wait(timeout=30)
-   except subprocess.TimeoutExpired:
-    os.killpg(self.fixture.pid,signal.SIGTERM)
-    try:self.fixture.wait(timeout=15)
-    except subprocess.TimeoutExpired:fixture_error=RuntimeError('Captured fixture group did not exit; publish no report')
+   # Ask the still-live owner to close its actual host Child before interrupting
+   # Vitest. A framework signal alone can exit the worker before its finally.
+   try:
+    self.rpc('abort')
+    self.fixture.wait(timeout=30)
+   except Exception:pass
+   if self.fixture.poll() is None:
+    os.killpg(self.fixture.pid,signal.SIGINT)
+    try:self.fixture.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+     if self.fixture.poll() is None:os.killpg(self.fixture.pid,signal.SIGTERM)
+     try:self.fixture.wait(timeout=15)
+     except subprocess.TimeoutExpired:fixture_error=RuntimeError('Captured fixture group did not exit; publish no report')
   report=self.root/'artifacts/native-ui-control-report.json'
   capture=self.root/'captured-host.private.json'
   if capture.exists():

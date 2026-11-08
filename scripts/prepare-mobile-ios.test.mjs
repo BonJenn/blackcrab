@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments } from './prepare-mobile-ios.mjs';
+import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments, resolveNpmCache } from './prepare-mobile-ios.mjs';
 const execute = promisify(execFile);
 async function fixture(run) {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-ios-test-'));
@@ -131,3 +131,14 @@ test('Release producer bounds native compilation and records a single supported 
   assert.equal(args[args.indexOf('-configuration') + 1], 'Release');
   assert.ok(args.includes('CODE_SIGNING_ALLOWED=YES'));
 });
+
+test('explicit npm cache is canonical, existing, and outside the source repository', async () => fixture(async ({ repo, base }) => {
+  const stage = path.join(base, 'stage'), external = path.join(base, 'external-cache'), alias = path.join(base, 'cache-alias');
+  await fs.mkdir(stage); await fs.mkdir(external); await fs.symlink(external, alias);
+  assert.equal(await resolveNpmCache(stage, repo, alias), await fs.realpath(external));
+  assert.equal(await resolveNpmCache(stage, repo), path.join(await fs.realpath(stage), 'npm-cache'));
+  await assert.rejects(resolveNpmCache(stage, repo, repo), /outside the source repository/);
+  const sourceAlias = path.join(base, 'source-cache-alias'); await fs.symlink(repo, sourceAlias);
+  await assert.rejects(resolveNpmCache(stage, repo, sourceAlias), /outside the source repository/);
+  await assert.rejects(resolveNpmCache(stage, repo, path.join(base, 'missing-cache')), /ENOENT/);
+}));

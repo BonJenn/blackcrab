@@ -181,6 +181,20 @@ export function simulatorReleaseBuildArguments({ workspace, scheme, destination,
   return ['-workspace', workspace, '-scheme', scheme, '-configuration', 'Release', '-sdk', 'iphonesimulator', '-destination', destination, '-derivedDataPath', derivedData, '-jobs', '2', 'ARCHS=arm64', 'ONLY_ACTIVE_ARCH=YES', 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=', 'build'];
 }
 
+/** Explicit caches must already exist outside the source repo; npm receives the canonical path. */
+export async function resolveNpmCache(stageRoot, sourceRepo, requested) {
+  const source = await fs.realpath(sourceRepo);
+  let cache;
+  if (requested) cache = await fs.realpath(requested);
+  else {
+    const stage = await fs.realpath(stageRoot);
+    if (inside(source, stage)) throw new Error('Npm cache must be outside the source repository.');
+    cache = path.join(stage, 'npm-cache'); await fs.mkdir(cache, { recursive: true });
+  }
+  if (inside(source, cache) || !(await fs.stat(cache)).isDirectory()) throw new Error('Npm cache must be a directory outside the source repository.');
+  return cache;
+}
+
 export async function prepareMobileIos(options = {}) {
   if (process.platform !== 'darwin') throw new Error('Native iOS preparation requires macOS and installed Xcode/CocoaPods.');
   if(process.version!=='v26.12.1')throw new Error('Native SDK58 preparation requires Node 26.12.1.');
@@ -197,12 +211,13 @@ export async function prepareMobileIos(options = {}) {
   let step = 0;
   const run = (name, command, args, cwd = stage.repo, timeout) => runLogged(command, args, { cwd, env, timeout, log: path.join(report.logs, `${String(++step).padStart(2, '0')}-${name}.log`) });
   try {
+    report.npmCache = await resolveNpmCache(stage.root, options.repoRoot ?? defaultRepo, options.npmCache);
     await run('node-version', process.execPath, ['--version']);
     await run('npm-version', npmCommand, npmArgs(['--version']));
     const npmVersion=(await execute(npmCommand,npmArgs(['--version']),{env})).stdout.trim();if(npmVersion!=='12.2.2')throw new Error('Native SDK58 preparation requires npm 12.2.2 (use --npm-cli for an isolated CLI).');
     await run('xcode-version', 'xcodebuild', ['-version']);
     await run('pod-version', 'pod', ['--version']);
-    await run('npm-ci', npmCommand, npmArgs(['ci', '--no-audit', '--no-fund', '--cache', path.join(stage.root, 'npm-cache')]));
+    await run('npm-ci', npmCommand, npmArgs(['ci', '--no-audit', '--no-fund', '--cache', report.npmCache]));
     const {applyOwnedMobileBuildPatches}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/build-patches.mjs')).href);report.ownedBuildPatches=[await applyOwnedMobileBuildPatches({repoRoot:stage.repo})];
     const {collectNativeAssetInputs}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/native-assets.mjs')).href);
     const nativeAssets=await collectNativeAssetInputs(stage.repo);report.nativeAssetInputs=path.join(stage.root,'artifacts/native-asset-inputs.json');await fs.writeFile(report.nativeAssetInputs,JSON.stringify(nativeAssets,null,2)+'\n');report.nativeAssetInputsSha256=hash(await fs.readFile(report.nativeAssetInputs));
@@ -248,9 +263,9 @@ export async function prepareMobileIos(options = {}) {
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   const { values } = parseArgs({ options: {
     mode: { type: 'string', default: 'prepare' }, 'include-working-tree': { type: 'boolean', default: false },
-    'npm-cli': { type: 'string' }, 'staging-parent': { type: 'string' }, 'derived-data-parent': { type: 'string' }, destination: { type: 'string' },
+    'npm-cli': { type: 'string' }, 'npm-cache': { type: 'string' }, 'staging-parent': { type: 'string' }, 'derived-data-parent': { type: 'string' }, destination: { type: 'string' },
   } });
   try {
-    console.log(JSON.stringify(await prepareMobileIos({ mode: values.mode, includeWorkingTree: values['include-working-tree'], npmCli: values['npm-cli'], stagingParent: values['staging-parent'], derivedDataParent: values['derived-data-parent'], destination: values.destination }), null, 2));
+    console.log(JSON.stringify(await prepareMobileIos({ mode: values.mode, includeWorkingTree: values['include-working-tree'], npmCli: values['npm-cli'], npmCache: values['npm-cache'], stagingParent: values['staging-parent'], derivedDataParent: values['derived-data-parent'], destination: values.destination }), null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

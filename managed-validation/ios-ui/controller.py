@@ -435,22 +435,13 @@ class Controller:
   capture=self.root/'captured-host.private.json'
   if capture.exists():
    c=json.loads(capture.read_text())
-   if not c.get('closed'):
-    pid=c['pid'];assert c['root']==str(self.root/'native-control-host') and c['pgid']==pid
-    try:
-     start=subprocess.check_output(['ps','-p',str(pid),'-o','lstart='],text=True).strip()
-     command=subprocess.check_output(['ps','-p',str(pid),'-o','command='],text=True)
-    except subprocess.CalledProcessError: start=None
-    if start is not None:
-     assert start==c['started'] and c['root'] in command and os.getpgid(pid)==pid
-     os.killpg(pid,signal.SIGTERM)
-     deadline=time.time()+10
-     while time.time()<deadline:
-      try:os.kill(pid,0)
-      except ProcessLookupError:break
-      time.sleep(.1)
-     else:raise RuntimeError('Owned host cleanup unresolved; export prohibited')
-    c['closed']=True;write(capture,c)
+   # This receipt is an observation, never process-control authority. Only the
+   # live fixture retains the actual host Child and may stop it. Even matching
+   # PID/start/group/path fields cannot restore a lost process handle.
+   if c.get('closed') is not True:
+    raise RuntimeError('Host cleanup uncertain; retain private evidence and publish no report')
+  elif hasattr(self,'fixture'):
+   raise RuntimeError('Host closure observation missing; publish no report')
   if report.exists():assert json.loads(report.read_text()).get('hostClosed') is True
   if fixture_error:raise fixture_error
  def sanitize(self,pair):

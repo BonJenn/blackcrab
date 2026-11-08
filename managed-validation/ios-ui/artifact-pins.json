@@ -26,8 +26,8 @@
     "Acceptance.swift": "4b06a62d023b34a844507fbf98f6d04b07466ee2ecf28c584032dae59e3bbb28",
     "Acceptance.xcodeproj/project.pbxproj": "d9b6e830b7ebd9789c79426136e82c59fca5dcf8cdf99c27d85fc813468c7c65",
     "Acceptance.xcodeproj/xcshareddata/xcschemes/Acceptance.xcscheme": "4240e4f63be0f792d19f2cf4c7e75ceb9c59901563f27f70e93537319033f6d7",
-    "controller.py": "2ec32ab430c5e61f49a9db4d9892f42b71150e0a0d855d3ff155e8990ba1bf4d",
-    "controller_test.py": "750c88884acea59accb66e04ccc643b6f33f5bd92504913d88e8b2db0b231fd8",
+    "controller.py": "275c18edc06187869026812b9656f07df78231afc48c432ff65a7121beb9454d",
+    "controller_test.py": "0dbd784dd61bbe1d5fa30d6e27388a276b61fbbd45bfc92b4ef3608180b5145f",
     "observer.test.ts.template": "2a6864ece72f77a7854fdc60717483eca0b9c3735310dd6a4413092acd7819f8",
     "packaged-host.mjs.template": "4faeba1cd113a50252b8aa6fdca092c8e5ac770307a0033f30e100f88b0781b5"
   },

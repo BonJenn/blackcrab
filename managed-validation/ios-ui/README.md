@@ -4,7 +4,7 @@
 The first owned canary booted a fresh iOS26.2 simulator and installed the pinned
 baseline, then stopped at the post-install inventory guard before XCTest. The
 reviewed mode-only guard correction passed against that installed bundle read-only
-and all22 portable unit tests. The first device was removed after identity-fenced
+and all25 portable unit tests. The first device was removed after identity-fenced
 shutdown checks; its private evidence remains retained. No host, pairing grant,
 credential or provider session was created. The corrected retry is held below the
 six-GiB stable internal resource gate. This harness does not establish full iOS parity.
@@ -52,10 +52,11 @@ match the receipt. No existing device is selected or controlled.
 4. Full UI cold launch must show the existing nonce-named thread. Native rename
    and archive are independently checked through the actual SDK. Final runs and
    providerSessions must both be empty; legacy digests must be unchanged.
-5. Captured host cleanup is confirmed before any summary: normal fixture closes
-   its actual Child, and an interrupted fixture has a private captured-PID/start
-   identity/PGID/data-root fallback with exact identity checks. No generic PID
-   records or unrelated processes are termination authority. Only fixed booleans
+5. Captured host cleanup is confirmed before any summary: the live fixture closes
+   its actual host Child, including during graceful interruption of the captured
+   fixture process. A saved PID/start/PGID/data-root receipt never authorizes a
+   signal. Missing or uncertain host closure stops acceptance and retains private
+   evidence; the controller does not reconstruct a lost host handle. Only fixed booleans
    and counts go into the sanitized summary; raw logs/results are never exported.
 
 ## Secrecy and limits

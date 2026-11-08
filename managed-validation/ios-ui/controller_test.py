@@ -168,7 +168,6 @@ class PrebuiltRunnerGuards(unittest.TestCase):
   with patch.object(c.os,'statvfs',side_effect=[Space(),Low()]),patch.object(c.time,'sleep'):
    with self.assertRaises(AssertionError):c.stable_internal_headroom()
 
-if __name__=='__main__':unittest.main()
 
 class InstalledModePolicy(unittest.TestCase):
  def fixture(self,root):
@@ -201,6 +200,7 @@ class InstalledModePolicy(unittest.TestCase):
     elif change=='missing':path.unlink()
     elif change=='extra':(installed/'unexpected').write_bytes(b'extra')
     with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
+
  def test_source_metadata_and_dylib_header_are_required(self):
   import plistlib,shutil
   for change in ['executable','package-type','macho','source-pin']:
@@ -213,3 +213,35 @@ class InstalledModePolicy(unittest.TestCase):
     if change!='source-pin':expected=c.sha(json.dumps(c.inventory(source),sort_keys=True).encode())
     else:expected='0'*64
     with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
+
+class CleanupOwnershipGuards(unittest.TestCase):
+ def test_plausible_saved_host_record_never_authorizes_signal(self):
+  from unittest.mock import patch
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as d:
+   root=pathlib.Path(d);ctl=c.Controller.__new__(c.Controller);ctl.root=root
+   ctl.fixture=SimpleNamespace(poll=lambda:0)
+   capture=root/'captured-host.private.json'
+   capture.write_text(json.dumps({'pid':43210,'pgid':43210,'root':str(root/'native-control-host'),'started':'same-start','closed':False}))
+   def observed(args,**kw):return 'same-start' if 'lstart=' in args else str(root/'native-control-host')
+   with patch.object(c.os,'killpg') as signals,patch.object(c.os,'getpgid',return_value=43210),patch.object(c.os,'kill',side_effect=ProcessLookupError),patch.object(c.subprocess,'check_output',side_effect=observed):
+    with self.assertRaisesRegex(RuntimeError,'cleanup uncertain'):ctl.cleanup_fixture()
+    signals.assert_not_called()
+   self.assertFalse(json.loads(capture.read_text())['closed'])
+ def test_missing_host_receipt_is_uncertain_after_fixture_started(self):
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as d:
+   ctl=c.Controller.__new__(c.Controller);ctl.root=pathlib.Path(d);ctl.fixture=SimpleNamespace(poll=lambda:0)
+   with self.assertRaisesRegex(RuntimeError,'observation missing'):ctl.cleanup_fixture()
+ def test_closed_observation_and_no_host_canary_need_no_signals(self):
+  from unittest.mock import patch
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as d:
+   root=pathlib.Path(d);ctl=c.Controller.__new__(c.Controller);ctl.root=root
+   with patch.object(c.os,'killpg') as signals:
+    ctl.cleanup_fixture()
+    ctl.fixture=SimpleNamespace(poll=lambda:0)
+    (root/'captured-host.private.json').write_text(json.dumps({'closed':True}))
+    ctl.cleanup_fixture();signals.assert_not_called()
+
+if __name__=='__main__':unittest.main()

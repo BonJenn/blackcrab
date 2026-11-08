@@ -5,7 +5,7 @@ vi.mock("expo-file-system/legacy",()=>({documentDirectory:"file:///unused/"}));
 vi.mock("expo-secure-store",()=>({}));
 vi.mock("react-native",()=>({AppState:{},Platform:{OS:"ios",Version:"27",isPad:false}}));
 import * as Effect from "effect/Effect";import * as Layer from "effect/Layer";import * as ManagedRuntime from "effect/ManagedRuntime";import * as Schema from "effect/Schema";import * as Option from "effect/Option";import * as Scope from "effect/Scope";import * as Exit from "effect/Exit";import * as SubscriptionRef from "effect/SubscriptionRef";
-import {OrchestrationV2Command,ThreadId,ORCHESTRATION_V2_WS_METHODS as methods} from "@t3tools/contracts";
+import {OrchestrationV2Command,ProjectId,ProjectMutation,ThreadId,WS_METHODS,ORCHESTRATION_V2_WS_METHODS as methods} from "@t3tools/contracts";
 import {Connection,ConnectionOnboarding,EnvironmentRegistry} from "@t3tools/client-runtime/connection";import * as Rpc from "@t3tools/client-runtime/rpc";import {ShellSnapshotLoader,makeEnvironmentShellState} from "@t3tools/client-runtime/state/shell";
 import {makeManagedPlatformLayer} from "../../src/managed/platform";import {makeManagedStorageLayer} from "../../src/managed/storage";
 import fs from "node:fs/promises";import path from "node:path";import net from "node:net";import {randomUUID} from "node:crypto";
@@ -22,18 +22,25 @@ it("observes actual native catalog/control without requesting provider turns",as
  // Observer-only presentation permission policy; actual server grants/scopes
  // remain mandatory. No native-app permission guard or production code changes.
  const runtime=ManagedRuntime.make(ShellSnapshotLoader.layer.pipe(Layer.provideMerge(Connection.layerWithOptions({providerCatalogsOnDemand:true})),Layer.provideMerge(platform),Layer.provideMerge(Layer.succeed(Rpc.RpcPermissionGuard,{authorize:()=>Effect.void}))));
- const scope=Scope.makeUnsafe();let server:net.Server|undefined;
+ const scope=Scope.makeUnsafe();let server:net.Server|undefined;let phase="connect-observer";
  try{
   const services=await runtime.runPromise(Effect.gen(function*(){return{registry:yield* EnvironmentRegistry.EnvironmentRegistry,onboarding:yield* ConnectionOnboarding.ConnectionOnboarding}}));
   const observerPair=await host.pair("Blackcrab SDK fixture observer");
   const id=await runtime.runPromise(services.onboarding.registerPairing({pairingUrl:host.origin+"pair#token="+observerPair.credential}));
   await waitFor(async()=> (await runtime.runPromise(services.registry.state(id))).phase==="connected");
   const shell=await runtime.runPromise(services.registry.run(id,makeEnvironmentShellState()).pipe(Effect.provideService(Scope.Scope,scope)));
-  let projectId:any;
-  await waitFor(async()=>{const s=await runtime.runPromise(SubscriptionRef.get(shell));projectId=Option.isSome(s.snapshot)?s.snapshot.value.projects.find(p=>p.workspaceRoot===path.join(host.root,"project"))?.id:undefined;return s.status==="live"&&!!projectId});
+  phase="wait-live-shell";
+  await waitFor(async()=>{const s=await runtime.runPromise(SubscriptionRef.get(shell));return s.status==="live"&&Option.isSome(s.snapshot)});
+  const projectId=Schema.decodeUnknownSync(ProjectId)(randomUUID());
+  phase="create-owned-project";
+  const project=Schema.decodeUnknownSync(ProjectMutation)({type:"project.create",commandId:randomUUID(),projectId,title:"Blackcrab QA project "+process.env.BLACKCRAB_QA_NONCE,workspaceRoot:path.join(host.root,"project"),createWorkspaceRootIfMissing:false});
+  await runtime.runPromise(services.registry.run(id,Rpc.requestGuarded(WS_METHODS.projectsMutate,project)).pipe(Effect.timeout("15 seconds")));
+  phase="observe-owned-project";
+  await waitFor(async()=>{const s=await runtime.runPromise(SubscriptionRef.get(shell));return s.status==="live"&&Option.isSome(s.snapshot)&&s.snapshot.value.projects.some(p=>p.id===projectId&&p.workspaceRoot===path.join(host.root,"project"))});
   const threadId=Schema.decodeUnknownSync(ThreadId)(randomUUID());
   const dispatch=(command:any)=>runtime.runPromise(services.registry.run(id,Rpc.requestGuarded(methods.dispatchCommand,decode(command))).pipe(Effect.timeout("15 seconds")));
   const projection=()=>runtime.runPromise(services.registry.run(id,Rpc.request(methods.getThreadProjection,{threadId})).pipe(Effect.timeout("15 seconds")));
+  phase="create-idle-thread";
   await dispatch({type:"thread.create",commandId:randomUUID(),threadId,projectId,title:"Blackcrab QA "+process.env.BLACKCRAB_QA_NONCE,modelSelection:{instanceId:"codex",model:"gpt-5-codex"},runtimeMode:"full-access",interactionMode:"default",branch:null,worktreePath:null,createdBy:"user",creationSource:"mobile"});
   report.host={origin:host.origin,environmentId:host.identity.environmentId,projectId,threadId,artifact:"host-proof9-managed-runtime"};
   const nativePair=await host.pair("Blackcrab native existing-catalog client");
@@ -51,6 +58,6 @@ it("observes actual native catalog/control without requesting provider turns",as
   await new Promise<void>((resolve,reject)=>{server!.once("error",reject);server!.listen(socketPath,resolve)});await fs.chmod(socketPath,0o600);
   report.ready=true;report.initial=await status();await fs.writeFile(reportFile,JSON.stringify(report,null,2)+"\n",{mode:0o600});
   await done;
- }catch{report.error="Native acceptance fixture failed; inspect private runner log";throw Error(report.error);}
+ }catch(error){report.errorPhase=phase;report.error="Native acceptance fixture failed; inspect private error detail";await fs.writeFile(path.join(stage,"artifacts/native-fixture-error.private.json"),JSON.stringify({phase,name:error instanceof Error?error.name.slice(0,128):"NonError",message:String(error instanceof Error?error.message:error).slice(0,8192),stack:error instanceof Error?error.stack?.slice(0,32768):undefined},null,2)+"\n",{mode:0o600});throw Error(report.error);}
  finally{if(server)await new Promise<void>(resolve=>server!.close(()=>resolve()));await fs.rm(socketPath,{force:true});await Effect.runPromise(Scope.close(scope,Exit.succeed(undefined)));await runtime.dispose();await host.close();report.hostClosed=true;await fs.writeFile(reportFile,JSON.stringify(report,null,2)+"\n",{mode:0o600});}
 },90*60_000);

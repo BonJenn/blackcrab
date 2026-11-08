@@ -51,6 +51,25 @@ class ResultAndCopyGuards(unittest.TestCase):
    with patch.object(c,'HOST_SHA',c.sha(b'{}')):
     records=c.copy_verified_host(src,dest);self.assertEqual(records,c.host_inventory(dest));self.assertEqual(dest.stat().st_mode&0o777,0o700)
     with self.assertRaises(AssertionError):c.copy_verified_host(src,dest)
+ def test_xcode_suffixed_attachment_keeps_all_receipt_guards(self):
+  with tempfile.TemporaryDirectory() as d:
+   root=pathlib.Path(d);p=root/'export.json';value={'kind':'blackcrab-phase-completion-v1','phase':'logging-canary','nonce':'N','deviceUUID':'OWN'};p.write_text(json.dumps(value))
+   label='blackcrab-phase-completion_0_A887C25F-B581-4787-83FF-59E0F5D0935A.json'
+   a={'exportedFileName':p.name,'suggestedHumanReadableName':label,'deviceId':'OWN','isAssociatedWithFailure':False};manifest=[{'testIdentifier':'T','attachments':[a]}]
+   self.assertEqual(c.completion_receipt(manifest,root,'T','logging-canary','N','OWN'),value)
+   for bad in ['../'+label,label.replace('_0_','_x_'),label.replace('A887C25F','notuuid!'),label+'.extra','unrelated.json',None,True]:
+    a['suggestedHumanReadableName']=bad
+    with self.subTest(label=bad),self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
+   a['suggestedHumanReadableName']=label
+   for key,bad in [('deviceId','OTHER'),('isAssociatedWithFailure',True)]:
+    original=a[key];a[key]=bad
+    with self.subTest(key=key),self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
+    a[key]=original
+   for key,bad in [('phase','different'),('nonce','wrong'),('deviceUUID','OTHER')]:
+    changed=dict(value);changed[key]=bad;p.write_text(json.dumps(changed))
+    with self.subTest(payload=key),self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
+   p.write_text(json.dumps(value));manifest[0]['attachments'].append(dict(a))
+   with self.assertRaises(AssertionError):c.completion_receipt(manifest,root,'T','logging-canary','N','OWN')
  def test_host_copy_rejects_copy_corruption(self):
   from unittest.mock import patch
   with tempfile.TemporaryDirectory() as d:

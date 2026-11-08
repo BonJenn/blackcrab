@@ -26,9 +26,9 @@
     "Acceptance.swift": "4b06a62d023b34a844507fbf98f6d04b07466ee2ecf28c584032dae59e3bbb28",
     "Acceptance.xcodeproj/project.pbxproj": "d9b6e830b7ebd9789c79426136e82c59fca5dcf8cdf99c27d85fc813468c7c65",
     "Acceptance.xcodeproj/xcshareddata/xcschemes/Acceptance.xcscheme": "4240e4f63be0f792d19f2cf4c7e75ceb9c59901563f27f70e93537319033f6d7",
-    "controller.py": "275c18edc06187869026812b9656f07df78231afc48c432ff65a7121beb9454d",
-    "controller_test.py": "0dbd784dd61bbe1d5fa30d6e27388a276b61fbbd45bfc92b4ef3608180b5145f",
-    "observer.test.ts.template": "2a6864ece72f77a7854fdc60717483eca0b9c3735310dd6a4413092acd7819f8",
+    "controller.py": "0830b4b18ac4a4e73c2f489c05566077d4105e9209f8c83d90d73ff9d9b8f7ea",
+    "controller_test.py": "f066ff5a0cb960a7334b5776754980462574fd209bd91af2358f9c6b7ec1ada3",
+    "observer.test.ts.template": "e4ac4f2ad713e0f5b818d5d365595e3b8a87617c9471351d28a64ff85adc661e",
     "packaged-host.mjs.template": "4faeba1cd113a50252b8aa6fdca092c8e5ac770307a0033f30e100f88b0781b5"
   },
   "prebuiltRunner": {

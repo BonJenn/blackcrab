@@ -169,6 +169,12 @@ def passed_test_id(tree,device):
  devices=tree['devices'];assert len(devices)==1 and devices[0]['deviceId']==device
  return identifier
 
+def completion_attachment_name(value):
+ if value=='blackcrab-phase-completion.json':return True
+ # Observed xcresulttool 0.4.0 export spelling; the completion JSON, test,
+ # device, nonfailure flag and uniqueness remain the authority for this receipt.
+ return isinstance(value,str) and len(value)<=128 and re.fullmatch(r'blackcrab-phase-completion_[0-9]+_[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\.json',value) is not None
+
 def completion_receipt(manifest,root,test_id,phase,nonce,device):
  found=[];root=root.resolve(strict=True)
  assert isinstance(manifest,list)
@@ -177,7 +183,7 @@ def completion_receipt(manifest,root,test_id,phase,nonce,device):
   for a in test['attachments']:
    name=a['exportedFileName'];assert isinstance(name,str) and pathlib.Path(name).name==name and name not in ('.','..')
    path=root/name;assert not path.is_symlink() and path.resolve(strict=True).is_relative_to(root)
-   if a['suggestedHumanReadableName']=='blackcrab-phase-completion.json':
+   if completion_attachment_name(a['suggestedHumanReadableName']):
     assert a['deviceId']==device and a['isAssociatedWithFailure'] is False
     value=json.loads(path.read_text());assert value=={'kind':'blackcrab-phase-completion-v1','phase':phase,'nonce':nonce,'deviceUUID':device}
     found.append(value)

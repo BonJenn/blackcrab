@@ -43,7 +43,8 @@
           "photosPermission": "Blackcrab Remote needs photo access to attach images to a message.",
           "cameraPermission": "Blackcrab Remote needs camera access to take a photo to attach to a message."
         }
-      ]
+      ],
+      "./plugins/with-ios-pod-floor.cjs"
     ],
     "extra": {
       "eas": {

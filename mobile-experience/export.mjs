@@ -45,9 +45,11 @@ export function resolveExperienceDependencies(lockText, packages, nativeModules 
  return{documentIndex,sha256:sha(lockText),owners,localNativePeers};
 }
 async function absent(file){try{await fs.lstat(file);}catch(e){if(e.code==='ENOENT')return;throw e;}throw new Error(`Output exists: ${file}`);}
-export async function inventoryExperience(source,graph){
+export async function inventoryExperience(source,graph,{allowInstalledPackageDependencies=false}={}){
  const files=new Set(graph.files.map(f=>f.path));
+ const installedRoots=new Set([...graph.packages.filter(p=>p.folder.startsWith('packages/')).map(p=>p.folder+'/node_modules'),...['t3-highlights','t3-review-diff','t3-source-text','t3-terminal'].map(name=>'apps/mobile/modules/'+name+'/node_modules')]);
  async function walk(relative){
+  if(allowInstalledPackageDependencies&&installedRoots.has(relative)){const stat=await fs.lstat(path.join(source,relative));if(!stat.isDirectory()||stat.isSymbolicLink())throw new Error('Installed package dependencies must be a real directory');return;}
   if(relative.split('/').some(x=>['node_modules','.git'].includes(x)))throw new Error('Unexpected dependency/build tree in pinned source');
   const full=path.join(source,relative),stat=await fs.lstat(full);
   if(stat.isSymbolicLink())throw new Error(`Symlink in source inventory: ${relative}`);

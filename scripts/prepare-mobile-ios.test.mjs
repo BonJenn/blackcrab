@@ -12,12 +12,12 @@ async function fixture(run) {
   const repo = path.join(base, 'source with spaces');
   await fs.mkdir(repo);
   const write = async (file, contents) => { await fs.mkdir(path.dirname(path.join(repo, file)), { recursive: true }); await fs.writeFile(path.join(repo, file), typeof contents === 'string' ? contents : JSON.stringify(contents)); };
-  await write('package.json', { workspaces: ['apps/*', 'packages/*', 'vendor/t3/packages/*'] });
+  await write('package.json', { workspaces: ['apps/*', 'packages/*', 'vendor/t3-mobile/packages/*'] });
   await write('package-lock.json', { lockfileVersion: 3 });
   await write('apps/mobile/package.json', { name: '@blackcrab/mobile' });
   await write('apps/mobile/app.json', { expo: {} });
   await write('apps/mobile/plugins/with-ios-pod-floor.cjs', '// fixture build plugin');
-  await write('vendor/t3/packages/contracts/src/index.ts', '// source');
+  await write('vendor/t3-mobile/packages/contracts/src/index.ts', '// source');
   await write('apps/mobile/.env', 'PRIVATE_TOKEN=do-not-copy');
   await write('.npmrc', '//registry/:_authToken=do-not-copy');
   await write('src-tauri/desktop-only.rs', '// excluded desktop source');
@@ -31,7 +31,7 @@ test('physically snapshots tracked workspaces from spaced source; excludes crede
   const snapshot = await createSourceSnapshot({ repoRoot: repo, stagingParent: base });
   assert.doesNotMatch(snapshot.root, /\s/);
   assert.equal(await fs.realpath(snapshot.root), snapshot.root);
-  assert.equal(await fs.readFile(path.join(snapshot.repo, 'vendor/t3/packages/contracts/src/index.ts'), 'utf8'), '// source');
+  assert.equal(await fs.readFile(path.join(snapshot.repo, 'vendor/t3-mobile/packages/contracts/src/index.ts'), 'utf8'), '// source');
   for (const excluded of ['.git', '.npmrc', 'apps/mobile/.env', 'src-tauri']) await assert.rejects(fs.stat(path.join(snapshot.repo, excluded)), { code: 'ENOENT' });
   assert(snapshot.metadata.excluded.includes('apps/mobile/.env'));
   assert(!JSON.stringify(snapshot.metadata).includes('do-not-copy'));
@@ -62,7 +62,7 @@ test('rejects symlink inputs and staging aliases whose physical path contains sp
 }));
 
 test('fails if resolved native dependencies point into a shared installation', async () => fixture(async ({ repo, base, write }) => {
-  const external = path.join(base, 'shared-expo'); await fs.mkdir(external); await fs.writeFile(path.join(external, 'package.json'), '{"name":"expo","version":"54.0.35"}');
+  const external = path.join(base, 'shared-expo'); await fs.mkdir(external); await fs.writeFile(path.join(external, 'package.json'), '{"name":"expo","version":"58.0.14"}');
   await fs.mkdir(path.join(repo, 'node_modules')); await fs.symlink(external, path.join(repo, 'node_modules/expo'));
   await assert.rejects(verifyNativeDependencyRoots(repo), /escapes staging: expo/);
 }));
@@ -90,8 +90,8 @@ test('timeout terminates the owned command group and retains its diagnostic log'
 }));
 
 test('accepts source import-only exports and rejects a shared export symlink outside its package', async () => fixture(async ({ repo, base, write }) => {
-  const packages = ['expo', 'react-native', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins'];
-  for (const name of packages) await write(`node_modules/${name}/package.json`, { name, version: name === 'expo' ? '54.0.35' : name === 'react-native' ? '0.81.5' : '1.0.0' });
+  const packages = ['expo', 'react-native', 'react', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins'];
+  for (const name of packages) await write(`node_modules/${name}/package.json`, { name, version: name === 'expo' ? '58.0.14' : name === 'react-native' ? '0.88.0' : name === 'react' ? '19.3.0' : '1.0.0' });
   for (const [name, subpath] of [['@t3tools/contracts', '.'], ['@t3tools/client-runtime', './connection']]) {
     await write(`node_modules/${name}/package.json`, { name, exports: { [subpath]: { import: './src/index.ts' } } });
     await write(`node_modules/${name}/src/index.ts`, '// exact source export');

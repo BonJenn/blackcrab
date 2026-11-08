@@ -1,0 +1,14 @@
+{
+  "id": "expo-widgets-workspace-watch",
+  "package": "expo-widgets",
+  "version": "58.0.20",
+  "target": "metro.config.js",
+  "originalIntegrity": "sha512-RV/EKVlRe0dEGyFPx4Z5AawlYg+mYGGRqjnei4Qv/yd1tPRqYK8bMvYbOcBYh5salc/Xsj29EP8clmY7sxjK4Q==",
+  "file": "001-expo-widgets-workspace-watch.patch",
+  "sha256": "575279d3147731d103d921c019a97369e8862abb5cf4ca415ca8f53bdb7e38ae",
+  "beforeSha256": "820f3bf42b74645d4206b4a83ed97302612b688e1788c4de74c1ba07dc37de43",
+  "afterSha256": "3869abff32722ac9c927ed0de7eaace36f0efc5f8ba288a5cdbb4c1e3cefa88a",
+  "before": "const config = getDefaultConfig(projectRoot);\n",
+  "after": "const config = getDefaultConfig(projectRoot);\n\n// Hoisted dependencies can be outside projectRoot even when expo-widgets is inside it.\nconst workspaceRoot = resolveWorkspaceRoot(projectRoot);\nif (workspaceRoot && !config.watchFolders.includes(workspaceRoot)) {\n  config.watchFolders.push(workspaceRoot);\n}\n",
+  "reason": "Watch the actual workspace root so the widget-only Metro file map includes hoisted dependencies; preserve its resolver stubs and serialization."
+}

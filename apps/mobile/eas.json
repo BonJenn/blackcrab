@@ -9,11 +9,13 @@
       "distribution": "internal",
       "channel": "development",
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "image": "macos-tahoe-26.6-xcode-27.1"
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "node": "26.12.1"
     },
     "development-simulator": {
       "extends": "development",
@@ -26,11 +28,19 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "node": "26.12.1",
+      "ios": {
+        "image": "macos-tahoe-26.6-xcode-27.1"
       }
     },
     "production": {
       "channel": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "node": "26.12.1",
+      "ios": {
+        "image": "macos-tahoe-26.6-xcode-27.1"
+      }
     }
   },
   "submit": {

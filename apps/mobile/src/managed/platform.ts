@@ -27,7 +27,7 @@ export interface ManagedNetwork {
   addNetworkStateListener(listener: (state: ManagedNetworkState) => void): Subscription;
 }
 export interface ManagedAppState {
-  readonly currentState: string | null;
+  readonly currentState: string | null | undefined;
   addEventListener(event: "change", listener: (state: string) => void): Subscription;
 }
 export interface ManagedPlatformOptions {

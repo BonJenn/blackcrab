@@ -1,0 +1,2 @@
+* -text
+build-patches/*.patch whitespace=-blank-at-eol

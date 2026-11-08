@@ -47,3 +47,21 @@ with `npm run test:mobile:experience`. This preparation does not establish nativ
 platform compatibility or activate the mobile experience.
 
 License generation inputs additionally preserve all pinned third-party-licenses/spdx templates, apps/server/src/device/deviceToolVersions.json, and native/libghostty-vt/LICENSE (required by a mobile custom notice). These prevent the original license generator from needing omitted source inputs or fetching missing templates.
+
+## Owned Expo 58 consumer platform
+
+`build-consumers-cli.mjs <preparation> <absent-output>` creates the installable source layout separately from unchanged preparation. It unions the original App, both generated browser-script entries and the six existing public direct-connection entries. The consumer has 1,459 reachable files and 23 trimmed shared manifests; original manifests, archive provenance, the known JavaScript-neutral RPC type patch and every generated manifest change remain recorded. `verify-consumers-cli.mjs` recomputes the actual closure, checks original-source and lock provenance, and permits installed dependencies only at exact selected package roots. Nested source `node_modules` trees remain rejected. Byte-preserving Git attributes keep archive checksums portable across checkouts.
+
+Blackcrab owns the Expo configuration, schemes, bundle IDs, fonts and disabled update checks. The original upstream app configuration is inert reference source. Root desktop React stays 19.1; the mobile Metro resolver forces React 19.3, including compiler-runtime, across application, hoisted and vendored importers. Existing Hosts, queues and managed workspace list remain active; upstream full UI activation is separate work.
+
+Use Node **26.12.1** and npm **12.2.2**. The lock retains exact Expo 58.0.14, React Native 0.88.0 and React 19.3.0. The postinstall verifier applies 27 pinned upstream dependency patches using original pnpm package integrity, diff SHA and complete before/after file hashes. It also applies one independently pinned build-only Expo Widgets adapter: its private Metro build must watch the actual workspace root to index hoisted helpers. Resolver stubs and widget runtime sources are unchanged. This is the npm layout equivalent of the upstream workspace visibility, not a forced dependency peer or transport change.
+
+Owned resource generation bundles the two original browser entries, preserves pinned style/theme inputs and collects notices from the **host application dependency graph**, including legacy dependencies. Supplemental notice inputs and hashes are recorded under `.generated/licenses/NOTICE-INPUTS.json`; no upstream notice configuration is edited. Native build reports record tree-sitter/grammar versions and URLs, RaTeX archive/source checksums, actual downloaded C/Swift/framework file hashes and the three bundled font hashes. Generated outputs live outside the immutable vendor inventory.
+
+For authoritative isolated native preparation:
+
+```sh
+node scripts/prepare-mobile-ios.mjs --mode build --npm-cli /path/to/npm-12.2.2/bin/npm-cli.js --derived-data-parent /path/to/external/build-cache
+```
+
+New source files must first be tracked in Git. The producer snapshots their exact bytes into a physical whitespace-free directory, installs without account/provider configuration, generates native projects, verifies the iOS 18 deployment floor and builds a standalone Release Hermes application. This validates the platform baseline; it does not establish complete mobile workflow parity or distribution signing.

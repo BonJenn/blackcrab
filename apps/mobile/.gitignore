@@ -4,3 +4,6 @@
 
 # Expo
 /.expo
+
+# Owned Metro/style/license outputs are generated after the immutable source snapshot.
+/.generated

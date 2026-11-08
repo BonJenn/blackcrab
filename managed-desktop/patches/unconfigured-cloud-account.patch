@@ -1,0 +1,23 @@
+--- a/apps/desktop/src/app/DesktopClerk.ts
++++ b/apps/desktop/src/app/DesktopClerk.ts
+@@ -87,17 +87,10 @@
+ 
+ function createDesktopClerkBridge(stateDir: string, isDevelopment: boolean, userDataPath: string) {
+   return createClerkBridge({
+-    storage: openClerkTokenStorage(
+-      stateDir,
+-      (directory) => storage({ path: directory }),
+-      userDataPath,
+-    ),
++    storage: { getItem: () => null, setItem: () => { throw Error("Blackcrab cloud accounts are not configured"); }, removeItem: () => {} },
+     manageSingleInstanceLock: false,
+-    passkeys: true,
+-    renderer: {
+-      scheme: ElectronProtocol.getDesktopScheme(isDevelopment),
+-      host: ElectronProtocol.DESKTOP_HOST,
+-    },
++    passkeys: false,
++    // Account OAuth/OS default-handler registration awaits fork-owned configuration.
+   });
+ }
+ 

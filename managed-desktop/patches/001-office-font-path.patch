@@ -1,0 +1,23 @@
+--- a/apps/web/vite.config.ts
++++ b/apps/web/vite.config.ts
+@@ -1,6 +1,7 @@
+ // @effect-diagnostics-next-line nodeBuiltinImport:off -- Vite config runs before any Effect runtime.
+ import * as NodeFSP from "node:fs/promises";
+ import * as NodeZlib from "node:zlib";
++import * as NodeURL from "node:url";
+ 
+ import react from "@vitejs/plugin-react";
+ import { tanstackRouter } from "@tanstack/router-plugin/vite";
+@@ -324,10 +325,10 @@
+     resolve: {
+       tsconfigPaths: true,
+       alias: {
+-        "@betteroffice/fonts-cjk": new URL(
++        "@betteroffice/fonts-cjk": NodeURL.fileURLToPath(new URL(
+           "./src/components/files/office/fonts-cjk.ts",
+           import.meta.url,
+-        ).pathname,
++        )),
+       },
+       dedupe: ["react", "react-dom"],
+     },

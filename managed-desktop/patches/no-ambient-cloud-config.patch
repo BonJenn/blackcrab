@@ -1,0 +1,13 @@
+--- a/scripts/lib/public-config.ts
++++ b/scripts/lib/public-config.ts
+@@ -28,8 +28,8 @@
+   readonly baseEnv?: Environment;
+   readonly repoRoot?: string;
+ } = {}): Record<string, string | undefined> {
+-  const rootEnv = readEnvFile(NodePath.join(repoRoot, ".env"));
+-  const localEnv = readEnvFile(NodePath.join(repoRoot, ".env.local"));
++  const rootEnv = {}; // Fork cloud is explicitly unconfigured.
++  const localEnv = {};
+   const config = resolvePublicConfig(baseEnv, localEnv, rootEnv);
+ 
+   return {

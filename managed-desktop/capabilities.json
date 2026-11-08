@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "role": "non-owning-native-client",
+  "target": "darwin-arm64",
+  "trustedRenderer": "blackcrab://app",
+  "hostSpawnOrSignalAuthority": false,
+  "ownerControl": "unavailable-contract-gate",
+  "authorization": "independent-pairing-and-private-fd4-renewal; Root integration pending",
+  "nativeServices": "original implementations retained; addon availability recorded per artifact",
+  "cloudAccounts": "unconfigured",
+  "updates": "unconfigured-distribution-gate",
+  "cliInstallation": "unconfigured-distribution-gate",
+  "sshRemoteRuntimeBootstrap": "unconfigured-distribution-gate; discovery/resolution retained",
+  "serverExposureChanges": "owner-control-gate",
+  "nativeBrowserAgentTransport": "Gate C pending",
+  "releaseSigningAndNotarization": "pending; local ad-hoc only",
+  "fullNativeWorkflowCertification": "pending",
+  "rustAdoption": "not integrated"
+}

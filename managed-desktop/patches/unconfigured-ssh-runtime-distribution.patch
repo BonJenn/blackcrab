@@ -1,0 +1,19 @@
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -119,14 +119,14 @@
+       nodeEngineRange: serverPackageJson.engines.node,
+     };
+   }
+-  return { archiveVersion: environment.appVersion };
++  throw new Error("Blackcrab SSH runtime distribution is not configured.");
+ };
+ 
+ const layerDesktopSshEnvironment = Layer.unwrap(
+   Effect.gen(function* () {
+     const environment = yield* DesktopEnvironment.DesktopEnvironment;
+     return DesktopSshEnvironment.layer({
+-      resolveCliRunner: Effect.succeed(resolveDesktopSshCliRunner(environment)),
++      resolveCliRunner: Effect.sync(() => resolveDesktopSshCliRunner(environment)),
+     });
+   }),
+ );

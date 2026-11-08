@@ -1,0 +1,39 @@
+--- a/apps/desktop/src/shell/DesktopShellEnvironment.ts
++++ b/apps/desktop/src/shell/DesktopShellEnvironment.ts
+@@ -23,6 +23,7 @@
+ import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+ 
+ import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
++import { captureManagedShellAuthority, filterManagedShellEnvironment, restoreManagedShellAuthority } from "../app/managed-desktop/environment.mjs";
+ 
+ type EnvironmentPatch = Record<string, string>;
+ 
+@@ -569,6 +570,7 @@
+   const scope = yield* Scope.Scope;
+   const env = process.env;
+   const inherited = { ...env };
++  const authority = captureManagedShellAuthority(inherited);
+   const key = encodeCacheKey([
+     environment.platform,
+     environment.homeDirectory,
+@@ -583,13 +585,18 @@
+     patch: ShellEnvironmentPatch,
+     discovered = false,
+   ) {
+-    applyShellEnvironment(env, patch, environment.platform);
++    const filtered = filterManagedShellEnvironment(authority, patch);
++    const managedPatch = Object.fromEntries(
++      Object.keys(ShellEnvironmentPatch.fields).map((name) => [name, filtered[name] ?? null]),
++    );
++    restoreManagedShellAuthority(env, authority);
++    applyShellEnvironment(env, managedPatch, environment.platform);
+     const message: DesktopShellEnvironmentSnapshot = {
+       version: 1,
+       type: "shellEnvironment",
+       discovered,
+       platform: environment.platform,
+-      environment: patch,
++      environment: managedPatch,
+     };
+     yield* Ref.set(latest, Option.some(message));
+     yield* PubSub.publish(changes, message);

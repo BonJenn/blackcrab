@@ -48,7 +48,9 @@ Clean committed source `2ca5dca2ad79641009c34d36d3b972ca76b0660e` (3,978 Git blo
 
 Actual bundled archive SHA256 values are `72daeedee2e5a3b50ecdcdb974fbb77c4189db55d2bf21bc5cd14fe8e13a15ef` (desktop) and `0f7c688ca8ce38960b16587fbb6b0c4b67a295be91d1c458557b74c49f647552` (host); the compiled manifest pins remain b7 and f97 above. Raw build and isolated lifecycle evidence are retained in `.blackcrab-parity-probes/root-bundled-entry-preparation-1/`.
 
-The normal main-window button, reuse, client quit and Root reattachment cases remain unverified: computer automation returns `cgWindowNotFound` for this QA app and Finder as well as Device Hub. No bridge-QA auto-selection/eval shortcut was substituted. A live captured controller and isolated empty-home QA app were prepared for manual main-window acceptance; no managed host had started before that handoff. The first Root launch was normally terminated; user QA20779 remains excluded.
+Full main-window launch, reuse, client quit and Root reattachment remain unverified: computer automation returns `cgWindowNotFound` for this QA app and Finder as well as Device Hub. No bridge-QA auto-selection/eval shortcut was substituted. A live captured controller and isolated empty-home QA app were prepared for manual acceptance. The first Root launch was normally terminated; user QA20779 remains excluded.
+
+The correct isolated Entry QA build was subsequently reopened with its own live captured controller. The user manually invoked Settings → Full desktop → Open full desktop and reported that it stayed on Opening. The corresponding owned Root process remained live, its private payload cache contained a fresh staging directory, and no host had spawned or controller error occurred. A read-only sample showed package extraction and file synchronization. This establishes that the Settings control and native invocation were reached; it does not establish completed desktop startup. First-open extraction latency and the separate warm-client authentication gap remain open.
 
 ### Rust-owned packaged-host observer acceptance
 

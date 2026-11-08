@@ -60,15 +60,20 @@ final class Acceptance: XCTestCase {
       XCTAssertTrue(exact(input.initialTitle).waitForExistence(timeout: 45))
     } else if input.phase == "control-upgraded" {
       let row = exact(input.initialTitle); require(row); row.press(forDuration: 1.2)
+      let more = exact("More"); require(more); more.tap()
       let rename = exact("Rename"); require(rename); rename.tap()
       let prompt = app.alerts["Rename thread"]; require(prompt)
       let field = prompt.textFields.firstMatch; require(field)
       field.tap(); field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: input.initialTitle.count) + input.renamedTitle)
       prompt.buttons["Rename"].tap()
-      let renamed = exact(input.renamedTitle); require(renamed); renamed.swipeLeft()
-      let archive = exact("Archive " + input.renamedTitle); require(archive); archive.tap()
+      let renamed = exact(input.renamedTitle); require(renamed); renamed.press(forDuration: 1.2)
+      let archiveMenu = exact("More"); require(archiveMenu); archiveMenu.tap()
+      let archive = exact("Archive"); require(archive); archive.tap()
+      XCTAssertTrue(renamed.waitForNonExistence(timeout: 30))
     } else { throw XCTSkip("Unknown phase") }
-    app.terminate()
+    // Keep upgraded UI alive until the external SDK verifies its mutation.
+    // The controller owns final device shutdown; baseline seed still terminates.
+    if input.phase != "control-upgraded" { app.terminate() }
     try completePhase()
   }
 }

@@ -15,8 +15,8 @@ VALIDATION=pathlib.Path('/private/tmp/blackcrab-ios-x532Wp/repo')
 BASE_APP=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/blackcrab-ios-derived-oWFrUz/Build/Products/Release-iphonesimulator/BlackcrabRemote.app')
 NEW_APP=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/full-ui-ios-derived-456sdz/Build/Products/Release-iphonesimulator/BlackcrabRemote.app')
 HOST=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/host-proof9-managed-runtime')
-PREBUILT_ROOT=pathlib.Path('/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-3msdte94')
-PREBUILT_RUNNER_SHA='04acc3af0dbf50e6109dcff117ed33e18b5a1091492acc6fe767946f170826a1'
+PREBUILT_ROOT=pathlib.Path('/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-wbpdgc7j')
+PREBUILT_RUNNER_SHA='58be51c773e14988626ca1197143ee9a128c9b549c99393ebd31352c15c1d160'
 XCODE_BUILD='27A9275'
 RUNTIME='com.apple.CoreSimulator.SimRuntime.iOS-26-2'
 DEVICE_TYPE='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro'
@@ -40,6 +40,25 @@ def inventory(root):
 INSTALL_FRAMEWORK_MODE_PATHS=frozenset('Frameworks/'+n+'.framework/'+n for n in (
  'ExpoCamera','ExpoCameraBarcodeScanning','ExpoFileSystem','ExpoFont','ExpoImage',
  'ExpoImageManipulator','ExpoModulesCore','ExpoModulesJSI','ExpoModulesWorklets','hermesvm'))
+# Exact additional mode-only transforms observed on the pinned c603 widget.
+# These are thin dylibs, not framework executables or extension entrypoints.
+INSTALL_WIDGET_DYLIB_MODES={
+ 'PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget.debug.dylib':'d6c64aa34522f6b13fad3206c873bb3e7f8d0fd38da79b15dfa8edba944bb2fb',
+ 'PlugIns/ExpoWidgetsTarget.appex/__preview.dylib':'1aaf030af2fcad923a762b218e64a058a17ce1828333dd42d944d26587412c1f',
+}
+def require_widget_dylib(binary,expected):
+ import struct
+ assert sha(binary.read_bytes())==expected
+ info=binary.parent/'Info.plist'
+ assert stat.S_ISREG(info.lstat().st_mode) and not info.is_symlink()
+ metadata=plistlib.loads(info.read_bytes())
+ assert metadata['CFBundlePackageType']=='XPC!' and metadata['CFBundleIdentifier']==APP+'.widgets' and metadata['CFBundleExecutable']=='ExpoWidgetsTarget'
+ assert metadata['DTPlatformName']=='iphonesimulator' and metadata['CFBundleSupportedPlatforms']==['iPhoneSimulator'] and metadata['MinimumOSVersion']=='18.0'
+ with binary.open('rb') as f:header=f.read(32)
+ assert len(header)==32 and header[:4]==b'\xcf\xfa\xed\xfe'
+ cpu,subtype,kind,commands,size,flags,reserved=struct.unpack('<7I',header[4:])
+ assert cpu==0x0100000c and kind==6 and commands<=size//8 and size<=binary.stat().st_size-32
+
 def require_arm64_dylib(path):
  import struct
  with path.open('rb') as f:
@@ -59,13 +78,18 @@ def verify_installed_bundle(source,installed,expected,verify_signature):
  for path,before in left.items():
   after=right[path]
   if before==after:continue
-  assert path in INSTALL_FRAMEWORK_MODE_PATHS and before['kind']==after['kind']=='file'
+  assert path in INSTALL_FRAMEWORK_MODE_PATHS or path in INSTALL_WIDGET_DYLIB_MODES
+  assert before['kind']==after['kind']=='file'
   assert before['mode']==0o755 and after['mode']==0o644
   assert {k:v for k,v in before.items() if k!='mode'}=={k:v for k,v in after.items() if k!='mode'}
-  binary=source/path;framework=binary.parent;info=framework/'Info.plist'
-  assert stat.S_ISREG(info.lstat().st_mode) and not info.is_symlink()
-  metadata=plistlib.loads(info.read_bytes());assert metadata['CFBundlePackageType']=='FMWK' and metadata['CFBundleExecutable']==binary.name
-  require_arm64_dylib(binary);transformed.append(path)
+  binary=source/path
+  if path in INSTALL_WIDGET_DYLIB_MODES:require_widget_dylib(binary,INSTALL_WIDGET_DYLIB_MODES[path])
+  else:
+   framework=binary.parent;info=framework/'Info.plist'
+   assert stat.S_ISREG(info.lstat().st_mode) and not info.is_symlink()
+   metadata=plistlib.loads(info.read_bytes());assert metadata['CFBundlePackageType']=='FMWK' and metadata['CFBundleExecutable']==binary.name
+   require_arm64_dylib(binary)
+  transformed.append(path)
  # A matching inventory never substitutes for installed code-signature verification.
  verify_signature(installed)
  return sorted(transformed)

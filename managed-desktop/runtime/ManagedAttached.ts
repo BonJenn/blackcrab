@@ -14,6 +14,7 @@ import * as UpdatePolicy from "../updates/DesktopUpdatePolicy.ts";
 import { readDescriptor, inspectProfile, NAMESPACE } from "./managed-desktop/descriptor.mjs";
 import { createAttachment } from "./managed-desktop/attachment.mjs";
 
+import * as ManagedBrowser from "./ManagedBrowser.ts";
 import { descriptor } from "./ManagedBootstrap.mjs";
 const root = descriptor.profile.root;
 const config: Manager.DesktopBackendStartConfig = {
@@ -26,6 +27,7 @@ export const layerConfiguration = Layer.succeed(Configuration.DesktopBackendConf
 export const layerUpdatePolicy = Layer.succeed(UpdatePolicy.DesktopUpdatePolicy, { mode: "off", feedUrl: undefined, allowNightly: false, message: "Blackcrab distribution/update owner control is not configured." });
 export const layerPool = Layer.effect(Pool.DesktopBackendPool, Effect.gen(function* () {
  const window = yield* Window.DesktopWindow, state = yield* State.DesktopState;
+ const browser=yield* ManagedBrowser.make;
  const context = yield* Effect.context<Window.DesktopWindow | State.DesktopState>();
  const run = Effect.runPromiseWith(context);
  const attachment = createAttachment({ verify: async () => {
@@ -35,7 +37,7 @@ export const layerPool = Layer.effect(Pool.DesktopBackendPool, Effect.gen(functi
   // A host must explicitly support our own renderer origin before privileged UI opens.
   const cors = await fetch(new URL("oauth/token", descriptor.owner.origin), { method: "OPTIONS", headers: { Origin: "blackcrab://app", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" }, redirect: "manual", signal: AbortSignal.timeout(10000) });
   if (!cors.ok || cors.headers.get("access-control-allow-origin") !== "blackcrab://app") throw Error("Managed host does not permit the Blackcrab renderer origin");
- }, onReady: async () => { await run(window.handleBackendReady(config.httpBaseUrl)); await run(SubscriptionRef.set(state.primaryBackendStartup, { _tag: "Ready" })); } });
+ }, onDetach:()=>browser.stop(), onReady: async () => { browser.start(); try { await run(window.handleBackendReady(config.httpBaseUrl)); await run(SubscriptionRef.set(state.primaryBackendStartup, { _tag: "Ready" })); } catch(error) { browser.stop(); throw error; } } });
  const primary: Pool.DesktopBackendInstance = { id: Manager.PRIMARY_INSTANCE_ID, label: Effect.succeed("Blackcrab managed host (attached)"), start: Effect.promise(() => attachment.start()), stop: () => Effect.sync(() => attachment.stop()), currentConfig: Effect.succeed(Option.some(config)), snapshot: Effect.sync(() => ({ desiredRunning: attachment.ready, ready: attachment.ready, activePid: Option.none(), restartAttempt: 0, restartScheduled: false })), waitForReady: () => Effect.sync(() => attachment.ready) };
  return Pool.DesktopBackendPool.of({ primary: Effect.succeed(primary), list: Effect.succeed([primary]), get: id => Effect.succeed(id === primary.id ? Option.some(primary) : Option.none()), register: () => Effect.die("OwnerControl unavailable: additional backend ownership"), unregister: () => Effect.die("OwnerControl unavailable: backend ownership") });
 }));

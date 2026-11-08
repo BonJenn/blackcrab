@@ -1,0 +1,66 @@
+--- a/apps/server/src/preview/ServerBrowser.test.ts
++++ b/apps/server/src/preview/ServerBrowser.test.ts
+@@ -1,3 +1,4 @@
++import {sameAttachment,type Attachment} from "@t3tools/shared/leasedDesktopBrowser";
+ import * as NodeEvents from "node:events";
+ import * as NodeVM from "node:vm";
+ // @effect-diagnostics-next-line nodeBuiltinImport:off - Playwright download mocks perform real file operations outside the Effect runtime.
+@@ -68,6 +69,7 @@
+       const context = makeContext(undefined, desktopPageUrl);
+       context.page.viewportSize.mockReturnValue(null);
+       desktopConnections.push({ endpoint, context });
++      const gate=desktopSetupGate;await gate?.promise;
+       return { browser: { close: async () => {} }, page: context.page as unknown as Page };
+     }
+     async close() {
+@@ -342,6 +344,9 @@
+   ...scope,
+   thread: { ...testThread, providerSessionId },
+ });
++let desktopLease:string|undefined;
++let desktopSetupGate:ReturnType<typeof Promise.withResolvers<void>>|null=null;
++const identityFor=(key:{threadId:string;tabId:string}):Attachment|undefined=>desktopLease?{...key,peerEpoch:desktopLease,incarnation:desktopLease}:undefined;
+ const dependencies = Layer.mergeAll(
+   Broker.layer,
+   Manager.layer,
+@@ -355,6 +360,8 @@
+   }),
+   Layer.succeed(DesktopChannel.DesktopBrowserChannel, {
+     available: true,
++    identity:identityFor,
++    isCurrent:a=>sameAttachment(identityFor(a),a),
+     awaitAttached: (key) => Effect.sync(() => desktopRenders(key.tabId)),
+     detached: Stream.callback<{ threadId: string; tabId: string }>((queue) =>
+       Effect.acquireRelease(
+@@ -447,6 +454,7 @@
+ });
+ 
+ beforeEach(() => {
++  desktopLease=undefined;desktopSetupGate=null;
+   contexts.length = 0;
+   encoderStreams.length = 0;
+   contextRequests.length = 0;
+@@ -2399,3 +2407,23 @@
+     }),
+   ).pipe(Effect.provide(layer)),
+ );
++
++it.live("late old desktop setup and its finally cannot replace a new same-key lease context", () =>
++ Effect.scoped(Effect.gen(function*(){
++  const browser=yield* ServerBrowser.ServerBrowser;const manager=yield* Manager.PreviewManager;const broker=yield* Broker.PreviewAutomationBroker;
++  desktopLease="old";desktopRendersNext=true;const gate=desktopSetupGate=Promise.withResolvers<void>();
++  yield* Effect.addFinalizer(()=>Effect.sync(()=>gate.resolve()));
++  const opened=yield* manager.open({threadId:scope.thread.threadId,runtime:"server"});
++  const key={threadId:scope.thread.threadId,tabId:opened.tabId};
++  const oldViewer=yield* browser.attachViewer(viewerInput(opened.tabId,true)).pipe(Effect.result,Effect.forkScoped);
++  while(desktopConnections.length<1)yield* Effect.yieldNow;
++  desktopLease="new";desktopSetupGate=null;
++  desktopDetaches.emit("attach",{...key,attachment:identityFor(key)});
++  while(desktopConnections.length<2)yield* Effect.yieldNow;
++  const status=yield* broker.invoke<PreviewAutomationStatus>({scope,tabId:opened.tabId,operation:"status",input:{}});
++  expect(status.tabId).toBe(opened.tabId);
++  gate.resolve();yield* Fiber.join(oldViewer);yield* Effect.yieldNow;
++  const again=yield* broker.invoke<PreviewAutomationStatus>({scope,tabId:opened.tabId,operation:"status",input:{}});
++  expect(again.tabId).toBe(opened.tabId);expect(desktopConnections).toHaveLength(2);
++ })).pipe(Effect.provide(layer))
++);

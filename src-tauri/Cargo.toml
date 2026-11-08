@@ -37,6 +37,8 @@ crypto_secretbox = "0.1"
 base64 = "0.22"
 getrandom = "0.2"
 sha2 = "0.10.9"
+tar = "=0.4.45"
+flate2 = "=1.1.9"
 hmac = "0.12.1"
 reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls-no-provider"] }
 rustls = { version = "0.23.39", default-features = false, features = ["std", "ring", "tls12"] }

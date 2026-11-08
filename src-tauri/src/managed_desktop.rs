@@ -435,7 +435,22 @@ fn descriptor(
     {
         return Err(error());
     }
-    let bytes=serde_json::to_vec(&json!({"version":1,"owner":{"kind":"blackcrab-managed-host","generation":binding.generation,"environmentId":binding.environment_id,"origin":binding.origin,"serverVersion":"0.1.7","orchestrationProtocolVersion":2},"profile":{"root":profile,"namespace":PROFILE,"appId":APP_ID},"control":{"kind":"unavailable"},"authorization":{"kind":"paired-credential","credential":grant.credential,"expiresAt":grant.expires_at,"renewal":{"kind":"owner-credential-fd-v1","fd":4}}})).map_err(|_|error())?;
+    let mut value = json!({"version":1,"owner":{"kind":"blackcrab-managed-host","generation":binding.generation,"environmentId":binding.environment_id,"origin":binding.origin,"serverVersion":"0.1.7","orchestrationProtocolVersion":2},"profile":{"root":profile,"namespace":PROFILE,"appId":APP_ID},"control":{"kind":"unavailable"},"authorization":{"kind":"paired-credential","credential":grant.credential,"expiresAt":grant.expires_at,"renewal":{"kind":"owner-credential-fd-v1","fd":4}}});
+    if let Some(capability) = &binding.browser {
+        if capability.generation != binding.generation
+            || capability.key.len() != 64
+            || !capability
+                .key
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            || !capability.path.is_absolute()
+            || capability.path.as_os_str().as_encoded_bytes().len() > 100
+        {
+            return Err(error());
+        }
+        value["browser"] = json!({"kind":"leased-uds-v2","generation":binding.generation,"environmentId":binding.environment_id,"path":capability.path,"key":capability.key});
+    }
+    let bytes = serde_json::to_vec(&value).map_err(|_| error())?;
     if bytes.len() > MAX_FRAME {
         return Err(error());
     }
@@ -538,6 +553,12 @@ pub(super) struct NativeDesktopOwner {
 }
 #[cfg(target_os = "macos")]
 impl NativeDesktopOwner {
+    pub(super) async fn running(&self) -> Result<bool, String> {
+        match self.active.lock().await.as_ref() {
+            Some(client) => client.is_running(),
+            None => Ok(false),
+        }
+    }
     pub(super) async fn open(
         &self,
         host: ManagedHost,
@@ -766,6 +787,7 @@ mod tests {
             generation: 1,
             environment_id: "12345678-1234-1234-1234-123456789abc".into(),
             origin: "http://127.0.0.1:32123/".into(),
+            browser: None,
         }
     }
     #[test]
@@ -851,6 +873,35 @@ mod tests {
         fixture["descriptor"]["authorization"]["expiresAt"] = json!(grant.expires_at);
         assert_eq!(v, fixture["descriptor"]);
         assert!(!String::from_utf8(bytes).unwrap().contains("bootstrap"));
+    }
+    #[test]
+    fn descriptor_browser_capability_matches_the_shared_private_contract() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("managed_desktop_browser.fixture.json")).unwrap();
+        let mut b = binding();
+        b.browser = Some(crate::managed_browser::Capability {
+            path: PathBuf::from(fixture["path"].as_str().unwrap()),
+            key: fixture["key"].as_str().unwrap().into(),
+            generation: 1,
+        });
+        let grant = DesktopPairGrant {
+            credential: "23456789ABCD".into(),
+            expires_at: now_ms().unwrap() + 60_000,
+        };
+        let value: Value =
+            serde_json::from_slice(&descriptor(&b, Path::new("/private/owned"), &grant).unwrap())
+                .unwrap();
+        assert_eq!(value["browser"], fixture);
+        assert_eq!(value["browser"]["generation"], value["owner"]["generation"]);
+        assert_eq!(
+            value["browser"]["environmentId"],
+            value["owner"]["environmentId"]
+        );
+        b.browser.as_mut().unwrap().generation = 2;
+        assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
+        b.browser.as_mut().unwrap().generation = 1;
+        b.browser.as_mut().unwrap().key = "A".repeat(64);
+        assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
     }
     #[cfg(target_os = "macos")]
     #[test]

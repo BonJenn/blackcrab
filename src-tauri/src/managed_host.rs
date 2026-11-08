@@ -39,6 +39,8 @@ struct Configuration {
     manifest_digest: String,
     bootstrap_secret: String,
     environment_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    browser: Option<crate::managed_browser::Capability>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +80,7 @@ pub(super) struct DesktopHostBinding {
     pub(super) generation: u64,
     pub(super) environment_id: String,
     pub(super) origin: String,
+    pub(super) browser: Option<crate::managed_browser::Capability>,
 }
 #[allow(dead_code)]
 pub(super) struct DesktopPairGrant {
@@ -107,6 +110,7 @@ impl DesktopEpoch {
 #[derive(Clone)]
 pub(crate) struct ManagedHost {
     root: PathBuf,
+    bundled_payload: Option<crate::managed_payload::EmbeddedPayload>,
     operation: Arc<Mutex<()>>,
     desktop: Arc<StdMutex<DesktopEpoch>>,
     navigation: Arc<StdMutex<Option<url::Origin>>>,
@@ -116,11 +120,20 @@ impl ManagedHost {
     pub(crate) fn new(root: PathBuf) -> Self {
         Self {
             root,
+            bundled_payload: None,
             operation: Arc::new(Mutex::new(())),
             desktop: Arc::new(StdMutex::new(DesktopEpoch::default())),
             navigation: Arc::new(StdMutex::new(None)),
             bridge: Arc::new(StdMutex::new(None)),
         }
+    }
+
+    pub(crate) fn with_bundled_payload(
+        mut self,
+        payload: crate::managed_payload::EmbeddedPayload,
+    ) -> Self {
+        self.bundled_payload = Some(payload);
+        self
     }
 
     pub(crate) async fn status(&self) -> HostStatus {
@@ -141,7 +154,15 @@ impl ManagedHost {
         let _lease = self.lease().await?;
         self.initialize_locked()?;
         let Some(config) = self.read_config()? else {
-            return Ok(status("notConfigured", None));
+            return Ok(match &self.bundled_payload {
+                Some(payload) => HostStatus {
+                    state: "stopped",
+                    artifact_path: Some(payload.target_directory().to_string_lossy().into_owned()),
+                    environment_id: None,
+                    error: None,
+                },
+                None => status("notConfigured", None),
+            });
         };
         self.verify_configured(&config).await?;
         match self.probe(&config).await? {
@@ -226,21 +247,44 @@ impl ManagedHost {
         if attached.origin.port().is_none() || !desktop_policy::uuid(&attached.environment_id) {
             return Err("Native host needs an explicit loopback port".into());
         }
+        let browser = self
+            .read_config()?
+            .ok_or("Managed host unavailable")?
+            .browser;
+        #[cfg(unix)]
+        if let Some(capability) = &browser {
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
+            loop {
+                capability.validate(&self.root)?;
+                if fs::symlink_metadata(&capability.path).is_ok() {
+                    break;
+                }
+                if tokio::time::Instant::now() >= deadline {
+                    return Err(
+                        "The managed host's private native browser listener is not ready".into(),
+                    );
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        }
         let mut epoch = self
             .desktop
             .lock()
             .map_err(|_| "Native owner unavailable")?;
         let origin = attached.origin.as_str().to_owned();
-        if !epoch
-            .binding
-            .as_ref()
-            .is_some_and(|b| b.origin == origin && b.environment_id == attached.environment_id)
-        {
+        if !epoch.binding.as_ref().is_some_and(|b| {
+            b.origin == origin
+                && b.environment_id == attached.environment_id
+                && b.browser == browser
+        }) {
             epoch.invalidate()?;
             epoch.binding = Some(DesktopHostBinding {
-                generation: epoch.generation,
+                generation: browser
+                    .as_ref()
+                    .map_or(epoch.generation, |cap| cap.generation),
                 environment_id: attached.environment_id,
                 origin,
+                browser,
             });
         }
         epoch
@@ -490,7 +534,7 @@ impl ManagedHost {
         }
         let config: Configuration = serde_json::from_slice(&read_small(&file)?)
             .map_err(|_| "Managed host configuration is invalid")?;
-        if config.schema != 1
+        if ![1, 2].contains(&config.schema)
             || config.bootstrap_secret.len() != 64
             || !config
                 .bootstrap_secret
@@ -499,6 +543,23 @@ impl ManagedHost {
             || config.manifest_digest.len() != 64
         {
             return Err("Managed host configuration is incompatible".into());
+        }
+        if let Some(capability) = &config.browser {
+            if config.schema != 2 {
+                return Err("Incompatible native browser configuration".into());
+            }
+            #[cfg(unix)]
+            {
+                if !native_browser_supported() {
+                    return Err(
+                        "The verified managed runtime does not support the native browser channel"
+                            .into(),
+                    );
+                }
+                capability.validate(&self.root)?;
+            }
+            #[cfg(not(unix))]
+            return Err("Private native browser transport is unavailable on this platform".into());
         }
         Ok(Some(config))
     }
@@ -553,13 +614,17 @@ impl ManagedHost {
             tokio::task::spawn_blocking(move || managed_artifact::verify(&path))
                 .await
                 .map_err(io_error)??
+        } else if let Some(existing) = config.as_ref() {
+            self.verify_configured(existing).await?
+        } else if let Some(payload) = self.bundled_payload.clone() {
+            tokio::task::spawn_blocking(move || {
+                let root = payload.ensure_verified()?;
+                managed_artifact::verify(&root)
+            })
+            .await
+            .map_err(io_error)??
         } else {
-            self.verify_configured(
-                config
-                    .as_ref()
-                    .ok_or("Choose a managed runtime package first")?,
-            )
-            .await?
+            return Err("Choose a managed runtime package first".into());
         };
         if let Some(existing) = &mut config {
             existing.artifact_path = artifact.root.clone();
@@ -571,9 +636,15 @@ impl ManagedHost {
                 manifest_digest: artifact.manifest_digest.clone(),
                 bootstrap_secret: random_secret()?,
                 environment_id: None,
+                browser: None,
             });
         }
         let mut config = config.unwrap();
+        #[cfg(unix)]
+        if native_browser_supported() {
+            config.browser = Some(crate::managed_browser::Capability::allocate(&self.root)?);
+            config.schema = 2;
+        }
         self.save_config(&config)?;
         let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(io_error)?;
         let port = listener.local_addr().map_err(io_error)?.port();
@@ -672,7 +743,11 @@ impl ManagedHost {
             .map_err(|_| "Could not launch the verified managed runtime".to_string())?;
         #[cfg(test)]
         eprintln!("BLACKCRAB_TEST_CHILD_PID={}", child.id());
-        let bootstrap = json!({"mode":"desktop","noBrowser":true,"port":port,"t3Home":self.root.join("host"),"host":"127.0.0.1","desktopBootstrapToken":bootstrap_token(&config.bootstrap_secret, now_ms()?)?,"desktopBootstrapSecret":config.bootstrap_secret,"shellEnvironmentPrepared":false,"tailscaleServeEnabled":false,"tailscaleServePort":443});
+        let mut bootstrap = json!({"mode":"desktop","noBrowser":true,"port":port,"t3Home":self.root.join("host"),"host":"127.0.0.1","desktopBootstrapToken":bootstrap_token(&config.bootstrap_secret, now_ms()?)?,"desktopBootstrapSecret":config.bootstrap_secret,"shellEnvironmentPrepared":false,"tailscaleServeEnabled":false,"tailscaleServePort":443});
+        if let Some(capability) = &config.browser {
+            bootstrap["desktopBrowserSocket"] =
+                serde_json::to_value(capability).map_err(io_error)?;
+        }
         if let Some(mut input) = child.stdin.take() {
             let mut bytes = serde_json::to_vec(&bootstrap).map_err(io_error)?;
             bytes.push(b'\n');
@@ -813,6 +888,21 @@ impl ManagedHost {
             environment_id,
         }))
     }
+}
+#[cfg(unix)]
+fn native_browser_supported() -> bool {
+    // Only a fully verified artifact with every reviewed host delta may receive
+    // the private capability. A proof9-only host never advertises this transport.
+    let Ok(records) = serde_json::from_str::<Vec<Value>>(include_str!(
+        "../../managed-host/patches/registry.json"
+    )) else {
+        return false;
+    };
+    (1..=10).all(|index| {
+        records
+            .iter()
+            .any(|record| record["id"] == format!("native-browser-host-{index}"))
+    })
 }
 fn status(state: &'static str, config: Option<&Configuration>) -> HostStatus {
     HostStatus {
@@ -1152,6 +1242,7 @@ mod tests {
             manifest_digest: "a".repeat(64),
             bootstrap_secret: "b".repeat(64),
             environment_id: Some("env_fixture".into()),
+            browser: None,
         }
     }
     fn descriptor() -> Value {
@@ -1408,6 +1499,7 @@ mod tests {
             generation: 1,
             environment_id: env.clone(),
             origin,
+            browser: None,
         };
         host.desktop.lock().unwrap().binding = Some(binding.clone());
         host.desktop.lock().unwrap().generation = 1;
@@ -1556,6 +1648,51 @@ mod tests {
         host.desktop.lock().unwrap().invalidate().unwrap();
         assert!(clone.desktop_binding_current(&binding).is_err());
         assert!(host.desktop_pair_grant(&binding).await.is_err());
+        fs::remove_dir_all(base).unwrap();
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn bundled_default_is_lazy_and_never_replaces_stored_or_explicit_selection() {
+        let base = fixture().canonicalize().unwrap();
+        let archive = base.join("bundled.tar.gz");
+        fs::write(
+            &archive,
+            b"must not be parsed during metadata or explicit selection",
+        )
+        .unwrap();
+        let payload = crate::managed_payload::EmbeddedPayload::new(
+            crate::managed_payload::PayloadRole::Host,
+            archive,
+            "a".repeat(64),
+            "b".repeat(64),
+            base.join("payload-cache"),
+        )
+        .unwrap();
+        let target = payload.target_directory();
+        let host = ManagedHost::new(base.join("managed-host/v1")).with_bundled_payload(payload);
+        let initial = host.status().await;
+        assert_eq!(initial.state, "stopped");
+        assert_eq!(
+            initial.artifact_path,
+            Some(target.to_string_lossy().into_owned())
+        );
+        assert!(!target.exists());
+        assert!(!host.root.join("configuration.json").exists());
+        assert!(host
+            .start(Some(base.join("explicit-invalid-selection")))
+            .await
+            .is_err());
+        assert!(!target.exists());
+        assert!(!host.root.join("configuration.json").exists());
+        let stored = config();
+        host.save_config(&stored).unwrap();
+        let bytes = fs::read(host.root.join("configuration.json")).unwrap();
+        assert!(host.start(None).await.is_err());
+        assert_eq!(
+            fs::read(host.root.join("configuration.json")).unwrap(),
+            bytes
+        );
+        assert!(!target.exists());
         fs::remove_dir_all(base).unwrap();
     }
 }

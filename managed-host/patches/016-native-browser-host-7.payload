@@ -1,0 +1,66 @@
+import * as Effect from "effect/Effect";
+import * as Scope from "effect/Scope";
+import * as Stream from "effect/Stream";
+import * as PubSub from "effect/PubSub";
+import * as Queue from "effect/Queue";
+import * as Option from "effect/Option";
+import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer";
+import * as Schema from "effect/Schema";
+import * as NodeCrypto from "node:crypto";
+import {DesktopBrowserEvent,DesktopBrowserCommand} from "@t3tools/contracts";
+import {listenBrowser,sameAttachment,type Attachment,type Payload} from "@t3tools/shared/leasedDesktopBrowser";
+import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
+import type {DesktopBrowserChannel,DesktopTabKey} from "./DesktopBrowserChannel.ts";
+const keyOf=(k:DesktopTabKey)=>JSON.stringify([k.threadId,k.tabId]);
+export const makeSocketChannel=(config:{path:string;key:string;generation:number})=>Effect.gen(function*(){
+ const environment=yield* Effect.serviceOption(ServerEnvironment.ServerEnvironment);
+ if(Option.isNone(environment))return yield* Effect.die("Browser transport requires server environment identity");
+ const environmentId=yield* environment.value.getEnvironmentId;
+ const changes=yield* PubSub.unbounded<{key:DesktopTabKey;attached:boolean}>();
+ const inbound=new Map<string,{identity:Attachment;queue:Queue.Queue<string>}>();
+ const owners=new Map<string,object>();
+ const shown=new Map<string,{identity:Attachment;shown:boolean}>();
+ const runFork=Effect.runForkWith(yield* Effect.context<never>());
+ const handle=(identity:Attachment,event:Payload)=>{
+  const key={threadId:identity.threadId,tabId:identity.tabId,attachment:identity};const id=keyOf(key);
+  runFork(Effect.gen(function*(){
+   if(event.type==='attached'){yield* PubSub.publish(changes,{key,attached:true});return;}
+   if(event.type==='shown'){if(transport.state.current(identity))shown.set(id,{identity,shown:event.shown===true});return;}
+   const live=inbound.get(id);
+   if(event.type==='cdp'){if(live&&sameAttachment(live.identity,identity)&&transport.state.current(identity))yield* Queue.offer(live.queue,String(event.message));return;}
+   if(event.type==='detached'){
+    if(live&&sameAttachment(live.identity,identity))yield* Queue.shutdown(live.queue);
+    if(sameAttachment(shown.get(id)?.identity,identity))shown.delete(id);
+    yield* PubSub.publish(changes,{key,attached:false});
+   }
+  }));
+ };
+ const transport=yield* Effect.acquireRelease(Effect.promise(()=>listenBrowser({...config,environmentId,maxFrameBytes:64*1024*1024},{validateEvent:Schema.is(DesktopBrowserEvent),event:handle,retired:identities=>{for(const identity of identities)handle(identity,{type:'detached',threadId:identity.threadId,tabId:identity.tabId});}})),t=>Effect.promise(()=>t.close()));
+ const endpoint=(key:DesktopTabKey)=>{
+  const identity=key.attachment??transport.state.lookup(key);
+  return Effect.gen(function*(){
+   if(!identity||!transport.state.current(identity))return yield* Effect.die('Desktop attachment expired');
+   const id=keyOf(key),secret=NodeCrypto.randomBytes(24).toString('base64url');
+   const server=yield* NodeSocketServer.makeWebSocket({host:'127.0.0.1',port:0,path:`/${secret}`}).pipe(Effect.orDie);
+   const queue=yield* Queue.unbounded<string>();const record={identity,queue};inbound.set(id,record);owners.set(id,record);
+   yield* Effect.addFinalizer(()=>Effect.gen(function*(){if(inbound.get(id)===record)inbound.delete(id);yield* Queue.shutdown(queue);yield* Effect.promise(()=>transport.send(identity,{type:'release',threadId:key.threadId,tabId:key.tabId},()=>owners.get(id)===record)).pipe(Effect.ignore);if(owners.get(id)===record)owners.delete(id);}));
+   if(!transport.state.current(identity))return yield* Effect.die('Desktop detached before endpoint registration');
+   let connected=false;
+   yield* server.run(socket=>Effect.gen(function*(){
+    if(connected||!transport.state.current(identity))return;connected=true;const writer=yield* socket.writer;const reader=yield* socket.reader;
+    yield* Stream.fromQueue(queue).pipe(Stream.runForEach(message=>writer.write(message)),Effect.forkScoped);
+    const decoder=new TextDecoder();
+    return yield* reader.pull.pipe(Effect.flatMap(frames=>Effect.forEach(frames,frame=>Effect.promise(()=>transport.send(identity,{type:'cdp',threadId:key.threadId,tabId:key.tabId,message:typeof frame==='string'?frame:decoder.decode(frame)},()=>owners.get(id)===record)),{discard:true})),Effect.forever);
+   }).pipe(Effect.scoped,Effect.ignore)).pipe(Effect.forkScoped);
+   const address=server.address;if(address._tag!=='InetAddressV4')return yield* Effect.die('Unexpected local CDP endpoint');return `ws://127.0.0.1:${address.port}/${secret}`;
+  });
+ };
+ return {
+  available:true,isAttached:(key:DesktopTabKey)=>Effect.sync(()=>Boolean(transport.state.lookup(key))),identity:(key:DesktopTabKey)=>transport.state.lookup(key),isCurrent:(a:Attachment)=>transport.state.current(a),
+  awaitAttached:(key:DesktopTabKey,timeout:any)=>Effect.scoped(Effect.gen(function*(){const subscription=yield* PubSub.subscribe(changes);if(transport.state.lookup(key))return true;return yield* Stream.fromSubscription(subscription).pipe(Stream.filter(c=>c.attached&&keyOf(c.key)===keyOf(key)&&Boolean(c.key.attachment&&transport.state.current(c.key.attachment))),Stream.runHead,Effect.map(Option.isSome),Effect.timeoutOption(timeout),Effect.map(result=>Option.getOrElse(result,()=>false)));})),
+  attached:Stream.fromPubSub(changes).pipe(Stream.filter(c=>c.attached),Stream.map(c=>c.key)),detached:Stream.fromPubSub(changes).pipe(Stream.filter(c=>!c.attached),Stream.map(c=>c.key)),endpoint,
+  isShown:(key:DesktopTabKey)=>{const value=shown.get(keyOf(key));return value&&transport.state.current(value.identity)?value.shown:true;},
+  pointer:(key:DesktopTabKey,pointer:any)=>{const a=key.attachment??transport.state.lookup(key);return a?Effect.promise(()=>transport.send(a,{type:'pointer',threadId:key.threadId,tabId:key.tabId,...pointer})).pipe(Effect.asVoid,Effect.ignore):Effect.void;},
+  turn:(threadId:string,active:boolean)=>{const epoch=transport.state.peer?.epoch;return epoch?Effect.promise(()=>transport.send(epoch,{type:'turn',threadId,active})).pipe(Effect.asVoid,Effect.ignore):Effect.void;}
+ } satisfies DesktopBrowserChannel['Service'];
+});

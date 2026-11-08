@@ -1,3 +1,4 @@
+import { ManagedNativeDesktopEntry } from "./ManagedNativeDesktopEntry";
 import { useEffect, useRef, useState } from "react";
 import { managedHostClient, type ManagedHostClient, type ManagedHostStatus } from "./managedHostClient";
 import "./ManagedWorkspaceEntry.css";
@@ -69,7 +70,7 @@ export function ManagedWorkspaceEntry({ client = managedHostClient }: { client?:
     }
   }
 
-  return <section className="managed-workspace-entry" aria-label="Managed workspaces" aria-busy={pending !== null}>
+  return <><ManagedNativeDesktopEntry /><section className="managed-workspace-entry" aria-label="Managed workspaces" aria-busy={pending !== null}>
     <h3>Managed workspaces</h3>
     <p>Open a separate workspace window. Its service keeps running when the window closes.</p>
     <p role="status">{pending ? pendingLabels[pending] : status ? statusLabels[status.state] : "Workspace service status could not be checked."}</p>
@@ -80,5 +81,5 @@ export function ManagedWorkspaceEntry({ client = managedHostClient }: { client?:
       {status && status.state !== "notConfigured" && <button type="button" disabled={pending !== null} onClick={() => { void run("open"); }}>Open workspace</button>}
       <button type="button" disabled={pending !== null} onClick={() => { void run("refresh"); }}>Refresh status</button>
     </div>
-  </section>;
+  </section></>;
 }

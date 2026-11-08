@@ -16,7 +16,7 @@ Those early attempts performed no provider turn, pairing grant, or production-ho
 
 The validation harness merged to `stage` in [#220](https://github.com/BonJenn/blackcrab/pull/220). The baseline logging canary passed one actual native UI test with no failures or skips. Xcode appended an index/UUID to the exported completion name; the corrected parser revalidated the retained official result with exact phase, nonce, device and test identity. The coordinator reviewed the private evidence and approved the canary receipt. No UI rerun was needed. The Swift runner and app binaries were unchanged. This validates the baseline input/result pipeline, not the full interface.
 
-A paired attempt subsequently connected its SDK observer but stopped before native pairing because its fresh host had no project. The fixture now creates the project through the real public `projects.mutate` API and observes its shell projection before creating the idle thread. A host-only preflight passed with zero runs/provider sessions and captured-host closure. All 27 portable guards passed. The full-interface retained catalog, native rename/archive, broader controls and distribution gates remain open.
+A paired attempt subsequently connected its SDK observer but stopped before native pairing because its fresh host had no project. The fixture now creates the project through the real public `projects.mutate` API and observes its shell projection before creating the idle thread. A host-only preflight passed with zero runs/provider sessions and captured-host closure. All 29 portable guards passed. The full-interface retained catalog, native rename/archive, broader controls and distribution gates remain open.
 
 The next paired attempt passed the baseline pairing UI (1/1, no skips) but stopped before upgrade at a redundant app-termination command. That command is removed. Cooperative owner abort now precedes fixture interruption; 27 portable guards pass. The failed attempt's lost host handle remains recorded as unclosed; a separate scoped OS recovery observation records its verified shutdown, without replacing the original receipt.
 
@@ -42,3 +42,22 @@ completion and private evidence and approved the new receipt. No host or pairing
 grant was created by that canary. Its original artifacts remain separate from
 the prior runner's canary. This proves the replacement runner's baseline path,
 not the upgraded interface or native thread mutations; those remain pending.
+
+## Full-interface installation guard
+
+The next paired attempt passed baseline pairing (1/1, no skips) and installed
+the unchanged c603 app over the baseline without uninstalling. It stopped before
+upgraded UI launch because two widget dylibs additionally changed mode0755 to
+0644. Every path, entry type and byte matched; installed strict deep signature
+verification passed. The two exact files are
+`PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget.debug.dylib` and
+`PlugIns/ExpoWidgetsTarget.appex/__preview.dylib`.
+
+A separate rule pins both source hashes, the widget extension identity/metadata
+and thin arm64 MH_DYLIB headers. It does not relax framework, extension entrypoint
+or other file rules. All29 portable guards pass, including rejection of unknown
+libraries, changed source hashes, metadata, CPU/type, truncation and entrypoint
+modes. Read-only revalidation of the retained installed app passed the exact ten
+framework plus two widget mode changes and its signature. This did not rerun UI
+or verify native mutations. SDK runs/provider sessions remained zero and
+cooperative cleanup closed the actual host Child. Upgrade controls remain open.

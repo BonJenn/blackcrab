@@ -14,7 +14,7 @@ The real SDK fixture preflight now explicitly creates its owned project through
 `projects.mutate`, observes the resulting shell projection, then creates one idle
 thread. That preflight passed with zero runs/provider sessions and clean captured
 host closure. It is a prerequisite check; full-interface retained catalog, native
-rename and archive remain unverified. All27 portable controller tests passed.
+rename and archive remain unverified. All29 portable controller tests passed.
 The user explicitly approved XCTest input into a fresh owned simulator and an
 isolated disposable loopback pairing credential for catalog retention, rename and
 archive validation, with no providers or existing-device actions. Resource GO and
@@ -185,3 +185,22 @@ completion and private evidence and approved the new receipt. No host or pairing
 grant was created by that canary. Its original artifacts remain separate from
 the prior runner's canary. This proves the replacement runner's baseline path,
 not the upgraded interface or native thread mutations; those remain pending.
+
+## Full-interface installation guard
+
+The next paired attempt passed baseline pairing (1/1, no skips) and installed
+the unchanged c603 app over the baseline without uninstalling. It stopped before
+upgraded UI launch because two widget dylibs additionally changed mode0755 to
+0644. Every path, entry type and byte matched; installed strict deep signature
+verification passed. The two exact files are
+`PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget.debug.dylib` and
+`PlugIns/ExpoWidgetsTarget.appex/__preview.dylib`.
+
+A separate rule pins both source hashes, the widget extension identity/metadata
+and thin arm64 MH_DYLIB headers. It does not relax framework, extension entrypoint
+or other file rules. All29 portable guards pass, including rejection of unknown
+libraries, changed source hashes, metadata, CPU/type, truncation and entrypoint
+modes. Read-only revalidation of the retained installed app passed the exact ten
+framework plus two widget mode changes and its signature. This did not rerun UI
+or verify native mutations. SDK runs/provider sessions remained zero and
+cooperative cleanup closed the actual host Child. Upgrade controls remain open.

@@ -35,6 +35,8 @@ export default defineConfig(async () => ({
   },
   test: {
     environment: "jsdom",
+    // Node 26's storage getter shadows jsdom's browser storage without a backing file.
+    execArgv: ["--no-experimental-webstorage"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 }));

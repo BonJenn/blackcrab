@@ -44,7 +44,27 @@
           "cameraPermission": "Blackcrab Remote needs camera access to take a photo to attach to a message."
         }
       ],
-      "./plugins/with-ios-pod-floor.cjs"
+      "./plugins/with-ios-pod-floor.cjs",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "18.0"
+          }
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "ios": {
+            "fonts": [
+              "@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
+              "@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf",
+              "@expo-google-fonts/dm-sans/700Bold/DMSans_700Bold.ttf"
+            ]
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
@@ -56,7 +76,9 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/33fb14fd-4b87-4e85-920c-b6d4204e4567"
+      "url": "https://u.expo.dev/33fb14fd-4b87-4e85-920c-b6d4204e4567",
+      "enabled": false,
+      "checkAutomatically": "NEVER"
     }
   }
 }

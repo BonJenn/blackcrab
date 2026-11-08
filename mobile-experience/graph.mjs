@@ -13,7 +13,7 @@ const record = value => value !== null && typeof value === 'object' && !Array.is
 const packageName = specifier => specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0];
 
 /** Static source closure, not a Metro, Hermes or external-package compatibility proof. */
-export function analyzeMobileExperience(sourceRoot) {
+export function analyzeMobileExperience(sourceRoot, { includeGeneratedInputs = false } = {}) {
   const requestedRoot = path.resolve(sourceRoot);
   const rootStat = fs.lstatSync(requestedRoot);
   if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('source root must be a real directory');
@@ -178,6 +178,7 @@ export function analyzeMobileExperience(sourceRoot) {
     parsed.set(file, rows); return rows;
   }
   const runtimeSeeds = [resolveFile(path.join(root, 'apps/mobile/index.ts'))];
+  if (includeGeneratedInputs) for (const file of ['apps/mobile/src/features/devices/device-stream.browser.ts', 'apps/mobile/src/features/browser/preview-stream.browser.ts']) runtimeSeeds.push(resolveFile(path.join(root, file)));
   const typeSeeds = runtimeSeeds;
   const edges = new Map();
   function traverse(seeds, mode) {

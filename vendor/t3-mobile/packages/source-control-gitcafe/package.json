@@ -1,0 +1,19 @@
+{
+  "name": "@t3tools/source-control-gitcafe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./shared/definition": {
+      "types": "./src/shared/definition.ts",
+      "import": "./src/shared/definition.ts",
+      "default": "./src/shared/definition.ts"
+    }
+  },
+  "dependencies": {
+    "@t3tools/contracts": "file:../contracts",
+    "@t3tools/source-control-core": "file:../source-control-core",
+    "effect": "4.1.2"
+  }
+}

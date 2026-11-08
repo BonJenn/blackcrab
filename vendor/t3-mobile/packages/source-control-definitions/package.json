@@ -1,0 +1,23 @@
+{
+  "name": "@t3tools/source-control-definitions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./registry": {
+      "types": "./src/registry.ts",
+      "import": "./src/registry.ts",
+      "default": "./src/registry.ts"
+    }
+  },
+  "dependencies": {
+    "@t3tools/source-control-azure-devops": "file:../source-control-azure-devops",
+    "@t3tools/source-control-bitbucket": "file:../source-control-bitbucket",
+    "@t3tools/source-control-core": "file:../source-control-core",
+    "@t3tools/source-control-forgejo": "file:../source-control-forgejo",
+    "@t3tools/source-control-gitcafe": "file:../source-control-gitcafe",
+    "@t3tools/source-control-github": "file:../source-control-github",
+    "@t3tools/source-control-gitlab": "file:../source-control-gitlab"
+  }
+}

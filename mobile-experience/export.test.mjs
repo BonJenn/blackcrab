@@ -20,6 +20,11 @@ test('inventory retains native registrations, assets and all generator inputs; r
  const put=async(p,b='x')=>{const target=path.join(root,p);await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,b);};
  for(const file of [...SUPPORT_FILES,'third-party-licenses/spdx/MIT.json','assets/icon.png','scripts/tool.ts','patches/native.patch','apps/mobile/modules/native/ios/Native.swift','apps/mobile/modules/native/expo-module.config.json','apps/mobile/scripts/generate-device-stream.mts','apps/mobile/src/features/devices/device-stream.browser.ts','apps/mobile/src/features/browser/preview-stream.browser.ts','scripts/lib/third-party-licenses.ts'])await put(file);
  const a=await inventoryExperience(root,{files:[],packages:[]});assert.equal(a.nativeModules.length,1);assert.ok(a.files.includes('assets/icon.png'));assert.ok(a.files.includes('third-party-licenses/spdx/MIT.json'));assert.ok(a.files.includes('apps/server/src/device/deviceToolVersions.json'));assert.ok(a.files.includes('native/libghostty-vt/LICENSE'));assert.ok(a.nativeModules[0].registrations.includes('apps/mobile/modules/native/expo-module.config.json'));assert.equal(a.generatedAliases.length,3);
+ await put('packages/example/package.json','{}');await put('packages/example/node_modules/effect/package.json','{}');
+ const installedGraph={files:[],packages:[{folder:'packages/example'}]};
+ await assert.rejects(inventoryExperience(root,installedGraph),/Unexpected dependency/);
+ const installed=await inventoryExperience(root,installedGraph,{allowInstalledPackageDependencies:true});assert.ok(!installed.files.some(p=>p.includes('node_modules')));
+ await put('packages/example/src/node_modules/shadow/index.js','export {};');await assert.rejects(inventoryExperience(root,installedGraph,{allowInstalledPackageDependencies:true}),/Unexpected dependency/);
  await fs.symlink(path.join(root,'assets/icon.png'),path.join(root,'apps/mobile/linked'));await assert.rejects(inventoryExperience(root,{files:[],packages:[]}),/Symlink/);
 });
 

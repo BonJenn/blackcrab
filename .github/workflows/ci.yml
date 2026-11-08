@@ -22,8 +22,10 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "26.12.1"
           cache: npm
+
+      - run: npm install --global npm@12.2.2
 
       - run: npm ci
 
@@ -48,6 +50,10 @@ jobs:
       - run: npm run test:mobile:ios-preparation
 
       - run: npm run test:mobile:experience
+
+      - run: npm run test:mobile:resolution
+
+      - run: npm run verify:mobile:consumers
 
       - run: npm run test:shared-runtime
 

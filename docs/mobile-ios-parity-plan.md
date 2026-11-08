@@ -199,3 +199,26 @@ filesystem, network and WebSocket adapters. The local-only build workarounds are
 not shipping build evidence or repository dependency patches. The next native
 build increment must provide a reproducible physical staging workspace and pod
 floor adjustment. No distribution-signed release or physical-device claim is made.
+
+### Complete native platform increment (in progress)
+
+The owned mobile platform now uses Expo 58.0.14, React Native 0.88.0 and React
+19.3.0, preserving desktop React 19.1 and existing legacy Hosts, queues and the
+read-only Workspaces entry. The complete pinned consumer/native/resource tree is
+preserved; this increment does not activate the full T3 mobile interface. Exact
+upstream dependency patches and one recorded Expo Widgets workspace adapter are
+applied independently of the immutable reference source.
+
+A standalone signed simulator probe compiled after pinning Expo Modules JSI
+58.0.15 in both app and Core contexts. The framework exports the exact symbol
+whose absence caused the earlier pre-JavaScript dyld exit. The corrected Release
+Hermes product cold-launched on a fresh iOS 27.1 Duo simulator, rendered Blackcrab
+Remote and remained alive for over two minutes without a native/JavaScript fatal
+error. This is probe evidence; a fresh committed-source producer must still
+repeat build, integrity, signature and launch checks before this increment merges.
+
+On Node 26, all 173 desktop tests, desktop typing and production build passed
+after explicitly disabling Node web storage in jsdom test workers. Thirteen native
+preparation helper tests cover isolation, exact ABI roots and bounded native/
+Metro resources, including an external-cache boundary. Physical devices, signed
+distribution and the full native mobile workflows remain open.

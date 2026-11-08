@@ -1,0 +1,2816 @@
+{
+  "documentIndex": 1,
+  "sha256": "79fe66979a951086b9c19cb1ad0eeedff7b9b16dc826fcee1b2f2f31dd677f0e",
+  "owners": [
+    {
+      "name": "@t3tools/client-runtime",
+      "folder": "packages/client-runtime",
+      "groups": {
+        "dependencies": {
+          "@pierre/diffs": {
+            "specifier": "catalog:",
+            "override": "1.6.1",
+            "lockSpecifier": "1.6.1",
+            "resolution": "1.6.1(patch_hash=322ac5f5db8b5715189c010802047f8235c3a45d8ed5ca0ba60fac266e2eba34)(@shikijs/themes@4.2.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-acp-registry": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-acp-registry"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/provider-cursor": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-cursor"
+          },
+          "@t3tools/provider-fx": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-fx"
+          },
+          "@t3tools/provider-grok": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-grok"
+          },
+          "@t3tools/provider-kiro": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-kiro"
+          },
+          "@t3tools/provider-muse": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-muse"
+          },
+          "@t3tools/provider-opencode": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-opencode"
+          },
+          "@t3tools/provider-pi": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-pi"
+          },
+          "@t3tools/secret-provider-definitions": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../secret-provider-definitions"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "@t3tools/source-control-definitions": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-definitions"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          },
+          "jszip": {
+            "specifier": "3.10.1",
+            "lockSpecifier": "3.10.1",
+            "resolution": "3.10.1"
+          },
+          "three": {
+            "specifier": "0.180.0",
+            "lockSpecifier": "0.180.0",
+            "resolution": "0.180.0"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/three": {
+            "specifier": "0.180.0",
+            "lockSpecifier": "0.180.0",
+            "resolution": "0.180.0"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "@pierre/diffs",
+          "manifestName": "@pierre/diffs",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "jszip",
+          "manifestName": "jszip",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/contracts",
+      "folder": "packages/contracts",
+      "groups": {
+        "dependencies": {
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/mobile",
+      "folder": "apps/mobile",
+      "groups": {
+        "dependencies": {
+          "@clerk/expo": {
+            "specifier": "catalog:",
+            "override": "4.14.0",
+            "lockSpecifier": "4.14.0",
+            "resolution": "4.14.0(fc9e2737e588fc9e0cc4c79a72a454d9)"
+          },
+          "@clerk/expo-native-components": {
+            "specifier": "0.4.0",
+            "lockSpecifier": "0.4.0",
+            "resolution": "0.4.0(patch_hash=7a808b92da8460750b85818552e13be3fb73d111691c7db76965970351e124e4)(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "@effect/atom-react": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(effect@4.1.2)(react@19.3.0)(scheduler@0.28.0)"
+          },
+          "@expo-google-fonts/dm-sans": {
+            "specifier": "^0.4.2",
+            "lockSpecifier": "^0.4.2",
+            "resolution": "0.4.2"
+          },
+          "@expo/metro-runtime": {
+            "specifier": "~58.0.14",
+            "lockSpecifier": "~58.0.14",
+            "resolution": "58.0.14(@expo/log-box@58.0.12)(expo@58.0.14)(react-dom@19.3.0(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@expo/ui": {
+            "specifier": "58.0.20",
+            "lockSpecifier": "58.0.20",
+            "resolution": "58.0.20(patch_hash=64559cb60723e19a8a72256d4c78d1315d937a7af3b32d19860ea596f88736ce)(@babel/core@7.29.7(supports-color@8.1.1))(expo@58.0.14)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@legendapp/list": {
+            "specifier": "catalog:",
+            "override": "3.3.5",
+            "lockSpecifier": "3.3.5",
+            "resolution": "3.3.5(patch_hash=6cbdacd8c380d9a5afb9f73d4198dc2cc44be6ef28a955b1183c781469307896)(react-dom@19.3.0(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@material/material-color-utilities": {
+            "specifier": "0.3.0",
+            "lockSpecifier": "0.3.0",
+            "resolution": "0.3.0"
+          },
+          "@noble/curves": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "1.9.1"
+          },
+          "@pierre/diffs": {
+            "specifier": "catalog:",
+            "override": "1.6.1",
+            "lockSpecifier": "1.6.1",
+            "resolution": "1.6.1(patch_hash=322ac5f5db8b5715189c010802047f8235c3a45d8ed5ca0ba60fac266e2eba34)(@shikijs/themes@4.2.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)"
+          },
+          "@pierre/highlights": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "0.2.0"
+          },
+          "@react-native-ai/apple": {
+            "specifier": "0.12.0",
+            "lockSpecifier": "0.12.0",
+            "resolution": "0.12.0(patch_hash=2d09870c2848d185cb05b53ed823a46e12dba519324d8dd8e584e28731990f9d)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))"
+          },
+          "@react-native-async-storage/async-storage": {
+            "specifier": "3.1.1",
+            "lockSpecifier": "3.1.1",
+            "resolution": "3.1.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@react-native-menu/menu": {
+            "specifier": "^2.0.0",
+            "override": "2.0.0",
+            "lockSpecifier": "2.0.0",
+            "resolution": "2.0.0(patch_hash=910ec1bf22aa85a96fcf12299cd823bc30f702dd9b2d77b564d10b9ed709f7f6)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@react-navigation/elements": {
+            "specifier": "2.9.45",
+            "lockSpecifier": "2.9.45",
+            "resolution": "2.9.45(d8845bac868f4d8a58c8a8f12ad0d4a5)"
+          },
+          "@react-navigation/native": {
+            "specifier": "7.5.1",
+            "lockSpecifier": "7.5.1",
+            "resolution": "7.5.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@react-navigation/native-stack": {
+            "specifier": "7.21.0",
+            "lockSpecifier": "7.21.0",
+            "resolution": "7.21.0(patch_hash=990d575444c4af2ce8218b3b7a8280fe244c03abbdb32b822a2e862f791dbf42)(c96dd4885eac0393fe69fdf9aeb7f361)"
+          },
+          "@t3tools/client-runtime": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../../packages/client-runtime"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../../packages/contracts"
+          },
+          "@t3tools/mobile-highlights-native": {
+            "specifier": "file:./modules/t3-highlights",
+            "lockSpecifier": "file:./modules/t3-highlights",
+            "resolution": "file:apps/mobile/modules/t3-highlights(react-native-nitro-modules@0.37.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0))"
+          },
+          "@t3tools/mobile-review-diff-native": {
+            "specifier": "file:./modules/t3-review-diff",
+            "lockSpecifier": "file:./modules/t3-review-diff",
+            "resolution": "file:apps/mobile/modules/t3-review-diff"
+          },
+          "@t3tools/mobile-source-text": {
+            "specifier": "file:./modules/t3-source-text",
+            "lockSpecifier": "file:./modules/t3-source-text",
+            "resolution": "file:apps/mobile/modules/t3-source-text(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "@t3tools/mobile-terminal-native": {
+            "specifier": "file:./modules/t3-terminal",
+            "lockSpecifier": "file:./modules/t3-terminal",
+            "resolution": "file:apps/mobile/modules/t3-terminal"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../../packages/shared"
+          },
+          "@tabler/icons-react-native": {
+            "specifier": "^3.44.0",
+            "lockSpecifier": "^3.44.0",
+            "resolution": "3.44.0(react-native-svg@15.16.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0))(react@19.3.0)"
+          },
+          "clsx": {
+            "specifier": "^2.1.1",
+            "lockSpecifier": "^2.1.1",
+            "resolution": "2.1.1"
+          },
+          "diff": {
+            "specifier": "8.0.3",
+            "lockSpecifier": "8.0.3",
+            "resolution": "8.0.3"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          },
+          "expo": {
+            "specifier": "58.0.14",
+            "lockSpecifier": "58.0.14",
+            "resolution": "58.0.14(ecd3689b2bda1172f8915f190f5c7383)"
+          },
+          "expo-application": {
+            "specifier": "~58.1.2",
+            "lockSpecifier": "~58.1.2",
+            "resolution": "58.1.2(expo@58.0.14)"
+          },
+          "expo-asset": {
+            "specifier": "~58.0.16",
+            "lockSpecifier": "~58.0.16",
+            "resolution": "58.0.16(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-audio": {
+            "specifier": "58.0.9",
+            "lockSpecifier": "58.0.9",
+            "resolution": "58.0.9(patch_hash=cb873a17fbd9aca52ddcecbde4c3d899566f7e265ab49a992963a6276b29bf52)(expo-asset@58.0.16(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3))(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-auth-session": {
+            "specifier": "~58.0.13",
+            "lockSpecifier": "~58.0.13",
+            "resolution": "58.0.13(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-blur": {
+            "specifier": "58.0.4",
+            "lockSpecifier": "58.0.4",
+            "resolution": "58.0.4(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-build-properties": {
+            "specifier": "~58.0.11",
+            "lockSpecifier": "~58.0.11",
+            "resolution": "58.0.11(expo@58.0.14)"
+          },
+          "expo-camera": {
+            "specifier": "~58.0.10",
+            "lockSpecifier": "~58.0.10",
+            "resolution": "58.0.10(@types/emscripten@1.41.5)(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-clipboard": {
+            "specifier": "~58.0.3",
+            "lockSpecifier": "~58.0.3",
+            "resolution": "58.0.3(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-constants": {
+            "specifier": "~58.0.12",
+            "override": "58.0.12",
+            "lockSpecifier": "58.0.12",
+            "resolution": "58.0.12(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-crypto": {
+            "specifier": "~58.0.7",
+            "lockSpecifier": "~58.0.7",
+            "resolution": "58.0.7(expo@58.0.14)"
+          },
+          "expo-dev-client": {
+            "specifier": "~58.0.14",
+            "lockSpecifier": "~58.0.14",
+            "resolution": "58.0.14(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))"
+          },
+          "expo-device": {
+            "specifier": "~58.0.5",
+            "lockSpecifier": "~58.0.5",
+            "resolution": "58.0.5(expo@58.0.14)"
+          },
+          "expo-document-picker": {
+            "specifier": "~58.0.4",
+            "lockSpecifier": "~58.0.4",
+            "resolution": "58.0.4(expo@58.0.14)"
+          },
+          "expo-file-system": {
+            "specifier": "~58.0.9",
+            "lockSpecifier": "~58.0.9",
+            "resolution": "58.0.9(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))"
+          },
+          "expo-font": {
+            "specifier": "~58.0.8",
+            "lockSpecifier": "~58.0.8",
+            "resolution": "58.0.8(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-glass-effect": {
+            "specifier": "58.0.4",
+            "lockSpecifier": "58.0.4",
+            "resolution": "58.0.4(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-haptics": {
+            "specifier": "~58.0.7",
+            "lockSpecifier": "~58.0.7",
+            "resolution": "58.0.7(expo@58.0.14)"
+          },
+          "expo-image": {
+            "specifier": "~58.0.15",
+            "lockSpecifier": "~58.0.15",
+            "resolution": "58.0.15(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-image-manipulator": {
+            "specifier": "~58.0.14",
+            "lockSpecifier": "~58.0.14",
+            "resolution": "58.0.14(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-image-picker": {
+            "specifier": "~58.0.10",
+            "lockSpecifier": "~58.0.10",
+            "resolution": "58.0.10(expo@58.0.14)"
+          },
+          "expo-keep-awake": {
+            "specifier": "~58.0.3",
+            "lockSpecifier": "~58.0.3",
+            "resolution": "58.0.3(expo@58.0.14)(react@19.3.0)"
+          },
+          "expo-linking": {
+            "specifier": "~58.0.13",
+            "lockSpecifier": "~58.0.13",
+            "resolution": "58.0.13(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-network": {
+            "specifier": "~58.0.3",
+            "override": "58.0.3",
+            "lockSpecifier": "58.0.3",
+            "resolution": "58.0.3(patch_hash=b79a46db8484fa3b5fc9f509fb78b71380219d2865d261c4d82170b5393e8419)(expo@58.0.14)(react@19.3.0)"
+          },
+          "expo-notifications": {
+            "specifier": "~58.1.5",
+            "lockSpecifier": "~58.1.5",
+            "resolution": "58.1.5(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-observe": {
+            "specifier": "~58.0.15",
+            "lockSpecifier": "~58.0.15",
+            "resolution": "58.0.16(677910f8cba89c74801637ca226a8913)"
+          },
+          "expo-paste-input": {
+            "specifier": "^0.1.15",
+            "lockSpecifier": "^0.1.15",
+            "resolution": "0.1.15(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-quick-actions": {
+            "specifier": "^6.0.2",
+            "lockSpecifier": "^6.0.2",
+            "resolution": "6.0.2(expo@58.0.14)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-secure-store": {
+            "specifier": "~58.0.2",
+            "lockSpecifier": "~58.0.2",
+            "resolution": "58.0.2(expo@58.0.14)"
+          },
+          "expo-sensors": {
+            "specifier": "~58.0.4",
+            "lockSpecifier": "~58.0.4",
+            "resolution": "58.0.4(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))"
+          },
+          "expo-sharing": {
+            "specifier": "58.0.19",
+            "lockSpecifier": "58.0.19",
+            "resolution": "58.0.19(patch_hash=321a86e1471e34c53f1f2937fbb4304ea3f7b7a78ad9e4d35febc2b9e73e9688)(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-splash-screen": {
+            "specifier": "~58.0.10",
+            "lockSpecifier": "~58.0.10",
+            "resolution": "58.0.10(expo@58.0.14)(supports-color@8.1.1)(typescript@6.0.3)"
+          },
+          "expo-sqlite": {
+            "specifier": "~58.0.13",
+            "lockSpecifier": "~58.0.13",
+            "resolution": "58.0.13(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-symbols": {
+            "specifier": "~58.0.4",
+            "lockSpecifier": "~58.0.4",
+            "resolution": "58.0.4(expo-font@58.0.8(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0))(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-updates": {
+            "specifier": "~58.0.17",
+            "lockSpecifier": "~58.0.17",
+            "resolution": "58.0.17(expo-dev-client@58.0.14(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6)))(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)"
+          },
+          "expo-video": {
+            "specifier": "58.0.11",
+            "lockSpecifier": "58.0.11",
+            "resolution": "58.0.11(patch_hash=e80ec3ef8c4af50a607beea1c0917e71ba679844efdb702b45d17a5f03cf466c)(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "expo-web-browser": {
+            "specifier": "~58.0.6",
+            "lockSpecifier": "~58.0.6",
+            "resolution": "58.0.6(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))"
+          },
+          "expo-widgets": {
+            "specifier": "58.0.20",
+            "lockSpecifier": "58.0.20",
+            "resolution": "58.0.20(patch_hash=8bf49067f93742855e15f29559ac75c8b50230b47069060993c9ea01dac11171)(@babel/core@7.29.7(supports-color@8.1.1))(expo@58.0.14)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "19.3.0"
+          },
+          "react-dom": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "19.3.0(react@19.3.0)"
+          },
+          "react-native": {
+            "specifier": "0.88.0",
+            "lockSpecifier": "0.88.0",
+            "resolution": "0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6)"
+          },
+          "react-native-blob-util": {
+            "specifier": "0.25.1",
+            "lockSpecifier": "0.25.1",
+            "resolution": "0.25.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-enriched-markdown": {
+            "specifier": "file:deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz",
+            "lockSpecifier": "file:deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz",
+            "resolution": "file:apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz(katex@0.16.47)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-gesture-handler": {
+            "specifier": "~3.3.0",
+            "override": "3.3.0",
+            "lockSpecifier": "3.3.0",
+            "resolution": "3.3.0(patch_hash=abe20e1d1c23549297cbbc818e14fe479b41455930d9663135d6b40fe359b626)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-image-viewing": {
+            "specifier": "^0.2.2",
+            "override": "0.2.2",
+            "lockSpecifier": "0.2.2",
+            "resolution": "0.2.2(patch_hash=4aa038d541c7ddcc8f1437eb3e7b4f769f61de78e7f91b53f9805dfca608474d)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-keyboard-controller": {
+            "specifier": "1.22.8",
+            "lockSpecifier": "1.22.8",
+            "resolution": "1.22.8(patch_hash=4e9b5a52aa8c1f9de8082bad281ee979df7860fc77ec49820d4ed00c3c7cc5a2)(e2a826d844fe10cdcbda558127861778)"
+          },
+          "react-native-nitro-modules": {
+            "specifier": "0.37.1",
+            "lockSpecifier": "0.37.1",
+            "resolution": "0.37.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-pdf-jsi": {
+            "specifier": "5.0.0",
+            "lockSpecifier": "5.0.0",
+            "resolution": "5.0.0(patch_hash=6f52854210f61bef499850ebd498229a111bc34ec5b2a4925e644f2f48f42760)(ddae2ea06f4d260467f86a139b5aa8e9)"
+          },
+          "react-native-reanimated": {
+            "specifier": "4.7.1",
+            "lockSpecifier": "4.7.1",
+            "resolution": "4.7.1(patch_hash=95ee26e5fcab5f50bc4b4c47b3f7e6278a0b20850205efb9f6ee7e70a22d2b59)(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-safe-area-context": {
+            "specifier": "~5.10.1",
+            "lockSpecifier": "~5.10.1",
+            "resolution": "5.10.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-screens": {
+            "specifier": "file:deps/react-native-screens-5.0.0-t3.48.tgz",
+            "lockSpecifier": "file:deps/react-native-screens-5.0.0-t3.48.tgz",
+            "resolution": "file:apps/mobile/deps/react-native-screens-5.0.0-t3.48.tgz(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-svg": {
+            "specifier": "15.16.0",
+            "lockSpecifier": "15.16.0",
+            "resolution": "15.16.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-webview": {
+            "specifier": "14.0.1",
+            "lockSpecifier": "14.0.1",
+            "resolution": "14.0.1(patch_hash=81caa279ec3dc1f81209062133b66e8f824e13f106cca57f1fa732a72c2ab378)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "react-native-worklets": {
+            "specifier": "0.13.0",
+            "lockSpecifier": "0.13.0",
+            "resolution": "0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(supports-color@8.1.1)"
+          },
+          "remark-gfm": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "4.0.1(supports-color@8.1.1)"
+          },
+          "remark-parse": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "11.0.0(supports-color@8.1.1)"
+          },
+          "tailwind-merge": {
+            "specifier": "^3.5.0",
+            "lockSpecifier": "^3.5.0",
+            "resolution": "3.6.0"
+          },
+          "unified": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "11.0.5"
+          },
+          "uniwind": {
+            "specifier": "1.13.0",
+            "lockSpecifier": "1.13.0",
+            "resolution": "1.13.0(@expo/metro-config@58.0.14(patch_hash=90fa980e8b6480631fb2fbb04559834e3c612db40c550cd828f11be297d8d760)(bufferutil@4.1.0)(expo@58.0.14)(supports-color@8.1.1)(typescript@6.0.3)(utf-8-validate@6.0.6))(metro-cache@0.87.1(supports-color@8.1.1))(metro-transform-worker@0.87.1(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(metro@0.87.1(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)(tailwindcss@4.3.3)"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@babel/core": {
+            "specifier": "^7.29.7",
+            "lockSpecifier": "^7.29.7",
+            "resolution": "7.29.7(supports-color@8.1.1)"
+          },
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@pierre/trees": {
+            "specifier": "1.0.0-beta.6",
+            "lockSpecifier": "1.0.0-beta.6",
+            "resolution": "1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.2.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(shiki@4.2.0)"
+          },
+          "@types/mdast": {
+            "specifier": "^4.0.4",
+            "lockSpecifier": "^4.0.4",
+            "resolution": "4.0.4"
+          },
+          "@types/react": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "19.3.0"
+          },
+          "@types/react-dom": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "19.3.0(@types/react@19.3.0)"
+          },
+          "aws4fetch": {
+            "specifier": "1.0.20",
+            "lockSpecifier": "1.0.20",
+            "resolution": "1.0.20"
+          },
+          "babel-preset-expo": {
+            "specifier": "~58.0.17",
+            "lockSpecifier": "~58.0.17",
+            "resolution": "58.0.17(@babel/core@7.29.7(supports-color@8.1.1))(@babel/runtime@7.29.7)(expo-widgets@58.0.20)(expo@58.0.14)(react-refresh@0.14.2)(supports-color@8.1.1)"
+          },
+          "jsdom": {
+            "specifier": "^30.0.1",
+            "lockSpecifier": "^30.0.1",
+            "resolution": "30.1.0(@noble/hashes@1.8.0)"
+          },
+          "nitrogen": {
+            "specifier": "0.37.1",
+            "lockSpecifier": "0.37.1",
+            "resolution": "0.37.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+          },
+          "tailwindcss": {
+            "specifier": "^4.0.0",
+            "override": "4.3.3",
+            "lockSpecifier": "4.3.3",
+            "resolution": "4.3.3"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "@clerk/expo",
+          "manifestName": "@clerk/expo",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@effect/atom-react",
+          "manifestName": "@effect/atom-react",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@expo/ui",
+          "manifestName": "@expo/ui",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@legendapp/list",
+          "manifestName": "@legendapp/list",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@noble/curves",
+          "manifestName": "@noble/curves",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@pierre/diffs",
+          "manifestName": "@pierre/diffs",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@react-native-ai/apple",
+          "manifestName": "@react-native-ai/apple",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@react-native-menu/menu",
+          "manifestName": "@react-native-menu/menu",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@react-navigation/elements",
+          "manifestName": "@react-navigation/elements",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@react-navigation/native",
+          "manifestName": "@react-navigation/native",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@react-navigation/native-stack",
+          "manifestName": "@react-navigation/native-stack",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@t3tools/mobile-device-stream",
+          "kind": "generated"
+        },
+        {
+          "name": "@t3tools/mobile-highlights-native",
+          "manifestName": "@t3tools/mobile-highlights-native",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@t3tools/mobile-preview-stream",
+          "kind": "generated"
+        },
+        {
+          "name": "@t3tools/mobile-source-text",
+          "manifestName": "@t3tools/mobile-source-text",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "@t3tools/mobile-third-party-licenses",
+          "kind": "generated"
+        },
+        {
+          "name": "@tabler/icons-react-native",
+          "manifestName": "@tabler/icons-react-native",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "clsx",
+          "manifestName": "clsx",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "diff",
+          "manifestName": "diff",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo",
+          "manifestName": "expo",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-application",
+          "manifestName": "expo-application",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-audio",
+          "manifestName": "expo-audio",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-blur",
+          "manifestName": "expo-blur",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-camera",
+          "manifestName": "expo-camera",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-clipboard",
+          "manifestName": "expo-clipboard",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-constants",
+          "manifestName": "expo-constants",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-crypto",
+          "manifestName": "expo-crypto",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-device",
+          "manifestName": "expo-device",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-document-picker",
+          "manifestName": "expo-document-picker",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-file-system",
+          "manifestName": "expo-file-system",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-glass-effect",
+          "manifestName": "expo-glass-effect",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-haptics",
+          "manifestName": "expo-haptics",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-image",
+          "manifestName": "expo-image",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-image-manipulator",
+          "manifestName": "expo-image-manipulator",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-image-picker",
+          "manifestName": "expo-image-picker",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-keep-awake",
+          "manifestName": "expo-keep-awake",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-linking",
+          "manifestName": "expo-linking",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-network",
+          "manifestName": "expo-network",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-notifications",
+          "manifestName": "expo-notifications",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-observe",
+          "manifestName": "expo-observe",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-paste-input",
+          "manifestName": "expo-paste-input",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-quick-actions",
+          "manifestName": "expo-quick-actions",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-secure-store",
+          "manifestName": "expo-secure-store",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-sensors",
+          "manifestName": "expo-sensors",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-sharing",
+          "manifestName": "expo-sharing",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-splash-screen",
+          "manifestName": "expo-splash-screen",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-sqlite",
+          "manifestName": "expo-sqlite",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-symbols",
+          "manifestName": "expo-symbols",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-updates",
+          "manifestName": "expo-updates",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-video",
+          "manifestName": "expo-video",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "expo-widgets",
+          "manifestName": "expo-widgets",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "mdast",
+          "manifestName": "@types/mdast",
+          "groups": [
+            "devDependencies"
+          ]
+        },
+        {
+          "name": "react",
+          "manifestName": "react",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native",
+          "manifestName": "react-native",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-enriched-markdown",
+          "manifestName": "react-native-enriched-markdown",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-gesture-handler",
+          "manifestName": "react-native-gesture-handler",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-keyboard-controller",
+          "manifestName": "react-native-keyboard-controller",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-nitro-modules",
+          "manifestName": "react-native-nitro-modules",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-reanimated",
+          "manifestName": "react-native-reanimated",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-safe-area-context",
+          "manifestName": "react-native-safe-area-context",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-screens",
+          "manifestName": "react-native-screens",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-svg",
+          "manifestName": "react-native-svg",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-webview",
+          "manifestName": "react-native-webview",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "react-native-worklets",
+          "manifestName": "react-native-worklets",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "remark-gfm",
+          "manifestName": "remark-gfm",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "remark-parse",
+          "manifestName": "remark-parse",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "tailwind-merge",
+          "manifestName": "tailwind-merge",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "unified",
+          "manifestName": "unified",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "uniwind",
+          "manifestName": "uniwind",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-acp-registry",
+      "folder": "packages/provider-acp-registry",
+      "groups": {
+        "dependencies": {
+          "@noble/hashes": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "1.8.0"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-acp"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/provider-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "effect-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../effect-acp"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-core",
+      "folder": "packages/provider-core",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-cursor",
+      "folder": "packages/provider-cursor",
+      "groups": {
+        "dependencies": {
+          "@cursor/sdk": {
+            "specifier": "1.2.0",
+            "lockSpecifier": "1.2.0",
+            "resolution": "1.2.0(zod@4.6.5)"
+          },
+          "@napi-rs/keyring": {
+            "specifier": "^1.3.0",
+            "lockSpecifier": "^1.3.0",
+            "resolution": "1.3.0"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          },
+          "yaml": {
+            "specifier": "catalog:",
+            "override": "^2.9.0",
+            "lockSpecifier": "^2.9.0",
+            "resolution": "2.9.0"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/provider-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-fx",
+      "folder": "packages/provider-fx",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-acp"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "effect-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../effect-acp"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-grok",
+      "folder": "packages/provider-grok",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-acp"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/provider-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "effect-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../effect-acp"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-kiro",
+      "folder": "packages/provider-kiro",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-acp"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "effect-acp": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../effect-acp"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-muse",
+      "folder": "packages/provider-muse",
+      "groups": {
+        "dependencies": {
+          "@muse-code/sdk": {
+            "specifier": "1.4.6",
+            "lockSpecifier": "1.4.6",
+            "resolution": "1.4.6(patch_hash=7b495b607fc5d76b444c7c4d58821e839726a30e6f3c53564f0d59f2d5b42101)(@types/node@24.12.4)"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/provider-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-opencode",
+      "folder": "packages/provider-opencode",
+      "groups": {
+        "dependencies": {
+          "@opencode-ai/sdk": {
+            "specifier": "^1.3.15",
+            "lockSpecifier": "^1.3.15",
+            "resolution": "1.15.13"
+          },
+          "@opencode/client": {
+            "specifier": "2.0.28",
+            "lockSpecifier": "2.0.28",
+            "resolution": "2.0.28(effect@4.1.2)"
+          },
+          "@opencode/protocol": {
+            "specifier": "2.0.28",
+            "lockSpecifier": "2.0.28",
+            "resolution": "2.0.28"
+          },
+          "@opencode/schema": {
+            "specifier": "2.0.28",
+            "lockSpecifier": "2.0.28",
+            "resolution": "2.0.28"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/provider-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/provider-pi",
+      "folder": "packages/provider-pi",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/provider-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/secret-provider-core",
+      "folder": "packages/secret-provider-core",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/secret-provider-definitions",
+      "folder": "packages/secret-provider-definitions",
+      "groups": {
+        "dependencies": {
+          "@t3tools/secret-provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../secret-provider-core"
+          },
+          "@t3tools/secret-provider-onepassword": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../secret-provider-onepassword"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {}
+      },
+      "actualExternalEdges": []
+    },
+    {
+      "name": "@t3tools/secret-provider-onepassword",
+      "folder": "packages/secret-provider-onepassword",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/secret-provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../secret-provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/shared",
+      "folder": "packages/shared",
+      "groups": {
+        "dependencies": {
+          "@noble/curves": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "1.9.1"
+          },
+          "@noble/hashes": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "1.8.0"
+          },
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          },
+          "ffi-rs": {
+            "specifier": "1.3.2",
+            "lockSpecifier": "1.3.2",
+            "resolution": "1.3.2"
+          },
+          "mdast-util-directive": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "3.1.0(supports-color@8.1.1)"
+          },
+          "mdast-util-to-hast": {
+            "specifier": "^13.2.1",
+            "override": "13.2.1",
+            "lockSpecifier": "13.2.1",
+            "resolution": "13.2.1(patch_hash=57ea46c73aea3c876ab8d351fe0482ddd081dcb4a0610576e399dbe5eb59d2b1)"
+          },
+          "micromark-extension-directive": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "4.0.0"
+          },
+          "micromark-util-character": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "2.1.1"
+          },
+          "property-information": {
+            "specifier": "^7.2.0",
+            "lockSpecifier": "^7.2.0",
+            "resolution": "7.2.0"
+          },
+          "rehype-raw": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "7.0.0"
+          },
+          "rehype-sanitize": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "6.0.0"
+          },
+          "remark-breaks": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "4.0.0"
+          },
+          "remark-gfm": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "4.0.1(supports-color@8.1.1)"
+          },
+          "remark-math": {
+            "specifier": "6.0.0",
+            "lockSpecifier": "6.0.0",
+            "resolution": "6.0.0(supports-color@8.1.1)"
+          },
+          "remark-parse": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "11.0.0(supports-color@8.1.1)"
+          },
+          "remark-rehype": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "11.1.2"
+          },
+          "unified": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "11.0.5"
+          },
+          "yaml": {
+            "specifier": "catalog:",
+            "override": "^2.9.0",
+            "lockSpecifier": "^2.9.0",
+            "resolution": "2.9.0"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/mdast": {
+            "specifier": "^4.0.4",
+            "lockSpecifier": "^4.0.4",
+            "resolution": "4.0.4"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "micromark-util-types": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "2.0.2"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "@noble/hashes",
+          "manifestName": "@noble/hashes",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "mdast",
+          "manifestName": "@types/mdast",
+          "groups": [
+            "devDependencies"
+          ]
+        },
+        {
+          "name": "mdast-util-directive",
+          "manifestName": "mdast-util-directive",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "micromark-extension-directive",
+          "manifestName": "micromark-extension-directive",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "micromark-util-character",
+          "manifestName": "micromark-util-character",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "micromark-util-types",
+          "manifestName": "micromark-util-types",
+          "groups": [
+            "devDependencies"
+          ]
+        },
+        {
+          "name": "remark-gfm",
+          "manifestName": "remark-gfm",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "remark-math",
+          "manifestName": "remark-math",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "remark-parse",
+          "manifestName": "remark-parse",
+          "groups": [
+            "dependencies"
+          ]
+        },
+        {
+          "name": "unified",
+          "manifestName": "unified",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/source-control-azure-devops",
+      "folder": "packages/source-control-azure-devops",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "diff": {
+            "specifier": "8.0.3",
+            "lockSpecifier": "8.0.3",
+            "resolution": "8.0.3"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/source-control-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": []
+    },
+    {
+      "name": "@t3tools/source-control-bitbucket",
+      "folder": "packages/source-control-bitbucket",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/source-control-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/source-control-core",
+      "folder": "packages/source-control-core",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/source-control-definitions",
+      "folder": "packages/source-control-definitions",
+      "groups": {
+        "dependencies": {
+          "@t3tools/source-control-azure-devops": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-azure-devops"
+          },
+          "@t3tools/source-control-bitbucket": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-bitbucket"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "@t3tools/source-control-forgejo": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-forgejo"
+          },
+          "@t3tools/source-control-gitcafe": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-gitcafe"
+          },
+          "@t3tools/source-control-github": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-github"
+          },
+          "@t3tools/source-control-gitlab": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-gitlab"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {}
+      },
+      "actualExternalEdges": []
+    },
+    {
+      "name": "@t3tools/source-control-forgejo",
+      "folder": "packages/source-control-forgejo",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/source-control-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": []
+    },
+    {
+      "name": "@t3tools/source-control-gitcafe",
+      "folder": "packages/source-control-gitcafe",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/source-control-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": [
+        {
+          "name": "effect",
+          "manifestName": "effect",
+          "groups": [
+            "dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "@t3tools/source-control-github",
+      "folder": "packages/source-control-github",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/provider-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../provider-core"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/graphql-generator": {
+            "specifier": "catalog:",
+            "lockSpecifier": "catalog:",
+            "resolution": "4.1.2(@effect/platform-node@4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6))(effect@4.1.2)"
+          },
+          "@effect/platform-node": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)"
+          },
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/source-control-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": []
+    },
+    {
+      "name": "@t3tools/source-control-gitlab",
+      "folder": "packages/source-control-gitlab",
+      "groups": {
+        "dependencies": {
+          "@t3tools/contracts": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../contracts"
+          },
+          "@t3tools/shared": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../shared"
+          },
+          "@t3tools/source-control-core": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-core"
+          },
+          "effect": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2"
+          }
+        },
+        "optionalDependencies": {},
+        "peerDependencies": {},
+        "devDependencies": {
+          "@effect/vitest": {
+            "specifier": "catalog:",
+            "override": "4.1.2",
+            "lockSpecifier": "4.1.2",
+            "resolution": "4.1.2(patch_hash=299510b71c36537a832a67e9d160a5f112a5f326a29e95c41cb45fc8234e47c7)(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          },
+          "@t3tools/source-control-testing": {
+            "specifier": "workspace:*",
+            "lockSpecifier": "workspace:*",
+            "resolution": "link:../source-control-testing"
+          },
+          "@types/node": {
+            "specifier": "catalog:",
+            "override": "24.12.4",
+            "lockSpecifier": "24.12.4",
+            "resolution": "24.12.4"
+          },
+          "vite-plus": {
+            "specifier": "catalog:",
+            "override": "1.4.0",
+            "lockSpecifier": "1.4.0",
+            "resolution": "1.4.0(@astrojs/compiler-rs@0.5.1)(@types/node@24.12.4)(@vitest/browser-playwright@5.0.5)(@vitest/ui@5.0.5)(@volar/typescript@2.4.28(typescript@6.0.3))(bufferutil@4.1.0)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.0(@noble/hashes@1.8.0))(playwright@1.60.0)(terser@5.48.0)(typescript@6.0.3)(unrun@0.2.39)(utf-8-validate@6.0.6)(yaml@2.9.0)"
+          }
+        }
+      },
+      "actualExternalEdges": []
+    }
+  ],
+  "localNativePeers": [
+    {
+      "folder": "apps/mobile/modules/t3-highlights",
+      "name": "@t3tools/mobile-highlights-native",
+      "peers": {
+        "react-native-nitro-modules": {
+          "specifier": "*",
+          "provider": "apps/mobile",
+          "resolution": "0.37.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.3.0)"
+        }
+      }
+    },
+    {
+      "folder": "apps/mobile/modules/t3-review-diff",
+      "name": "@t3tools/mobile-review-diff-native",
+      "peers": {}
+    },
+    {
+      "folder": "apps/mobile/modules/t3-source-text",
+      "name": "@t3tools/mobile-source-text",
+      "peers": {
+        "react": {
+          "specifier": "*",
+          "provider": "apps/mobile",
+          "resolution": "19.3.0"
+        },
+        "react-native": {
+          "specifier": "*",
+          "provider": "apps/mobile",
+          "resolution": "0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(supports-color@8.1.1)(utf-8-validate@6.0.6)"
+        }
+      }
+    },
+    {
+      "folder": "apps/mobile/modules/t3-terminal",
+      "name": "@t3tools/mobile-terminal-native",
+      "peers": {}
+    }
+  ]
+}

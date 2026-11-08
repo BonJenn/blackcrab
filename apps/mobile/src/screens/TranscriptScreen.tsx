@@ -386,7 +386,7 @@ export function TranscriptScreen({
         )}
         contentContainerStyle={localStyles.listContent}
         ItemSeparatorComponent={() => <View style={localStyles.separator} />}
-        ListFooterComponent={thinking ? <ThinkingIndicator /> : null}
+        ListFooterComponent={thinking ? <ThinkingIndicator /> : undefined}
         onScrollToIndexFailed={() => {
           // Window not measured yet; leave the user at the top rather than crash.
         }}

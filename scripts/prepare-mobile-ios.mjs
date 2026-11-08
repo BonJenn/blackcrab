@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Isolated, reproducible Expo SDK 54 native preparation; never patches shared dependencies. */
+/** Isolated, reproducible Expo SDK 58 native preparation; never patches shared dependencies. */
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,9 +15,33 @@ const OWN_NEW_FILES = new Set([
   'apps/mobile/plugins/with-ios-pod-floor.cjs', 'apps/mobile/plugins/with-ios-pod-floor.test.cjs',
   'docs/native-ios-build.md',
 ]);
-const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', ...OWN_NEW_FILES]);
-const PREFIXES = ['apps/', 'packages/', 'vendor/t3/'];
-const EXPECTED_WORKSPACES = ['apps/*', 'packages/*', 'vendor/t3/packages/*'];
+const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', 'managed-host/artifact.mjs', 'managed-host/source.mjs', ...OWN_NEW_FILES]);
+const PREFIXES = ['apps/', 'packages/', 'vendor/t3-mobile/', 'mobile-experience/', 'shared-runtime/'];
+const EXPECTED_WORKSPACES = ['apps/*', 'packages/*', 'vendor/t3-mobile/packages/*'];
+export const NATIVE_INSTALL_INPUT = Object.freeze({
+  archive: 'vendor/t3-mobile/apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz',
+  lockPath: 'apps/mobile/node_modules/react-native-enriched-markdown', version: '1.2.0-t3.16',
+  sha256: '631a02612d42d76710930a1510bdc4403f216e9783ac9233d1aff0df047813d5',
+  integrity: 'sha512-Ru0Uuhq4QBphcC73ney0fgNnvr6Lfv+31H2Ij1qxvDejwVyFh/Romc1a1ot9i8/jnmgvAzTZzbPQcdGtQNFayw==',
+  scriptEntry: 'package/postinstall.mjs', scriptSha256: '8b88d293d15380d06fb5851437b19b8b791e5941888abed1721501250ae6f683',
+});
+
+/** Verify the exact local native installer before npm is allowed to execute it. */
+export async function verifyNativeInstallInputs(repoRoot) {
+  const repo = await fs.realpath(repoRoot), descriptor = NATIVE_INSTALL_INPUT;
+  const policyKey = 'file:' + descriptor.archive;
+  const manifest = JSON.parse(await fs.readFile(path.join(repo, 'package.json'), 'utf8'));
+  if (JSON.stringify(manifest.allowScripts) !== JSON.stringify({ [policyKey]: true })) throw new Error('Unsupported native install-script policy; only the pinned local native archive is allowed.');
+  const archive = path.join(repo, descriptor.archive), stat = await fs.lstat(archive);
+  if (!stat.isFile() || stat.nlink !== 1 || await fs.realpath(archive) !== archive) throw new Error('Native install archive must be regular and nonlinked.');
+  const bytes = await fs.readFile(archive), lock = JSON.parse(await fs.readFile(path.join(repo, 'package-lock.json'), 'utf8'));
+  const entry = lock.packages?.[descriptor.lockPath];
+  if (hash(bytes) !== descriptor.sha256 || 'sha512-' + createHash('sha512').update(bytes).digest('base64') !== descriptor.integrity || entry?.version !== descriptor.version || entry?.resolved !== policyKey || entry?.integrity !== descriptor.integrity) throw new Error('Native install archive or lock provenance changed.');
+  const script = (await execute('tar', ['-xOzf', archive, descriptor.scriptEntry], { encoding: 'buffer', maxBuffer: 1024 * 1024 })).stdout;
+  if (hash(script) !== descriptor.scriptSha256) throw new Error('Native postinstall source changed.');
+  return { ...descriptor, policyKey };
+}
+
 const hash = data => createHash('sha256').update(data).digest('hex');
 const inside = (root, target) => target === root || target.startsWith(root + path.sep);
 const selected = file => ROOT_FILES.has(file) || PREFIXES.some(prefix => file.startsWith(prefix));
@@ -108,14 +132,19 @@ export async function runLogged(command, args, { cwd, env, log, timeout = 20 * 6
 
 export async function verifyNativeDependencyRoots(repo) {
   const physicalRepo = await fs.realpath(repo), require = createRequire(path.join(physicalRepo, 'apps/mobile/package.json'));
-  const modules = ['expo', 'react-native', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins'];
+  const modules = ['expo', 'react-native', 'react', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins', 'expo-modules-core', 'expo-modules-jsi'];
   const resolved = {};
   for (const name of modules) {
     const target = await fs.realpath(require.resolve(`${name}/package.json`));
     if (!inside(physicalRepo, target)) throw new Error(`Native dependency escapes staging: ${name}`);
     resolved[name] = { path: target, version: JSON.parse(await fs.readFile(target, 'utf8')).version };
   }
-  if (!resolved.expo.version.startsWith('54.') || resolved['react-native'].version !== '0.81.5') throw new Error('Unsupported native SDK versions; this preparation targets Expo 54 / React Native 0.81.5.');
+  if (resolved.expo.version !== '58.0.14' || resolved['react-native'].version !== '0.88.0' || resolved.react.version !== '19.3.0') throw new Error('Unsupported native SDK versions; this preparation targets Expo 58.0.14 / React Native 0.88.0 / React 19.3.0.');
+  const coreRequire = createRequire(resolved['expo-modules-core'].path);
+  const coreJsiPath = await fs.realpath(coreRequire.resolve('expo-modules-jsi/package.json'));
+  if (!inside(physicalRepo, coreJsiPath)) throw new Error('Native dependency escapes staging: expo-modules-jsi from expo-modules-core');
+  resolved['expo-modules-core/expo-modules-jsi'] = { path: coreJsiPath, version: JSON.parse(await fs.readFile(coreJsiPath, 'utf8')).version };
+  if (resolved['expo-modules-core'].version !== '58.0.22' || resolved['expo-modules-jsi'].version !== '58.0.15' || resolved['expo-modules-core/expo-modules-jsi'].version !== '58.0.15') throw new Error('Unsupported native ABI versions; Expo Modules Core 58.0.22 requires pinned Expo Modules JSI 58.0.15 from both app and Core contexts.');
   // Contracts intentionally has import-only exports; require.resolve would falsely reject it.
   for (const [name, subpath] of [['@t3tools/client-runtime', './connection'], ['@t3tools/contracts', '.']]) {
     const packageRoot = await fs.realpath(path.join(physicalRepo, 'node_modules', name));
@@ -147,16 +176,16 @@ export async function verifyGeneratedPodFloor(repo) {
       const value = String(objects.XCBuildConfiguration[entry.value]?.buildSettings?.IPHONEOS_DEPLOYMENT_TARGET ?? '').replace(/^"|"$/g, '');
       if (!/^\d+(?:\.\d+)*$/.test(value)) throw new Error('Generated pod target has an unsupported deployment floor.');
       const [major, minor = 0] = value.split('.').map(Number);
-      if (major < 15 || major === 15 && minor < 1) throw new Error('Generated pod target is below the iOS 15.1 floor.');
+      if (major < 18) throw new Error('Generated pod target is below the iOS 18.0 floor.');
       configurations++;
     }
   }
   if (!targets) throw new Error('No generated pod targets were found.');
-  return { targets, configurations, minimum: '15.1' };
+  return { targets, configurations, minimum: '18.0' };
 }
 
 export function isolatedBuildEnvironment(root, original = process.env) {
-  const env = { PATH: original.PATH, HOME: path.join(root, 'home'), TMPDIR: path.join(root, 'tmp'), LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8', CI: '1', EXPO_NO_TELEMETRY: '1', EXPO_NO_GIT_STATUS: '1', COCOAPODS_DISABLE_STATS: 'true', NPM_CONFIG_USERCONFIG: path.join(root, 'npm-userconfig'), NPM_CONFIG_GLOBALCONFIG: path.join(root, 'npm-globalconfig'), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/usr/bin/false' };
+  const env = { PATH: path.dirname(process.execPath) + path.delimiter + original.PATH, HOME: path.join(root, 'home'), TMPDIR: path.join(root, 'tmp'), LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8', CI: '1', EXTRA_PACKAGER_ARGS: '--max-workers 2', EXPO_NO_TELEMETRY: '1', EXPO_NO_GIT_STATUS: '1', COCOAPODS_DISABLE_STATS: 'true', NPM_CONFIG_USERCONFIG: path.join(root, 'npm-userconfig'), NPM_CONFIG_GLOBALCONFIG: path.join(root, 'npm-globalconfig'), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/usr/bin/false' };
   if (original.DEVELOPER_DIR) env.DEVELOPER_DIR = original.DEVELOPER_DIR;
   return env;
 }
@@ -171,8 +200,28 @@ export async function resolveNativeEntry(repoRoot) {
   return entry;
 }
 
+/** The validation product is an arm64 simulator Release; bound native compilation IO. */
+export function simulatorReleaseBuildArguments({ workspace, scheme, destination, derivedData }) {
+  return ['-workspace', workspace, '-scheme', scheme, '-configuration', 'Release', '-sdk', 'iphonesimulator', '-destination', destination, '-derivedDataPath', derivedData, '-jobs', '2', 'ARCHS=arm64', 'ONLY_ACTIVE_ARCH=YES', 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=', 'build'];
+}
+
+/** Explicit caches must already exist outside the source repo; npm receives the canonical path. */
+export async function resolveNpmCache(stageRoot, sourceRepo, requested) {
+  const source = await fs.realpath(sourceRepo);
+  let cache;
+  if (requested) cache = await fs.realpath(requested);
+  else {
+    const stage = await fs.realpath(stageRoot);
+    if (inside(source, stage)) throw new Error('Npm cache must be outside the source repository.');
+    cache = path.join(stage, 'npm-cache'); await fs.mkdir(cache, { recursive: true });
+  }
+  if (inside(source, cache) || !(await fs.stat(cache)).isDirectory()) throw new Error('Npm cache must be a directory outside the source repository.');
+  return cache;
+}
+
 export async function prepareMobileIos(options = {}) {
   if (process.platform !== 'darwin') throw new Error('Native iOS preparation requires macOS and installed Xcode/CocoaPods.');
+  if(process.version!=='v26.12.1')throw new Error('Native SDK58 preparation requires Node 26.12.1.');
   const { mode = 'prepare', destination = 'generic/platform=iOS Simulator' } = options;
   if (!['prepare', 'build'].includes(mode)) throw new Error('Use --mode prepare or --mode build.');
   const stage = await createSourceSnapshot(options), mobile = path.join(stage.repo, 'apps/mobile');
@@ -181,15 +230,27 @@ export async function prepareMobileIos(options = {}) {
   const report = { schemaVersion: 1, mode, stage: stage.root, repo: stage.repo, sourceManifest: path.join(stage.root, 'artifacts/source-manifest.json'), logs: path.join(stage.root, 'logs'), status: 'running', executedOnDevice: false };
   const reportPath = path.join(stage.root, 'artifacts/build-report.json');
   await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
+  const npmCommand=options.npmCli?process.execPath:'npm';
+  const npmArgs=args=>options.npmCli?[path.resolve(options.npmCli),...args]:args;
   let step = 0;
   const run = (name, command, args, cwd = stage.repo, timeout) => runLogged(command, args, { cwd, env, timeout, log: path.join(report.logs, `${String(++step).padStart(2, '0')}-${name}.log`) });
   try {
+    report.npmCache = await resolveNpmCache(stage.root, options.repoRoot ?? defaultRepo, options.npmCache);
     await run('node-version', process.execPath, ['--version']);
-    await run('npm-version', 'npm', ['--version']);
+    await run('npm-version', npmCommand, npmArgs(['--version']));
+    const npmVersion=(await execute(npmCommand,npmArgs(['--version']),{env})).stdout.trim();if(npmVersion!=='12.2.2')throw new Error('Native SDK58 preparation requires npm 12.2.2 (use --npm-cli for an isolated CLI).');
     await run('xcode-version', 'xcodebuild', ['-version']);
     await run('pod-version', 'pod', ['--version']);
-    await run('npm-ci', 'npm', ['ci', '--no-audit', '--no-fund', '--cache', path.join(stage.root, 'npm-cache')]);
+    report.nativeInstallPolicy = await verifyNativeInstallInputs(stage.repo);
+    await run('npm-ci', npmCommand, npmArgs(['ci', '--no-audit', '--no-fund', '--cache', report.npmCache]));
+    const {applyOwnedMobileBuildPatches}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/build-patches.mjs')).href);report.ownedBuildPatches=[await applyOwnedMobileBuildPatches({repoRoot:stage.repo})];
+    const {collectNativeAssetInputs}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/native-assets.mjs')).href);
+    const nativeAssets=await collectNativeAssetInputs(stage.repo);report.nativeAssetInputs=path.join(stage.root,'artifacts/native-asset-inputs.json');await fs.writeFile(report.nativeAssetInputs,JSON.stringify(nativeAssets,null,2)+'\n');report.nativeAssetInputsSha256=hash(await fs.readFile(report.nativeAssetInputs));
     report.dependencies = await verifyNativeDependencyRoots(stage.repo);
+    await run('mobile-resources', process.execPath, ['mobile-experience/resources-cli.mjs']);
+    report.mobileResources = path.join(mobile, '.generated/RESOURCE-MANIFEST.json');
+    report.mobileResourcesSha256 = hash(await fs.readFile(report.mobileResources));
+
     const require = createRequire(path.join(mobile, 'package.json'));
     await run('expo-prebuild', process.execPath, [require.resolve('expo/bin/cli'), 'prebuild', '--platform', 'ios', '--no-install'], mobile);
     await run('pod-install', 'pod', ['install', '--project-directory=' + path.join(mobile, 'ios')], mobile);
@@ -203,7 +264,9 @@ export async function prepareMobileIos(options = {}) {
       env.ENTRY_FILE = report.entryFile;
       const parent = options.derivedDataParent ? await fs.realpath(options.derivedDataParent) : stage.root;
       report.derivedData = await fs.mkdtemp(path.join(parent, 'blackcrab-ios-derived-'));
-      await run('xcodebuild', 'xcodebuild', ['-workspace', report.workspace, '-scheme', report.scheme, '-configuration', 'Release', '-sdk', 'iphonesimulator', '-destination', destination, '-derivedDataPath', report.derivedData, 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=', 'build'], mobile, 60 * 60_000);
+      report.nativeBuild = { sdk: 'iphonesimulator', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: true, jobs: 2, metroWorkers: 2 };
+      report.nativeBuild.arguments = simulatorReleaseBuildArguments({ workspace: report.workspace, scheme: report.scheme, destination, derivedData: report.derivedData });
+      await run('xcodebuild', 'xcodebuild', report.nativeBuild.arguments, mobile, 60 * 60_000);
       report.products = path.join(report.derivedData, 'Build/Products/Release-iphonesimulator');
       const apps = (await fs.readdir(report.products)).filter(name => name.endsWith('.app'));
       if (apps.length !== 1) throw new Error('Expected one simulator application product.');
@@ -215,6 +278,7 @@ export async function prepareMobileIos(options = {}) {
       await run('codesign-verify', 'codesign', ['--verify', '--deep', '--strict', report.simulatorApp], mobile);
       report.signing = 'Xcode ad-hoc simulator signing; not distribution signing';
     }
+    const swiftPins=path.join(report.workspace,'xcshareddata/swiftpm/Package.resolved');try{const bytes=await fs.readFile(swiftPins);report.swiftPackagePins=JSON.parse(bytes);report.swiftPackagePinsSha256=hash(bytes);}catch(error){if(error.code!=='ENOENT')throw error;}
     report.status = mode === 'build' ? 'built' : 'prepared';
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
     return { ...report, reportPath };
@@ -228,9 +292,9 @@ export async function prepareMobileIos(options = {}) {
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   const { values } = parseArgs({ options: {
     mode: { type: 'string', default: 'prepare' }, 'include-working-tree': { type: 'boolean', default: false },
-    'staging-parent': { type: 'string' }, 'derived-data-parent': { type: 'string' }, destination: { type: 'string' },
+    'npm-cli': { type: 'string' }, 'npm-cache': { type: 'string' }, 'staging-parent': { type: 'string' }, 'derived-data-parent': { type: 'string' }, destination: { type: 'string' },
   } });
   try {
-    console.log(JSON.stringify(await prepareMobileIos({ mode: values.mode, includeWorkingTree: values['include-working-tree'], stagingParent: values['staging-parent'], derivedDataParent: values['derived-data-parent'], destination: values.destination }), null, 2));
+    console.log(JSON.stringify(await prepareMobileIos({ mode: values.mode, includeWorkingTree: values['include-working-tree'], npmCli: values['npm-cli'], npmCache: values['npm-cache'], stagingParent: values['staging-parent'], derivedDataParent: values['derived-data-parent'], destination: values.destination }), null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

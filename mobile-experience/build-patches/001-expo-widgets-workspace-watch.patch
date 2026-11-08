@@ -1,0 +1,15 @@
+--- a/metro.config.js
++++ b/metro.config.js
+@@ -4,6 +4,12 @@
+ 
+ const projectRoot = process.cwd();
+ const config = getDefaultConfig(projectRoot);
++
++// Hoisted dependencies can be outside projectRoot even when expo-widgets is inside it.
++const workspaceRoot = resolveWorkspaceRoot(projectRoot);
++if (workspaceRoot && !config.watchFolders.includes(workspaceRoot)) {
++  config.watchFolders.push(workspaceRoot);
++}
+ 
+ const expoStubPath = path.resolve(__dirname, './bundle/expo-stub.ts');
+ const expoModulesCoreStubPath = path.resolve(__dirname, './bundle/expo-modules-core-stub.ts');

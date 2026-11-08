@@ -56,5 +56,59 @@
         "after": "    typeof window !== \"undefined\" &&\n    (window.desktopBridge !== undefined ||\n      (browseEnvironmentId === primaryEnvironmentId && hasBlackcrabNativeBridge()));"
       }
     ]
+  },
+  {
+    "id": "managed-native-project-icon-api",
+    "file": "004-managed-native-project-icon-api.patch",
+    "target": "apps/web/src/localApi.ts",
+    "sha256": "3ccada680025b1585efb3cc16d98574a1d92243417748b4fbc46598f7330e744",
+    "beforeSha256": "61ced8f099792fe2bb9cec3eef6708e2ac6f910383e29472ed573d5996873e05",
+    "afterSha256": "66b9966140c2d704f582234513b14e70189f91b2a2f1b9268929e15beea87ea6",
+    "replacements": [
+      {
+        "before": "  openExternal: (url: string) => Promise<boolean>;",
+        "after": "  openExternal: (url: string) => Promise<boolean>;\n  pickProjectFavicon?: (options?: Parameters<LocalApi[\"dialogs\"][\"pickFolder\"]>[0]) => Promise<string | null>;"
+      },
+      {
+        "before": "export function hasBlackcrabNativeBridge(): boolean {",
+        "after": "export function readBlackcrabNativeProjectFaviconPicker(): ((initialPath?: string) => Promise<string | null>) | undefined {\n  const picker = readBlackcrabNativeBridge()?.pickProjectFavicon;\n  return typeof picker === \"function\"\n    ? (initialPath) => picker(initialPath === undefined ? undefined : { initialPath })\n    : undefined;\n}\n\nexport function hasBlackcrabNativeBridge(): boolean {"
+      }
+    ]
+  },
+  {
+    "id": "managed-native-project-icon-picker",
+    "file": "005-managed-native-project-icon-picker.patch",
+    "target": "apps/web/src/components/settings/ProjectFaviconPickerDialog.tsx",
+    "sha256": "a032af667bf057243631c2084f0b05ca94b257bcabf00455191dc603fc85c76c",
+    "beforeSha256": "72c3e92562e77b8712feb372d6172588033a8ba63ececf87e665a9fcceedb708",
+    "afterSha256": "fbd977e537e0e3a2d1b0bc259a41f66d8941f041e733c488c826cd5b53a7ddb3",
+    "replacements": [
+      {
+        "before": "import { useAtomValue } from \"@effect/atom-react\";",
+        "after": "import { useAtomValue } from \"@effect/atom-react\";\nimport { readBlackcrabNativeProjectFaviconPicker } from \"../../localApi\";"
+      },
+      {
+        "before": "export function ProjectFaviconPickerDialog(props: {",
+        "after": "export function readExternalProjectFaviconPicker(): ((initialPath?: string) => Promise<string | null>) | undefined {\n  return readBlackcrabNativeProjectFaviconPicker() ??\n    (typeof window === \"undefined\" ? undefined : window.desktopBridge?.pickProjectFavicon);\n}\n\nexport function ProjectFaviconPickerDialog(props: {"
+      }
+    ]
+  },
+  {
+    "id": "managed-native-project-icon-entry",
+    "file": "006-managed-native-project-icon-entry.patch",
+    "target": "apps/web/src/components/settings/ProjectSettingsPanel.tsx",
+    "sha256": "9b362498207daccfe508a73bcd1cde1dae45fb5ea22df5c9f4af3eb93b9ed868",
+    "beforeSha256": "16a6138a1949743bc627a69cf8ba6d2ef9da30df200ce10db4f3bd4a6f7d03df",
+    "afterSha256": "93667bd0753e1e0c666b7fb68d27e1088006185e4c5c4f127f18f1c4a75b50dd",
+    "replacements": [
+      {
+        "before": "  canPickExternalProjectFavicon,",
+        "after": "  canPickExternalProjectFavicon,\n  readExternalProjectFaviconPicker,"
+      },
+      {
+        "before": "      ? window.desktopBridge?.pickProjectFavicon",
+        "after": "      ? readExternalProjectFaviconPicker()"
+      }
+    ]
   }
 ]

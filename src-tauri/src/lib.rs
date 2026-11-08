@@ -5143,6 +5143,7 @@ pub fn run() {
             managed_host_start,
             managed_workspace_open,
             managed_bridge::managed_native_pick_folder,
+            managed_bridge::managed_native_pick_project_favicon,
             managed_bridge::managed_native_open_external,
             claude_preflight,
             list_providers,

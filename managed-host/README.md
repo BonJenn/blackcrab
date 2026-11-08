@@ -46,7 +46,9 @@ The office font alias patch fixes file URLs on paths containing spaces and
 Windows drive paths; it preserves the feature rather than removing its assets.
 The native LocalApi and Command Palette patches connect the separate Blackcrab
 macOS folder/link interface without advertising an Electron desktopBridge.
-See [native workspace integration](desktop.md) for authorization and limitations.
+Project icon patches extend the original settings dialog only for compatible
+local project selections, preserving the optional-capability/browser/Electron
+fallbacks. See [native workspace integration](desktop.md) for authorization and limitations.
 
 A complete staging tree is hashed and checked before its final rename. The
 manifest records the upstream commit, source patch digests, host target and every

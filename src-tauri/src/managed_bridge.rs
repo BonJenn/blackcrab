@@ -64,7 +64,8 @@ pub(crate) fn initialization_script(grant: &Grant) -> Result<String, String> {
         value: Object.freeze({{
           apiVersion: 1,
           pickFolder: Object.freeze((options) => invoke('managed_native_pick_folder', {{ generation, options: options ?? null }})),
-          openExternal: Object.freeze((url) => invoke('managed_native_open_external', {{ generation, url }}))
+          openExternal: Object.freeze((url) => invoke('managed_native_open_external', {{ generation, url }})),
+          pickProjectFavicon: Object.freeze((options) => invoke('managed_native_pick_project_favicon', {{ generation, options: options ?? null }}))
         }}) }});
     }})();"#
     ))
@@ -186,6 +187,69 @@ pub(crate) async fn managed_native_pick_folder(
         .transpose()
 }
 
+// Pinned packages/shared/src/projectFavicon.ts plus mediaPreview.ts. The native
+// filter is advisory: selected paths are validated independently before return.
+const FAVICON_EXTENSIONS: &[&str] = &[
+    "avif", "bmp", "gif", "ico", "heic", "heif", "jpeg", "jpg", "png", "svg", "tif", "tiff",
+    "webp", "icns",
+];
+fn selected_favicon(path: std::path::PathBuf) -> Result<String, String> {
+    let text = path
+        .to_str()
+        .ok_or("Selected image path is not valid UTF-8")?;
+    if !path.is_absolute()
+        || text.len() > 4096
+        || text.chars().any(char::is_control)
+        || !path
+            .extension()
+            .and_then(|s| s.to_str())
+            .is_some_and(|extension| {
+                FAVICON_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str())
+            })
+    {
+        return Err("Selected image has an unsupported local path or extension".into());
+    }
+    let metadata = std::fs::symlink_metadata(&path).map_err(|_| "Selected image is unavailable")?;
+    if !metadata.file_type().is_file() {
+        return Err("Select a regular local image file".into());
+    }
+    // This returns a user-selected path only. Existing authenticated project
+    // update and asset handling perform their own validation and image decoding.
+    Ok(text.into())
+}
+#[tauri::command]
+pub(crate) async fn managed_native_pick_project_favicon(
+    window: WebviewWindow,
+    host: State<'_, crate::managed_host::ManagedHost>,
+    generation: String,
+    options: Option<PickOptions>,
+) -> Result<Option<String>, String> {
+    let grant = caller(&window, &host, &generation).await?;
+    let path = picker_path(&options.unwrap_or_default(), &grant)?;
+    let mut dialog = window
+        .app_handle()
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .add_filter("Images", FAVICON_EXTENSIONS);
+    if let Some(path) = path {
+        dialog = dialog.set_directory(path);
+    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    dialog.pick_file(move |selected| {
+        let _ = tx.send(selected);
+    });
+    let selected = rx.await.map_err(|_| "Image selection unavailable")?;
+    caller(&window, &host, &generation).await?;
+    selected
+        .map(|p| {
+            p.into_path()
+                .map_err(|_| "Selected image is not local".to_string())
+                .and_then(selected_favicon)
+        })
+        .transpose()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,6 +259,39 @@ mod tests {
             "env_fixture".into(),
         )
         .unwrap()
+    }
+    #[test]
+    fn selected_icons_validate_extensions_and_file_type_independently_of_dialog() {
+        let root = std::env::temp_dir().join(format!("blackcrab-icon-test-{}", grant().generation));
+        std::fs::create_dir(&root).unwrap();
+        for extension in FAVICON_EXTENSIONS {
+            let path = root.join(format!("icon.{}", extension.to_uppercase()));
+            std::fs::write(
+                &path,
+                b"fixture; decoding belongs to the existing asset server",
+            )
+            .unwrap();
+            assert_eq!(
+                selected_favicon(path.clone()).unwrap(),
+                path.to_str().unwrap()
+            );
+        }
+        let invalid = root.join("secret.txt");
+        std::fs::write(&invalid, b"not an image").unwrap();
+        assert!(selected_favicon(invalid.clone()).is_err());
+        let directory = root.join("directory.png");
+        std::fs::create_dir(&directory).unwrap();
+        assert!(selected_favicon(directory).is_err());
+        assert!(selected_favicon(root.join("missing.png")).is_err());
+        assert!(selected_favicon(std::path::PathBuf::from("relative.png")).is_err());
+        assert!(selected_favicon(root.join("bad\n.png")).is_err());
+        #[cfg(unix)]
+        {
+            let link = root.join("linked.png");
+            std::os::unix::fs::symlink(invalid, &link).unwrap();
+            assert!(selected_favicon(link).is_err());
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn urls_fail_closed_before_side_effects() {

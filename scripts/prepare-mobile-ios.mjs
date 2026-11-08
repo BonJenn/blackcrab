@@ -254,6 +254,9 @@ export async function prepareMobileIos(options = {}) {
     const nativeAssets=await collectNativeAssetInputs(stage.repo);report.nativeAssetInputs=path.join(stage.root,'artifacts/native-asset-inputs.json');await fs.writeFile(report.nativeAssetInputs,JSON.stringify(nativeAssets,null,2)+'\n');report.nativeAssetInputsSha256=hash(await fs.readFile(report.nativeAssetInputs));
     report.dependencies = await verifyNativeDependencyRoots(stage.repo);
     await run('mobile-resources', process.execPath, ['mobile-experience/resources-cli.mjs']);
+    const {verifyMobileReactCompiler}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/react-compiler.mjs')).href);
+    report.reactCompiler=verifyMobileReactCompiler({repoRoot:stage.repo});
+    await fs.writeFile(path.join(stage.root,'artifacts/react-compiler-proof.json'),JSON.stringify(report.reactCompiler,null,2)+'\n');
     report.mobileResources = path.join(mobile, '.generated/RESOURCE-MANIFEST.json');
     report.mobileResourcesSha256 = hash(await fs.readFile(report.mobileResources));
 

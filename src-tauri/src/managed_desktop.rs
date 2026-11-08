@@ -117,6 +117,52 @@ fn resolve_link(start: &str, entries: &BTreeMap<String, Entry>) -> Result<String
 fn plist_string<'a>(xml: &'a str, key: &str) -> Result<&'a str, String> {
     desktop_policy::plist_string(xml, key).map_err(|_| error())
 }
+// Only compile-time reviewed registry paths may step once above source-patches.
+// Inventory paths keep the stricter relative() contract without any parent aliases.
+fn reviewed_patch_path(file: &str) -> Result<String, String> {
+    if let Some(root_file) = file.strip_prefix("../") {
+        relative(root_file)?;
+        Ok(root_file.to_owned())
+    } else {
+        relative(file)?;
+        Ok(format!("source-patches/{file}"))
+    }
+}
+fn verify_reviewed_patch_payload(
+    root: &Path,
+    entries: &BTreeMap<String, Entry>,
+    file: &str,
+    expected: &str,
+) -> Result<(), String> {
+    let relative_path = reviewed_patch_path(file)?;
+    if !matches!(entries.get(&relative_path), Some(Entry::File {sha256, ..}) if sha256 == expected)
+    {
+        return Err(error());
+    }
+    let mut current = root.to_owned();
+    let mut prefix = String::new();
+    let components: Vec<_> = relative_path.split('/').collect();
+    for (index, component) in components.iter().enumerate() {
+        current.push(component);
+        if !prefix.is_empty() {
+            prefix.push('/');
+        }
+        prefix.push_str(component);
+        let meta = fs::symlink_metadata(&current).map_err(|_| error())?;
+        if meta.file_type().is_symlink() {
+            return Err(error());
+        }
+        if index + 1 < components.len()
+            && (!meta.is_dir() || !matches!(entries.get(&prefix), Some(Entry::Directory { .. })))
+        {
+            return Err(error());
+        }
+    }
+    if digest_file(&current)? != expected {
+        return Err(error());
+    }
+    Ok(())
+}
 /// Selected digest is an explicit adoption consistency anchor, not a publisher signature.
 pub(super) fn verify_package(
     selected: &Path,
@@ -303,13 +349,12 @@ pub(super) fn verify_package(
         return Err(error());
     }
     for p in patches {
-        let file = p["file"].as_str().ok_or_else(error)?;
-        relative(file)?;
-        if digest_file(&root.join("source-patches").join(file))?
-            != p["sha256"].as_str().ok_or_else(error)?
-        {
-            return Err(error());
-        }
+        verify_reviewed_patch_payload(
+            &root,
+            &entries,
+            p["file"].as_str().ok_or_else(error)?,
+            p["sha256"].as_str().ok_or_else(error)?,
+        )?;
     }
     let assets: Vec<Value> = serde_json::from_str(ASSETS).map_err(|_| error())?;
     for a in assets {
@@ -967,5 +1012,85 @@ mod tests {
         owner.read_exact(&mut reply).unwrap();
         assert_eq!(&reply, b"reply\n");
         assert!(child.lock().unwrap().wait().unwrap().success());
+    }
+    #[test]
+    fn reviewed_patch_provenance_paths_are_exact_regular_files_without_aliases() {
+        let root = std::env::temp_dir().join(format!(
+            "blackcrab-reviewed-patches-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&root).unwrap();
+        let mut entries = BTreeMap::new();
+        let bytes = b"reviewed";
+        let expected = sha(bytes);
+        for file in [
+            "001.patch",
+            "../runtime/ManagedAttached.ts",
+            "../descriptor.mjs",
+            "../assets/icon.png",
+        ] {
+            let relative = reviewed_patch_path(file).unwrap();
+            let target = root.join(&relative);
+            fs::create_dir_all(target.parent().unwrap()).unwrap();
+            fs::write(&target, bytes).unwrap();
+            entries.insert(
+                relative.clone(),
+                Entry::File {
+                    path: relative.clone(),
+                    bytes: bytes.len() as u64,
+                    executable: false,
+                    sha256: expected.clone(),
+                },
+            );
+            for parent in Path::new(&relative)
+                .ancestors()
+                .skip(1)
+                .filter(|p| !p.as_os_str().is_empty())
+            {
+                let path = parent.to_str().unwrap().to_owned();
+                entries.insert(path.clone(), Entry::Directory { path });
+            }
+            verify_reviewed_patch_payload(&root, &entries, file, &expected).unwrap();
+        }
+        for file in [
+            "../../escape",
+            "../runtime/../descriptor.mjs",
+            "./alias",
+            "a/../b",
+            "/absolute",
+            "a//b",
+            "a\\b",
+            "",
+        ] {
+            assert!(reviewed_patch_path(file).is_err());
+        }
+        assert!(
+            verify_reviewed_patch_payload(&root, &entries, "missing.patch", &expected).is_err()
+        );
+        assert!(verify_reviewed_patch_payload(&root, &entries, "../runtime", &expected).is_err());
+        assert!(verify_reviewed_patch_payload(
+            &root,
+            &entries,
+            "../descriptor.mjs",
+            &"a".repeat(64)
+        )
+        .is_err());
+        #[cfg(unix)]
+        {
+            fs::rename(root.join("runtime"), root.join("real-runtime")).unwrap();
+            std::os::unix::fs::symlink("real-runtime", root.join("runtime")).unwrap();
+            assert!(verify_reviewed_patch_payload(
+                &root,
+                &entries,
+                "../runtime/ManagedAttached.ts",
+                &expected
+            )
+            .is_err());
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 }

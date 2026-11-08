@@ -515,8 +515,17 @@ fn extract(file: File, root: &Path) -> Result<(), String> {
                     let key = ext.key().map_err(|_| invalid())?;
                     let value = ext.value().map_err(|_| invalid())?;
                     if ![
-                        "path", "linkpath", "size", "mtime", "atime", "ctime", "uid", "gid",
-                        "uname", "gname",
+                        "path",
+                        "linkpath",
+                        "size",
+                        "mtime",
+                        "atime",
+                        "ctime",
+                        "uid",
+                        "gid",
+                        "uname",
+                        "gname",
+                        "LIBARCHIVE.creationtime",
                     ]
                     .contains(&key)
                         || value.len() > 4096
@@ -911,7 +920,10 @@ mod tests {
         ));
         let long = format!("dir/{}/file", "segment".repeat(22));
         builder
-            .append_pax_extensions([("path", long.as_bytes())])
+            .append_pax_extensions([
+                ("path", long.as_bytes()),
+                ("LIBARCHIVE.creationtime", &b"315561600"[..]),
+            ])
             .unwrap();
         let mut h = tar::Header::new_ustar();
         h.set_size(7);
@@ -1171,5 +1183,36 @@ mod tests {
         crate::managed_desktop::verify_package(&root, &manifest_sha).unwrap();
         assert_eq!(payload.ensure_verified().unwrap(), root);
         println!("Production Desktop archive/cache verified without execution");
+    }
+    #[test]
+    fn unrelated_libarchive_pax_extensions_remain_rejected() {
+        let f = Fixture::new();
+        let file = f.root.join("unsupported-pax.tgz");
+        let mut builder = tar::Builder::new(GzEncoder::new(
+            File::create(&file).unwrap(),
+            Compression::fast(),
+        ));
+        builder
+            .append_pax_extensions([("LIBARCHIVE.xattr.security", &b"unreviewed"[..])])
+            .unwrap();
+        let mut h = tar::Header::new_ustar();
+        h.set_size(7);
+        h.set_mode(0o644);
+        h.set_cksum();
+        builder
+            .append_data(&mut h, "file", &b"content"[..])
+            .unwrap();
+        builder.into_inner().unwrap().finish().unwrap();
+        let archive_sha = hash(&mut File::open(&file).unwrap(), COMPRESSED).unwrap();
+        let payload = EmbeddedPayload::new(
+            PayloadRole::Desktop,
+            file,
+            archive_sha,
+            "a".repeat(64),
+            f.root.join("cache"),
+        )
+        .unwrap();
+        assert!(payload.ensure_with(check).is_err());
+        assert!(!payload.target_directory().exists());
     }
 }

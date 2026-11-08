@@ -41,3 +41,11 @@ The normal bundled Root entry still needs its own captured end-to-end launch pro
 ### Bundled-host registry representation
 
 The first normal bundled build stopped in resource preflight before compilation: the repository and derived f97 host used different JSON Unicode escaping in the registry text. Independent comparison proved all21 parsed records equal and every patch file byte/SHA equal. The repository registry was normalized to the verified host's UTF-8 representation (SHA256 `fb2c156d9fd6f25aa5d744fbcd1ecbcf4231f728034b89259c2d7be31652e7b4`). The resource helper retains exact registry-byte verification; no verifier exception or artifact mutation was introduced. A new committed source snapshot is required for the retry.
+
+### Normal Root bundled build
+
+Clean committed source `2ca5dca2ad79641009c34d36d3b972ca76b0660e` (3,978 Git blobs, exact Git file modes,132,801,877 bytes) passed the normal Tauri frontend/typecheck/native app build with `managed-entry-qa`. The QA identity is unique; it uses the existing Cargo/dependency caches offline, private HOME/TMP/npm/Vite caches, and includes the production b7 desktop and f97 host through the unchanged resource helper. The app was built with `--no-sign`; this is local build evidence, not distribution signing. Executable SHA256: `46e1212f2b2547d99e13b20265c7dbd8cc7b5486803f939ff7e69f2eadb7845d`.
+
+Actual bundled archive SHA256 values are `72daeedee2e5a3b50ecdcdb974fbb77c4189db55d2bf21bc5cd14fe8e13a15ef` (desktop) and `0f7c688ca8ce38960b16587fbb6b0c4b67a295be91d1c458557b74c49f647552` (host); the compiled manifest pins remain b7 and f97 above. Raw build and isolated lifecycle evidence are retained in `.blackcrab-parity-probes/root-bundled-entry-preparation-1/`.
+
+The normal main-window button, reuse, client quit and Root reattachment cases remain unverified: computer automation returns `cgWindowNotFound` for this QA app and Finder as well as Device Hub. No bridge-QA auto-selection/eval shortcut was substituted. A live captured controller and isolated empty-home QA app were prepared for manual main-window acceptance; no managed host had started before that handoff. The first Root launch was normally terminated; user QA20779 remains excluded.

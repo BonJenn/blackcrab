@@ -61,7 +61,17 @@ Owned resource generation bundles the two original browser entries, preserves pi
 For authoritative isolated native preparation:
 
 ```sh
-node scripts/prepare-mobile-ios.mjs --mode build --npm-cli /path/to/npm-12.2.2/bin/npm-cli.js --derived-data-parent /path/to/external/build-cache
+node scripts/prepare-mobile-ios.mjs --mode build --npm-cli /path/to/npm-12.2.2/bin/npm-cli.js --derived-data-parent /path/to/external/build-cache --npm-cache /path/to/external/npm-cache
 ```
 
 New source files must first be tracked in Git. The producer snapshots their exact bytes into a physical whitespace-free directory, installs without account/provider configuration, generates native projects, verifies the iOS 18 deployment floor and builds a standalone Release Hermes application. This validates the platform baseline; it does not establish complete mobile workflow parity or distribution signing.
+
+Native dependency verification resolves Expo Modules JSI from both the app and
+Expo Modules Core contexts, requiring JSI 58.0.15 with Core 58.0.22. A compatible
+semver range had selected JSI 58.0.22, whose native Swift ABI omitted a symbol
+required by the pinned Core framework; the exact override and both-context
+guard prevent that installation from becoming a native product. The producer
+bounds native compilation and Metro to two workers and certifies arm64 simulator
+output. Use a physical whitespace-free staging directory; the optional existing
+canonical npm cache must be outside the source repository. Cache and DerivedData
+paths are recorded in the build report.

@@ -23,20 +23,20 @@
   },
   "sourceRevision": "c6035c6d55f86ec8d2c62cd64424067197f95e10",
   "sources": {
-    "Acceptance.swift": "4b06a62d023b34a844507fbf98f6d04b07466ee2ecf28c584032dae59e3bbb28",
+    "Acceptance.swift": "b535ada8bb1e00e2c14a812eea2035730048edd45aa31373a58975313b72371f",
     "Acceptance.xcodeproj/project.pbxproj": "d9b6e830b7ebd9789c79426136e82c59fca5dcf8cdf99c27d85fc813468c7c65",
     "Acceptance.xcodeproj/xcshareddata/xcschemes/Acceptance.xcscheme": "4240e4f63be0f792d19f2cf4c7e75ceb9c59901563f27f70e93537319033f6d7",
-    "controller.py": "f3cae8ffb679613356b63f20d5700b3620f22b81794ba5425414af4e383fcc68",
+    "controller.py": "d342864bcb0a837712ac056a8739e7875b8bdcce65f0b735b0481f3b6586af6a",
     "controller_test.py": "22dc776613ed425aa7696f414fd44f894983b4de06ecdb1fc9ea97de4241aedb",
     "observer.test.ts.template": "79233173c4da4a6c328d22e3b617662a9d7974f8e126e69a5ebc04b4ec216271",
     "packaged-host.mjs.template": "4faeba1cd113a50252b8aa6fdca092c8e5ac770307a0033f30e100f88b0781b5"
   },
   "prebuiltRunner": {
-    "root": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-3msdte94",
-    "inventorySha256": "4d4d680ff8f5696ae12df4daefde90effd805a51ea9dc19dd52ad2131f394019",
+    "root": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-wbpdgc7j",
+    "inventorySha256": "fe7b5fbdee96d936da2a51ba39ae5d0a83be71c3a40ec2b0719d1c123b34e857",
     "descriptorName": "Acceptance_iphonesimulator27.1-arm64.xctestrun",
     "descriptorSha256": "addaea64c8bc32ba4359631b5ab840fb2c8ca5301e825382fc2f307f319ea0e4",
-    "executableSha256": "04acc3af0dbf50e6109dcff117ed33e18b5a1091492acc6fe767946f170826a1",
+    "executableSha256": "58be51c773e14988626ca1197143ee9a128c9b549c99393ebd31352c15c1d160",
     "xcodeBuild": "27A9275"
   }
 }

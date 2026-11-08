@@ -21,3 +21,24 @@ A paired attempt subsequently connected its SDK observer but stopped before nati
 The next paired attempt passed the baseline pairing UI (1/1, no skips) but stopped before upgrade at a redundant app-termination command. That command is removed. Cooperative owner abort now precedes fixture interruption; 27 portable guards pass. The failed attempt's lost host handle remains recorded as unclosed; a separate scoped OS recovery observation records its verified shutdown, without replacing the original receipt.
 
 A real SDK host-only abort preflight passed: zero runs/provider sessions, aborted acceptance remained failed, the live owner closed its actual host Child, and no framework interruption signals were needed. Original SDK source/package hashes remained unchanged. No device or UI was used.
+
+## Corrected full-interface native menu runner
+
+The pinned iOS thread menu nests Rename and Archive under More. On a
+protocol-2 host the default swipe action is Settle, so the upgraded phase now
+opens More for both operations. It leaves the upgraded app running until the
+external SDK checks its mutation, and checks that the archived row disappears.
+The test still sends no provider prompt. This is a test-runner correction; the
+production app binary is unchanged.
+
+The replacement runner built successfully with strict signature and arm64 checks.
+Its executable SHA256 is
+`58be51c773e14988626ca1197143ee9a128c9b549c99393ebd31352c15c1d160`,
+bound to Swift SHA256
+`b535ada8bb1e00e2c14a812eea2035730048edd45aa31373a58975313b72371f`.
+A fresh baseline logging canary passed 1/1 without failures or skips. The
+coordinator independently reviewed the official results, exact nonce/device
+completion and private evidence and approved the new receipt. No host or pairing
+grant was created by that canary. Its original artifacts remain separate from
+the prior runner's canary. This proves the replacement runner's baseline path,
+not the upgraded interface or native thread mutations; those remain pending.

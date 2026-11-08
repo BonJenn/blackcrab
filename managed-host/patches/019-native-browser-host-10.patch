@@ -40,7 +40,7 @@
    contexts.length = 0;
    encoderStreams.length = 0;
    contextRequests.length = 0;
-@@ -2399,3 +2407,23 @@
+@@ -2399,3 +2407,35 @@
      }),
    ).pipe(Effect.provide(layer)),
  );
@@ -62,5 +62,17 @@
 +  gate.resolve();yield* Fiber.join(oldViewer);yield* Effect.yieldNow;
 +  const again=yield* broker.invoke<PreviewAutomationStatus>({scope,tabId:opened.tabId,operation:"status",input:{}});
 +  expect(again.tabId).toBe(opened.tabId);expect(desktopConnections).toHaveLength(2);
++ })).pipe(Effect.provide(layer))
++);
++
++it.live("retired desktop CDP wrapper close preserves metadata and reconnects a successor", () =>
++ Effect.scoped(Effect.gen(function*(){
++  desktopLease="retained-old";const {tabId,viewer,context}=yield* openDesktopViewer;const manager=yield* Manager.PreviewManager;const broker=yield* Broker.PreviewAutomationBroker;
++  desktopLease=undefined;yield* Effect.promise(()=>context.page.close());for(let i=0;i<5;i++)yield* Effect.yieldNow;
++  const afterClose=yield* manager.list({threadId:scope.thread.threadId});expect(afterClose.sessions.map(s=>s.tabId)).toContain(tabId);
++  let end:ServerBrowser.ServerBrowserViewerOutput|undefined;for(let i=0;i<20;i++){const next=yield* Queue.take(viewer.output);if(next._tag==="gone"||next._tag==="reconnect"){end=next;break;}}expect(end?._tag).toBe("reconnect");
++  desktopLease="retained-new";desktopRendersNext=true;const key={threadId:scope.thread.threadId,tabId};desktopDetaches.emit("attach",{...key,attachment:identityFor(key)});
++  yield* Effect.promise(()=>vi.waitFor(()=>expect(desktopConnections).toHaveLength(2),{timeout:1000}));
++  const status=yield* broker.invoke<PreviewAutomationStatus>({scope,tabId,operation:"status",input:{}});expect(status.tabId).toBe(tabId);
 + })).pipe(Effect.provide(layer))
 +);

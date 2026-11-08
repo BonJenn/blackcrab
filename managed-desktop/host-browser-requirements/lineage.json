@@ -39,7 +39,7 @@
     {
       "target": "apps/server/src/preview/ServerBrowser.ts",
       "candidateAfterSha256": "dc66734362d78eb106a9678a7bee9806f18cddf6656b2070397abfc2b57ebc00",
-      "productionAfterSha256": "dc66734362d78eb106a9678a7bee9806f18cddf6656b2070397abfc2b57ebc00"
+      "productionAfterSha256": "3bc752dcbbd9b695cde3665756ab652e5c8efef2fe60966a0dba7c565cd16b5a"
     },
     {
       "target": "apps/server/src/preview/SocketDesktopBrowserChannel.test.ts",
@@ -49,7 +49,7 @@
     {
       "target": "apps/server/src/preview/ServerBrowser.test.ts",
       "candidateAfterSha256": "73453afbf79d05f5d9c26faad3416e5cc045c96a5c73a10dbaba6684c936e6a2",
-      "productionAfterSha256": "73453afbf79d05f5d9c26faad3416e5cc045c96a5c73a10dbaba6684c936e6a2"
+      "productionAfterSha256": "c0e047efca901ecb8219e7fe46a98c5c46f392bb4b2f647a632ad65e3cf2eb93"
     }
   ],
   "productionChanges": [
@@ -58,6 +58,7 @@
     "strict controls + 64MiB frames in both directions",
     "canonical Unix0700 directory/owned0600 socket + refuse existing listener path",
     "legacy FD/UDS mutually exclusive; no FD fallback when UDS configured",
-    "Acquire CDP reader before writer; close rejected/retired actual WebSockets to settle pending setup across lease changes"
+    "Acquire CDP reader before writer; close rejected/retired actual WebSockets to settle pending setup across lease changes",
+    "Retain captured attachment on published desktop context; retired wrapper close preserves durable metadata and signals viewer reconnect"
   ]
 }

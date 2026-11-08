@@ -219,8 +219,35 @@ fn regular(path: &Path) -> Result<File, String> {
 fn regular(_path: &Path) -> Result<File, String> {
     Err(invalid())
 }
+// POSIX UID/mode bits do not establish a private cache on a macOS volume
+// mounted with ownership ignored. Archive resources may live there; executable
+// cache state and its initialization lease must live on an ownership-aware volume.
+#[cfg(target_os = "macos")]
+fn ownership_filesystem(path: &Path) -> Result<(), String> {
+    use std::os::fd::AsRawFd;
+    let directory = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)
+        .map_err(|_| invalid())?;
+    let mut information = std::mem::MaybeUninit::<libc::statfs>::uninit();
+    if unsafe { libc::fstatfs(directory.as_raw_fd(), information.as_mut_ptr()) } != 0 {
+        return Err(invalid());
+    }
+    // Public Darwin sys/mount.h: MNT_IGNORE_OWNERSHIP (MNT_UNKNOWNPERMISSIONS).
+    const IGNORE_OWNERSHIP: u32 = 0x0020_0000;
+    if unsafe { information.assume_init() }.f_flags & IGNORE_OWNERSHIP != 0 {
+        return Err(invalid());
+    }
+    Ok(())
+}
+#[cfg(all(unix, not(target_os = "macos")))]
+fn ownership_filesystem(_path: &Path) -> Result<(), String> {
+    Ok(())
+}
 #[cfg(unix)]
 fn private_dir(path: &Path) -> Result<(), String> {
+    ownership_filesystem(path)?;
     let m = fs::symlink_metadata(path).map_err(|_| invalid())?;
     if !m.is_dir()
         || m.file_type().is_symlink()
@@ -303,6 +330,7 @@ fn initialize_cache_root(root: &Path) -> Result<(), String> {
         }
     }
     let parent = root.parent().ok_or_else(invalid)?;
+    ownership_filesystem(parent)?;
     let parent_meta = fs::symlink_metadata(parent).map_err(|_| invalid())?;
     if !parent_meta.is_dir()
         || parent_meta.uid() != unsafe { libc::geteuid() }
@@ -1215,4 +1243,16 @@ mod tests {
         assert!(payload.ensure_with(check).is_err());
         assert!(!payload.target_directory().exists());
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "requires an explicitly supplied task-owned ownership-disabled macOS volume"]
+    fn ownership_disabled_volume_cannot_initialize_private_cache() {
+        let parent = PathBuf::from(std::env::var_os("BLACKCRAB_TEST_UNOWNED_VOLUME").unwrap());
+        assert!(ownership_filesystem(&parent).is_err());
+        let target = parent.join(format!("refused-cache-{}", std::process::id()));
+        assert!(!target.exists());
+        assert!(initialize_cache_root(&target).is_err());
+        assert!(!target.exists());
+    }
+
 }

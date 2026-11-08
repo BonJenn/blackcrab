@@ -741,7 +741,7 @@ impl ManagedHost {
         let mut child = command
             .spawn()
             .map_err(|_| "Could not launch the verified managed runtime".to_string())?;
-        #[cfg(test)]
+        #[cfg(any(test, feature = "managed-entry-qa"))]
         eprintln!("BLACKCRAB_TEST_CHILD_PID={}", child.id());
         let mut bootstrap = json!({"mode":"desktop","noBrowser":true,"port":port,"t3Home":self.root.join("host"),"host":"127.0.0.1","desktopBootstrapToken":bootstrap_token(&config.bootstrap_secret, now_ms()?)?,"desktopBootstrapSecret":config.bootstrap_secret,"shellEnvironmentPrepared":false,"tailscaleServeEnabled":false,"tailscaleServePort":443});
         if let Some(capability) = &config.browser {

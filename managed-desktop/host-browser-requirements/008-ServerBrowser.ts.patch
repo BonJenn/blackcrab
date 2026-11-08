@@ -84,7 +84,16 @@
      report(tab, {
        _tag: "Success",
        url: ServerBrowserPage.withoutDataPayload(url).slice(0, 2048),
-@@ -758,7 +766,7 @@
+@@ -744,6 +752,8 @@
+   const dropTab = (tab: ServerTab, closeSession: boolean) => {
+     const key = tabKey(tab.threadId, tab.tabId);
+     if (tabs.get(key) !== tab) return;
++    // A retired CDP wrapper closing is not the physical desktop page closing.
++    if (tab.desktop?.attachment && !desktopChannel.isCurrent?.(tab.desktop.attachment)) closeSession = false;
+     tabs.delete(key);
+     tab.closing = true;
+     clearAbortedNavigation(tab);
+@@ -758,7 +768,7 @@
      void NodeFSP.rm(downloadDir(tab), { recursive: true, force: true }).catch(constVoid);
      reportLiveTabs();
      if (closeSession) {
@@ -93,7 +102,7 @@
      }
    };
  
-@@ -772,17 +780,19 @@
+@@ -772,17 +782,19 @@
          )
        : Promise.resolve(false);
  
@@ -115,7 +124,7 @@
          close: async () => {
            await connected.browser.close().catch(constVoid);
            await runPromise(Scope.close(scope, Exit.void));
-@@ -794,10 +804,10 @@
+@@ -794,10 +806,10 @@
      }
    };
  
@@ -128,7 +137,7 @@
      } catch (cause) {
        // An unpublished tab is in no list, so nothing else would ever close it.
        for (const close of opened.reverse()) await close().catch(constVoid);
-@@ -808,13 +818,19 @@
+@@ -808,13 +820,19 @@
    const setUpTab = async (
      snapshot: PreviewSessionSnapshot,
      opened: Array<() => Promise<void>>,
@@ -152,7 +161,7 @@
      if (desktop) opened.push(desktop.close);
      // Otherwise a desktop that attaches late shows its own page, and the agent drives another.
      if (!desktop && desktopChannel.available) {
-@@ -854,6 +870,7 @@
+@@ -854,6 +872,7 @@
      );
      let pendingFileChooserOffer = Promise.resolve();
      const tab: ServerTab = {
@@ -160,7 +169,16 @@
        threadId: ThreadId.make(snapshot.threadId),
        tabId: snapshot.tabId,
        page,
-@@ -1012,13 +1029,22 @@
+@@ -874,7 +893,7 @@
+           .catch(constVoid);
+       },
+       isolatedContext,
+-      desktop: desktop === null ? null : { close: desktop.close },
++      desktop: desktop === null ? null : { close: desktop.close, ...(desktop.attachment ? { attachment: desktop.attachment } : {}) },
+       profileId: snapshot.profileId,
+       openerTabId: adopted?.openerTabId,
+       downloads: [],
+@@ -1012,13 +1031,22 @@
      page.on("popup", (popup) => void adoptPopup(tab, popup));
      // Playwright cannot reload a crashed page, so it must leave the tab list.
      const key = tabKey(tab.threadId, tab.tabId);
@@ -185,7 +203,7 @@
      reportLiveTabs();
      // A desktop page navigates on its own and can finish loading before these listeners attach.
      if (desktop) void page.waitForLoadState("load").then(() => reportLoaded(tab), constVoid);
-@@ -1056,7 +1082,7 @@
+@@ -1056,7 +1084,7 @@
    const downloadDir = (tab: ServerTab) =>
      NodePath.join(
        downloadsRoot,
@@ -194,7 +212,7 @@
      );
  
    const clearAbortedNavigation = (tab: ServerTab) => {
-@@ -1087,6 +1113,7 @@
+@@ -1087,6 +1115,7 @@
    };
  
    const saveDownload = async (tab: ServerTab, download: Download) => {
@@ -202,7 +220,7 @@
      const id = NodeCrypto.randomUUID();
      const path = NodePath.join(downloadDir(tab), id);
      const navigation =
-@@ -1336,6 +1363,7 @@
+@@ -1336,6 +1365,7 @@
    };
  
    const adoptPopup = async (opener: ServerTab, popup: Page) => {
@@ -210,7 +228,7 @@
      if (opener.closing) {
        await popup.close().catch(constVoid);
        return;
-@@ -1370,28 +1398,20 @@
+@@ -1370,28 +1400,20 @@
      );
    };
  
@@ -253,7 +271,7 @@
    };
  
    const findTab = Effect.fn("ServerBrowser.findTab")(function* (threadId: string, tabId: string) {
-@@ -1452,7 +1472,7 @@
+@@ -1452,7 +1474,7 @@
      options: { readonly reclaimIdleSlot?: boolean } = {},
    ) {
      let key: string = NodeCrypto.randomUUID();
@@ -262,7 +280,7 @@
      return yield* Effect.acquireUseRelease(
        Effect.try({
          try: () => {
-@@ -1469,7 +1489,7 @@
+@@ -1469,7 +1491,7 @@
            .open({
              ...input,
              beforePublish: (snapshot) => {
@@ -271,7 +289,7 @@
                key = tabKey(snapshot.threadId, snapshot.tabId);
                pendingTabs.set(key, reservation);
                input.beforePublish?.(snapshot);
-@@ -1482,16 +1502,14 @@
+@@ -1482,16 +1504,14 @@
                  catch: ServerBrowserPage.toOperationError,
                }).pipe(
                  Effect.onError(() =>
@@ -290,7 +308,7 @@
          }),
      );
    }, Effect.uninterruptible);
-@@ -2334,7 +2352,7 @@
+@@ -2334,7 +2354,7 @@
        }
        const key = tabKey(event.threadId, event.tabId);
        const tab = tabs.get(key);
@@ -299,7 +317,7 @@
        if (!tab) return;
        if (event.type === "closed") {
          closedSessions.add(key);
-@@ -2765,7 +2783,7 @@
+@@ -2765,7 +2785,7 @@
      Stream.runForEach((key) =>
        Effect.sync(() => {
          const tab = tabs.get(tabKey(key.threadId, key.tabId));
@@ -308,7 +326,7 @@
        }),
      ),
      Effect.forkScoped,
-@@ -2779,12 +2797,17 @@
+@@ -2779,12 +2799,17 @@
    yield* desktopChannel.attached.pipe(
      Stream.runForEach((key) =>
        Effect.gen(function* () {

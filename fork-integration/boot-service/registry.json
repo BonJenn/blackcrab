@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "licenseSha256": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43",
+  "patches": [
+    {
+      "id": "001-owned-service-and-local-installer",
+      "target": "apps/server/src/cloud/bootService.ts",
+      "beforeSha256": "512bc67d59681718e4dd183f38aef288b0edb532485557436ce93ef17620293f",
+      "afterSha256": "d423e0eec6ad54547888a32115c10b541476cacfafc0981d5cd8c7b008680a23",
+      "file": "patches/001-owned-service-and-local-installer.patch",
+      "sha256": "ec89bae2c0cd253358c401db70a21b0cbc87b8e1828e344163c850b5b0fbf693",
+      "replacements": [
+        {
+          "before": "const BOOT_SERVICE_NAME = \"t3code\";",
+          "after": "const BOOT_SERVICE_NAME = \"blackcrab\";"
+        },
+        {
+          "before": "export const BOOT_SERVICE_LAUNCHD_LABEL = \"com.t3tools.t3code.service\";",
+          "after": "export const BOOT_SERVICE_LAUNCHD_LABEL = \"com.blackcrab.desktop.managed.service\";"
+        },
+        {
+          "before": "\"Description=T3 Code server\",",
+          "after": "\"Description=Blackcrab server\","
+        },
+        {
+          "before": "  readonly host?: BootServiceHost;\n}) {",
+          "after": "  readonly host?: BootServiceHost;\n  /** Native-only local artifact installer. Absence never downloads an upstream release. */\n  readonly installRuntime?: typeof ensurePinnedRuntimeInstalled;\n}) {"
+        },
+        {
+          "before": "  readonly host?: BootServiceHost;\n}) =>",
+          "after": "  readonly host?: BootServiceHost;\n  readonly installRuntime?: typeof ensurePinnedRuntimeInstalled;\n}) =>"
+        },
+        {
+          "before": "    yield* ensurePinnedRuntimeInstalled({",
+          "after": "    const installRuntime: typeof ensurePinnedRuntimeInstalled = input.installRuntime ?? (() =>\n      Effect.fail(new PinnedRuntimeInstallError({ step: \"selecting a verified local Blackcrab runtime\" })));\n    yield* installRuntime({"
+        }
+      ]
+    },
+    {
+      "id": "002-owned-payload-layout",
+      "target": "apps/server/src/cloud/pinnedRuntime.ts",
+      "beforeSha256": "12a780b6fcf9f6d80a857b4dd73ef060b386a3e1969653a0dfc6811138b5421b",
+      "afterSha256": "3afdf188446f138b1e325572ae5581c1aa5af25c56c93451e45a5daaf7fee8ad",
+      "file": "patches/002-owned-payload-layout.patch",
+      "sha256": "f82dea44be7904cbab7fe9236f19a4413e8f6f0b371c19f74be96696f1648b63",
+      "replacements": [
+        {
+          "before": "entryPath: path.join(versionDir, platform === \"win32\" ? \"t3.exe\" : \"t3\"),",
+          "after": "entryPath: path.join(versionDir, \"payload\", platform === \"win32\" ? \"t3.exe\" : \"t3\"),"
+        }
+      ]
+    },
+    {
+      "id": "003-launcher-payload-layout",
+      "target": "apps/server/src/serviceLauncher.ts",
+      "beforeSha256": "2108510af0eceded95a7b51148d74f0ab420cba82937cd6fe7cf1dcf9d22d9e9",
+      "afterSha256": "14652fabb08682c449991ef6049b98da0684b4b7899245b875f8176e535c26f1",
+      "file": "patches/003-launcher-payload-layout.patch",
+      "sha256": "918e8b5d4434fcea6020fb1d5e3d1cfa3d59054aa641642b42147181c97bf36f",
+      "replacements": [
+        {
+          "before": "entryPath: NodePath.join(versionDir, executableName),",
+          "after": "entryPath: NodePath.join(versionDir, \"payload\", executableName),"
+        },
+        {
+          "before": "async function runtimeExists(baseDir: string, version: string): Promise<boolean> {\n  const paths = runtimePaths(baseDir, version);\n  try {\n    const [entry, sentinel] = await Promise.all([\n      NodeFSP.stat(paths.entryPath),\n      NodeFSP.readFile(paths.sentinelPath, \"utf8\"),\n    ]);\n    return entry.isFile() && sentinel.trim() === version;\n  } catch {\n    return false;\n  }\n}",
+          "after": "async function readOwnedRuntimeMetadata(file: string, maximum: number, privateFile: boolean): Promise<Buffer> {\n  const handle = await NodeFSP.open(file,\n    NodeFS.constants.O_RDONLY | NodeFS.constants.O_NOFOLLOW | NodeFS.constants.O_NONBLOCK);\n  try {\n    const stat = await handle.stat();\n    if (typeof process.getuid !== \"function\" || !stat.isFile() || stat.nlink !== 1 ||\n        stat.uid !== process.getuid() || !Number.isSafeInteger(stat.size) || stat.size > maximum ||\n        (privateFile && (stat.mode & 0o777) !== 0o600)) throw new Error(\"Invalid owned service metadata\");\n    const bytes = Buffer.alloc(stat.size + 1);\n    let length = 0;\n    while (length < bytes.length) {\n      const read = await handle.read(bytes, length, bytes.length - length, length);\n      if (!read.bytesRead) break;\n      length += read.bytesRead;\n    }\n    if (length !== stat.size) throw new Error(\"Owned service metadata changed\");\n    return bytes.subarray(0, length);\n  } finally {\n    await handle.close();\n  }\n}\n\nasync function runtimeExists(baseDir: string, version: string): Promise<boolean> {\n  const paths = runtimePaths(baseDir, version);\n  try {\n    const layout: unknown = JSON.parse((await readOwnedRuntimeMetadata(\n      NodePath.join(paths.versionDir, \".blackcrab-service-layout.json\"), 1024, true)).toString(\"utf8\"));\n    if (typeof layout !== \"object\" || layout === null || Array.isArray(layout)) return false;\n    const record = layout as Record<string, unknown>;\n    if (Object.keys(record).sort().join(\",\") !== \"manifestSha256,profile,protocol,schema,version\" ||\n        record.schema !== 1 || record.profile !== \"blackcrab-local-service-layout-v1\" ||\n        record.protocol !== SERVICE_LAUNCHER_PROTOCOL || record.version !== version ||\n        typeof record.manifestSha256 !== \"string\" || !/^[a-f0-9]{64}$/.test(record.manifestSha256)) return false;\n    const [entry, sentinel, manifest] = await Promise.all([\n      NodeFSP.lstat(paths.entryPath),\n      readOwnedRuntimeMetadata(paths.sentinelPath, 128, true),\n      readOwnedRuntimeMetadata(NodePath.join(paths.versionDir, \"payload\", \"blackcrab-managed-host.json\"), 64 * 1024 * 1024, false),\n    ]);\n    return entry.isFile() && !entry.isSymbolicLink() && sentinel.toString(\"utf8\").trim() === version &&\n      NodeCrypto.createHash(\"sha256\").update(manifest).digest(\"hex\") === record.manifestSha256;\n  } catch {\n    return false;\n  }\n}"
+        }
+      ]
+    },
+    {
+      "id": "004-owned-layout-protocol",
+      "target": "apps/server/src/cloud/serviceProtocol.ts",
+      "beforeSha256": "6750a17b133e7a5ce20cce682cb89fbb46f37754231f196dfed85992ccc1f140",
+      "afterSha256": "8a0df5f6c2d2438666bc944bd1b4b9be1e7d176c4c86a6023d495fc696e3d9ef",
+      "file": "patches/004-owned-layout-protocol.patch",
+      "sha256": "d76e964737bbdeff57a52af2ec00e5c028838b03ea02959c19658e3a81c2fbae",
+      "replacements": [
+        {
+          "before": "export const SERVICE_LAUNCHER_PROTOCOL = 3 as const;",
+          "after": "// Blackcrab payload subdirectory is an independent layout; protocol3 launchers are not adopted.\nexport const SERVICE_LAUNCHER_PROTOCOL = 4 as const;"
+        }
+      ]
+    },
+    {
+      "id": "005-unconfigured-owned-updater-gate",
+      "target": "apps/server/src/cloud/selfUpdate.ts",
+      "beforeSha256": "522fe5e90b7e5900466656f312433886e16413712db711e235095c14f37e932e",
+      "afterSha256": "6e4e1d844f595dc984b1cf041ec426f7e4eb59be0fbb63219972a9c60bd7c11d",
+      "file": "patches/005-unconfigured-owned-updater-gate.patch",
+      "sha256": "f49abda2daf27be4d6f407523cfb2e4ef4d96908f200391e8276a4a00d960eb1",
+      "replacements": [
+        {
+          "before": "  if (input.desktopManaged) return \"desktop-managed\" as const;\n  return input.launcherManaged ? (\"boot-service\" as const) : null;",
+          "after": "  // Owning a service is not evidence of an owned release distribution adapter.\n  return null;"
+        },
+        {
+          "before": "  yield* pruneRuntimesOnStart({ baseDir: serverConfig.baseDir, managed: launcher.managed }).pipe(\n    Effect.forkScoped,\n  );",
+          "after": "  // Owned payload-layout pruning is unavailable until its profile-aware publisher is configured."
+        },
+        {
+          "before": "    serverConfig.mode === \"desktop\" ? \"desktop-managed\" : launcher.managed ? \"boot-service\" : null;",
+          "after": "    resolveServerSelfUpdateCapability({desktopManaged: serverConfig.mode === \"desktop\", launcherManaged: launcher.managed});"
+        },
+        {
+          "before": "        \"Remote updates require the T3 Code background service. Run `t3 service install` on the server machine.\",",
+          "after": "        \"Blackcrab remote updates are unavailable until an owned release installer is configured.\","
+        },
+        {
+          "before": "        return desktopAppUpdate.commit(requestId, onHandoffAccepted);",
+          "after": "        return failWith(\"Blackcrab remote updates are unavailable until an owned release installer is configured.\");"
+        }
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/serviceProtocol.ts",
+      "target": "apps/server/src/cloud/serviceProtocol.ts",
+      "sha256": "6750a17b133e7a5ce20cce682cb89fbb46f37754231f196dfed85992ccc1f140"
+    },
+    {
+      "file": "fixtures/managedUpdates.ts",
+      "target": "apps/server/src/policy/managedUpdates.ts",
+      "sha256": "56416d70b50a4123ac4c56667cc630a331aa291b942ca5be3ae97ff439feb0f9"
+    }
+  ]
+}

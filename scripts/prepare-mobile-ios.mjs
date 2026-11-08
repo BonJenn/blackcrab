@@ -108,7 +108,7 @@ export async function runLogged(command, args, { cwd, env, log, timeout = 20 * 6
 
 export async function verifyNativeDependencyRoots(repo) {
   const physicalRepo = await fs.realpath(repo), require = createRequire(path.join(physicalRepo, 'apps/mobile/package.json'));
-  const modules = ['expo', 'react-native', 'react', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins'];
+  const modules = ['expo', 'react-native', 'react', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins', 'expo-modules-core', 'expo-modules-jsi'];
   const resolved = {};
   for (const name of modules) {
     const target = await fs.realpath(require.resolve(`${name}/package.json`));
@@ -116,6 +116,11 @@ export async function verifyNativeDependencyRoots(repo) {
     resolved[name] = { path: target, version: JSON.parse(await fs.readFile(target, 'utf8')).version };
   }
   if (resolved.expo.version !== '58.0.14' || resolved['react-native'].version !== '0.88.0' || resolved.react.version !== '19.3.0') throw new Error('Unsupported native SDK versions; this preparation targets Expo 58.0.14 / React Native 0.88.0 / React 19.3.0.');
+  const coreRequire = createRequire(resolved['expo-modules-core'].path);
+  const coreJsiPath = await fs.realpath(coreRequire.resolve('expo-modules-jsi/package.json'));
+  if (!inside(physicalRepo, coreJsiPath)) throw new Error('Native dependency escapes staging: expo-modules-jsi from expo-modules-core');
+  resolved['expo-modules-core/expo-modules-jsi'] = { path: coreJsiPath, version: JSON.parse(await fs.readFile(coreJsiPath, 'utf8')).version };
+  if (resolved['expo-modules-core'].version !== '58.0.22' || resolved['expo-modules-jsi'].version !== '58.0.15' || resolved['expo-modules-core/expo-modules-jsi'].version !== '58.0.15') throw new Error('Unsupported native ABI versions; Expo Modules Core 58.0.22 requires pinned Expo Modules JSI 58.0.15 from both app and Core contexts.');
   // Contracts intentionally has import-only exports; require.resolve would falsely reject it.
   for (const [name, subpath] of [['@t3tools/client-runtime', './connection'], ['@t3tools/contracts', '.']]) {
     const packageRoot = await fs.realpath(path.join(physicalRepo, 'node_modules', name));
@@ -171,6 +176,11 @@ export async function resolveNativeEntry(repoRoot) {
   return entry;
 }
 
+/** The validation product is an arm64 simulator Release; bound native compilation IO. */
+export function simulatorReleaseBuildArguments({ workspace, scheme, destination, derivedData }) {
+  return ['-workspace', workspace, '-scheme', scheme, '-configuration', 'Release', '-sdk', 'iphonesimulator', '-destination', destination, '-derivedDataPath', derivedData, '-jobs', '2', 'ARCHS=arm64', 'ONLY_ACTIVE_ARCH=YES', 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=', 'build'];
+}
+
 export async function prepareMobileIos(options = {}) {
   if (process.platform !== 'darwin') throw new Error('Native iOS preparation requires macOS and installed Xcode/CocoaPods.');
   if(process.version!=='v26.12.1')throw new Error('Native SDK58 preparation requires Node 26.12.1.');
@@ -210,7 +220,9 @@ export async function prepareMobileIos(options = {}) {
       env.ENTRY_FILE = report.entryFile;
       const parent = options.derivedDataParent ? await fs.realpath(options.derivedDataParent) : stage.root;
       report.derivedData = await fs.mkdtemp(path.join(parent, 'blackcrab-ios-derived-'));
-      await run('xcodebuild', 'xcodebuild', ['-workspace', report.workspace, '-scheme', report.scheme, '-configuration', 'Release', '-sdk', 'iphonesimulator', '-destination', destination, '-derivedDataPath', report.derivedData, 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=', 'build'], mobile, 60 * 60_000);
+      report.nativeBuild = { sdk: 'iphonesimulator', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: true, jobs: 2 };
+      report.nativeBuild.arguments = simulatorReleaseBuildArguments({ workspace: report.workspace, scheme: report.scheme, destination, derivedData: report.derivedData });
+      await run('xcodebuild', 'xcodebuild', report.nativeBuild.arguments, mobile, 60 * 60_000);
       report.products = path.join(report.derivedData, 'Build/Products/Release-iphonesimulator');
       const apps = (await fs.readdir(report.products)).filter(name => name.endsWith('.app'));
       if (apps.length !== 1) throw new Error('Expected one simulator application product.');

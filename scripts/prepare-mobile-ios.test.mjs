@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots } from './prepare-mobile-ios.mjs';
+import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments } from './prepare-mobile-ios.mjs';
 const execute = promisify(execFile);
 async function fixture(run) {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-ios-test-'));
@@ -90,14 +90,22 @@ test('timeout terminates the owned command group and retains its diagnostic log'
 }));
 
 test('accepts source import-only exports and rejects a shared export symlink outside its package', async () => fixture(async ({ repo, base, write }) => {
-  const packages = ['expo', 'react-native', 'react', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins'];
-  for (const name of packages) await write(`node_modules/${name}/package.json`, { name, version: name === 'expo' ? '58.0.14' : name === 'react-native' ? '0.88.0' : name === 'react' ? '19.3.0' : '1.0.0' });
+  const packages = ['expo', 'react-native', 'react', 'expo-constants', 'expo-updates', 'expo-network', 'expo-file-system', 'expo-secure-store', '@expo/config-plugins', 'expo-modules-core', 'expo-modules-jsi'];
+  for (const name of packages) await write(`node_modules/${name}/package.json`, { name, version: name === 'expo' ? '58.0.14' : name === 'react-native' ? '0.88.0' : name === 'react' ? '19.3.0' : name === 'expo-modules-core' ? '58.0.22' : name === 'expo-modules-jsi' ? '58.0.15' : '1.0.0' });
   for (const [name, subpath] of [['@t3tools/contracts', '.'], ['@t3tools/client-runtime', './connection']]) {
     await write(`node_modules/${name}/package.json`, { name, exports: { [subpath]: { import: './src/index.ts' } } });
     await write(`node_modules/${name}/src/index.ts`, '// exact source export');
   }
   const resolved = await verifyNativeDependencyRoots(repo);
   assert.match(resolved['@t3tools/contracts'].path, /src\/index.ts$/);
+  assert.equal(resolved['expo-modules-core/expo-modules-jsi'].version, '58.0.15');
+  await write('node_modules/expo-modules-core/node_modules/expo-modules-jsi/package.json', { name: 'expo-modules-jsi', version: '58.0.22' });
+  await assert.rejects(execute(process.execPath, ['--input-type=module', '-e', `import {verifyNativeDependencyRoots} from ${JSON.stringify(new URL('./prepare-mobile-ios.mjs', import.meta.url).href)}; await verifyNativeDependencyRoots(${JSON.stringify(repo)});`]), /Unsupported native ABI/);
+  await fs.rm(path.join(repo, 'node_modules/expo-modules-core/node_modules'), { recursive: true });
+  await write('node_modules/expo-modules-jsi/package.json', { name: 'expo-modules-jsi', version: '58.0.22' });
+  await assert.rejects(execute(process.execPath, ['--input-type=module', '-e', `import {verifyNativeDependencyRoots} from ${JSON.stringify(new URL('./prepare-mobile-ios.mjs', import.meta.url).href)}; await verifyNativeDependencyRoots(${JSON.stringify(repo)});`]), /Unsupported native ABI/);
+  await write('node_modules/expo-modules-jsi/package.json', { name: 'expo-modules-jsi', version: '58.0.15' });
+
   const outside = path.join(base, 'external-source.ts'); await fs.writeFile(outside, '// external');
   const entry = path.join(repo, 'node_modules/@t3tools/contracts/src/index.ts'); await fs.rm(entry); await fs.symlink(outside, entry);
   await assert.rejects(verifyNativeDependencyRoots(repo), /export escapes its package/);
@@ -113,3 +121,12 @@ test('native entry canonicalizes logical aliases before Metro and refuses entrie
   await fs.rm(path.join(repo, 'apps/mobile/index.ts')); await fs.symlink(outside, path.join(repo, 'apps/mobile/index.ts'));
   await assert.rejects(resolveNativeEntry(repo), /entry escapes/);
 }));
+
+test('Release producer bounds native compilation and records a single supported simulator architecture', () => {
+  const args = simulatorReleaseBuildArguments({ workspace: '/stage/Remote.xcworkspace', scheme: 'Remote', destination: 'generic/platform=iOS Simulator', derivedData: '/external/DerivedData' });
+  assert.equal(args[args.indexOf('-jobs') + 1], '2');
+  assert.equal(args[args.indexOf('-sdk') + 1], 'iphonesimulator');
+  assert.ok(args.includes('ARCHS=arm64')); assert.ok(args.includes('ONLY_ACTIVE_ARCH=YES'));
+  assert.equal(args[args.indexOf('-configuration') + 1], 'Release');
+  assert.ok(args.includes('CODE_SIGNING_ALLOWED=YES'));
+});

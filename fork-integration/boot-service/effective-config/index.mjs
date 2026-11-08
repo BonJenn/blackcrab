@@ -1,0 +1,6 @@
+/** Fixed candidate records. Caller selection/authentication is external, never a JSON capability. */
+import fs from 'node:fs';import {createHash} from 'node:crypto';
+const here=new URL('.',import.meta.url),registry=JSON.parse(fs.readFileSync(new URL('registry.json',here))),hash=b=>createHash('sha256').update(b).digest('hex');
+export const effectiveConfigDescriptors=()=>[...registry.patches,...registry.addedSources].map(({id,sha256})=>({id,sha256}));
+export function applyEffectiveConfigPatch(bytes,id){const p=registry.patches.find(p=>p.id===id);if(!p)throw Error('Unknown effective-config record');if(hash(bytes)!==p.beforeSha256||hash(fs.readFileSync(new URL(p.file,here)))!==p.sha256)throw Error('Effective-config original/diff differs');const stem=p.path.endsWith('/bin.ts')?'bin':'ServerEnvironment',after=fs.readFileSync(new URL('fixtures/'+stem+'.after.ts',here));if(hash(after)!==p.afterSha256)throw Error('Effective-config result differs');return after;}
+export function effectiveConfigAddedSources(){return registry.addedSources.map(p=>{const bytes=fs.readFileSync(new URL(p.file,here));if(hash(bytes)!==p.sha256)throw Error('Effective-config added source differs');return {id:p.id,path:p.path,sha256:p.sha256,bytes};});}

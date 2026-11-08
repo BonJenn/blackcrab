@@ -1,0 +1,70 @@
+{
+  "status": "candidate-only-no-active-registration",
+  "integrationAndProvenance": {
+    "tests": 19,
+    "passed": 19,
+    "skipped": 0,
+    "log": "/tmp/blackcrab-owned-auth-integration.log"
+  },
+  "focusedAuthReaderStrictTypes": {
+    "exitCode": 0,
+    "log": "/tmp/blackcrab-owned-auth-types.log"
+  },
+  "wholeConfigTypes": "Not passed: probe lacks provider-workspace mappings; full original Config bundle/runtime tests passed",
+  "probe": {
+    "root": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-5HuUHM",
+    "output": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-5HuUHM/effective-config-runtime.mjs",
+    "entry": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-5HuUHM/owned-config-probe.mjs",
+    "tsconfig": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-5HuUHM/tsconfig.json",
+    "typescript": "/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/blackcrab-managed-source-Mjzz2c/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/bin/tsc"
+  },
+  "actualOriginalFunctions": [
+    "resolveServerConfig",
+    "resolveServiceLauncherMode",
+    "decodeServiceLauncherContext",
+    "readServiceEnvironment"
+  ],
+  "limits": [
+    "No actual native issuer/launcher auth transaction",
+    "No packaged selected profile acceptance",
+    "No service listener/model/route started",
+    "Context is not native authority; actual owned launcher must forbid downgrade"
+  ],
+  "composedSource": {
+    "activeManagedHostRecords": 21,
+    "bootServiceRecords": 5,
+    "ownedAuthRecords": 4,
+    "configBeforeSha256": "b91c02c7fe7e3453b7ca10a47e40549fb37a4ce13706669e50a4f1bec1bfa1d0",
+    "earlierPristine14TestScope": "superseded",
+    "ownerProofHTTPAndInterfaceRecords": 2,
+    "backendIdentityRecords": 4,
+    "workspaceInputsVerified": 273,
+    "cachedWorkspaceInputs": 0,
+    "queryOnlySourceInputs": 0,
+    "productionNamespaceIdentityPatchSetIncluded": false
+  },
+  "latestSourceValidation": {
+    "status": "PASS",
+    "composedConfigCaptureTestsAndGuards": 19,
+    "focusedAuthReaderStrictTypes": {
+      "exitCode": 0,
+      "log": "/tmp/blackcrab-owned-auth-types.log"
+    },
+    "graphVerification": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-5HuUHM/graph-verification.json",
+    "fullPostRunReferenceVerification": "/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/reference-integrity-audit-9xaeoxlf/post-composed-run-report.json"
+  },
+  "referenceIntegrity": {
+    "detectedPriorStagingMutation": "single desktopBootstrap source file overwritten through stale intermediate symlink",
+    "auditEntries": 36419,
+    "changedFiles": 1,
+    "extras": 0,
+    "normalizedModeMismatches": 0,
+    "restoredOnly": "packages/contracts/src/desktopBootstrap.ts",
+    "preservedBeforeSha256": "187d832737115a84199de071fe346ac318e02cc0e04d9bce0b44632cca60dacb",
+    "restoredArchiveSha256": "fdcd82e7f39b296ad6e4661ee00b15b6711acb8cdcdad95e4c7021a41ee13903",
+    "evidence": "/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/reference-integrity-audit-9xaeoxlf",
+    "postRestore": "PASS all36419",
+    "postSafeStageAndTests": "PASS all36419; no mutations/extras",
+    "stagingAdversarialTests": 3
+  }
+}

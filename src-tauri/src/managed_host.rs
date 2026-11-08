@@ -13,9 +13,23 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+#[cfg(unix)]
+#[path = "managed_service_issuer.rs"]
+mod service_issuer;
+
+#[path = "managed_service_identity.rs"]
+mod service_identity;
+
 #[path = "managed_desktop_policy.rs"]
 pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};
+
+pub(crate) fn run_private_service_issuer() -> Result<(), String> {
+    #[cfg(unix)]
+    { service_issuer::run_private_stdio() }
+    #[cfg(not(unix))]
+    { Err("Background service issuer is unavailable on this platform".into()) }
+}
 
 const MARKER: &str = "blackcrab-managed-host-v1\n";
 const MAX_JSON: u64 = 1024 * 1024;
@@ -1207,6 +1221,8 @@ mod tests {
                         Err(e) => panic!("fixture: {e}"),
                     }
                 };
+                // BSD accepts can inherit the listener's nonblocking flag.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();

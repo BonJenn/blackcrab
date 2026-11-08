@@ -49,6 +49,14 @@ jobs:
 
       - run: node --test src-tauri/src/managed_desktop.contract.test.mjs
 
+      - name: verify owned service bootstrap boundaries
+        run: >-
+          node --test
+          fork-integration/boot-service/owned-auth/provenance.test.mjs
+          fork-integration/boot-service/owned-auth/source-mirror.test.mjs
+          fork-integration/boot-service/backend-identity/*.test.mjs
+          fork-integration/boot-service/launcher-adapter/*.test.mjs
+
       - run: node --test scripts/managed-native-resources.test.mjs
 
       - run: npm run typecheck:managed-acceptance

@@ -1,0 +1,59 @@
+{
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "state": "candidate-only-private-dispatch-not-promoted",
+  "patches": [
+    {
+      "id": "effective-config-existing-identity-reader",
+      "path": "apps/server/src/environment/ServerEnvironment.ts",
+      "beforeSha256": "a559c90d66f7790bbced32f85d7032bffd3e742e4b1580a292dffe732ea5637a",
+      "afterSha256": "ca31e81a48df782eeb0bb0781914eff8f32e5d41160d4bf335612e897da75502",
+      "file": "patches/001-existing-identity-reader.patch",
+      "sha256": "c479259f076b2277e69e889042ab8844798ca037efb532b84d439cb28fbc764a"
+    },
+    {
+      "id": "effective-config-private-cli-dispatch",
+      "path": "apps/server/src/bin.ts",
+      "beforeSha256": "bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598",
+      "afterSha256": "e9803798fd7d407a51911859ae38be3ad8f8e9312ec408dc4d987b401dae369b",
+      "file": "patches/002-private-config-dispatch.patch",
+      "sha256": "03f4a7cba8f0617df0671ab2a59e169d3d2ed851b384d688c5f9056a7ced75bc"
+    }
+  ],
+  "addedSources": [
+    {
+      "id": "effective-config-runtime-source",
+      "path": "apps/desktop/src/blackcrab/EffectiveConfigRuntime.ts",
+      "file": "EffectiveConfigRuntime.ts",
+      "sha256": "4a2cbdf8e640f988473fac3584cc2ade138eb534b8cb236d91d2514e42728faa"
+    },
+    {
+      "id": "effective-config-cli-source",
+      "path": "apps/desktop/src/blackcrab/EffectiveConfigCli.ts",
+      "file": "EffectiveConfigCli.ts",
+      "sha256": "662a02f9ef9646b81c699919a1bd751a4b0dc219b127ec3e05b4f6d00eb0fd9d"
+    },
+    {
+      "id": "effective-config-original-identity-read-source",
+      "path": "apps/server/src/environment/ServerEnvironmentIdentityRead.ts",
+      "file": "ServerEnvironmentIdentityRead.ts",
+      "sha256": "e5a1489f2fd72e0a20f14a34ce9c31b0d6696f4d17b1094eee54c7537d490554"
+    }
+  ],
+  "profile": "blackcrab-original-effective-config-v1",
+  "wire": {
+    "command": "__blackcrab-effective-config-v1",
+    "inputFd": 3,
+    "inputMaxBytes": 16384,
+    "outputMaxBytes": 4096,
+    "outputKeys": [
+      "schema",
+      "host",
+      "port",
+      "tailscaleServeEnabled",
+      "tailscaleServePort",
+      "environmentId"
+    ],
+    "environmentIdentity": "existing-only-no-initialization"
+  }
+}

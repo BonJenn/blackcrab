@@ -1,0 +1,48 @@
+--- a/apps/server/src/cloud/serviceProtocol.ts
++++ b/apps/server/src/cloud/serviceProtocol.ts
+@@ -1,4 +1,21 @@
+ import type { ServerSelfUpdateOutcome } from "@t3tools/contracts";
++
++// Node-only: serviceLauncher must survive an unloadable child Effect graph.
++export interface OwnedServiceBinding {
++  readonly profile: "blackcrab-local-service-layout-v1";
++  readonly generation: number;
++  readonly manifestSha256: string;
++  readonly environmentId: string;
++}
++export function validOwnedServiceBinding(value: unknown): value is OwnedServiceBinding {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const x = value as Record<string, unknown>;
++  return Object.keys(x).sort().join(",") === "environmentId,generation,manifestSha256,profile" &&
++    x.profile === "blackcrab-local-service-layout-v1" && Number.isSafeInteger(x.generation) &&
++    (x.generation as number) > 0 && typeof x.manifestSha256 === "string" && /^[a-f0-9]{64}$/.test(x.manifestSha256) &&
++    typeof x.environmentId === "string" && x.environmentId.trim() === x.environmentId &&
++    x.environmentId.length > 0 && x.environmentId.length <= 128 && !/[\x00-\x1f\x7f]/.test(x.environmentId);
++}
+ 
+ // Bump for incompatible runtime layout changes; launchers survive self-updates. Protocol 3 requires standalone executables.
+ // Blackcrab payload subdirectory is an independent layout; protocol3 launchers are not adopted.
+@@ -28,6 +45,7 @@
+ }
+ 
+ export interface ServiceLauncherContext {
++  readonly ownedAuth?: OwnedServiceBinding;
+   readonly protocol: typeof SERVICE_LAUNCHER_PROTOCOL;
+   readonly childVersion: string;
+   readonly update?: ServiceUpdateRecord;
+@@ -209,6 +227,7 @@
+   ) {
+     return undefined;
+   }
++  if (parsed.ownedAuth !== undefined && !validOwnedServiceBinding(parsed.ownedAuth)) return undefined;
+   const update = parsed.update === undefined ? undefined : decodeServiceUpdate(parsed.update);
+   if (parsed.update !== undefined && update === undefined) return undefined;
+   const selectedVersion =
+@@ -223,6 +242,7 @@
+   return {
+     protocol: SERVICE_LAUNCHER_PROTOCOL,
+     childVersion: parsed.childVersion,
++    ...(parsed.ownedAuth === undefined ? {} : { ownedAuth: parsed.ownedAuth }),
+     ...(update === undefined ? {} : { update }),
+   };
+ }

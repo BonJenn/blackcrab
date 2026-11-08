@@ -31,10 +31,32 @@ pub(crate) struct HostStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
+// A stored service marker restricts startup; it is not proof of service identity.
+// Only a future native, lease-held migration may select this mode.
+#[derive(Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+enum OwnershipMode {
+    #[default]
+    Direct,
+    Service,
+}
+impl OwnershipMode {
+    fn is_direct(&self) -> bool {
+        *self == Self::Direct
+    }
+    fn require_direct(&self) -> Result<(), String> {
+        match self {
+            Self::Direct => Ok(()),
+            Self::Service => Err("This workspace is managed by a background service. Service connection is unavailable; direct startup is disabled.".into()),
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Configuration {
     schema: u32,
+    #[serde(default, skip_serializing_if = "OwnershipMode::is_direct")]
+    ownership: OwnershipMode,
     artifact_path: PathBuf,
     manifest_digest: String,
     bootstrap_secret: String,
@@ -164,6 +186,7 @@ impl ManagedHost {
                 None => status("notConfigured", None),
             });
         };
+        config.ownership.require_direct()?;
         self.verify_configured(&config).await?;
         match self.probe(&config).await? {
             Probe::Stopped => Ok(status("stopped", Some(&config))),
@@ -590,6 +613,7 @@ impl ManagedHost {
         self.initialize_locked()?;
         let mut config = self.read_config()?;
         if let Some(existing) = &mut config {
+            existing.ownership.require_direct()?;
             match self.probe(existing).await? {
                 Probe::Attached(attached) => {
                     self.verify_configured(existing).await?;
@@ -632,6 +656,7 @@ impl ManagedHost {
         } else {
             config = Some(Configuration {
                 schema: 1,
+                ownership: OwnershipMode::Direct,
                 artifact_path: artifact.root.clone(),
                 manifest_digest: artifact.manifest_digest.clone(),
                 bootstrap_secret: random_secret()?,
@@ -694,6 +719,7 @@ impl ManagedHost {
         config: &Configuration,
         port: u16,
     ) -> Result<std::process::Child, String> {
+        config.ownership.require_direct()?;
         if artifact.version != "0.1.7" {
             return Err("Managed runtime version is incompatible".into());
         }
@@ -761,6 +787,7 @@ impl ManagedHost {
         Ok(child)
     }
     async fn probe(&self, config: &Configuration) -> Result<Probe, String> {
+        config.ownership.require_direct()?;
         let file = self.root.join("host/userdata/server-runtime.json");
         if !file.exists() {
             return Ok(Probe::Stopped);
@@ -782,6 +809,7 @@ impl ManagedHost {
         origin: url::Url,
         starting: bool,
     ) -> Result<Option<Attached>, String> {
+        config.ownership.require_direct()?;
         // Use reqwest's explicitly selected provider-free rustls backend.
         // Configure this client explicitly, without changing the app's global provider.
         // Its URLs are validated HTTP loopback endpoints; no TLS roots are needed.
@@ -1238,12 +1266,84 @@ mod tests {
     fn config() -> Configuration {
         Configuration {
             schema: 1,
+            ownership: OwnershipMode::Direct,
             artifact_path: PathBuf::from("/fixture"),
             manifest_digest: "a".repeat(64),
             bootstrap_secret: "b".repeat(64),
             environment_id: Some("env_fixture".into()),
             browser: None,
         }
+    }
+    #[test]
+    fn legacy_configuration_roundtrip_defaults_to_direct() {
+        for schema in [1, 2] {
+            let mut original = serde_json::to_value(config()).unwrap();
+            original["schema"] = json!(schema);
+            assert!(original.get("ownership").is_none());
+            let decoded: Configuration = serde_json::from_value(original.clone()).unwrap();
+            assert_eq!(decoded.ownership, OwnershipMode::Direct);
+            assert_eq!(serde_json::to_value(decoded).unwrap(), original);
+        }
+        let mut explicit = serde_json::to_value(config()).unwrap();
+        explicit["ownership"] = json!("direct");
+        assert_eq!(
+            serde_json::from_value::<Configuration>(explicit)
+                .unwrap()
+                .ownership,
+            OwnershipMode::Direct
+        );
+        let mut unknown = serde_json::to_value(config()).unwrap();
+        unknown["ownership"] = json!("external");
+        assert!(serde_json::from_value::<Configuration>(unknown).is_err());
+    }
+    #[tokio::test]
+    async fn service_owned_stopped_host_never_selects_or_spawns_direct_runtime() {
+        let base = fixture();
+        let host = ManagedHost::new(base.join("v1"));
+        host.prepare().unwrap();
+        host.initialize_locked().unwrap();
+        let mut selected = config();
+        selected.ownership = OwnershipMode::Service;
+        host.save_config(&selected).unwrap();
+        let original = fs::read(host.root.join("configuration.json")).unwrap();
+        for path in [None, Some(base.join("nonexistent-explicit-runtime"))] {
+            let error = host.start(path).await.unwrap_err();
+            assert!(error.contains("direct startup is disabled"));
+        }
+        let status = host.status().await;
+        assert_eq!(status.state, "unavailable");
+        assert!(status
+            .error
+            .unwrap()
+            .contains("Service connection is unavailable"));
+        assert!(host
+            .window_url()
+            .await
+            .unwrap_err()
+            .contains("direct startup is disabled"));
+        assert!(host
+            .probe(&selected)
+            .await
+            .err()
+            .unwrap()
+            .contains("direct startup is disabled"));
+        assert!(host
+            .probe_at(&selected, loopback_origin(1).unwrap(), false)
+            .await
+            .err()
+            .unwrap()
+            .contains("direct startup is disabled"));
+        assert_eq!(
+            fs::read(host.root.join("configuration.json")).unwrap(),
+            original
+        );
+        assert_eq!(
+            host.read_config().unwrap().unwrap().ownership,
+            OwnershipMode::Service
+        );
+        assert!(!host.root.join("logs/host.log").exists());
+        assert!(!host.root.join("host/userdata/server-runtime.json").exists());
+        fs::remove_dir_all(base).unwrap();
     }
     fn descriptor() -> Value {
         json!({"environmentId":"env_fixture","serverVersion":"0.1.7","orchestrationProtocolVersion":2,"capabilities":{}})

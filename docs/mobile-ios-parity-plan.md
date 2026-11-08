@@ -218,7 +218,7 @@ error. This is probe evidence; a fresh committed-source producer must still
 repeat build, integrity, signature and launch checks before this increment merges.
 
 On Node 26, all 173 desktop tests, desktop typing and production build passed
-after explicitly disabling Node web storage in jsdom test workers. Eleven native
+after explicitly disabling Node web storage in jsdom test workers. Thirteen native
 preparation helper tests cover isolation, exact ABI roots and bounded native/
 Metro resources, including an external-cache boundary. Physical devices, signed
 distribution and the full native mobile workflows remain open.

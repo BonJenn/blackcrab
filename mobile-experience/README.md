@@ -75,3 +75,9 @@ bounds native compilation and Metro to two workers and certifies arm64 simulator
 output. Use a physical whitespace-free staging directory; the optional existing
 canonical npm cache must be outside the source repository. Cache and DerivedData
 paths are recorded in the build report.
+
+The npm 12 script policy permits only the exact local enriched-markdown archive.
+Before installation the producer checks its SHA-256/SHA-512, lock entry and
+postinstall source hash; broader script approval is rejected. It then runs the
+owned resource generator explicitly and records the generated resource manifest
+hash before native prebuild. No manually prepared probe assets are required.

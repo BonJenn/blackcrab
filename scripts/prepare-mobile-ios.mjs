@@ -18,6 +18,30 @@ const OWN_NEW_FILES = new Set([
 const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', 'managed-host/artifact.mjs', 'managed-host/source.mjs', ...OWN_NEW_FILES]);
 const PREFIXES = ['apps/', 'packages/', 'vendor/t3-mobile/', 'mobile-experience/', 'shared-runtime/'];
 const EXPECTED_WORKSPACES = ['apps/*', 'packages/*', 'vendor/t3-mobile/packages/*'];
+export const NATIVE_INSTALL_INPUT = Object.freeze({
+  archive: 'vendor/t3-mobile/apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz',
+  lockPath: 'apps/mobile/node_modules/react-native-enriched-markdown', version: '1.2.0-t3.16',
+  sha256: '631a02612d42d76710930a1510bdc4403f216e9783ac9233d1aff0df047813d5',
+  integrity: 'sha512-Ru0Uuhq4QBphcC73ney0fgNnvr6Lfv+31H2Ij1qxvDejwVyFh/Romc1a1ot9i8/jnmgvAzTZzbPQcdGtQNFayw==',
+  scriptEntry: 'package/postinstall.mjs', scriptSha256: '8b88d293d15380d06fb5851437b19b8b791e5941888abed1721501250ae6f683',
+});
+
+/** Verify the exact local native installer before npm is allowed to execute it. */
+export async function verifyNativeInstallInputs(repoRoot) {
+  const repo = await fs.realpath(repoRoot), descriptor = NATIVE_INSTALL_INPUT;
+  const policyKey = 'file:' + descriptor.archive;
+  const manifest = JSON.parse(await fs.readFile(path.join(repo, 'package.json'), 'utf8'));
+  if (JSON.stringify(manifest.allowScripts) !== JSON.stringify({ [policyKey]: true })) throw new Error('Unsupported native install-script policy; only the pinned local native archive is allowed.');
+  const archive = path.join(repo, descriptor.archive), stat = await fs.lstat(archive);
+  if (!stat.isFile() || stat.nlink !== 1 || await fs.realpath(archive) !== archive) throw new Error('Native install archive must be regular and nonlinked.');
+  const bytes = await fs.readFile(archive), lock = JSON.parse(await fs.readFile(path.join(repo, 'package-lock.json'), 'utf8'));
+  const entry = lock.packages?.[descriptor.lockPath];
+  if (hash(bytes) !== descriptor.sha256 || 'sha512-' + createHash('sha512').update(bytes).digest('base64') !== descriptor.integrity || entry?.version !== descriptor.version || entry?.resolved !== policyKey || entry?.integrity !== descriptor.integrity) throw new Error('Native install archive or lock provenance changed.');
+  const script = (await execute('tar', ['-xOzf', archive, descriptor.scriptEntry], { encoding: 'buffer', maxBuffer: 1024 * 1024 })).stdout;
+  if (hash(script) !== descriptor.scriptSha256) throw new Error('Native postinstall source changed.');
+  return { ...descriptor, policyKey };
+}
+
 const hash = data => createHash('sha256').update(data).digest('hex');
 const inside = (root, target) => target === root || target.startsWith(root + path.sep);
 const selected = file => ROOT_FILES.has(file) || PREFIXES.some(prefix => file.startsWith(prefix));
@@ -217,11 +241,16 @@ export async function prepareMobileIos(options = {}) {
     const npmVersion=(await execute(npmCommand,npmArgs(['--version']),{env})).stdout.trim();if(npmVersion!=='12.2.2')throw new Error('Native SDK58 preparation requires npm 12.2.2 (use --npm-cli for an isolated CLI).');
     await run('xcode-version', 'xcodebuild', ['-version']);
     await run('pod-version', 'pod', ['--version']);
+    report.nativeInstallPolicy = await verifyNativeInstallInputs(stage.repo);
     await run('npm-ci', npmCommand, npmArgs(['ci', '--no-audit', '--no-fund', '--cache', report.npmCache]));
     const {applyOwnedMobileBuildPatches}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/build-patches.mjs')).href);report.ownedBuildPatches=[await applyOwnedMobileBuildPatches({repoRoot:stage.repo})];
     const {collectNativeAssetInputs}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/native-assets.mjs')).href);
     const nativeAssets=await collectNativeAssetInputs(stage.repo);report.nativeAssetInputs=path.join(stage.root,'artifacts/native-asset-inputs.json');await fs.writeFile(report.nativeAssetInputs,JSON.stringify(nativeAssets,null,2)+'\n');report.nativeAssetInputsSha256=hash(await fs.readFile(report.nativeAssetInputs));
     report.dependencies = await verifyNativeDependencyRoots(stage.repo);
+    await run('mobile-resources', process.execPath, ['mobile-experience/resources-cli.mjs']);
+    report.mobileResources = path.join(mobile, '.generated/RESOURCE-MANIFEST.json');
+    report.mobileResourcesSha256 = hash(await fs.readFile(report.mobileResources));
+
     const require = createRequire(path.join(mobile, 'package.json'));
     await run('expo-prebuild', process.execPath, [require.resolve('expo/bin/cli'), 'prebuild', '--platform', 'ios', '--no-install'], mobile);
     await run('pod-install', 'pod', ['install', '--project-directory=' + path.join(mobile, 'ios')], mobile);

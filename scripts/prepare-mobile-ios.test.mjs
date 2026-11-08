@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments, resolveNpmCache } from './prepare-mobile-ios.mjs';
+import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments, resolveNpmCache, verifyNativeInstallInputs, NATIVE_INSTALL_INPUT } from './prepare-mobile-ios.mjs';
 const execute = promisify(execFile);
 async function fixture(run) {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-ios-test-'));
@@ -142,3 +142,28 @@ test('explicit npm cache is canonical, existing, and outside the source reposito
   await assert.rejects(resolveNpmCache(stage, repo, sourceAlias), /outside the source repository/);
   await assert.rejects(resolveNpmCache(stage, repo, path.join(base, 'missing-cache')), /ENOENT/);
 }));
+
+test('native lifecycle approval is limited to the authenticated local archive and exact lock', async () => fixture(async ({ repo, base, write }) => {
+  const d = NATIVE_INSTALL_INPUT, key = 'file:' + d.archive;
+  await write('package.json', { allowScripts: { [key]: true } });
+  const lock = { packages: { [d.lockPath]: { version: d.version, resolved: key, integrity: d.integrity } } };
+  await write('package-lock.json', lock);
+  const archive = path.join(repo, d.archive); await fs.mkdir(path.dirname(archive), { recursive: true });
+  await fs.copyFile(new URL('../' + d.archive, import.meta.url), archive);
+  assert.equal((await verifyNativeInstallInputs(repo)).scriptSha256, d.scriptSha256);
+  await write('package.json', { allowScripts: { [key]: true, '*': true } });
+  await assert.rejects(verifyNativeInstallInputs(repo), /Unsupported native install-script policy/);
+  await write('package.json', { allowScripts: { [key]: true } });
+  lock.packages[d.lockPath].integrity = 'sha512-unreviewed'; await write('package-lock.json', lock);
+  await assert.rejects(verifyNativeInstallInputs(repo), /lock provenance changed/);
+  lock.packages[d.lockPath].integrity = d.integrity; await write('package-lock.json', lock);
+  await fs.appendFile(archive, 'changed'); await assert.rejects(verifyNativeInstallInputs(repo), /archive or lock provenance changed/);
+  await fs.rm(archive); const external = path.join(base, 'external.tgz');
+  await fs.copyFile(new URL('../' + d.archive, import.meta.url), external); await fs.symlink(external, archive);
+  await assert.rejects(verifyNativeInstallInputs(repo), /regular and nonlinked/);
+}));
+
+test('checked-in lifecycle policy authenticates the actual pinned native archive', async () => {
+  const checked = await verifyNativeInstallInputs(new URL('../', import.meta.url));
+  assert.equal(checked.integrity, NATIVE_INSTALL_INPUT.integrity);
+});

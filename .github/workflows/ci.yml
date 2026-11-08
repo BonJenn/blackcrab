@@ -39,6 +39,8 @@ jobs:
 
       - run: npm run test:mobile:ios-preparation
 
+      - run: npm run test:mobile:experience
+
       - run: npm run test:shared-runtime
 
       - run: npm run verify:shared-runtime

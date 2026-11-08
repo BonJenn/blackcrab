@@ -34,7 +34,7 @@
     {
       "target": "apps/server/src/preview/SocketDesktopBrowserChannel.ts",
       "candidateAfterSha256": "1dc098a548f2b959ab68df4bcd21308da21bf528eb546dd016a6e591ee74f02e",
-      "productionAfterSha256": "7cb71d00f8efd9bdfffe3422fc8aa99b195d07fdd34f31789f54264954231c1d"
+      "productionAfterSha256": "1c958f1a178b4e3df5a453e1b8bac670e6241aecf3fd8ccc3dc24a6eabf5854a"
     },
     {
       "target": "apps/server/src/preview/ServerBrowser.ts",
@@ -44,7 +44,7 @@
     {
       "target": "apps/server/src/preview/SocketDesktopBrowserChannel.test.ts",
       "candidateAfterSha256": "5ed6d38f0299581681ce42a003e0ce4d94501516eca1f5a0ea01e1283ebf2f89",
-      "productionAfterSha256": "81317d33e25f09e20455fe8de8cd5e50aadfddb94286ee7eaea22b1567e3ee49"
+      "productionAfterSha256": "b56ede98dd061ce467727ecf2b543e88b4b438879337992a3d578801bfd90d28"
     },
     {
       "target": "apps/server/src/preview/ServerBrowser.test.ts",
@@ -57,6 +57,7 @@
     "directional HMAC + strictly increasing sequence on every event/command",
     "strict controls + 64MiB frames in both directions",
     "canonical Unix0700 directory/owned0600 socket + refuse existing listener path",
-    "legacy FD/UDS mutually exclusive; no FD fallback when UDS configured"
+    "legacy FD/UDS mutually exclusive; no FD fallback when UDS configured",
+    "Acquire CDP reader before writer; close rejected/retired actual WebSockets to settle pending setup across lease changes"
   ]
 }

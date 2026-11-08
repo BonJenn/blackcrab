@@ -7,6 +7,7 @@ import * as Option from "effect/Option";
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer";
 import * as Schema from "effect/Schema";
 import * as NodeCrypto from "node:crypto";
+import * as Socket from "effect/socket/Socket";
 import {DesktopBrowserEvent,DesktopBrowserCommand} from "@t3tools/contracts";
 import {listenBrowser,sameAttachment,type Attachment,type Payload} from "@t3tools/shared/leasedDesktopBrowser";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
@@ -47,8 +48,10 @@ export const makeSocketChannel=(config:{path:string;key:string;generation:number
    if(!transport.state.current(identity))return yield* Effect.die('Desktop detached before endpoint registration');
    let connected=false;
    yield* server.run(socket=>Effect.gen(function*(){
-    if(connected||!transport.state.current(identity))return;connected=true;const writer=yield* socket.writer;const reader=yield* socket.reader;
-    yield* Stream.fromQueue(queue).pipe(Stream.runForEach(message=>writer.write(message)),Effect.forkScoped);
+    const reader=yield* socket.reader;const writer=yield* socket.writer;
+    if(connected||!transport.state.current(identity)){yield* writer.write(new Socket.CloseEvent(1008,"Native browser lease expired")).pipe(Effect.ignore);return;}
+    connected=true;
+    yield* Stream.fromQueue(queue).pipe(Stream.runForEach(message=>writer.write(message)),Effect.ensuring(writer.write(new Socket.CloseEvent(1012,"Native browser lease retired")).pipe(Effect.ignore)),Effect.forkScoped);
     const decoder=new TextDecoder();
     return yield* reader.pull.pipe(Effect.flatMap(frames=>Effect.forEach(frames,frame=>Effect.promise(()=>transport.send(identity,{type:'cdp',threadId:key.threadId,tabId:key.tabId,message:typeof frame==='string'?frame:decoder.decode(frame)},()=>owners.get(id)===record)),{discard:true})),Effect.forever);
    }).pipe(Effect.scoped,Effect.ignore)).pipe(Effect.forkScoped);

@@ -33,3 +33,20 @@ it('old actual endpoint Scope release cannot release a reconnected same-key nati
  })).pipe(Effect.provideService(Environment.ServerEnvironment,{getEnvironmentId:Effect.succeed(EnvironmentId.make(config.environmentId)),getDescriptor:Effect.die('unused')}),Effect.provide(NodeServices.layer)));
  }finally{peers.forEach(p=>p.close());await fs.rm(root,{recursive:true,force:true});}
 },15000);
+it('expired and retired native leases promptly close actual CDP sockets instead of stranding setup',async()=>{
+ const root=await fs.realpath(await fs.mkdtemp('/tmp/bc-c-retire-'));await fs.chmod(root,0o700);const config={path:root+'/b.sock',key:'7'.repeat(64),environmentId:'env-retire',generation:2};let peer:ReturnType<typeof connectBrowser>|undefined;
+ try{await Effect.runPromise(Effect.scoped(Effect.gen(function*(){
+ const channel=yield* makeSocketChannel(config);let ready=false;peer=connectBrowser(config,{validateCommand:Schema.is(DesktopBrowserCommand),ready:()=>{ready=true},command:()=>{},retired:()=>{}});yield* Effect.promise(()=>wait(()=>ready));
+ for(const beforeConnect of [true,false]){
+  yield* Effect.promise(()=>peer!.send({type:'attached',...key}));yield* Effect.promise(()=>wait(()=>Boolean(channel.identity!(key))));const identity=channel.identity!(key)!;
+  const scope=yield* Scope.make();const endpoint=yield* channel.endpoint({...key,attachment:identity}).pipe(Scope.provide(scope));let websocket:WebSocket|undefined;
+  try{
+   if(beforeConnect){yield* Effect.promise(()=>peer!.send({type:'detached',...key}));yield* Effect.promise(()=>wait(()=>!channel.identity!(key)));}
+   websocket=new WebSocket(endpoint);const closing=once(websocket,'close',{signal:AbortSignal.timeout(1500)});closing.catch(()=>{});yield* Effect.promise(()=>once(websocket!,'open'));
+   if(!beforeConnect){yield* Effect.promise(()=>peer!.send({type:'detached',...key}));yield* Effect.promise(()=>wait(()=>!channel.identity!(key)));}
+   const [closed]=yield* Effect.promise(()=>closing);expect([1008,1012]).toContain(closed.code);
+  }finally{websocket?.close();yield* Scope.close(scope,Exit.void);}
+ }
+ })).pipe(Effect.provideService(Environment.ServerEnvironment,{getEnvironmentId:Effect.succeed(EnvironmentId.make(config.environmentId)),getDescriptor:Effect.die('unused')}),Effect.provide(NodeServices.layer)));
+ }finally{peer?.close();await fs.rm(root,{recursive:true,force:true});}
+},15000);

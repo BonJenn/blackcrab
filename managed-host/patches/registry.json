@@ -245,8 +245,8 @@
     "file": "016-native-browser-host-7.payload",
     "target": "apps/server/src/preview/SocketDesktopBrowserChannel.ts",
     "beforeSha256": null,
-    "afterSha256": "7cb71d00f8efd9bdfffe3422fc8aa99b195d07fdd34f31789f54264954231c1d",
-    "sha256": "7cb71d00f8efd9bdfffe3422fc8aa99b195d07fdd34f31789f54264954231c1d",
+    "afterSha256": "1c958f1a178b4e3df5a453e1b8bac670e6241aecf3fd8ccc3dc24a6eabf5854a",
+    "sha256": "1c958f1a178b4e3df5a453e1b8bac670e6241aecf3fd8ccc3dc24a6eabf5854a",
     "kind": "payload"
   },
   {
@@ -268,8 +268,8 @@
     "file": "018-native-browser-host-9.payload",
     "target": "apps/server/src/preview/SocketDesktopBrowserChannel.test.ts",
     "beforeSha256": null,
-    "afterSha256": "81317d33e25f09e20455fe8de8cd5e50aadfddb94286ee7eaea22b1567e3ee49",
-    "sha256": "81317d33e25f09e20455fe8de8cd5e50aadfddb94286ee7eaea22b1567e3ee49",
+    "afterSha256": "b56ede98dd061ce467727ecf2b543e88b4b438879337992a3d578801bfd90d28",
+    "sha256": "b56ede98dd061ce467727ecf2b543e88b4b438879337992a3d578801bfd90d28",
     "kind": "payload"
   },
   {

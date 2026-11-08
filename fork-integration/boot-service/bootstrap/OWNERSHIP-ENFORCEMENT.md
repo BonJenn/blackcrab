@@ -1,0 +1,9 @@
+# Native stored ownership restriction
+
+`ManagedHost::Configuration` now has a private `ownership` field with `direct` and `service` values. Missing fields deserialize as Direct; Direct is omitted when saving, preserving legacy schema-1/2 representations. Unknown modes fail configuration decoding. This field is a durable restriction, not an authority receipt. No command, migration API, public constructor or issuer can select Service in this increment.
+
+Service mode reports that service connection is unavailable and direct startup is disabled. Enforcement precedes runtime probing, explicit replacement selection, config mutation and direct spawn. Status returns unavailable; window/native desktop reconnect and grant renewal cannot authenticate a service through the current version-only proof. Guards also protect the low-level probe and spawn boundaries. Future service attachment needs a real selected-manifest/profile-bound proof adapter; simply removing the guard is insufficient.
+
+Two focused tests were added in managed_host.rs: legacy schema roundtrip/default/unknown-mode handling, and actual stopped service-owned ManagedHost paths (start with and without explicit selection, status, window URL, probes) preserving configuration and producing no host log/runtime record. The actual focused Root suite passed 13 tests with 2 artifact-dependent fixtures ignored, offline with one build job. Legacy HMAC/proof/origin/auth/readiness/lease/bundled-selection tests ran alongside these new cases. A subsequent edit changed only the user-facing error literal and its matching assertion; the external source freeze distinguishes the tested and final file hashes. No service activation occurred.
+
+The original source-records.json remains the earlier audit snapshot, not a claim that subsequently modified native working-source bytes are unchanged.

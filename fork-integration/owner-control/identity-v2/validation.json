@@ -1,0 +1,28 @@
+{
+  "status": "candidate-frozen-inactive",
+  "tests": {
+    "command": "node --test fork-integration/owner-control/identity-v2/proof.test.mjs fork-integration/owner-control/identity-v2/replay.test.mjs",
+    "passed": 11,
+    "failed": 0
+  },
+  "types": {
+    "command": "node fork-integration/owner-control/identity-v2/typecheck.mjs",
+    "typescript": "6.0.3",
+    "scope": "strict issuer-interface only",
+    "passed": true
+  },
+  "nativeCompilation": false,
+  "hostNetworkActivation": false,
+  "issuerInstalled": false,
+  "producerRegistriesModified": false,
+  "httpBeforeSha256": "38c953bc26d3f6a02a048676ed612de8d7f9523bea71af4c4690110b933f1752",
+  "httpAfterSha256": "83505ce50c3e803115663e5987fc4217065cfd6928bf729e0e83921e9cd7742d",
+  "httpPatchSha256": "60ec0a81091f07f8262ad6fc07394bd054b8307984b3a25d019ab6b3a5b2f9ba",
+  "nativeCandidate": {
+    "target": "src-tauri/src/managed_host.rs",
+    "beforeSha256": "1f71701be5d69111a0d02b150a777295f4184a6264aae95cc6f6f83a2c654a07",
+    "afterSha256": "1ed5e8cb32c61529399001b53ed79c40b41ebacc9f58123491d0856f94f17fb1",
+    "patchSha256": "882ab529f4b71d8a783be971f4fc030365c731ffe63810017b73d67e703aa0fe",
+    "activeCallSitesAdded": false
+  }
+}

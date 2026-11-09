@@ -1,0 +1,131 @@
+{
+  "commit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "files": [
+    {
+      "path": "apps/desktop/src/backend/DesktopServerExposure.ts",
+      "bytes": 22546,
+      "sha256": "1fd8ffe816c12d8b285425a4114a8a39567eaf5dc4585f26cbd9c06ca9f5d174"
+    },
+    {
+      "path": "apps/desktop/src/ipc/methods/serverExposure.ts",
+      "bytes": 2783,
+      "sha256": "726e0b85773ed54fb9306e79cbc4555a2dea4a69c76ad6d7e9e40443b2f23d58"
+    },
+    {
+      "path": "apps/desktop/src/settings/DesktopAppSettings.ts",
+      "bytes": 23440,
+      "sha256": "cf05ce36013376b9ab0d55f372c02c119d16114eae6d9f4e76f65a8bef34f0b2"
+    },
+    {
+      "path": "apps/desktop/src/app/DesktopEnvironment.ts",
+      "bytes": 9988,
+      "sha256": "e046db0bd9e1e479af0431c52e9231224dc4fd1d3590e41e2ccb1fe8225835b3"
+    },
+    {
+      "path": "apps/desktop/src/backend/DesktopBackendConfiguration.ts",
+      "bytes": 31730,
+      "sha256": "a3e30677c9b878f657570c6597b65150ed79c63c87cd085959e18e6d0f2df2eb"
+    },
+    {
+      "path": "apps/desktop/src/backend/DesktopBackendManager.ts",
+      "bytes": 42749,
+      "sha256": "599fe06efd8afb828310a8df5d00f5ee51aacc819d7fb77c00d72a1c2b8cf20f"
+    },
+    {
+      "path": "apps/desktop/src/app/DesktopLifecycle.ts",
+      "bytes": 11766,
+      "sha256": "914fae42826850bace47eaf36e7297d1847ff89c3d55790d09cdde59b705b4df"
+    },
+    {
+      "path": "apps/desktop/src/backend/tailscaleEndpointProvider.ts",
+      "bytes": 5514,
+      "sha256": "d770dbc0bf1b31c6b67a8155e1e5edd9dce125947f2a44e231070acc4cde5ddb"
+    },
+    {
+      "path": "packages/contracts/src/ipc.ts",
+      "bytes": 46294,
+      "sha256": "569742260359497b8ed7e3501f5d8ff01c5d59000fedb0fb6a4b3e1eaba0113f"
+    },
+    {
+      "path": "packages/contracts/src/rpc.ts",
+      "bytes": 79252,
+      "sha256": "2dfa2dcd39c2290f94487cc8e249db2d1bb22f030c5e2f8f22abdfb0ecd9a04f"
+    },
+    {
+      "path": "packages/contracts/src/server.ts",
+      "bytes": 38282,
+      "sha256": "1d361c2b4023c97002dcf50cbe4322f8bcf3ffa0ab6f1a96ad23b99653e4dcf1"
+    },
+    {
+      "path": "packages/tailscale/src/tailscale.ts",
+      "bytes": 25229,
+      "sha256": "5e9cb673245b0e28cdc26d3b5dd661d4565487f12a50ad58346e8094f9369fa6"
+    },
+    {
+      "path": "apps/server/src/server.ts",
+      "bytes": 54010,
+      "sha256": "c2833379fb8ced14e0dee041ed4c5b0c1fef479e46b5c95b37cab6600699f4b9"
+    },
+    {
+      "path": "apps/server/src/environment/DirectEndpoints.ts",
+      "bytes": 7077,
+      "sha256": "e0495bb9e1b2c5e949d2a37f5e4395ea7a828aaafefe072cacb36c7c34b1d13b"
+    },
+    {
+      "path": "apps/server/src/environment/ServerEnvironment.ts",
+      "bytes": 11154,
+      "sha256": "a559c90d66f7790bbced32f85d7032bffd3e742e4b1580a292dffe732ea5637a"
+    },
+    {
+      "path": "apps/server/src/auth/RpcAuthorization.ts",
+      "bytes": 16397,
+      "sha256": "1e46ad4c96975bbfbefef23aa6d0f9fc4f4cbc9b54ef4818518d30be4132200b"
+    },
+    {
+      "path": "apps/server/src/ws.ts",
+      "bytes": 163795,
+      "sha256": "976ee2745245d997ee29e441c6796b4eb8415f58084454f6574719f296feffc2"
+    },
+    {
+      "path": "apps/server/src/policy/managedLimits.ts",
+      "bytes": 10530,
+      "sha256": "6010de56e54366b191b949eee02dff56ca6dc44fcf278cb2f37931e50f96fda4"
+    },
+    {
+      "path": "apps/server/src/cloud/selfUpdate.ts",
+      "bytes": 14346,
+      "sha256": "522fe5e90b7e5900466656f312433886e16413712db711e235095c14f37e932e"
+    },
+    {
+      "path": "apps/server/src/cloud/serviceProtocol.ts",
+      "bytes": 8976,
+      "sha256": "6750a17b133e7a5ce20cce682cb89fbb46f37754231f196dfed85992ccc1f140"
+    },
+    {
+      "path": "apps/server/src/cloud/serviceLauncherClient.ts",
+      "bytes": 8374,
+      "sha256": "e4b376634f6168a04e49c26b59be914735f8128e4c59247fe74ff73e08859dda"
+    },
+    {
+      "path": "apps/server/src/serviceLauncher.ts",
+      "bytes": 30783,
+      "sha256": "2108510af0eceded95a7b51148d74f0ab420cba82937cd6fe7cf1dcf9d22d9e9"
+    },
+    {
+      "path": "apps/server/src/serverOwnership.ts",
+      "bytes": 12048,
+      "sha256": "e2bdc65038eb71948c7a968a9d4833735af3b390d67548c3f0f061f5186984bb"
+    },
+    {
+      "path": "apps/server/src/serverRuntimeState.ts",
+      "bytes": 6208,
+      "sha256": "748646d6758741f72408f8616887d63d6d046a1c729867da292f44d01b2031f5"
+    },
+    {
+      "path": "packages/client-runtime/src/connection/compatibility.ts",
+      "bytes": 1813,
+      "sha256": "e47f9a38d5fe27fd72734e8bb0a5ac8d90d381ae263eba217201adc7441109fd"
+    }
+  ]
+}

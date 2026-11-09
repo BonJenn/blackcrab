@@ -50,10 +50,74 @@ impl Entry {
         }
     }
 }
+/// Immutable purpose carried only by a successfully verified package/client.
+/// The QA variant requires the sealed permit for the fixed reviewed artifact.
+/// It is available only in the macOS arm64 test build.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum DesktopIdentity {
+    Production,
+    #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+    NativeKeychainQa(crate::managed_native_entry::acceptance::keychain_qa::ReviewedQaPermit),
+}
+impl DesktopIdentity {
+    fn app_id(self) -> &'static str {
+        match self {
+            Self::Production => APP_ID,
+            #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+            Self::NativeKeychainQa(permit) => permit.pins().app_id,
+        }
+    }
+    fn app_name(self) -> &'static str {
+        match self {
+            Self::Production => "Blackcrab",
+            #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+            Self::NativeKeychainQa(permit) => permit.pins().app_name,
+        }
+    }
+    fn kind(self) -> &'static str {
+        match self {
+            Self::Production => "blackcrab-managed-desktop",
+            #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+            Self::NativeKeychainQa(_) => "blackcrab-managed-desktop-native-keychain-qa",
+        }
+    }
+    fn package_role(self) -> &'static str {
+        match self {
+            Self::Production => "production",
+            #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+            Self::NativeKeychainQa(_) => "native-keychain-qa",
+        }
+    }
+    fn namespace(self) -> Value {
+        json!({"appId":self.app_id(),"name":self.app_name(),"scheme":"blackcrab","profile":PROFILE})
+    }
+    fn check_digest(self, digest: &str) -> Result<(), String> {
+        match self {
+            Self::Production => {
+                let _ = digest;
+                Ok(())
+            }
+            #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+            Self::NativeKeychainQa(permit) if permit.pins().manifest_sha256 == digest => Ok(()),
+            #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+            Self::NativeKeychainQa(_) => Err(error()),
+        }
+    }
+}
+fn same_verified_client(
+    actual_identity: DesktopIdentity,
+    actual_digest: &str,
+    expected_identity: DesktopIdentity,
+    expected_digest: &str,
+) -> bool {
+    actual_identity == expected_identity && actual_digest == expected_digest
+}
+
 pub(super) struct VerifiedDesktop {
     root: PathBuf,
     executable: PathBuf,
     manifest_digest: String,
+    identity: DesktopIdentity,
 }
 fn error() -> String {
     "Managed desktop package or private owner contract was refused".into()
@@ -168,10 +232,181 @@ fn verify_reviewed_patch_payload(
     Ok(())
 }
 /// Selected digest is an explicit adoption consistency anchor, not a publisher signature.
+#[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+fn verify_keychain_qa_identity_evidence(
+    root: &Path,
+    manifest: &Value,
+    entries: &BTreeMap<String, Entry>,
+    package: &Value,
+    permit: &crate::managed_native_entry::acceptance::keychain_qa::ReviewedQaPermit,
+) -> Result<(), String> {
+    let pins = permit.pins();
+    let identity = DesktopIdentity::NativeKeychainQa(*permit);
+    let is_digest = |value: &str| {
+        value.len() == 64
+            && value
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    };
+    if pins.nonce.len() != 16
+        || !pins
+            .nonce
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        || pins.app_id
+            != format!(
+                "com.blackcrab.desktop.managed.nativekeychainqa.n{}",
+                pins.nonce
+            )
+        || !pins
+            .app_name
+            .starts_with(&format!("Blackcrab Native QA {} ", pins.nonce))
+        || pins.app_name.len() > 160
+        || !is_digest(pins.archive_sha256)
+        || !is_digest(pins.production_registry_sha256)
+        || sha(PATCHES.as_bytes()) != pins.production_registry_sha256
+        || digest_file(&root.join("source-patches/registry.json"))?
+            != pins.production_registry_sha256
+        || !is_digest(pins.identity_json_sha256)
+        || sha(pins.identity_json.as_bytes()) != pins.identity_json_sha256
+        || package.get("productName") != Some(&json!(pins.app_name))
+    {
+        return Err(error());
+    }
+    let expected: Value = serde_json::from_str(pins.identity_json).map_err(|_| error())?;
+    let build_identity: Value =
+        serde_json::from_str(pins.build_identity_json).map_err(|_| error())?;
+    if expected.get("version") != Some(&json!(1))
+        || expected.get("nonce") != Some(&json!(pins.nonce))
+        || expected.get("appName") != Some(&json!(pins.app_name))
+        || expected.get("account") != Some(&json!(pins.app_name))
+        || expected.get("service") != Some(&json!(format!("{} Safe Storage", pins.app_name)))
+        || expected.get("nonAdoptable") != Some(&json!(true))
+        || manifest.get("nativeKeychainQaIdentity") != Some(&expected)
+    {
+        return Err(error());
+    }
+    let metadata = read_bounded(
+        &root.join("native-keychain-qa/identity.json"),
+        MAX_FRAME as u64,
+    )?;
+    if sha(&metadata) != pins.identity_json_sha256
+        || serde_json::from_slice::<Value>(&metadata).map_err(|_| error())? != expected
+    {
+        return Err(error());
+    }
+    let records = expected
+        .get("records")
+        .and_then(Value::as_array)
+        .ok_or_else(error)?;
+    if records.len() != 9 {
+        return Err(error());
+    }
+    let mut proof_paths: HashSet<String> = [
+        "native-keychain-qa",
+        "native-keychain-qa/before",
+        "native-keychain-qa/after",
+        "native-keychain-qa/identity.json",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    let mut package_targets = HashSet::new();
+    for (index, record) in records.iter().enumerate() {
+        let target = relative(
+            record
+                .get("target")
+                .and_then(Value::as_str)
+                .ok_or_else(error)?,
+        )?;
+        for (phase, field) in [("before", "beforeSha256"), ("after", "afterSha256")] {
+            let digest = record
+                .get(field)
+                .and_then(Value::as_str)
+                .ok_or_else(error)?;
+            let path = format!("native-keychain-qa/{phase}/{index}.txt");
+            if !is_digest(digest)
+                || !matches!(entries.get(&path), Some(Entry::File { .. }))
+                || digest_file(&root.join(&path))? != digest
+            {
+                return Err(error());
+            }
+            proof_paths.insert(path);
+        }
+        if record.get("phase") == Some(&json!("package")) {
+            if !matches!(
+                target,
+                "Blackcrab.app/Contents/Resources/app/package.json"
+                    | "Blackcrab.app/Contents/Info.plist"
+            ) || !package_targets.insert(target)
+                || digest_file(&root.join(target))?
+                    != record["afterSha256"].as_str().ok_or_else(error)?
+            {
+                return Err(error());
+            }
+        }
+    }
+    if package_targets.len() != 2
+        || entries
+            .keys()
+            .filter(|path| {
+                path.as_str() == "native-keychain-qa" || path.starts_with("native-keychain-qa/")
+            })
+            .cloned()
+            .collect::<HashSet<_>>()
+            != proof_paths
+    {
+        return Err(error());
+    }
+    for path in [
+        "native-keychain-qa",
+        "native-keychain-qa/before",
+        "native-keychain-qa/after",
+    ] {
+        if !matches!(entries.get(path), Some(Entry::Directory { .. })) {
+            return Err(error());
+        }
+    }
+    let provenance: Value = serde_json::from_slice(&read_bounded(
+        &root.join("BUILD-PROVENANCE.json"),
+        2 * 1024 * 1024,
+    )?)
+    .map_err(|_| error())?;
+    if provenance.get("namespace") != Some(&identity.namespace())
+        || provenance.get("nativeKeychainQaIdentity") != Some(&build_identity)
+    {
+        return Err(error());
+    }
+    Ok(())
+}
+
 pub(super) fn verify_package(
     selected: &Path,
     expected_manifest_sha256: &str,
 ) -> Result<VerifiedDesktop, String> {
+    verify_package_for_identity(
+        selected,
+        expected_manifest_sha256,
+        DesktopIdentity::Production,
+    )
+}
+#[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+pub(crate) fn verify_reviewed_keychain_qa_package(
+    selected: &Path,
+    permit: &crate::managed_native_entry::acceptance::keychain_qa::ReviewedQaPermit,
+) -> Result<VerifiedDesktop, String> {
+    verify_package_for_identity(
+        selected,
+        permit.pins().manifest_sha256,
+        DesktopIdentity::NativeKeychainQa(*permit),
+    )
+}
+fn verify_package_for_identity(
+    selected: &Path,
+    expected_manifest_sha256: &str,
+    identity: DesktopIdentity,
+) -> Result<VerifiedDesktop, String> {
+    identity.check_digest(expected_manifest_sha256)?;
     if expected_manifest_sha256.len() != 64
         || !expected_manifest_sha256
             .bytes()
@@ -190,12 +425,9 @@ pub(super) fn verify_package(
     }
     let manifest: Value = serde_json::from_slice(&bytes).map_err(|_| error())?;
     if manifest.get("format") != Some(&json!(1))
-        || manifest.get("kind") != Some(&json!("blackcrab-managed-desktop"))
+        || manifest.get("kind") != Some(&json!(identity.kind()))
         || manifest.get("qaPolicy").is_some()
-        || manifest.get("namespace")
-            != Some(
-                &json!({"appId":APP_ID,"name":"Blackcrab","scheme":"blackcrab","profile":PROFILE}),
-            )
+        || manifest.get("namespace") != Some(&identity.namespace())
         || manifest.get("upstream")
             != Some(
                 &json!({"repository":"BonJenn/t3code","commit":"7f02de2eb8e253e0ec23f005b3cfff8e2c963be8","archiveSha256":"eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6"}),
@@ -378,7 +610,7 @@ pub(super) fn verify_package(
         MAX_FRAME as u64,
     )?)
     .map_err(|_| error())?;
-    if package.get("blackcrabManagedClient") != Some(&json!("production"))
+    if package.get("blackcrabManagedClient") != Some(&json!(identity.package_role()))
         || package.get("name") != Some(&json!("blackcrab-managed-desktop"))
         || package.get("main") != Some(&json!("apps/desktop/dist-electron/boot.cjs"))
         || package.get("t3codeCommitHash")
@@ -392,19 +624,24 @@ pub(super) fn verify_package(
     )?;
     let xml = std::str::from_utf8(&plist).map_err(|_| error())?;
     for (k, v) in [
-        ("CFBundleIdentifier", APP_ID),
+        ("CFBundleIdentifier", identity.app_id()),
         ("CFBundleExecutable", "Blackcrab"),
-        ("CFBundleName", "Blackcrab"),
-        ("CFBundleDisplayName", "Blackcrab"),
+        ("CFBundleName", identity.app_name()),
+        ("CFBundleDisplayName", identity.app_name()),
     ] {
         if plist_string(xml, k)? != v {
             return Err(error());
         }
     }
+    #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+    if let DesktopIdentity::NativeKeychainQa(permit) = identity {
+        verify_keychain_qa_identity_evidence(&root, &manifest, &entries, &package, &permit)?;
+    }
     Ok(VerifiedDesktop {
         executable: root.join(EXECUTABLE),
         root,
         manifest_digest: expected_manifest_sha256.into(),
+        identity,
     })
 }
 
@@ -457,6 +694,14 @@ fn descriptor(
     profile: &Path,
     grant: &DesktopPairGrant,
 ) -> Result<Vec<u8>, String> {
+    descriptor_for_identity(binding, profile, grant, DesktopIdentity::Production)
+}
+fn descriptor_for_identity(
+    binding: &DesktopHostBinding,
+    profile: &Path,
+    grant: &DesktopPairGrant,
+    identity: DesktopIdentity,
+) -> Result<Vec<u8>, String> {
     let now = now_ms()?;
     let origin = url::Url::parse(&binding.origin).map_err(|_| error())?;
     if origin.scheme() != "http"
@@ -484,7 +729,7 @@ fn descriptor(
     {
         return Err(error());
     }
-    let mut value = json!({"version":1,"owner":{"kind":"blackcrab-managed-host","generation":binding.generation,"environmentId":binding.environment_id,"origin":binding.origin,"serverVersion":"0.1.7","orchestrationProtocolVersion":2},"profile":{"root":profile,"namespace":PROFILE,"appId":APP_ID},"control":{"kind":"unavailable"},"authorization":{"kind":"paired-credential","credential":grant.credential,"expiresAt":grant.expires_at,"renewal":{"kind":"owner-credential-fd-v1","fd":4}}});
+    let mut value = json!({"version":1,"owner":{"kind":"blackcrab-managed-host","generation":binding.generation,"environmentId":binding.environment_id,"origin":binding.origin,"serverVersion":"0.1.7","orchestrationProtocolVersion":2},"profile":{"root":profile,"namespace":PROFILE,"appId":identity.app_id()},"control":{"kind":"unavailable"},"authorization":{"kind":"paired-credential","credential":grant.credential,"expiresAt":grant.expires_at,"renewal":{"kind":"owner-credential-fd-v1","fd":4}}});
     if let Some(capability) = &binding.browser {
         if capability.generation != binding.generation
             || capability.key.len() != 64
@@ -575,6 +820,7 @@ pub(super) struct NativeDesktop {
     child: Arc<Mutex<Child>>,
     control: std::os::unix::net::UnixStream,
     pub(super) package_digest: String,
+    identity: DesktopIdentity,
 }
 #[cfg(target_os = "macos")]
 impl NativeDesktop {
@@ -603,8 +849,26 @@ pub(super) struct NativeDesktopOwner {
 #[cfg(target_os = "macos")]
 impl NativeDesktopOwner {
     pub(super) async fn running(&self) -> Result<bool, String> {
+        self.running_for_identity(DesktopIdentity::Production, None)
+            .await
+    }
+    pub(super) async fn running_for_identity(
+        &self,
+        identity: DesktopIdentity,
+        expected_digest: Option<&str>,
+    ) -> Result<bool, String> {
         match self.active.lock().await.as_ref() {
-            Some(client) => client.is_running(),
+            Some(client) => {
+                let alive = client.is_running()?;
+                if alive
+                    && (client.identity != identity
+                        || expected_digest
+                            .is_some_and(|digest| client.package_digest.as_str() != digest))
+                {
+                    return Err(error());
+                }
+                Ok(alive)
+            }
             None => Ok(false),
         }
     }
@@ -614,10 +878,26 @@ impl NativeDesktopOwner {
         selected: PathBuf,
         expected_digest: String,
     ) -> Result<bool, String> {
+        self.open_for_identity(host, selected, expected_digest, DesktopIdentity::Production)
+            .await
+    }
+    pub(super) async fn open_for_identity(
+        &self,
+        host: ManagedHost,
+        selected: PathBuf,
+        expected_digest: String,
+        identity: DesktopIdentity,
+    ) -> Result<bool, String> {
+        identity.check_digest(&expected_digest)?;
         let mut active = self.active.lock().await;
         if let Some(client) = active.as_ref() {
             if client.is_running()? {
-                if client.package_digest != expected_digest {
+                if !same_verified_client(
+                    client.identity,
+                    &client.package_digest,
+                    identity,
+                    &expected_digest,
+                ) {
                     return Err(
                         "Close the existing native client before changing its package".into(),
                     );
@@ -625,7 +905,7 @@ impl NativeDesktopOwner {
                 return Ok(false);
             }
         }
-        *active = Some(launch(host, selected, expected_digest).await?);
+        *active = Some(launch_for_identity(host, selected, expected_digest, identity).await?);
         Ok(true)
     }
     /// Explicit detach closes only this client's owner socket; never a host/process signal.
@@ -676,13 +956,32 @@ pub(super) async fn launch(
     selected: PathBuf,
     expected_digest: String,
 ) -> Result<NativeDesktop, String> {
-    use std::os::unix::net::UnixStream;
+    launch_for_identity(host, selected, expected_digest, DesktopIdentity::Production).await
+}
+#[cfg(target_os = "macos")]
+async fn launch_for_identity(
+    host: ManagedHost,
+    selected: PathBuf,
+    expected_digest: String,
+    identity: DesktopIdentity,
+) -> Result<NativeDesktop, String> {
     if !cfg!(target_arch = "aarch64") {
         return Err("Managed desktop package is verified only for Apple Silicon".into());
     }
-    let package = tokio::task::spawn_blocking(move || verify_package(&selected, &expected_digest))
-        .await
-        .map_err(|_| error())??;
+    let package = tokio::task::spawn_blocking(move || {
+        verify_package_for_identity(&selected, &expected_digest, identity)
+    })
+    .await
+    .map_err(|_| error())??;
+    launch_verified(host, package).await
+}
+#[cfg(target_os = "macos")]
+async fn launch_verified(
+    host: ManagedHost,
+    package: VerifiedDesktop,
+) -> Result<NativeDesktop, String> {
+    use std::os::unix::net::UnixStream;
+    let verified_identity = package.identity;
     let binding = host.desktop_binding().await?;
     let profile = prepare_profile(&host.desktop_profile_root())?;
     let (mut descriptor_writer, descriptor_reader) = UnixStream::pair().map_err(|_| error())?;
@@ -699,25 +998,46 @@ pub(super) async fn launch(
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::configure_native_output(&mut command, &profile)?;
     inherit_private_fds(&mut command, &descriptor_reader, &client_control);
     let child = Arc::new(Mutex::new(
         command
             .spawn()
             .map_err(|_| "Managed native client could not start")?,
     ));
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::record_native_spawn(
+        &child,
+        &profile,
+        &package.executable,
+    )?;
     drop(descriptor_reader);
     drop(client_control);
     let owner = NativeDesktop {
         child: child.clone(),
         control,
         package_digest: package.manifest_digest,
+        identity: verified_identity,
     };
     if !child_alive(&child)? {
         return Err(error());
     }
+
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::record_native_stage(
+        &child,
+        crate::managed_native_entry::acceptance::NativeStage::InitialGrantRequested,
+    );
     let grant = tokio::time::timeout(Duration::from_secs(8), host.desktop_pair_grant(&binding))
         .await
         .map_err(|_| "Native pairing deadline exceeded")??;
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::record_native_stage(
+        &child,
+        crate::managed_native_entry::acceptance::NativeStage::InitialGrantSucceeded,
+    );
+
     if !child_alive(&child)? {
         return Err(error());
     }
@@ -726,12 +1046,23 @@ pub(super) async fn launch(
         .set_write_timeout(Some(Duration::from_secs(2)))
         .map_err(|_| error())?;
     descriptor_writer
-        .write_all(&descriptor(&binding, &profile, &grant)?)
+        .write_all(&descriptor_for_identity(
+            &binding,
+            &profile,
+            &grant,
+            verified_identity,
+        )?)
         .map_err(|_| error())?;
     descriptor_writer
         .shutdown(std::net::Shutdown::Write)
         .map_err(|_| error())?;
     drop(descriptor_writer);
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::record_native_stage(
+        &child,
+        crate::managed_native_entry::acceptance::NativeStage::DescriptorWritten,
+    );
+
     let stream = owner.control.try_clone().map_err(|_| error())?;
     let runtime = tokio::runtime::Handle::current();
     std::thread::spawn(move || {
@@ -759,6 +1090,12 @@ fn serve_broker(
         return;
     }
     let mut frames = Frames::default();
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::record_native_stage(
+        &child,
+        crate::managed_native_entry::acceptance::NativeStage::BrokerReady,
+    );
+
     let mut seen = HashSet::new();
     let mut chunk = [0u8; 2048];
     let result = (|| -> Result<(), String> {
@@ -769,7 +1106,14 @@ fn serve_broker(
                 return Ok(());
             }
             let n = match stream.read(&mut chunk) {
-                Ok(0) => return Ok(()),
+                Ok(0) => {
+                    #[cfg(all(test, target_os = "macos"))]
+                    crate::managed_native_entry::acceptance::record_native_stage(
+                        &child,
+                        crate::managed_native_entry::acceptance::NativeStage::BrokerEof,
+                    );
+                    return Ok(());
+                }
                 Ok(n) => n,
                 Err(e)
                     if matches!(
@@ -789,7 +1133,19 @@ fn serve_broker(
             else {
                 continue;
             };
+
+            #[cfg(all(test, target_os = "macos"))]
+            crate::managed_native_entry::acceptance::record_native_stage(
+                &child,
+                crate::managed_native_entry::acceptance::NativeStage::RequestFrame,
+            );
             let request = authorize_renewal(&frame, &binding, &mut seen)?;
+            #[cfg(all(test, target_os = "macos"))]
+            crate::managed_native_entry::acceptance::record_native_stage(
+                &child,
+                crate::managed_native_entry::acceptance::NativeStage::RequestAuthorized,
+            );
+
             if !child_alive(&child)? {
                 return Err(error());
             }
@@ -798,6 +1154,12 @@ fn serve_broker(
                     .await
                     .map_err(|_| error())?
             })?;
+
+            #[cfg(all(test, target_os = "macos"))]
+            crate::managed_native_entry::acceptance::record_native_stage(
+                &child,
+                crate::managed_native_entry::acceptance::NativeStage::RenewalGrantSucceeded,
+            );
             if !child_alive(&child)? {
                 return Err(error());
             }
@@ -823,8 +1185,22 @@ fn serve_broker(
             }
             reply.push(b'\n');
             stream.write_all(&reply).map_err(|_| error())?;
+            #[cfg(all(test, target_os = "macos"))]
+            crate::managed_native_entry::acceptance::record_native_stage(
+                &child,
+                crate::managed_native_entry::acceptance::NativeStage::ReplyWritten,
+            );
         }
     })();
+    #[cfg(all(test, target_os = "macos"))]
+    crate::managed_native_entry::acceptance::record_native_stage(
+        &child,
+        if result.is_ok() {
+            crate::managed_native_entry::acceptance::NativeStage::BrokerSucceeded
+        } else {
+            crate::managed_native_entry::acceptance::NativeStage::BrokerFailed
+        },
+    );
     let _ = result;
     let _ = stream.shutdown(std::net::Shutdown::Both);
 }
@@ -839,6 +1215,30 @@ mod tests {
             origin: "http://127.0.0.1:32123/".into(),
             browser: None,
         }
+    }
+    #[test]
+    fn production_identity_and_live_reuse_remain_fixed() {
+        let identity = DesktopIdentity::Production;
+        assert_eq!(identity.app_id(), "com.blackcrab.desktop.managed");
+        assert_eq!(identity.app_name(), "Blackcrab");
+        assert_eq!(identity.kind(), "blackcrab-managed-desktop");
+        assert_eq!(identity.package_role(), "production");
+        assert_eq!(
+            identity.namespace(),
+            json!({"appId":"com.blackcrab.desktop.managed","name":"Blackcrab","scheme":"blackcrab","profile":"blackcrab-managed-v1"})
+        );
+        assert!(same_verified_client(
+            identity,
+            "verified-a",
+            identity,
+            "verified-a"
+        ));
+        assert!(!same_verified_client(
+            identity,
+            "verified-a",
+            identity,
+            "verified-b"
+        ));
     }
     #[test]
     fn renewal_is_exact_epoch_bound_and_non_replayable() {
@@ -915,6 +1315,16 @@ mod tests {
             expires_at: now_ms().unwrap() + 60000,
         };
         let bytes = descriptor(&b, Path::new("/private/owned"), &grant).unwrap();
+        assert_eq!(
+            bytes,
+            descriptor_for_identity(
+                &b,
+                Path::new("/private/owned"),
+                &grant,
+                DesktopIdentity::Production
+            )
+            .unwrap()
+        );
         let v: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["authorization"]["renewal"]["fd"], 4);
         assert_eq!(v.as_object().unwrap().len(), 5);

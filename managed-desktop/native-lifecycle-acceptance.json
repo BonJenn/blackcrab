@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "sourceBase": "162be11ddf4aa970f5aad4b3535cc3968b950f95",
+  "sourceInputManifestSha256": "6c6a746536bd917272da1b6aedb498967752090dee88f866be312e10f4b76f72",
+  "sourceInputCount": 52,
+  "candidateCompilePassed": true,
+  "productionCheckPassed": true,
+  "focusedRustTestsPassed": 74,
+  "sourceContractTestsPassed": 6,
+  "actualLifecyclePassed": true,
+  "normalSdkQuits": 2,
+  "originalAuthConnections": 2,
+  "reusedCapturedClient": true,
+  "hostSurvivedNormalQuit": true,
+  "capturedHostClosed": true,
+  "providerModelCommands": 0,
+  "rustTerminalReportSha256": "37f3735641f3dddd53e3dd4e0d7c16d6d5f5642ec1e893f8ba8f85fa49f5f0c3",
+  "controllerTerminalReportSha256": "3b07b41b52503e9c6d87e4aaf705af971e887ba39e2cbaec45126583f1528d4f",
+  "mainWindowButtonCertified": false,
+  "fullParityCertified": false
+}

@@ -120,6 +120,32 @@ impl EmbeddedPayload {
             Ok(())
         })
     }
+    #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn check_reviewed_native_keychain_qa(
+        &self,
+        permit: &crate::managed_native_entry::acceptance::keychain_qa::ReviewedQaPermit,
+    ) -> Result<(), String> {
+        let pins = permit.pins();
+        if !matches!(self.role, PayloadRole::Desktop)
+            || self.manifest_sha256 != pins.manifest_sha256
+            || self.archive_sha256 != pins.archive_sha256
+        {
+            return Err(invalid());
+        }
+        Ok(())
+    }
+    #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn ensure_reviewed_native_keychain_qa(
+        &self,
+        permit: &crate::managed_native_entry::acceptance::keychain_qa::ReviewedQaPermit,
+    ) -> Result<PathBuf, String> {
+        self.check_reviewed_native_keychain_qa(permit)?;
+        self.ensure_with(|root| {
+            crate::managed_desktop::verify_reviewed_keychain_qa_package(root, permit)
+                .map(|_| ())
+                .map_err(|_| invalid())
+        })
+    }
     #[cfg(unix)]
     fn ensure_with(&self, verify: impl Fn(&Path) -> Result<(), String>) -> Result<PathBuf, String> {
         let _lease = cache_lease(&self.cache_root)?;

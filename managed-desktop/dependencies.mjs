@@ -7,8 +7,38 @@ export async function linkDependencyCache(source, producer, {canonicalProducer} 
  if(canonicalProducer)canonicalProducer=await fs.realpath(canonicalProducer);
  if(await fileDigest(path.join(source,'pnpm-lock.yaml'))!==await fileDigest(path.join(producer,'pnpm-lock.yaml')))throw Error('Dependency cache lockfile differs');
  if(canonicalProducer&&await fileDigest(path.join(source,'pnpm-lock.yaml'))!==await fileDigest(path.join(canonicalProducer,'pnpm-lock.yaml')))throw Error('Canonical cache lockfile differs');
+ // Secondary-only packages need a private closure so their imports can use
+ // the canonical runtime without changing either shared dependency cache.
+ const overlays=new Map();
+ async function overlayPackage(root){
+  root=await fs.realpath(root);if(overlays.has(root))return overlays.get(root);
+  const relative=path.relative(producer,root);
+  if(relative.startsWith('..')||path.isAbsolute(relative))throw Error('Secondary dependency escapes producer');
+  if(!relative.split(path.sep).includes('node_modules'))return path.join(source,relative);
+  const candidate=path.join(canonicalProducer,relative);
+  try{
+   if(await fileDigest(path.join(root,'package.json'))!==await fileDigest(path.join(candidate,'package.json')))throw Error('Canonical dependency metadata differs');
+   return await fs.realpath(candidate);
+  }catch(error){if(!['ENOENT','ENOTDIR'].includes(error.code))throw error;}
+  const metadata=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
+  const target=path.join(source,'.blackcrab-dependency-overlay',digest(relative));
+  overlays.set(root,target);
+  await fs.cp(root,target,{recursive:true,verbatimSymlinks:true,filter:file=>path.relative(root,file).split(path.sep)[0]!=='node_modules'});
+  const names=new Set([...Object.keys(metadata.dependencies??{}),...Object.keys(metadata.optionalDependencies??{}),...Object.keys(metadata.peerDependencies??{})]);
+  for(const name of [...names].sort()){
+   let dependency;
+   try{dependency=await packageRoot(name,root);}
+   catch(error){
+    if(error.code==='BLACKCRAB_DEPENDENCY_ABSENT'&&(Object.hasOwn(metadata.optionalDependencies??{},name)||metadata.peerDependenciesMeta?.[name]?.optional))continue;
+    throw error;
+   }
+   const rebound=await overlayPackage(dependency.root),link=path.join(target,'node_modules',name);
+   await fs.mkdir(path.dirname(link),{recursive:true});await fs.symlink(rebound,link,'dir');
+  }
+  return target;
+ }
  const packages=[''];for(const top of ['apps','packages'])for(const name of await fs.readdir(path.join(source,top)))packages.push(path.join(top,name));packages.push('scripts');
- async function linkTree(from,to){await fs.mkdir(to,{recursive:true});for(const name of await fs.readdir(from)){if(['.vite','.vite-temp','.cache'].includes(name))continue;const file=path.join(from,name),stat=await fs.lstat(file),dest=path.join(to,name);if(stat.isDirectory()&&name.startsWith('@'))await linkTree(file,dest);else{try{await fs.lstat(dest);continue;}catch(error){if(error.code!=='ENOENT')throw error;}let target=await fs.realpath(file);const relative=path.relative(producer,target);if(!relative.startsWith('..')&&!path.isAbsolute(relative)){if(!relative.split(path.sep).includes('node_modules'))target=path.join(source,relative);else if(canonicalProducer){const candidate=path.join(canonicalProducer,relative);let canonicalStat;try{canonicalStat=await fs.stat(candidate);}catch(error){if(!['ENOENT','ENOTDIR'].includes(error.code))throw error;}if(canonicalStat?.isDirectory()){const json=path.join(target,'package.json'),canonicalJson=path.join(candidate,'package.json');if(await fileDigest(json)!==await fileDigest(canonicalJson))throw Error('Canonical dependency metadata differs');target=await fs.realpath(candidate);}else if(canonicalStat?.isFile()){if(await fileDigest(target)!==await fileDigest(candidate))throw Error('Canonical dependency file differs');target=await fs.realpath(candidate);}}}await fs.symlink(target,dest,stat.isDirectory()?'dir':'file');}}}
+ async function linkTree(from,to){await fs.mkdir(to,{recursive:true});for(const name of await fs.readdir(from)){if(['.vite','.vite-temp','.cache'].includes(name))continue;const file=path.join(from,name),stat=await fs.lstat(file),dest=path.join(to,name);if(stat.isDirectory()&&name.startsWith('@'))await linkTree(file,dest);else{try{await fs.lstat(dest);continue;}catch(error){if(error.code!=='ENOENT')throw error;}let target=await fs.realpath(file);const relative=path.relative(producer,target);if(!relative.startsWith('..')&&!path.isAbsolute(relative)){if(!relative.split(path.sep).includes('node_modules'))target=path.join(source,relative);else if(canonicalProducer){const candidate=path.join(canonicalProducer,relative);let canonicalStat;try{canonicalStat=await fs.stat(candidate);}catch(error){if(!['ENOENT','ENOTDIR'].includes(error.code))throw error;}if(canonicalStat?.isDirectory()){const json=path.join(target,'package.json'),canonicalJson=path.join(candidate,'package.json');if(await fileDigest(json)!==await fileDigest(canonicalJson))throw Error('Canonical dependency metadata differs');target=await fs.realpath(candidate);}else if(canonicalStat?.isFile()){if(await fileDigest(target)!==await fileDigest(candidate))throw Error('Canonical dependency file differs');target=await fs.realpath(candidate);}else if((await fs.stat(target)).isDirectory()){target=await overlayPackage(target);}}}await fs.symlink(target,dest,stat.isDirectory()?'dir':'file');}}}
  for(const relative of packages){const from=path.join(producer,relative,'node_modules');try{if((await fs.stat(from)).isDirectory())await linkTree(from,path.join(source,relative,'node_modules'));}catch(error){if(error.code!=='ENOENT')throw error;}}
  return {kind:'read-only-pinned-lockfile-cache',lockfileSha256:await fileDigest(path.join(source,'pnpm-lock.yaml'))};
 }

@@ -13,7 +13,7 @@
     "pnpm": "12.14.0"
   },
   "focusedTests": {
-    "passed": 55,
+    "passed": 57,
     "failed": 0,
     "skipped": 0
   },
@@ -68,5 +68,14 @@
       "bytes": 1981631990,
       "unchanged": true
     }
+  },
+  "committedRegistryRepresentation": {
+    "previousSha256": "d689ea6de4a6ae5a81a5d7e490b71bdfc6bd01d28383523936b853d14b5a18cd",
+    "builtAndCommittedSha256": "fb2c156d9fd6f25aa5d744fbcd1ecbcf4231f728034b89259c2d7be31652e7b4",
+    "parsedValuesUnchanged": true,
+    "artifactMatchesOriginalFrozenBuildPlan": true,
+    "artifactRepacked": false,
+    "integrityVerificationRelaxed": false,
+    "correction": "Preserve the original reviewed producer input bytes instead of reserializing the registry when committing."
   }
 }

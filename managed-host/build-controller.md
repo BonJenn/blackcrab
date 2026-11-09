@@ -110,3 +110,9 @@ BUILT_UNSELECTED_REQUIRES_REVIEW. Native adoption and service-runtime acceptance
 remain separate gates.
 
 The first prepared run was stopped cleanly before installation/build after review found that excluded pnpm workspace subtrees were checked for symlinks before pruning. Its partial independent cache and before inventories remain preserved; it was not resumed or adopted. The corrected traversal prunes exactly `v11/projects` and `v11/links` before lstat/type validation/descent, and still rejects links everywhere copied. Real temporary fixtures exercise excluded external links and similarly named nonexcluded link rejection. Resource samples also include only the controller process public memory counters (`rss`, `heapUsed`, `external`, `arrayBuffers`). The new plan is preparation-only and requires a new Root review/GO; see `build-controller-validation.json`.
+
+CI also compares the committed14 producer inputs, all51 raw source-evidence files
+and the normalized record graph with the real build freeze. Raw registry JSON is
+byte-pinned evidence: Unicode escaping and final-newline changes can invalidate
+provenance even when parsed values are identical. Preserve the reviewed input bytes
+or perform a new reviewed build; artifact verification stays byte-exact.

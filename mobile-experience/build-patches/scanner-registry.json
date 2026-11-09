@@ -1,0 +1,14 @@
+{
+  "id": "expo-module-scanner-deadline",
+  "package": "expo-modules-autolinking",
+  "version": "58.0.17",
+  "target": "build/platforms/apple/moduleScanner.js",
+  "originalIntegrity": "sha512-mZRVuUCOsYK4+n9U8972bQBqXn21ncMd9BBx0/iepKH49tdMB8ADj3O9bb+huA80XckyorFLVfi6nJcImYtUyg==",
+  "file": "002-expo-module-scanner-deadline.patch",
+  "sha256": "ddd94572ba718403ad8233ba7b6d43e18cd585e7eb72fb4bf8d2c02f73be5fa9",
+  "beforeSha256": "ac35e5e80341ea3706d61ad268ece259b40a09e9d5d61676ed142838a632757a",
+  "afterSha256": "5fbd17cd8c651295c8fa9e2bfabc256129cc33b9a75c7db25b838c2caf7baef7",
+  "before": "timeout: 5000",
+  "after": "timeout: 120000",
+  "reason": "Keep native module discovery complete on slower owned build volumes: measured scan took 57.2 seconds for 1117 files. Increase only its bounded deadline to 120 seconds; preserve scanning and missing-module failures."
+}

@@ -6,6 +6,12 @@ const registryUrl = new URL('./build-patches/registry.json', import.meta.url);
 const registrySha256 = '8990bc260905bb8da421070936bf3ff76ad3ee3a2f37b53f9e6d20066cc1e8f0';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export async function applyOwnedMobileBuildPatches({ repoRoot }) {
+  return applyPinnedPatch(repoRoot, registryUrl, registrySha256);
+}
+export async function applyExpoModuleScannerBuildPatch({ repoRoot }) {
+  return applyPinnedPatch(repoRoot, new URL('./build-patches/scanner-registry.json', import.meta.url), '0b81344e18326c2d7a88edbab78df8b4ada0a96c209c3335cf70b99a02257e18');
+}
+async function applyPinnedPatch(repoRoot, registryUrl, registrySha256) {
   repoRoot = await fs.realpath(repoRoot);
   const bytes = await fs.readFile(registryUrl);
   if (hash(bytes) !== registrySha256) throw new Error('Unknown mobile build patch descriptor');
@@ -13,7 +19,7 @@ export async function applyOwnedMobileBuildPatches({ repoRoot }) {
   const diff = await fs.readFile(new URL(descriptor.file, registryUrl));
   if (hash(diff) !== descriptor.sha256) throw new Error('Mobile build patch diff differs');
   const require = createRequire(path.join(repoRoot, 'apps/mobile/package.json'));
-  const manifestPath = require.resolve('expo-widgets/package.json');
+  const manifestPath = require.resolve(descriptor.package + '/package.json');
   const packageRoot = await fs.realpath(path.dirname(manifestPath));
   if (!packageRoot.startsWith(repoRoot + path.sep)) throw new Error('Mobile build patch package escapes staging');
   const location = path.relative(repoRoot, packageRoot).split(path.sep).join('/');

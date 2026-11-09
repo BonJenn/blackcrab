@@ -338,4 +338,23 @@ finally:
     (root/'captured-host.private.json').write_text(json.dumps({'closed':True}))
     ctl.cleanup_fixture();signals.assert_not_called()
 
+class CurrentDirectoryInstallPolicy(unittest.TestCase):
+ def test_directory_normalization_requires_exact_inventory_and_modes(self):
+  import shutil
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as d:
+   root=pathlib.Path(d);source=root/'source';framework=source/'Frameworks/SDWebImage.framework';signature=framework/'_CodeSignature';signature.mkdir(parents=True)
+   framework.chmod(0o700);signature.chmod(0o700);(signature/'CodeResources').write_bytes(b'pinned signature bytes')
+   installed=root/'installed';shutil.copytree(source,installed)
+   for path in [installed/'Frameworks/SDWebImage.framework',installed/'Frameworks/SDWebImage.framework/_CodeSignature']:path.chmod(0o755)
+   expected=c.sha(json.dumps(c.inventory(source),sort_keys=True).encode())
+   with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
+   with patch.object(c,'INSTALL_CURRENT_DIRECTORY_INVENTORY',expected):
+    calls=[];self.assertEqual(len(c.verify_installed_bundle(source,installed,expected,lambda p:calls.append(p))),2);self.assertEqual(calls,[installed])
+    (installed/'Frameworks/SDWebImage.framework').chmod(0o777)
+    with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
+    (installed/'Frameworks/SDWebImage.framework').chmod(0o755)
+    (installed/'Frameworks/SDWebImage.framework/_CodeSignature/CodeResources').write_bytes(b'changed')
+    with self.assertRaises(AssertionError):c.verify_installed_bundle(source,installed,expected,lambda _:None)
+
 if __name__=='__main__':unittest.main()

@@ -8,15 +8,15 @@ if not __debug__ or sys.flags.optimize:
  raise SystemExit("Optimized Python execution is prohibited; validation must remain enabled")
 import argparse, hashlib, json, os, pathlib, plistlib, re, socket, sqlite3, stat, subprocess, time, uuid, threading, signal, tempfile, shutil
 HERE=pathlib.Path(__file__).resolve().parent
-REV='c6035c6d55f86ec8d2c62cd64424067197f95e10'; BASE='2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab'
+REV='47b65a55da249591e387cf0beca31a7b55ce44c5'; BASE='2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab'
 HOST_SHA='afdbaf815be9d676657939f1235290de5765b81ac008f11f3836b7cb80a9041e'
 APP='dev.blackcrab.remote'; NODE='/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/toolchain/node_modules/.bin/node'
-VALIDATION=pathlib.Path('/private/tmp/blackcrab-ios-x532Wp/repo')
+VALIDATION=pathlib.Path('/private/tmp/blackcrab-x532-sdk-9yme1azk/Root-QA/compiler-preparation-fo3vvxjg/blackcrab-ios-OkMeN2/repo')
 BASE_APP=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/blackcrab-ios-derived-oWFrUz/Build/Products/Release-iphonesimulator/BlackcrabRemote.app')
-NEW_APP=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/full-ui-ios-derived-456sdz/Build/Products/Release-iphonesimulator/BlackcrabRemote.app')
+NEW_APP=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/compiler-preparation-fo3vvxjg/release-build/DerivedData/Build/Products/Release-iphonesimulator/BlackcrabRemote.app')
 HOST=pathlib.Path('/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/host-proof9-managed-runtime')
-PREBUILT_ROOT=pathlib.Path('/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-wbpdgc7j')
-PREBUILT_RUNNER_SHA='58be51c773e14988626ca1197143ee9a128c9b549c99393ebd31352c15c1d160'
+PREBUILT_ROOT=pathlib.Path('/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-igatoscw')
+PREBUILT_RUNNER_SHA='e1a9b5399f85f1d723901334e25aa209334b94311954168579a1755fd0197d2c'
 XCODE_BUILD='27A9275'
 RUNTIME='com.apple.CoreSimulator.SimRuntime.iOS-26-2'
 DEVICE_TYPE='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro'
@@ -43,7 +43,7 @@ INSTALL_FRAMEWORK_MODE_PATHS=frozenset('Frameworks/'+n+'.framework/'+n for n in 
 # Exact additional mode-only transforms observed on the pinned c603 widget.
 # These are thin dylibs, not framework executables or extension entrypoints.
 INSTALL_WIDGET_DYLIB_MODES={
- 'PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget.debug.dylib':'d6c64aa34522f6b13fad3206c873bb3e7f8d0fd38da79b15dfa8edba944bb2fb',
+ 'PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget.debug.dylib':'656542344f4789dc0ab039a066d10c4f4d9e1db43bbb89d2a72a5d451baf69d7',
  'PlugIns/ExpoWidgetsTarget.appex/__preview.dylib':'1aaf030af2fcad923a762b218e64a058a17ce1828333dd42d944d26587412c1f',
 }
 def require_widget_dylib(binary,expected):
@@ -70,6 +70,9 @@ def require_arm64_dylib(path):
   f.seek(offset);thin=f.read(32)
   assert thin[:4]==b'\xcf\xfa\xed\xfe' and struct.unpack('<I',thin[4:8])[0]==cpu and struct.unpack('<I',thin[12:16])[0]==6 # MH_DYLIB
 
+INSTALL_CURRENT_DIRECTORY_INVENTORY='1df1d4d49950bc805a3b33487957c22ed77f55e1e3fc8fff31b434d900136c4f'
+INSTALL_CURRENT_DIRECTORY_MODES=frozenset('Frameworks/'+name+'.framework'+suffix for name in ('SDWebImage','SDWebImageAVIFCoder','SDWebImageSVGCoder','SDWebImageWebPCoder','ZXingObjC','libavif') for suffix in ('','/_CodeSignature'))
+
 def verify_installed_bundle(source,installed,expected,verify_signature):
  original=inventory(source);actual=inventory(installed)
  assert sha(json.dumps(original,sort_keys=True).encode())==expected
@@ -78,6 +81,11 @@ def verify_installed_bundle(source,installed,expected,verify_signature):
  for path,before in left.items():
   after=right[path]
   if before==after:continue
+  if expected==INSTALL_CURRENT_DIRECTORY_INVENTORY and path in INSTALL_CURRENT_DIRECTORY_MODES:
+   assert before['kind']==after['kind']=='directory' and before['mode']==0o700 and after['mode']==0o755
+   assert {k:v for k,v in before.items() if k!='mode'}=={k:v for k,v in after.items() if k!='mode'}
+   transformed.append(path)
+   continue
   assert path in INSTALL_FRAMEWORK_MODE_PATHS or path in INSTALL_WIDGET_DYLIB_MODES
   assert before['kind']==after['kind']=='file'
   assert before['mode']==0o755 and after['mode']==0o644
@@ -247,6 +255,11 @@ class Controller:
     deadline=time.monotonic()+timeout
     try:
      while child.poll() is None:
+      if args[:2]==['xcodebuild','test-without-building']:
+       with log.open('rb') as observed:
+        observed.seek(max(0,log.stat().st_size-1024*1024))
+        if b"Test Case '-[Acceptance.Acceptance testOwnedCatalogPhase]' failed" in observed.read():
+         raise RuntimeError('Owned UI test failed; stop captured test process')
       if time.monotonic()>=deadline:raise RuntimeError('Bounded private subprocess deadline')
       if min(os.statvfs(path).f_bavail*os.statvfs(path).f_frsize for path in ['/private/tmp',self.root])<2*2**30:raise RuntimeError('Owned-volume low-water subprocess stop')
       time.sleep(1)
@@ -272,7 +285,7 @@ class Controller:
   self.watcher=threading.Thread(target=loop);self.watcher.start()
  def device(self,r):
   ds=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','-j']));xs=[d for vs in ds['devices'].values() for d in vs if d['udid']==r['uuid']]
-  assert len(xs)==1 and xs[0]['name']=='Blackcrab-C603-'+r['nonce'] and xs[0]['deviceTypeIdentifier']=='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro'
+  assert len(xs)==1 and xs[0]['name']=='Blackcrab-47B65A5-'+r['nonce'] and xs[0]['deviceTypeIdentifier']=='com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro'
   assert xs[0]['dataPath']==r['dataPath'];return xs[0]
  def rpc(self,op,**kw):
   with socket.socket(socket.AF_UNIX) as s:
@@ -387,7 +400,7 @@ class Controller:
   if not canary:self.stage_host()
   self.reuse_prebuilt_runner() # Exact immutable runner; fail before any device on mismatch.
   stable_internal_headroom()
-  nonce=str(uuid.uuid4());name='Blackcrab-C603-'+nonce
+  nonce=str(uuid.uuid4());name='Blackcrab-47B65A5-'+nonce
   u=subprocess.check_output(['xcrun','simctl','create',name,DEVICE_TYPE,RUNTIME],text=True).strip()
   ds=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','-j']));d=next(x for vs in ds['devices'].values() for x in vs if x['udid']==u);r={'uuid':u,'name':name,'nonce':nonce,'dataPath':d['dataPath']};write(self.root/'owned-device.json',r)
   try:
@@ -405,7 +418,9 @@ class Controller:
    self.test(r,'seed-baseline',pair,True)
    # Successful Swift completion already includes app.terminate(). A second
    # simctl terminate returns ESRCH and must not prevent the upgrade phase.
-   assert self.legacy(r)==before
+   after=self.legacy(r)
+   write(self.root/'post-baseline-storage-check.private.json',{'keysUnchanged':after['keys']==before['keys'],'queuesUnchanged':after['queues']==before['queues'],'queueDirectoryPresenceUnchanged':after['queueDirectoryPresent']==before['queueDirectoryPresent']})
+   assert after==before
    initial=self.rpc('status');assert initial['runs']==0 and initial['providerSessions']==0
    self.run(['xcrun','simctl','install',u,str(NEW_APP)]);self.installed(r,pins['current']) # Deliberately never uninstall.
    assert self.legacy(r)==before

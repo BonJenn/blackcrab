@@ -53,6 +53,10 @@ jobs:
 
       - run: npm run test:mobile:experience
 
+      - run: node --test mobile-experience/activation/*.test.mjs apps/mobile/root-shell/*.test.mjs
+
+      - run: npm run test:mobile:catalog
+
       - run: npm run test:mobile:resolution
 
       - run: npm run verify:mobile:consumers

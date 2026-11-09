@@ -1,0 +1,451 @@
+{
+  "schema": 1,
+  "kind": "blackcrab-full-mobile-ui-owned-adapters",
+  "generatorSha256": "bbdb0243ff04cae18fc38a584c4ed87d1448e7eb5fe30487a6ff5e6ec173309c",
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "adapters": [
+    {
+      "path": "app.config.ts",
+      "beforeSha256": "7042b85f067ec86fd9481903dc7438c8747aa7081860ee093369e3e5082757ff",
+      "kind": "template",
+      "template": "adapters/inert-config-guard.ts",
+      "templateSha256": "106ea65b0b10be0ebc0f573ac503fa07a6e57d8051a3f49436b381ce25b43071",
+      "afterSha256": "106ea65b0b10be0ebc0f573ac503fa07a6e57d8051a3f49436b381ce25b43071"
+    },
+    {
+      "path": "src/connection/catalog-store.ts",
+      "beforeSha256": "7f5662f0ef964f210e2a05b61a22d177c958409a7ee33020e5bec66f83e23104",
+      "kind": "template",
+      "template": "adapters/catalog-store.ts",
+      "templateSha256": "9e78da3b56af8bf84c24a284c80cb552d70a9a13cab536d506a3dade982513d8",
+      "afterSha256": "9e78da3b56af8bf84c24a284c80cb552d70a9a13cab536d506a3dade982513d8"
+    },
+    {
+      "path": "src/connection/storage.test.ts",
+      "beforeSha256": "d0084372f0cae4bba95201c372f78f9a2c9df7ccbb169c8dbadf103284f67f13",
+      "kind": "template",
+      "template": "adapters/storage.test.ts",
+      "templateSha256": "a855c730d21e1309ffad155839af93af0051348c8877fb07389a8353bf2a5ced",
+      "afterSha256": "a855c730d21e1309ffad155839af93af0051348c8877fb07389a8353bf2a5ced"
+    },
+    {
+      "path": "src/features/cloud/CloudAuthProvider.tsx",
+      "beforeSha256": "47e86ee029d43dc6c77d1e5e4c0a1cb8416bba76fdab3d1378db80035a4b8b2a",
+      "kind": "template",
+      "template": "adapters/CloudAuthProvider.tsx",
+      "templateSha256": "68dac5bc06437c2009c9a2db7e0c2fe5cb2391381afb0c5662e61f9acf803669",
+      "afterSha256": "68dac5bc06437c2009c9a2db7e0c2fe5cb2391381afb0c5662e61f9acf803669"
+    },
+    {
+      "path": "src/components/T3Wordmark.tsx",
+      "beforeSha256": "5e0de210d6645f158ff338c0137153d6ee2bec130a42810d0f5d628ee82a6592",
+      "kind": "template",
+      "template": "adapters/T3Wordmark.tsx",
+      "templateSha256": "885aaea6be2fa4dbf25186c025faa1df5c1fa882c3ee36839ea5da71c366ac45",
+      "afterSha256": "885aaea6be2fa4dbf25186c025faa1df5c1fa882c3ee36839ea5da71c366ac45"
+    },
+    {
+      "path": "src/components/BrandMark.tsx",
+      "beforeSha256": "a0645e6bdf01bf45a9a8a1ba521b8d63d661827203f4d3121b91ec6b70342587",
+      "kind": "template",
+      "template": "adapters/BrandMark.tsx",
+      "templateSha256": "f816161d8e1735bea7236dfc56cc9fa5a05bb2d836e2234cfbb560422e7a4b0a",
+      "afterSha256": "f816161d8e1735bea7236dfc56cc9fa5a05bb2d836e2234cfbb560422e7a4b0a"
+    },
+    {
+      "path": "src/features/cloud/publicConfig.ts",
+      "beforeSha256": "a028ca14804d8e103f437505681720271c644217ac77b74c07d8ee57f212466b",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "  return {\n    clerk: {\n      publishableKey: trimNonEmpty(extra?.clerk?.publishableKey),\n      jwtTemplate: trimNonEmpty(extra?.clerk?.jwtTemplate),\n    },\n    relay: {\n      url: normalizeSecureRelayUrl(trimNonEmpty(extra?.relay?.url) ?? \"\"),\n    },\n    observability: {\n      tracesUrl: normalizeSecureUrl(extra?.observability?.tracesUrl),\n      tracesDataset: trimNonEmpty(extra?.observability?.tracesDataset),\n      tracesToken: trimNonEmpty(extra?.observability?.tracesToken),\n    },\n  } satisfies CloudPublicConfig;",
+          "after": "  return {clerk:{publishableKey:null,jwtTemplate:null},relay:{url:null},observability:{tracesUrl:null,tracesDataset:null,tracesToken:null}} satisfies CloudPublicConfig;",
+          "count": 1
+        }
+      ],
+      "afterSha256": "d4ec9fbfd590b409ebc272b438adc9a4f90b6aa3c0e1000c13d3a7c2713d0c68"
+    },
+    {
+      "path": "src/App.tsx",
+      "beforeSha256": "3e96d9f75219e13c7a5b66beaa2401d95ff8b7aae679aca02859262aab7d4078",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { installPermissionUpdateNotice } from \"./features/connection/permissionUpdateNotice\";",
+          "after": "import { managedRootLifecycle } from \"../../../owned-root-lifecycle.mjs\";\nimport { installPermissionUpdateNotice } from \"./features/connection/permissionUpdateNotice\";",
+          "count": 1
+        },
+        {
+          "before": "function getAppStateFromPath(path: string, options: Parameters<typeof getStateFromPath>[1]) {",
+          "after": "function getAppStateFromPath(path: string, options: Parameters<typeof getStateFromPath>[1]) {\n  managedRootLifecycle.managedNavigation();",
+          "count": 1
+        },
+        {
+          "before": "function linkToAppPath(href: string): void {",
+          "after": "function linkToAppPath(href: string): void {\n  managedRootLifecycle.managedNavigation();",
+          "count": 1
+        },
+        {
+          "before": "function handleNavigationStateChange(state: NavigationState | undefined): void {",
+          "after": "function handleNavigationStateChange(state: NavigationState | undefined): void {\n  managedRootLifecycle.managedNavigation();",
+          "count": 1
+        },
+        {
+          "before": "setAgentNotificationPathname(workspaceLocationFromState(state).pathname);",
+          "after": "setAgentNotificationPathname(managedRootLifecycle.isManagedVisible() ? workspaceLocationFromState(state).pathname : \"\");",
+          "count": 1
+        },
+        {
+          "before": "const appServiceDisposers = [",
+          "after": "const appServiceDisposers = [\n  managedRootLifecycle.subscribeVisibility((visible) => {\n    const state = visible && rootNavigationRef.isReady() ? rootNavigationRef.getRootState() : undefined;\n    setAgentNotificationPathname(state ? workspaceLocationFromState(state).pathname : \"\");\n  }),",
+          "count": 1
+        },
+        {
+          "before": "import \"../global.css\";\n",
+          "after": "",
+          "count": 1
+        },
+        {
+          "before": "import { DEFAULT_HOSTED_APP_URL } from \"@t3tools/shared/connectAuth\";\n",
+          "after": "",
+          "count": 1
+        },
+        {
+          "before": "const appLinking = {",
+          "after": "const ownedAppLinkPrefixes = [Linking.createURL(\"/\"), \"blackcrab-remote://\"];\n\nconst appLinking = {",
+          "count": 1
+        },
+        {
+          "before": "  prefixes: [\n    Linking.createURL(\"/\"),\n    \"t3code://\",\n    \"t3code-dev://\",\n    \"t3code-preview://\",\n    DEFAULT_HOSTED_APP_URL,\n  ],",
+          "after": "  prefixes: ownedAppLinkPrefixes,",
+          "count": 1
+        },
+        {
+          "before": "filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),",
+          "after": "filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig(), ownedAppLinkPrefixes),",
+          "count": 1
+        },
+        {
+          "before": "import { installShowcaseCapture } from \"./features/showcase/ShowcaseCaptureCoordinator\";\n",
+          "after": "",
+          "count": 1
+        },
+        {
+          "before": "import { installAppUpdateChecks } from \"./features/updates/app-updates\";\n",
+          "after": "",
+          "count": 1
+        },
+        {
+          "before": "  installAppUpdateChecks(),",
+          "after": "  () => undefined, // Own OTA/update activation requires a separate reviewed adapter.",
+          "count": 1
+        },
+        {
+          "before": "  installShowcaseCapture(rootPathnameFromState),",
+          "after": "  () => undefined, // Upstream showcase capture is not activated.",
+          "count": 1
+        },
+        {
+          "before": "if (process.env.EXPO_PUBLIC_SHOWCASE === \"1\") {",
+          "after": "if (false) { // Never activate upstream showcase from inherited build flags.",
+          "count": 1
+        }
+      ],
+      "afterSha256": "13393ad175f8e71943e20d8f85116079ea9eb25c2ad80e820076c80a6260def4"
+    },
+    {
+      "path": "src/features/voice-input/GlobalVoiceInputControl.tsx",
+      "beforeSha256": "019a1c5697791054c32230ea2f810dddccd45a2d5a998c61e4e37a0b9003cf3d",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { useState, type ReactNode } from \"react\";",
+          "after": "import { useState, useLayoutEffect, useSyncExternalStore, type ReactNode } from \"react\";\nimport { managedRootLifecycle } from \"../../../../../owned-root-lifecycle.mjs\";",
+          "count": 1
+        },
+        {
+          "before": "export function GlobalVoiceInputControl(props: { readonly children: ReactNode }) {",
+          "after": "export function GlobalVoiceInputControl(props: { readonly children: ReactNode }) {\n  const managedVisible = useSyncExternalStore(managedRootLifecycle.subscribeVisibility, managedRootLifecycle.isManagedVisible);",
+          "count": 1
+        },
+        {
+          "before": "  const [expanded, setExpanded] = useState(false);",
+          "after": "  useLayoutEffect(() => {\n    managedRootLifecycle.setVoicePhase(voice.state.phase);\n    return () => managedRootLifecycle.setVoicePhase(\"idle\");\n  }, [voice.state.phase]);\n  const [expanded, setExpanded] = useState(false);",
+          "count": 1
+        },
+        {
+          "before": "    presentation.statusLabel !== null &&",
+          "after": "    managedVisible && presentation.statusLabel !== null &&",
+          "count": 1
+        }
+      ],
+      "afterSha256": "853b665e84a9f0bee0cb247fc630e90576cb066b4243d5430354615ef0af3f65"
+    },
+    {
+      "path": "src/features/sharing/IncomingShareProvider.tsx",
+      "beforeSha256": "5bd6f0c2d9c06d165b38353c87be1715304a3e32c992b35288f78fc84a17aca7",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import * as Dialog from \"../../components/ui/Dialog\";",
+          "after": "import { managedRootLifecycle } from \"../../../../../owned-root-lifecycle.mjs\";\nimport * as Dialog from \"../../components/ui/Dialog\";",
+          "count": 1
+        },
+        {
+          "before": "  if (!transition.shareIdToPresent) return;",
+          "after": "  if (!transition.shareIdToPresent) return;\n  managedRootLifecycle.managedNavigation();",
+          "count": 1
+        }
+      ],
+      "afterSha256": "c281b7037624e6c6e87bec60fbaf66dc0e9899087644cac8117454f7087324df"
+    },
+    {
+      "path": "src/lib/appLinking.ts",
+      "beforeSha256": "6143c400895e3cfed581f6a97156ff164bf63e746af451d534727a8085673352",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "^t3code(-dev|-preview)?:",
+          "after": "^blackcrab-remote:",
+          "count": 1
+        },
+        {
+          "before": "export function shouldHandleAppLink(url: string, cloudConfigured: boolean): boolean {",
+          "after": "function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {\n  let url: URL;\n  try { url = new URL(value); } catch { return false; }\n  if (url.username || url.password) return false;\n  return prefixes.some((prefix) => {\n    let base: URL;\n    try { base = new URL(prefix); } catch { return false; }\n    if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;\n    if (url.protocol === \"blackcrab-remote:\" && prefix === \"blackcrab-remote://\") return value.startsWith(prefix);\n    if (![\"exp:\", \"exps:\", \"http:\", \"https:\"].includes(url.protocol) || url.host !== base.host) return false;\n    const path = base.pathname.replace(/\\/+$/, \"\");\n    return url.pathname === path || url.pathname.startsWith(path + \"/\");\n  });\n}\n\nexport function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = [\"blackcrab-remote://\"]): boolean {",
+          "count": 1
+        },
+        {
+          "before": "  return (\n    !route.includes(\"expo-development-client\")",
+          "after": "  return (\n    hasOwnedAppPrefix(url, ownedPrefixes) &&\n    !route.includes(\"expo-development-client\")",
+          "count": 1
+        }
+      ],
+      "afterSha256": "040537e41a6e274fa3fd25c3525ff8113ac3b518de61a67e0f6da98134e9a4c4"
+    },
+    {
+      "path": "src/features/connection/pairing.ts",
+      "beforeSha256": "6c5cd1183158d63551665856bb3d6093119aab3f6dc893ac5fa42db9b7d175b2",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "url.protocol === \"t3code:\"",
+          "after": "url.protocol === \"blackcrab-remote:\"",
+          "count": 1
+        }
+      ],
+      "afterSha256": "8e411febfc2093bcb8685758b28d346ac7e190b35f0a37c4cc6714b0c8627a03"
+    },
+    {
+      "path": "src/lib/authClientMetadata.ts",
+      "beforeSha256": "59e11a69cded491fc5ca519d492d03d144f1581ca999051f88ae70135280a2db",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "label: \"T3 Code Mobile\"",
+          "after": "label: \"Blackcrab Remote\"",
+          "count": 1
+        }
+      ],
+      "afterSha256": "9ae6c11858cfe1e7a019f96167731d0e09b0d1d23b9d8cae8f712d5de2e885db"
+    },
+    {
+      "path": "src/components/CompactBrandTitle.tsx",
+      "beforeSha256": "406852f505b92d1f75eddc97b418887a5fbea32a9e35e4347568bbe01a436a9a",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "\"T3 Code, Threads\"",
+          "after": "\"Blackcrab, Threads\"",
+          "count": 1
+        }
+      ],
+      "afterSha256": "5004306a5307a87cca3a171f78555e8d8592732dd09fc0a8d733eebe98028c7f"
+    },
+    {
+      "path": "src/widgets/AgentActivity.tsx",
+      "beforeSha256": "ba397e11e66e1360d74597c5693b701dfc050cf8f07b2636cabfd41b5bf66a82",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "`t3code://${",
+          "after": "`blackcrab-remote://${",
+          "count": 1
+        },
+        {
+          "before": "<Image assetName=\"T3Mark\" modifiers={[resizable()]} />",
+          "after": "<Text modifiers={[font({ size: height, weight: \"bold\" })]}>BC</Text>",
+          "count": 1
+        }
+      ],
+      "afterSha256": "07ba7fd51dc27611708f61bc72f05ffc2c90b5ae99f16fb595ff35d499370708"
+    },
+    {
+      "path": "src/widgets/SubscriptionUsage.tsx",
+      "beforeSha256": "f1dce463a3fab447b1932f7a464040ef8f2e2a2cfeab52afd1dd4d624e19616c",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "Open T3",
+          "after": "Open Blackcrab",
+          "count": 4
+        },
+        {
+          "before": "in T3",
+          "after": "in Blackcrab",
+          "count": 2
+        }
+      ],
+      "afterSha256": "042369d6c03837ebbe829b5a435172e30e60ab75d018dc3224782592039bdef3"
+    },
+    {
+      "path": "src/widgets/SubscriptionUsage.android.tsx",
+      "beforeSha256": "7d831d8c386b159767982d7ae49aedb24f79c3eb66764d265d2608edd2659bf1",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "Open T3",
+          "after": "Open Blackcrab",
+          "count": 3
+        },
+        {
+          "before": "in T3",
+          "after": "in Blackcrab",
+          "count": 2
+        }
+      ],
+      "afterSha256": "8cfb1e65c6839de71e1c94aef8d2aabb731a819bcb3d92a48ee7ea2ec55905b7"
+    },
+    {
+      "path": "src/features/agent-awareness/androidNotifications.ts",
+      "beforeSha256": "0bae7015d8b7cc66511f692491bf81cd2c87dadc6aa75e9c62c4bcf39bb5c190",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "?? \"t3code\"",
+          "after": "?? \"blackcrab-remote\"",
+          "count": 1
+        }
+      ],
+      "afterSha256": "b0a8451fc6d31563cd0eb8495bd8b89140f15d7b13059809b9ff0b88d0f578c3"
+    },
+    {
+      "path": "src/persistence/mobile-secure-storage.ts",
+      "beforeSha256": "5295c609341eb44cbc9235705caa371fb75e0d69cbea89b1dbb60db30f4fd473",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "const make = MobileSecureStorage.of({",
+          "after": "const ownedKey=(key:string)=>key === \"blackcrab.mobile.managedCatalog.v1\" ? key : \"blackcrab.mobile.native.v1.\" + key;\n\nconst make = MobileSecureStorage.of({",
+          "count": 1
+        },
+        {
+          "before": "SecureStore.getItemAsync(key)",
+          "after": "SecureStore.getItemAsync(ownedKey(key))",
+          "count": 1
+        },
+        {
+          "before": "SecureStore.setItemAsync(key, value)",
+          "after": "SecureStore.setItemAsync(ownedKey(key), value, {keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY})",
+          "count": 1
+        },
+        {
+          "before": "SecureStore.deleteItemAsync(key)",
+          "after": "SecureStore.deleteItemAsync(ownedKey(key))",
+          "count": 1
+        }
+      ],
+      "afterSha256": "a148c538577c67919dc9b84f74a2adf8b51230c21814e6fa74f7578d0946a5f7"
+    },
+    {
+      "path": "src/persistence/mobile-database.ts",
+      "beforeSha256": "caff125f4541b53f9aaa27d18c8f371aec2f891f2d77495bb1fa406ac2addfcb",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "\"t3code-client.db\"",
+          "after": "\"blackcrab-native-client.db\"",
+          "count": 1
+        }
+      ],
+      "afterSha256": "6f32ff267b3b87756b91964c95b28aa7b45b19173f12249a9b27df5e6afe9c0a"
+    }
+  ],
+  "additions": [
+    {
+      "path": "src/connection/owned-catalog-state.ts",
+      "template": "catalog-state.ts",
+      "sha256": "a76a34fa0c3d1a9f0247481ac377eb1b393b178cd6b4442039cb0354ccdc2727"
+    }
+  ],
+  "rootAdditions": [
+    {
+      "path": "owned-root-lifecycle.mjs",
+      "template": "adapters/owned-root-lifecycle.mjs",
+      "sha256": "04afdea099a62c5b4f80563c3fffd8a5ea785a806393c3f8d0da2cc6243b22e1"
+    },
+    {
+      "path": "owned-root-lifecycle.d.mts",
+      "template": "adapters/owned-root-lifecycle.d.mts",
+      "sha256": "71b2031248824ffeaa4a21ffabc0855a6a73905cfdca5efdcd784cffd5946880"
+    },
+    {
+      "path": "OwnedActivation.ts",
+      "template": "adapters/OwnedActivation.ts",
+      "sha256": "1882cad00926bb67b588a556c9edf94e6f92a29d4173742de2ca922c27e4f10d"
+    },
+    {
+      "path": "owned-activation-owner.mjs",
+      "template": "owner.mjs",
+      "sha256": "a3c0b31472b86e29657e225130cb8ad7a7e82040546fe3fad47a874efee7d9ed"
+    },
+    {
+      "path": "owned-activation-owner.d.mts",
+      "template": "owner.d.mts",
+      "sha256": "105ac7f5cf46a0b0771810864b7339a67e1872bbd1995f575c07bba10ed5f638"
+    }
+  ],
+  "handoff": {
+    "readyForMount": false,
+    "sourceIntegrated": true,
+    "nativeValidationPending": true,
+    "owner": "process-lifetime; one original foundation/connection registry",
+    "requiredBeforeImport": [
+      "Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.",
+      "On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.",
+      "Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.",
+      "Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.",
+      "Restart process after foundation changes; no retry after partial module-install failure."
+    ],
+    "identity": {
+      "name": "Blackcrab Remote",
+      "scheme": "blackcrab-remote",
+      "iosBundleIdentifier": "dev.blackcrab.remote",
+      "upstreamCloudEnabled": false,
+      "upstreamOTAEnabled": false
+    },
+    "serviceLifetime": {
+      "moduleAppInitializers": [
+        "SplashScreen.preventAutoHideAsync",
+        "hydrateWorkspaceSelections",
+        "installUiRuntimeMemoryWarningGc",
+        "subscribeComposerDraftModelReconciliation",
+        "installAppearanceRuntime",
+        "installSubscriptionUsageRefresh",
+        "installPermissionUpdateNotice",
+        "installThreadOutboxDelivery",
+        "installComposerAttachmentUploads",
+        "startIncomingShareInbox",
+        "installAgentNotificationNavigation",
+        "installAppShortcuts",
+        "installAppUpdateChecks (owned disabled)",
+        "installShowcaseCapture (owned disabled)"
+      ],
+      "foundations": [
+        "lib/runtime.runtime",
+        "connection/runtime.connectionAtomRuntime",
+        "state/atom-registry.appAtomRegistry",
+        "derived Atom runtimes sharing Runtime.layer"
+      ]
+    }
+  }
+}

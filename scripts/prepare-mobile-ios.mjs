@@ -243,6 +243,12 @@ export async function prepareMobileIos(options = {}) {
     await run('pod-version', 'pod', ['--version']);
     report.nativeInstallPolicy = await verifyNativeInstallInputs(stage.repo);
     await run('npm-ci', npmCommand, npmArgs(['ci', '--no-audit', '--no-fund', '--cache', report.npmCache]));
+    // A matching lock digest is insufficient when a private clone omits a
+    // workspace's nested install tree and silently resolves a hoisted fallback.
+    const {verifyInstalledGraph}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/installed-graph.mjs')).href);
+    try { report.installedGraph=await verifyInstalledGraph({repoRoot:stage.repo}); }
+    catch(error) { if(error.report) report.installedGraph=error.report; throw error; }
+
     const {applyOwnedMobileBuildPatches}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/build-patches.mjs')).href);report.ownedBuildPatches=[await applyOwnedMobileBuildPatches({repoRoot:stage.repo})];
     const {collectNativeAssetInputs}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/native-assets.mjs')).href);
     const nativeAssets=await collectNativeAssetInputs(stage.repo);report.nativeAssetInputs=path.join(stage.root,'artifacts/native-asset-inputs.json');await fs.writeFile(report.nativeAssetInputs,JSON.stringify(nativeAssets,null,2)+'\n');report.nativeAssetInputsSha256=hash(await fs.readFile(report.nativeAssetInputs));

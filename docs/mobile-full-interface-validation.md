@@ -61,3 +61,24 @@ modes. Read-only revalidation of the retained installed app passed the exact ten
 framework plus two widget mode changes and its signature. This did not rerun UI
 or verify native mutations. SDK runs/provider sessions remained zero and
 cooperative cleanup closed the actual host Child. Upgrade controls remain open.
+
+## Compiler-enabled native acceptance
+
+The full Release at `47b65a55da249591e387cf0beca31a7b55ce44c5` passed
+the user-approved fresh iOS 26.2 simulator workflow. Baseline pairing/catalog
+seeding and upgraded catalog retention/rename/archive each passed one UI test
+with zero failures or skips. The original SDK independently confirmed the exact
+renamed title and archived state. Runs and provider sessions remained zero,
+legacy keychain/queue digests were unchanged, and the captured host closed.
+The fresh legacy queue was empty, so populated legacy migration is not certified.
+
+The installed app's paths and file hashes match the pinned signed source, and
+strict installed codesign passes. The twelve observed framework directory
+0700-to-0755 transformations are permitted only for that exact complete
+inventory. Thirty portable harness guards pass. The runner uses native XCTest
+Command-A selection and verifies the replacement field before saving.
+
+This validates the retained-catalog and basic remote-control slice. Physical
+iOS, provider runs, push, distribution, broader controls and full parity remain
+open. Raw credentials, logs and official test results remain in private owned
+fixtures. Only bounded boolean/count evidence is suitable for publication.

@@ -32,6 +32,7 @@ test('secondary-only consumers resolve canonical Effect through a private depend
    await fs.mkdir(path.join(dir,'apps/web/node_modules'),{recursive:true});
    await fs.symlink(effect,path.join(dir,'apps/web/node_modules/effect'),'dir');
   }
+  await fs.mkdir(path.join(secondary,'apps/web/node_modules/.bin'));
   const consumer=path.join(secondary,'node_modules/.pnpm/consumer/node_modules/@effect/atom-react');
   await fs.mkdir(consumer,{recursive:true});
   await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({name:'@effect/atom-react',version:'4.1.2',main:'index.cjs',peerDependencies:{effect:'4.1.2'}}));
@@ -47,5 +48,8 @@ test('secondary-only consumers resolve canonical Effect through a private depend
   assert.equal((await assertCanonicalEffect(source)).root,await fs.realpath(path.join(primary,effectRelative)));
   assert.ok((await fs.realpath(path.join(source,'apps/web/node_modules/@effect/atom-react'))).startsWith((await fs.realpath(source))+path.sep));
   assert.equal(await fs.readlink(path.resolve(consumer,'../../effect')),before);
+  assert.ok((await fs.stat(path.join(source,'apps/web/node_modules/.bin'))).isDirectory());
+  await fs.symlink(path.join(secondary,'missing-package'),path.join(secondary,'apps/web/node_modules/broken-package'),'dir');
+  await assert.rejects(linkDependencyCache(source,secondary,{canonicalProducer:primary}),{code:'ENOENT'});
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });

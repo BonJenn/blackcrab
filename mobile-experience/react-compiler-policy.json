@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "upstream": {
+    "repository": "BonJenn/t3code",
+    "commit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+    "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6"
+  },
+  "sourceSha256": {
+    "src/features/layout/workspace/WorkspaceNativeTabs.ios.tsx": "7cbf5af2f31715cb438557155e116c135d853a5cc564e7d4e655941efdc72bfb",
+    "src/native/StackHeader.tsx": "5356329b54fa62eebbba165e6599d0015d94f354a803ae39934c7c6d4ccd4353",
+    "src/native/NativeHeaderToolbar.tsx": "6ab69b5bf5497225f7c7fe5c6550e8c7742e356529b757be5ed70ecb869d4341"
+  },
+  "upstreamConfigurationEvidence": {
+    "app.config.ts": "7042b85f067ec86fd9481903dc7438c8747aa7081860ee093369e3e5082757ff",
+    "src/reactCompilerCoverage.test.ts": "a61b93ed6446c3fb02ff0ebf95e69c54462ceb761ae2f67af8e25e7fa7437eca"
+  }
+}

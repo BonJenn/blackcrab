@@ -59,6 +59,7 @@
       "bundler": "metro"
     },
     "experiments": {
+      "reactCompiler": true,
       "typedRoutes": false
     },
     "plugins": [

@@ -688,6 +688,61 @@ impl ManagedHost {
         drop(child);
         result
     }
+    /// Test-only original read-only auth-access observer. No renderer command or product route.
+    #[cfg(all(test, target_os = "macos"))]
+    pub(super) async fn native_acceptance_observer(&self) -> Result<(String, String), String> {
+        if !crate::managed_native_entry::acceptance::scope_registered(&self.root) {
+            return Err("Native acceptance scope is not registered".into());
+        }
+        let _operation = self.operation.lock().await;
+        let config = self.read_config()?.ok_or("Fixture host unavailable")?;
+        let attached = match self.probe(&config).await? {
+            Probe::Attached(value) => value,
+            Probe::Stopped => return Err("Fixture host is stopped".into()),
+        };
+        let http = crate::managed_native_entry::acceptance::http_client()?;
+        let form = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair(
+                "grant_type",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            )
+            .append_pair(
+                "subject_token",
+                &bootstrap_token(&config.bootstrap_secret, now_ms()?)?,
+            )
+            .append_pair(
+                "subject_token_type",
+                "urn:t3:params:oauth:token-type:environment-bootstrap",
+            )
+            .append_pair(
+                "requested_token_type",
+                "urn:ietf:params:oauth:token-type:access_token",
+            )
+            .append_pair("scope", "access:read")
+            .append_pair("client_label", "Blackcrab private Rust acceptance observer")
+            .finish();
+        let response = http
+            .post(
+                attached
+                    .origin
+                    .join("oauth/token")
+                    .map_err(|_| "Fixture URL invalid")?,
+            )
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(form)
+            .send()
+            .await
+            .map_err(|_| "Fixture observer grant refused")?;
+        let result = bounded_json(response)
+            .await
+            .map_err(|_| "Fixture observer grant invalid")?;
+        let bearer = result
+            .get("access_token")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or("Fixture observer credential missing")?;
+        Ok((attached.origin.to_string(), bearer.to_owned()))
+    }
     fn spawn(
         &self,
         artifact: &VerifiedArtifact,
@@ -741,6 +796,12 @@ impl ManagedHost {
         let mut child = command
             .spawn()
             .map_err(|_| "Could not launch the verified managed runtime".to_string())?;
+        #[cfg(all(test, target_os = "macos"))]
+        crate::managed_native_entry::acceptance::record_host_spawn(
+            &mut child,
+            &self.root,
+            &artifact.entry,
+        )?;
         #[cfg(any(test, feature = "managed-entry-qa"))]
         eprintln!("BLACKCRAB_TEST_CHILD_PID={}", child.id());
         let mut bootstrap = json!({"mode":"desktop","noBrowser":true,"port":port,"t3Home":self.root.join("host"),"host":"127.0.0.1","desktopBootstrapToken":bootstrap_token(&config.bootstrap_secret, now_ms()?)?,"desktopBootstrapSecret":config.bootstrap_secret,"shellEnvironmentPrepared":false,"tailscaleServeEnabled":false,"tailscaleServePort":443});
@@ -1179,6 +1240,8 @@ mod tests {
                         Err(e) => panic!("fixture: {e}"),
                     }
                 };
+                // BSD accepts can inherit the listener's nonblocking flag.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();

@@ -43,3 +43,30 @@ test('changed source, wrong version and symlinks fail closed', async t => {
   await fs.writeFile(path.join(pkg, 'package.json'), '{"name":"expo-widgets","version":"58.0.21"}');
   await assert.rejects(applyOwnedMobileBuildPatches({ repoRoot: root }), /pin differs/);
 });
+
+test('pinned Expo scanner retains complete discovery and failure behavior with a bounded 120-second deadline',async t=>{
+ const {applyExpoModuleScannerBuildPatch}=await import('./build-patches.mjs');
+ const policy=JSON.parse(await fs.readFile(new URL('./build-patches/scanner-registry.json',import.meta.url)));
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'owned-scanner-patch-'));
+ t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const relative='apps/mobile/node_modules/expo-modules-autolinking',pkg=path.join(root,relative);
+ await fs.mkdir(path.join(pkg,'build/platforms/apple'),{recursive:true});
+ await fs.writeFile(path.join(root,'apps/mobile/package.json'),'{}');
+ await fs.writeFile(path.join(pkg,'package.json'),JSON.stringify({name:policy.package,version:policy.version}));
+ await fs.writeFile(path.join(root,'package-lock.json'),JSON.stringify({packages:{[relative]:{integrity:policy.originalIntegrity}}}));
+ const target=path.join(pkg,policy.target);
+ await fs.copyFile(new URL('./fixtures/expo-module-scanner.original.js',import.meta.url),target);
+ const result=await applyExpoModuleScannerBuildPatch({repoRoot:root});
+ assert.equal(result.afterSha256,policy.afterSha256);
+ assert.deepEqual(await applyExpoModuleScannerBuildPatch({repoRoot:root}),result);
+ const warnings=[],sandbox={exports:{},module:{exports:{}},console:{warn:message=>warnings.push(message)},require:name=>name==='../../utils'?{}:createRequire(import.meta.url)(name)};
+ vm.runInNewContext(await fs.readFile(target,'utf8'),sandbox);
+ const expected={modules:[{name:'ApplicationModule'}],warnings:[]};
+ let captured;
+ const actual=await sandbox.exports.scanExpoModulesAsync({scanModules:async(roots,options)=>{captured={roots,options};return expected;}},{application:'/application'});
+ assert.equal(actual,expected);assert.equal(captured.options.timeout,120000);assert.deepEqual([...captured.roots],['/application']);
+ assert.equal(await sandbox.exports.scanExpoModulesAsync({scanModules:async()=>{throw Error('scan failed');}},{application:'/application'}),null);
+ assert.match(warnings[0],/scan failed/);
+ await fs.appendFile(target,'\n// unexpected change');
+ await assert.rejects(applyExpoModuleScannerBuildPatch({repoRoot:root}),/before patch/);
+});

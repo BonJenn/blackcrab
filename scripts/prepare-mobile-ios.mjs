@@ -249,7 +249,7 @@ export async function prepareMobileIos(options = {}) {
     try { report.installedGraph=await verifyInstalledGraph({repoRoot:stage.repo}); }
     catch(error) { if(error.report) report.installedGraph=error.report; throw error; }
 
-    const {applyOwnedMobileBuildPatches}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/build-patches.mjs')).href);report.ownedBuildPatches=[await applyOwnedMobileBuildPatches({repoRoot:stage.repo})];
+    const {applyOwnedMobileBuildPatches,applyExpoModuleScannerBuildPatch}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/build-patches.mjs')).href);report.ownedBuildPatches=[await applyOwnedMobileBuildPatches({repoRoot:stage.repo}),await applyExpoModuleScannerBuildPatch({repoRoot:stage.repo})];
     const {collectNativeAssetInputs}=await import(pathToFileURL(path.join(stage.repo,'mobile-experience/native-assets.mjs')).href);
     const nativeAssets=await collectNativeAssetInputs(stage.repo);report.nativeAssetInputs=path.join(stage.root,'artifacts/native-asset-inputs.json');await fs.writeFile(report.nativeAssetInputs,JSON.stringify(nativeAssets,null,2)+'\n');report.nativeAssetInputsSha256=hash(await fs.readFile(report.nativeAssetInputs));
     report.dependencies = await verifyNativeDependencyRoots(stage.repo);

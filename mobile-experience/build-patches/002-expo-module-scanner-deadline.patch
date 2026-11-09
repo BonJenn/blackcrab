@@ -1,0 +1,11 @@
+--- a/build/platforms/apple/moduleScanner.js
++++ b/build/platforms/apple/moduleScanner.js
+@@ -137,7 +137,7 @@
+     let output;
+     try {
+         output = await scanner.scanModules(roots, {
+-            timeout: 5000
++            timeout: 120000
+         });
+     } catch (error) {
+         console.warn(`warning: Scanning for Expo modules failed, only modules declared in expo-module.config.json will be linked: ${error.message ?? error}`);

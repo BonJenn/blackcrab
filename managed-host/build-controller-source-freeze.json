@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "state": "compiled-awaiting-terminal-protected-input-audit",
+  "files": {
+    "managed-host/build-controller.mjs": "0c8b1726349e9abf58107daeec376e28747c5a781463f93b9e8c78ed85afa954",
+    "managed-host/build-lifecycle.mjs": "a37fdf7a8db4e77f609b4894b4a71e61af5efca87ef6bdf0927b66e5362cfce0",
+    "managed-host/controlled-process.mjs": "53cf24e78f8784289b53d20a2c71eacd758eda218f44bb0eac91bcd490734c51",
+    "managed-host/controller-inputs.mjs": "bd4172269b59b99f8e730237c467cd0c85d6502afcae84b59ce7dbcaaa3c05ef",
+    "managed-host/private-work.mjs": "92b6da2591b508379facd8bed6404f668fdcecab64582127da0feecf887afdbb",
+    "managed-host/build.mjs": "cc348e3302211c2cb5f8a732c9a198b3f022322e05e33130814d3e3d6d0fff38",
+    "managed-host/source.mjs": "a4ac79f5ae8439ad9c376109f52c21c910654b50c378ea853daa3ee41d7ccb99",
+    "managed-host/service-profile.mjs": "ae61032b641ca7e1b478ceb7eab273ac8d62c29fc69da2be6f8bb5b12854b932",
+    "managed-host/artifact.mjs": "949b113af52f60ad8c55618a0b8c93e664c78c859cfe7f6164fde58be348b401",
+    "managed-host/rust-notices.mjs": "58a442a8be62cff766d28f74e81ef299c4bbc537d97923d1c0e902c7c0848f84",
+    "managed-host/registry-metadata.mjs": "3c0dd43b632d0fac96d8f0cd5c5ac654cdcc3594f1ee89ddebe6c56e2cd2bb21",
+    "managed-host/registry-metadata-lock.json": "0ec4b4c5e81d3db6117dca9c2c65dc0845dcc45568c9f674b5466a857ae5a74a",
+    "managed-host/prepare-registry-metadata.mjs": "00fdddea11eca67efd48b91c2bbba08d392d5e1de0851b6e3db0dc94155a620b",
+    "scripts/build-managed-host.mjs": "83ca0ae69c05757816c020156e4238d2e5cf00713824900f61db8b394cefaa64"
+  },
+  "upstream": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "recordGraphSha256": "896794a8f68f0153ea19429665f7609b2654f6e53a95038dc5dd8f0fa317bc3b",
+  "registryMetadataManifestSha256": "73a6174790b01d1213f2c87d21d56c21f1e90cfd097992fcd9ba82354217ebfb"
+}

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "state": "COMPILED_AWAITING_TERMINAL_PROTECTED_INPUT_AUDIT",
+  "target": "darwin-arm64",
+  "profile": "blackcrab-local-service-layout-v1",
+  "protocol": 4,
+  "version": "0.1.7",
+  "sourceDescriptors": 44,
+  "physicalSourceRecords": 42,
+  "independentlyProvenAliases": 2,
+  "tools": {
+    "node": "26.12.1",
+    "pnpm": "12.14.0"
+  },
+  "focusedTests": {
+    "passed": 55,
+    "failed": 0,
+    "skipped": 0
+  },
+  "install": {
+    "packagesAdded": 995,
+    "packagesReused": 995,
+    "packagesDownloaded": 0,
+    "policyLockEntries": 2063,
+    "originalSupplyChainPoliciesPassed": true
+  },
+  "compiledSteps": [
+    "browser-channel-regression",
+    "web",
+    "executable",
+    "resource-monitor",
+    "archive"
+  ],
+  "quarantinedArtifact": {
+    "manifestSha256": "866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64",
+    "files": 3778,
+    "unselected": true
+  },
+  "finalAudit": "pending",
+  "terminalBuildSuccess": false,
+  "activationPerformed": false,
+  "providerRuns": 0,
+  "nativeIssuerRuntimeAcceptance": false,
+  "serviceRuntimeAcceptance": false
+}

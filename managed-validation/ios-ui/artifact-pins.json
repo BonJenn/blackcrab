@@ -1,7 +1,7 @@
 {
   "baseline": "0cc2ad0b560723ad38feb5e2fcb07d88242525c0e344508a6c214ebb6ffce03e",
   "baselineRevision": "2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab",
-  "current": "559ec5186cd8b834b9b9056c97937d6b44439a20d966910aa92f8852c0364f72",
+  "current": "1df1d4d49950bc805a3b33487957c22ed77f55e1e3fc8fff31b434d900136c4f",
   "hostManifestSha256": "afdbaf815be9d676657939f1235290de5765b81ac008f11f3836b7cb80a9041e",
   "provenance": {
     "baseline": {
@@ -13,30 +13,30 @@
       "revision": "2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab"
     },
     "current": {
-      "hermesSha256": "849d7c30299cf1483b91c4d928f73d5f6a24135642046a61956bfc9866927874",
-      "manifest": "/private/tmp/blackcrab-ios-x532Wp/artifacts/source-manifest.json",
-      "manifestSha256": "e5991c8efbd9a27310b99c0a463eccb1209b6ee1714109bf973f1b705010f7a0",
-      "report": "/private/tmp/blackcrab-ios-x532Wp/artifacts/full-ui-build-report.json",
-      "reportSha256": "100e8bfeffe7f6726f7798adc24604e8a7fae59b6b3dc80c15ecb34d9f55c1f0",
-      "revision": "c6035c6d55f86ec8d2c62cd64424067197f95e10"
+      "hermesSha256": "7b85d5c76b33df3ba3bfac99914cd5e721cac4334bac094d612c4427f485a838",
+      "manifest": "/private/tmp/blackcrab-x532-sdk-9yme1azk/Root-QA/compiler-preparation-fo3vvxjg/blackcrab-ios-OkMeN2/artifacts/source-manifest.json",
+      "manifestSha256": "4237d2413b1df858d8fb3ced7e7d100be440aea4e83d58b1624f05f317e32dfe",
+      "report": "/private/tmp/blackcrab-x532-sdk-9yme1azk/Root-QA/compiler-preparation-fo3vvxjg/blackcrab-ios-OkMeN2/artifacts/acceptance-build-report.json",
+      "reportSha256": "f0a82916c60a8bd757fc0e5a291c9f08ace5a09cf868dcb3a6c654a5a66b7e17",
+      "revision": "47b65a55da249591e387cf0beca31a7b55ce44c5"
     }
   },
-  "sourceRevision": "c6035c6d55f86ec8d2c62cd64424067197f95e10",
+  "sourceRevision": "47b65a55da249591e387cf0beca31a7b55ce44c5",
   "sources": {
-    "Acceptance.swift": "b535ada8bb1e00e2c14a812eea2035730048edd45aa31373a58975313b72371f",
+    "Acceptance.swift": "59a85e51789a61c72d85dee57b0dc2f40d795dc00063f2b4e77655c08586cd3b",
     "Acceptance.xcodeproj/project.pbxproj": "d9b6e830b7ebd9789c79426136e82c59fca5dcf8cdf99c27d85fc813468c7c65",
     "Acceptance.xcodeproj/xcshareddata/xcschemes/Acceptance.xcscheme": "4240e4f63be0f792d19f2cf4c7e75ceb9c59901563f27f70e93537319033f6d7",
-    "controller.py": "21d96213b3e50f6ad83d9b58ce36f232bbcd03c7b4e2e5a45cebbab87c7a340d",
-    "controller_test.py": "b367ab0d7d22a860e9dde0e3205913c20d36364e6cea67650b88dad4a537ad99",
+    "controller.py": "b94aed0c834130384a33ca6c82aed12a5e07baad3cb1812bc81d4dc87ea86400",
+    "controller_test.py": "96d3ea671d99086e72a42138fca67df8b00a7c374b6811e5ecf5934fe0eccf72",
     "observer.test.ts.template": "79233173c4da4a6c328d22e3b617662a9d7974f8e126e69a5ebc04b4ec216271",
     "packaged-host.mjs.template": "4faeba1cd113a50252b8aa6fdca092c8e5ac770307a0033f30e100f88b0781b5"
   },
   "prebuiltRunner": {
-    "root": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-wbpdgc7j",
-    "inventorySha256": "fe7b5fbdee96d936da2a51ba39ae5d0a83be71c3a40ec2b0719d1c123b34e857",
+    "root": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/xctest-private-igatoscw",
+    "inventorySha256": "bd95cd55ee68cdbdfe63cb739ee723a9d44074af890a8becd513330dbedfe55b",
     "descriptorName": "Acceptance_iphonesimulator27.1-arm64.xctestrun",
     "descriptorSha256": "addaea64c8bc32ba4359631b5ab840fb2c8ca5301e825382fc2f307f319ea0e4",
-    "executableSha256": "58be51c773e14988626ca1197143ee9a128c9b549c99393ebd31352c15c1d160",
+    "executableSha256": "e1a9b5399f85f1d723901334e25aa209334b94311954168579a1755fd0197d2c",
     "xcodeBuild": "27A9275"
   }
 }

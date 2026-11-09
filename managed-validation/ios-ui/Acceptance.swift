@@ -23,8 +23,8 @@ final class Acceptance: XCTestCase {
       UUID(uuidString: input.ownedDeviceUUID) != nil,
       ProcessInfo.processInfo.environment["SIMULATOR_UDID"] == input.ownedDeviceUUID,
       ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == input.ownedDeviceName,
-      input.ownedDeviceName.hasPrefix("Blackcrab-C603-"),
-      input.sourceRevision == "c6035c6d55f86ec8d2c62cd64424067197f95e10",
+      input.ownedDeviceName.hasPrefix("Blackcrab-47B65A5-"),
+      input.sourceRevision == "47b65a55da249591e387cf0beca31a7b55ce44c5",
       input.hostManifestSHA256 == "afdbaf815be9d676657939f1235290de5765b81ac008f11f3836b7cb80a9041e",
       let url = URL(string: input.address), url.scheme == "http", url.host == "127.0.0.1",
       url.port != nil, url.user == nil, url.password == nil,
@@ -64,7 +64,10 @@ final class Acceptance: XCTestCase {
       let rename = exact("Rename"); require(rename); rename.tap()
       let prompt = app.alerts["Rename thread"]; require(prompt)
       let field = prompt.textFields.firstMatch; require(field)
-      field.tap(); field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: input.initialTitle.count) + input.renamedTitle)
+      field.tap()
+      field.typeKey("a", modifierFlags: .command)
+      field.typeText(input.renamedTitle)
+      XCTAssertTrue((field.value as? String) == input.renamedTitle)
       prompt.buttons["Rename"].tap()
       let renamed = exact(input.renamedTitle); require(renamed); renamed.press(forDuration: 1.2)
       let archiveMenu = exact("More"); require(archiveMenu); archiveMenu.tap()

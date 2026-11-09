@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "state": "NATIVE_SERVICE_ATTACHMENT_ACCEPTANCE_PASSED",
+  "base": "18ea8c31341cb564a73b0c41e936e3ee87a5b98e",
+  "files": {
+    "src-tauri/src/managed_host.rs": "4fe281d7b4fa9641bf367cb690e5f1562cdb4bfb536c841e4145e2d55e1d491a",
+    "src-tauri/src/managed_service_issuer.rs": "70d35dce6995c3afd703fba2802855a360bc368295802ea4f57e0ff32220f841"
+  },
+  "hostManifestSha256": "866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64",
+  "hostArchiveSha256": "fa08c35179f3982b88338309d83999d4ebed2c925e35f6d00616223afd50da8d",
+  "realIssuerSha256": "0b1f9acd3a495ff903fc66b6bc9bd2322356cee1ad0ea439685d7fd025400738",
+  "identityTestsPassed": 6,
+  "unverifiedSelectionTestPassed": true,
+  "realLauncherCyclesPassed": 2,
+  "nativeAttachmentAuthenticated": true,
+  "runtimeReplacementRefused": true,
+  "stoppedServiceNotStarted": true,
+  "directProofDowngradeRefused": true,
+  "retiredNativeEpochs": [
+    6,
+    7
+  ],
+  "allCapturedGroupsQuiescent": true,
+  "runtimeReportSha256": "aa19c4c90e3d19f58df4ea70e85fdfd10af993b8caf3065aea4b5b14d5c9f134",
+  "controllerReportSha256": "1bbd546110bc0af65b8a4f41da99142ae925a30f8feff24eeeb19a3f9eadbdec",
+  "guiAcceptance": false,
+  "freshServiceInitialization": false,
+  "osServiceActivation": false,
+  "providerRuns": 0
+}

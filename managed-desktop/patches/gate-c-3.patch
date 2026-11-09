@@ -4,7 +4,7 @@
            Effect.flatMap(() => manager.registerWebview("tab_destroyed_replacement_race", 42)),
            Effect.forkChild({ startImmediately: true }),
          );
-+        const staleDetach=(previous.webContents.debugger.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(call=>call[0]==="detach")?.[1] as (()=>void)|undefined;
++        const staleDetach=((previous.webContents as unknown as { debugger: { on: ReturnType<typeof vi.fn> } }).debugger.on).mock.calls.find(call=>call[0]==="detach")?.[1] as (()=>void)|undefined;
 +        expect(staleDetach).toBeTypeOf("function");
          previous.setDestroyed(true);
          previous.debuggerOff.mockImplementationOnce(() => {

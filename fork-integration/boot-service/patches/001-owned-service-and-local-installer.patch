@@ -1,0 +1,51 @@
+--- a/apps/server/src/cloud/bootService.ts
++++ b/apps/server/src/cloud/bootService.ts
+@@ -34,11 +34,11 @@
+   type ServiceState,
+ } from "./serviceProtocol.ts";
+ 
+-const BOOT_SERVICE_NAME = "t3code";
++const BOOT_SERVICE_NAME = "blackcrab";
+ export const BOOT_SERVICE_UNIT_FILE = `${BOOT_SERVICE_NAME}.service`;
+ // `.service` suffix keeps the label distinct from the desktop app's bundle id
+ // (com.t3tools.t3code), so launchd and TCC records never collide.
+-export const BOOT_SERVICE_LAUNCHD_LABEL = "com.t3tools.t3code.service";
++export const BOOT_SERVICE_LAUNCHD_LABEL = "com.blackcrab.desktop.managed.service";
+ export const BOOT_SERVICE_PLIST_FILE = `${BOOT_SERVICE_LAUNCHD_LABEL}.plist`;
+ const BOOT_SERVICE_UNIT_ENV = "T3_BOOT_SERVICE_UNIT";
+ export const BOOT_SERVICE_LOG_FILE = "boot-service.log";
+@@ -95,7 +95,7 @@
+   // The user manager has no reliable network-online target; server networking retries itself.
+   return [
+     "[Unit]",
+-    "Description=T3 Code server",
++    "Description=Blackcrab server",
+     "StartLimitIntervalSec=300",
+     "StartLimitBurst=5",
+     "",
+@@ -569,6 +569,8 @@
+   readonly logsDir: string;
+   readonly cliVersion: string;
+   readonly host?: BootServiceHost;
++  /** Native-only local artifact installer. Absence never downloads an upstream release. */
++  readonly installRuntime?: typeof ensurePinnedRuntimeInstalled;
+ }) {
+   const hostExecPath = yield* HostProcess.ExecutablePath;
+   const platform = yield* HostProcess.Platform;
+@@ -781,7 +783,9 @@
+       yield* requireSystemdPrerequisites.pipe(Effect.tapError(logFailure));
+     }
+ 
+-    yield* ensurePinnedRuntimeInstalled({
++    const installRuntime: typeof ensurePinnedRuntimeInstalled = input.installRuntime ?? (() =>
++      Effect.fail(new PinnedRuntimeInstallError({ step: "selecting a verified local Blackcrab runtime" })));
++    yield* installRuntime({
+       baseDir: input.baseDir,
+       version: input.cliVersion,
+       fs,
+@@ -1077,4 +1081,5 @@
+   readonly logsDir: string;
+   readonly cliVersion: string;
+   readonly host?: BootServiceHost;
++  readonly installRuntime?: typeof ensurePinnedRuntimeInstalled;
+ }) => Layer.effect(BootService, make(input));

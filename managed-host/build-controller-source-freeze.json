@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "state": "compiled-awaiting-terminal-protected-input-audit",
+  "state": "built-unselected-protected-input-audit-passed",
   "files": {
     "managed-host/build-controller.mjs": "0c8b1726349e9abf58107daeec376e28747c5a781463f93b9e8c78ed85afa954",
     "managed-host/build-lifecycle.mjs": "a37fdf7a8db4e77f609b4894b4a71e61af5efca87ef6bdf0927b66e5362cfce0",

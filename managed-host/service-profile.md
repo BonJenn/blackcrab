@@ -1,7 +1,7 @@
 # Opt-in native-owned service payload producer
 
-The opt-in producer has compiled a real macOS arm64 package. Its final protected-
-input audit is still pending, and the output remains unselected in quarantine.
+The opt-in producer built and verified a real macOS arm64 package. Its final
+protected-input audit passed, and the output remains unselected in quarantine.
 The existing default C21 producer and its21 descriptor output remain unchanged.
 The developer producer accepts an optional exact profile
 `blackcrab-local-service-layout-v1`; unknown profiles and Windows service targets
@@ -86,3 +86,14 @@ artifact metadata cannot bypass exact service-profile verification. These tests 
 not install dependencies, compile a host, run a native helper, start listeners,
 change OS service units, or call providers. The actual real build and packaged
 private auth/proof/original launcher lifecycle tests remain pending.
+
+## Recorded producer acceptance
+
+The real frozen offline build completed with3,778 payload files /358,049,483 bytes
+and manifest SHA256 `866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64`.
+All18 captured build processes settled and their groups were quiescent. Full
+protected pnpm-store, original-reference and registry-metadata inventories matched
+before and after execution; producer/tool/profile inputs matched their frozen plan.
+The result is `BUILT_UNSELECTED_REQUIRES_REVIEW`. This proves the producer,
+not native issuer selection, OS service activation or packaged launcher behavior.
+See [the bounded result](build-controller-validation.json).

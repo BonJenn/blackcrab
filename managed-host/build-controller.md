@@ -103,7 +103,10 @@ fresh plan must be regenerated after any source change. The current real run has
 completed dependency installation, browser regression, web compilation, executable
 packaging and resource-monitor compilation. Installation reused995 packages with
 zero downloads and passed pnpm's original policies for2063 lock entries. Final
-protected-input auditing is pending. No build-success, adoption or service-runtime
-acceptance is claimed until its terminal result is reviewed.
+protected-input auditing passed with identical complete store/reference/metadata
+inventories and unchanged producer/tool/profile inputs. All18 captured build
+processes settled with quiescent groups. The terminal result is
+BUILT_UNSELECTED_REQUIRES_REVIEW. Native adoption and service-runtime acceptance
+remain separate gates.
 
 The first prepared run was stopped cleanly before installation/build after review found that excluded pnpm workspace subtrees were checked for symlinks before pruning. Its partial independent cache and before inventories remain preserved; it was not resumed or adopted. The corrected traversal prunes exactly `v11/projects` and `v11/links` before lstat/type validation/descent, and still rejects links everywhere copied. Real temporary fixtures exercise excluded external links and similarly named nonexcluded link rejection. Resource samples also include only the controller process public memory counters (`rss`, `heapUsed`, `external`, `arrayBuffers`). The new plan is preparation-only and requires a new Root review/GO; see `build-controller-validation.json`.

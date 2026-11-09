@@ -24,7 +24,13 @@ export async function linkDependencyCache(source, producer, {canonicalProducer} 
   const target=path.join(source,'.blackcrab-dependency-overlay',digest(relative));
   overlays.set(root,target);
   await fs.cp(root,target,{recursive:true,verbatimSymlinks:true,filter:file=>path.relative(root,file).split(path.sep)[0]!=='node_modules'});
+  // pnpm's enclosing node_modules also resolves package self-imports from
+  // nested entry points (e.g. preact/jsx-runtime has its own package.json).
+  if(!/^(?:@[A-Za-z0-9._-]+\/)?[A-Za-z0-9._-]+$/.test(metadata.name)||metadata.name==='..')throw Error('Unsafe overlay package name');
+  const self=path.join(target,'node_modules',metadata.name);
+  await fs.mkdir(path.dirname(self),{recursive:true});await fs.symlink(target,self,'dir');
   const names=new Set([...Object.keys(metadata.dependencies??{}),...Object.keys(metadata.optionalDependencies??{}),...Object.keys(metadata.peerDependencies??{})]);
+  names.delete(metadata.name);
   for(const name of [...names].sort()){
    let dependency;
    try{dependency=await packageRoot(name,root);}

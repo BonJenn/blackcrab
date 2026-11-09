@@ -37,6 +37,9 @@ test('secondary-only consumers resolve canonical Effect through a private depend
   await fs.mkdir(consumer,{recursive:true});
   await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({name:'@effect/atom-react',version:'4.1.2',main:'index.cjs',peerDependencies:{effect:'4.1.2'}}));
   await fs.writeFile(path.join(consumer,'index.cjs'),"module.exports=require('effect');");
+  await fs.mkdir(path.join(consumer,'nested'));
+  await fs.writeFile(path.join(consumer,'nested/package.json'),'{}');
+  await fs.writeFile(path.join(consumer,'nested/index.cjs'),"module.exports=require('@effect/atom-react');");
   await fs.symlink(path.join(secondary,effectRelative),path.resolve(consumer,'../../effect'),'dir');
   await fs.mkdir(path.join(secondary,'apps/web/node_modules/@effect'));
   await fs.symlink(consumer,path.join(secondary,'apps/web/node_modules/@effect/atom-react'),'dir');
@@ -45,6 +48,8 @@ test('secondary-only consumers resolve canonical Effect through a private depend
   await linkDependencyCache(source,secondary,{canonicalProducer:primary});
   const {createRequire}=await import('node:module'),require=createRequire(path.join(source,'apps/web/probe.cjs'));
   assert.equal(require('@effect/atom-react'),require('effect'));
+  const overlay=await fs.realpath(path.join(source,'apps/web/node_modules/@effect/atom-react'));
+  assert.equal(require(path.join(overlay,'nested/index.cjs')),require('effect'));
   assert.equal((await assertCanonicalEffect(source)).root,await fs.realpath(path.join(primary,effectRelative)));
   assert.ok((await fs.realpath(path.join(source,'apps/web/node_modules/@effect/atom-react'))).startsWith((await fs.realpath(source))+path.sep));
   assert.equal(await fs.readlink(path.resolve(consumer,'../../effect')),before);

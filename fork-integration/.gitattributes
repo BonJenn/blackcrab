@@ -1,0 +1,2 @@
+*.patch -text whitespace=-blank-at-eol,-blank-at-eof
+**/fixtures/*.ts -text whitespace=-blank-at-eol,-blank-at-eof

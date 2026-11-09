@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "licenseSha256": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43",
+  "patches": [
+    {
+      "id": "001-own-pairing-app-links",
+      "target": "packages/shared/src/remote.ts",
+      "beforeSha256": "de815ac7f3e17e217d4ca6345d9d0715892d669a660a3707dcd1b99c75f4fdfb",
+      "afterSha256": "b03e9218186e6351da3eff0d3268d52ef7aa412fb9d2690b8f25b947db3e4530",
+      "patch": "patches/001-own-pairing-app-links.patch",
+      "sha256": "df19098a6c96fdfc27c63642f57162f8081fdae0714809e9a9896f3391915684",
+      "replacements": [
+        {
+          "before": "const APP_LINK_PROTOCOL = /^t3code(?:-[a-z]+)?:$/;",
+          "after": "const APP_LINK_PROTOCOL = /^blackcrab-remote:$/;"
+        },
+        {
+          "before": "/** Wraps a pairing URL in the `t3code://pair` link that desktop opens and mobile scans. */",
+          "after": "/** Wraps a pairing URL in the `blackcrab-remote://pair` link that desktop opens and mobile scans. */"
+        },
+        {
+          "before": "`t3code://pair?${new URLSearchParams([[PAIRING_APP_LINK_PARAM, pairingUrl]])}`",
+          "after": "`blackcrab-remote://pair?${new URLSearchParams([[PAIRING_APP_LINK_PARAM, pairingUrl]])}`"
+        },
+        {
+          "before": "/** Reads the pairing URL from a `t3code://pair` link on any app channel scheme. */",
+          "after": "/** Reads the pairing URL from the owned `blackcrab-remote://pair` envelope. */"
+        },
+        {
+          "before": "  if (url.pathname !== \"\" && url.pathname !== \"/\") return null;",
+          "after": "  if (url.pathname !== \"\" && url.pathname !== \"/\") return null;\n  if (url.username || url.password || url.hash) return null;\n  if (url.searchParams.getAll(PAIRING_APP_LINK_PARAM).length !== 1 ||\n      Array.from(url.searchParams.keys()).some((key) => key !== PAIRING_APP_LINK_PARAM)) return null;"
+        }
+      ]
+    },
+    {
+      "id": "002-own-desktop-provider-return",
+      "target": "packages/shared/src/providerAuthReturnUrl.ts",
+      "beforeSha256": "47406f4bd6c4aba9e395844432e0ed5fd2e1d932ad103a0740f1e5be551d5629",
+      "afterSha256": "941d9710deef851e4edd5d4074789da296121e8ce362eb7b62ab3198c1c4a289",
+      "patch": "patches/002-own-desktop-provider-return.patch",
+      "sha256": "3d19bd22c2531f849141fd881bab7aade03ee5e704e5f161a7ee77f7b2486641",
+      "replacements": [
+        {
+          "before": "[\"t3code:\", \"t3code-dev:\"]",
+          "after": "[\"blackcrab:\", \"blackcrab-dev:\"]"
+        },
+        {
+          "before": "(isLoopbackHost(url.hostname) || url.origin === \"https://app.t3.codes\")",
+          "after": "isLoopbackHost(url.hostname)"
+        }
+      ]
+    },
+    {
+      "id": "003-own-mobile-pairing-reader",
+      "target": "apps/mobile/src/features/connection/pairing.ts",
+      "beforeSha256": "6c5cd1183158d63551665856bb3d6093119aab3f6dc893ac5fa42db9b7d175b2",
+      "afterSha256": "f6af4aab1a9752c1995014daa8fddadb65b269aeedef1bd9a945144a2ee9d519",
+      "patch": "patches/003-own-mobile-pairing-reader.patch",
+      "sha256": "311b880c71cf9130764898ce3c057a475ca5c0b9a63fc6620f253dda475aac57",
+      "replacements": [
+        {
+          "before": "import { readHostedPairingRequest } from \"@t3tools/shared/remote\";",
+          "after": "import { readHostedPairingRequest, readPairingAppLink } from \"@t3tools/shared/remote\";"
+        },
+        {
+          "before": "const MOBILE_PAIRING_URL_PARAM = \"pairingUrl\";\n\n",
+          "after": ""
+        },
+        {
+          "before": "  try {\n    const url = new URL(trimmed);\n    if (url.protocol === \"t3code:\") {\n      const pairingUrl = url.searchParams.get(MOBILE_PAIRING_URL_PARAM)?.trim() ?? \"\";\n      if (pairingUrl.length > 0) {\n        return pairingUrl;\n      }\n    }\n  } catch {}\n\n  return trimmed;",
+          "after": "  return readPairingAppLink(trimmed) ?? trimmed;"
+        }
+      ]
+    },
+    {
+      "id": "004-own-managed-policy",
+      "target": "packages/shared/src/managedPolicyFile.ts",
+      "beforeSha256": "1ec9a4459bd14ab3f6d0fceec78d1b2c7bf61a6a9df1c326e0ffe294ea21b640",
+      "afterSha256": "56b3fac8a02e26296a9686c30d79669912afad13940f7035b8de452793b8c9f8",
+      "patch": "patches/004-own-managed-policy.patch",
+      "sha256": "551788db8cbb8614af9e4bfd962e34a0f5dcb45c50926f3d1dd5c85616a76420",
+      "replacements": [
+        {
+          "before": "/Library/Application Support/T3Code/policy.json",
+          "after": "/Library/Application Support/Blackcrab/policy.json"
+        },
+        {
+          "before": "C:\\\\Program Files\\\\T3Code\\\\policy.json",
+          "after": "C:\\\\Program Files\\\\Blackcrab\\\\policy.json"
+        },
+        {
+          "before": "/etc/t3code/policy.json",
+          "after": "/etc/blackcrab/policy.json"
+        },
+        {
+          "before": "/Library/Managed Preferences/com.t3tools.t3code.plist",
+          "after": "/Library/Managed Preferences/com.blackcrab.desktop.managed.plist"
+        },
+        {
+          "before": "SOFTWARE\\\\Policies\\\\T3Tools\\\\T3Code",
+          "after": "SOFTWARE\\\\Policies\\\\Blackcrab\\\\Blackcrab"
+        },
+        {
+          "before": "    return `T3 Code cannot use the managed policy at ${this.path}: ${this.reason}. It will not start until an administrator fixes this.`;",
+          "after": "    return `Blackcrab cannot use the managed policy at ${this.path}: ${this.reason}. It will not start until an administrator fixes this.`;"
+        },
+        {
+          "before": "      return { error: `${value.name} is not a T3 Code policy value` };",
+          "after": "      return { error: `${value.name} is not a Blackcrab policy value` };"
+        },
+        {
+          "before": "    return { error: \"set the Organization policy whenever another T3 Code policy is set\" };",
+          "after": "    return { error: \"set the Organization policy whenever another Blackcrab policy is set\" };"
+        },
+        {
+          "before": "                  ? \"this T3 Code install cannot load its registry reader; reinstall T3 Code\"",
+          "after": "                  ? \"this Blackcrab install cannot load its registry reader; reinstall Blackcrab\""
+        },
+        {
+          "before": "      if (list === undefined) return yield* refuse(`${subkey} is not a T3 Code policy key`);",
+          "after": "      if (list === undefined) return yield* refuse(`${subkey} is not a Blackcrab policy key`);"
+        },
+        {
+          "before": "        return yield* refuse(`${subkey}\\\\${checkboxes.subkeys[0]} is not a T3 Code policy key`);",
+          "after": "        return yield* refuse(`${subkey}\\\\${checkboxes.subkeys[0]} is not a Blackcrab policy key`);"
+        }
+      ]
+    }
+  ],
+  "fixtures": {
+    "connectAuth": {
+      "target": "packages/shared/src/connectAuth.ts",
+      "sha256": "287baca5ab6ca54e9dac18fb357e66a41d5031f795d925fa0033a35f4be985a6"
+    },
+    "preview": {
+      "target": "packages/shared/src/preview.ts",
+      "sha256": "9cbc2280ff93819ddf457f298383914ed47d86e968a4d83add23c3bf204ce488"
+    },
+    "hostClassification": {
+      "target": "packages/shared/src/hostClassification.ts",
+      "sha256": "cc3499701601884850cf130b2fde4e43e08f0f5f4a21d8d8ac091e8b7bca0381"
+    },
+    "threadLinks": {
+      "target": "packages/shared/src/threadLinks.ts",
+      "sha256": "df6f710445a0f09515ee60e9c679b670de07e756f7784218262a80513997d237"
+    },
+    "mobile-provider-accounts": {
+      "target": "apps/mobile/src/features/settings/SettingsProviderAccountsRouteScreen.tsx",
+      "sha256": "a0af1a35c76bf64bd41ce1d52df66cff83d99ae2d875c54145607b03b494c723"
+    }
+  }
+}

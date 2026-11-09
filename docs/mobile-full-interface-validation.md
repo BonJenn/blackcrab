@@ -10,8 +10,75 @@ Local raw evidence is preserved under `/private/tmp/blackcrab-ios-x532Wp/artifac
 
 The full interface has not yet passed cold launch, retained existing catalog, pairing, or remote idle-thread controls on an installed simulator app. OS boot alone is not app acceptance. An owned iOS 26.2 simulator completed migration, but the resource watchdog shut down the disposable device before app installation. Device Hub subsequently remained visible to the user while computer automation returned `cgWindowNotFound`.
 
-No provider turn, pairing grant, or production-host mutation was performed during these attempts. The user explicitly approved Apple XCUITest on a fresh owned simulator paired with an isolated test host for catalog retention, rename and archive, without provider runs or existing-device changes. The compiled runner has not executed; prebuilt Products/path validation and the nonsecret logging canary precede real credentials. Installed validation still needs stable resource headroom. Physical-device behavior, remote push, distribution signing, and complete mobile parity remain open. The older platform-baseline launch in #210 cannot substitute for these full-interface checks.
+Those early attempts performed no provider turn, pairing grant, or production-host mutation. The user explicitly approved Apple XCUITest on a fresh owned simulator paired with an isolated test host for catalog retention, rename and archive, without provider runs or existing-device changes. The later runner and baseline pairing results are recorded below; they do not certify the full interface. Installed validation still needs stable resource headroom. Physical-device behavior, remote push, distribution signing, and complete mobile parity remain open. The older platform-baseline launch in #210 cannot substitute for these full-interface checks.
 
-## Owned XCUITest harness
+## Owned XCUITest acceptance progress
 
-The isolated native acceptance harness merged to `stage` in [#220](https://github.com/BonJenn/blackcrab/pull/220) at `fc671854433909d6a8e0b5085a043f729e3cd5aa`. Its 25 portable guards and all five CI jobs passed; the unchanged runner passed build-for-testing. The first fresh simulator booted and installed the baseline, then stopped before XCTest at the installed-inventory guard. Only ten framework executable modes differed; bytes and strict signatures matched. The corrected guard accepts only those pinned mode changes after framework and Mach-O validation, and passed against the installed bundle read-only. No pairing, credential, host or provider run occurred. The owned simulator was removed with identity checks and evidence retained. The corrected canary is held below the six-GiB stable internal start threshold. Installed full-interface acceptance is still required.
+The validation harness merged to `stage` in [#220](https://github.com/BonJenn/blackcrab/pull/220). The baseline logging canary passed one actual native UI test with no failures or skips. Xcode appended an index/UUID to the exported completion name; the corrected parser revalidated the retained official result with exact phase, nonce, device and test identity. The coordinator reviewed the private evidence and approved the canary receipt. No UI rerun was needed. The Swift runner and app binaries were unchanged. This validates the baseline input/result pipeline, not the full interface.
+
+A paired attempt subsequently connected its SDK observer but stopped before native pairing because its fresh host had no project. The fixture now creates the project through the real public `projects.mutate` API and observes its shell projection before creating the idle thread. A host-only preflight passed with zero runs/provider sessions and captured-host closure. All 29 portable guards passed. The full-interface retained catalog, native rename/archive, broader controls and distribution gates remain open.
+
+The next paired attempt passed the baseline pairing UI (1/1, no skips) but stopped before upgrade at a redundant app-termination command. That command is removed. Cooperative owner abort now precedes fixture interruption; 27 portable guards pass. The failed attempt's lost host handle remains recorded as unclosed; a separate scoped OS recovery observation records its verified shutdown, without replacing the original receipt.
+
+A real SDK host-only abort preflight passed: zero runs/provider sessions, aborted acceptance remained failed, the live owner closed its actual host Child, and no framework interruption signals were needed. Original SDK source/package hashes remained unchanged. No device or UI was used.
+
+## Corrected full-interface native menu runner
+
+The pinned iOS thread menu nests Rename and Archive under More. On a
+protocol-2 host the default swipe action is Settle, so the upgraded phase now
+opens More for both operations. It leaves the upgraded app running until the
+external SDK checks its mutation, and checks that the archived row disappears.
+The test still sends no provider prompt. This is a test-runner correction; the
+production app binary is unchanged.
+
+The replacement runner built successfully with strict signature and arm64 checks.
+Its executable SHA256 is
+`58be51c773e14988626ca1197143ee9a128c9b549c99393ebd31352c15c1d160`,
+bound to Swift SHA256
+`b535ada8bb1e00e2c14a812eea2035730048edd45aa31373a58975313b72371f`.
+A fresh baseline logging canary passed 1/1 without failures or skips. The
+coordinator independently reviewed the official results, exact nonce/device
+completion and private evidence and approved the new receipt. No host or pairing
+grant was created by that canary. Its original artifacts remain separate from
+the prior runner's canary. This proves the replacement runner's baseline path,
+not the upgraded interface or native thread mutations; those remain pending.
+
+## Full-interface installation guard
+
+The next paired attempt passed baseline pairing (1/1, no skips) and installed
+the unchanged c603 app over the baseline without uninstalling. It stopped before
+upgraded UI launch because two widget dylibs additionally changed mode0755 to
+0644. Every path, entry type and byte matched; installed strict deep signature
+verification passed. The two exact files are
+`PlugIns/ExpoWidgetsTarget.appex/ExpoWidgetsTarget.debug.dylib` and
+`PlugIns/ExpoWidgetsTarget.appex/__preview.dylib`.
+
+A separate rule pins both source hashes, the widget extension identity/metadata
+and thin arm64 MH_DYLIB headers. It does not relax framework, extension entrypoint
+or other file rules. All29 portable guards pass, including rejection of unknown
+libraries, changed source hashes, metadata, CPU/type, truncation and entrypoint
+modes. Read-only revalidation of the retained installed app passed the exact ten
+framework plus two widget mode changes and its signature. This did not rerun UI
+or verify native mutations. SDK runs/provider sessions remained zero and
+cooperative cleanup closed the actual host Child. Upgrade controls remain open.
+
+## Compiler-enabled native acceptance
+
+The full Release at `47b65a55da249591e387cf0beca31a7b55ce44c5` passed
+the user-approved fresh iOS 26.2 simulator workflow. Baseline pairing/catalog
+seeding and upgraded catalog retention/rename/archive each passed one UI test
+with zero failures or skips. The original SDK independently confirmed the exact
+renamed title and archived state. Runs and provider sessions remained zero,
+legacy keychain/queue digests were unchanged, and the captured host closed.
+The fresh legacy queue was empty, so populated legacy migration is not certified.
+
+The installed app's paths and file hashes match the pinned signed source, and
+strict installed codesign passes. The twelve observed framework directory
+0700-to-0755 transformations are permitted only for that exact complete
+inventory. Thirty portable harness guards pass. The runner uses native XCTest
+Command-A selection and verifies the replacement field before saving.
+
+This validates the retained-catalog and basic remote-control slice. Physical
+iOS, provider runs, push, distribution, broader controls and full parity remain
+open. Raw credentials, logs and official test results remain in private owned
+fixtures. Only bounded boolean/count evidence is suitable for publication.

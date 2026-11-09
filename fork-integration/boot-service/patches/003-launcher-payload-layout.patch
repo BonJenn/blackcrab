@@ -1,0 +1,62 @@
+--- a/apps/server/src/serviceLauncher.ts
++++ b/apps/server/src/serviceLauncher.ts
+@@ -54,7 +54,7 @@
+   const executableName = process.platform === "win32" ? "t3.exe" : "t3";
+   return {
+     versionDir,
+-    entryPath: NodePath.join(versionDir, executableName),
++    entryPath: NodePath.join(versionDir, "payload", executableName),
+     sentinelPath: NodePath.join(versionDir, ".install-complete"),
+   };
+ };
+@@ -382,14 +382,46 @@
+   }
+ }
+ 
++async function readOwnedRuntimeMetadata(file: string, maximum: number, privateFile: boolean): Promise<Buffer> {
++  const handle = await NodeFSP.open(file,
++    NodeFS.constants.O_RDONLY | NodeFS.constants.O_NOFOLLOW | NodeFS.constants.O_NONBLOCK);
++  try {
++    const stat = await handle.stat();
++    if (typeof process.getuid !== "function" || !stat.isFile() || stat.nlink !== 1 ||
++        stat.uid !== process.getuid() || !Number.isSafeInteger(stat.size) || stat.size > maximum ||
++        (privateFile && (stat.mode & 0o777) !== 0o600)) throw new Error("Invalid owned service metadata");
++    const bytes = Buffer.alloc(stat.size + 1);
++    let length = 0;
++    while (length < bytes.length) {
++      const read = await handle.read(bytes, length, bytes.length - length, length);
++      if (!read.bytesRead) break;
++      length += read.bytesRead;
++    }
++    if (length !== stat.size) throw new Error("Owned service metadata changed");
++    return bytes.subarray(0, length);
++  } finally {
++    await handle.close();
++  }
++}
++
+ async function runtimeExists(baseDir: string, version: string): Promise<boolean> {
+   const paths = runtimePaths(baseDir, version);
+   try {
+-    const [entry, sentinel] = await Promise.all([
+-      NodeFSP.stat(paths.entryPath),
+-      NodeFSP.readFile(paths.sentinelPath, "utf8"),
++    const layout: unknown = JSON.parse((await readOwnedRuntimeMetadata(
++      NodePath.join(paths.versionDir, ".blackcrab-service-layout.json"), 1024, true)).toString("utf8"));
++    if (typeof layout !== "object" || layout === null || Array.isArray(layout)) return false;
++    const record = layout as Record<string, unknown>;
++    if (Object.keys(record).sort().join(",") !== "manifestSha256,profile,protocol,schema,version" ||
++        record.schema !== 1 || record.profile !== "blackcrab-local-service-layout-v1" ||
++        record.protocol !== SERVICE_LAUNCHER_PROTOCOL || record.version !== version ||
++        typeof record.manifestSha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.manifestSha256)) return false;
++    const [entry, sentinel, manifest] = await Promise.all([
++      NodeFSP.lstat(paths.entryPath),
++      readOwnedRuntimeMetadata(paths.sentinelPath, 128, true),
++      readOwnedRuntimeMetadata(NodePath.join(paths.versionDir, "payload", "blackcrab-managed-host.json"), 64 * 1024 * 1024, false),
+     ]);
+-    return entry.isFile() && sentinel.trim() === version;
++    return entry.isFile() && !entry.isSymbolicLink() && sentinel.toString("utf8").trim() === version &&
++      NodeCrypto.createHash("sha256").update(manifest).digest("hex") === record.manifestSha256;
+   } catch {
+     return false;
+   }

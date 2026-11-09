@@ -1,0 +1,64 @@
+/** QA-only Node observer/controller. Not imported by the mobile entry or package. */
+import {it,vi,expect} from "vitest";
+vi.mock("expo-network",()=>({}));
+vi.mock("expo-file-system/legacy",()=>({documentDirectory:"file:///unused/"}));
+vi.mock("expo-secure-store",()=>({}));
+vi.mock("react-native",()=>({AppState:{},Platform:{OS:"ios",Version:"27",isPad:false}}));
+import * as Effect from "effect/Effect";import * as Layer from "effect/Layer";import * as ManagedRuntime from "effect/ManagedRuntime";import * as Schema from "effect/Schema";import * as Option from "effect/Option";import * as Scope from "effect/Scope";import * as Exit from "effect/Exit";import * as SubscriptionRef from "effect/SubscriptionRef";
+import {OrchestrationV2Command,ProjectId,ProjectMutation,ThreadId,WS_METHODS,ORCHESTRATION_V2_WS_METHODS as methods} from "@t3tools/contracts";
+import {Connection,ConnectionOnboarding,EnvironmentRegistry} from "@t3tools/client-runtime/connection";import * as Rpc from "@t3tools/client-runtime/rpc";import {ShellSnapshotLoader,makeEnvironmentShellState} from "@t3tools/client-runtime/state/shell";
+import {makeManagedPlatformLayer} from "../../src/managed/platform";import {makeManagedStorageLayer} from "../../src/managed/storage";
+import fs from "node:fs/promises";import path from "node:path";import net from "node:net";import {randomUUID} from "node:crypto";
+import {startPackagedHost} from "./packaged-host.mjs";
+const stage=process.env.BLACKCRAB_QA_WORKDIR!; if (!stage) throw Error("Private workspace required"); const socketPath=stage+"/native-acceptance.sock";
+const decode=Schema.decodeUnknownSync(OrchestrationV2Command);
+async function waitFor(check:()=>Promise<boolean>,timeout=45000){const deadline=Date.now()+timeout;while(Date.now()<deadline){if(await check())return;await new Promise(r=>setTimeout(r,200));}throw Error("Owned fixture condition deadline");}
+it("observes actual native catalog/control without requesting provider turns",async()=>{
+ const report:any={sourceRevision:"c6035c6d55f86ec8d2c62cd64424067197f95e10",providerTurnsRequested:0,providerSessions:0,passed:false,events:[]};
+ const reportFile=path.join(stage,"artifacts/native-ui-control-report.json");
+ const host=await startPackagedHost(path.join(stage,"native-control-host"));
+ const storage=new Map<string,string>(),cache=new Map<string,string>();
+ const platform=makeManagedPlatformLayer({storageLayer:makeManagedStorageLayer({getItem:async k=>storage.get(k)??null,setItem:async(k,v)=>{storage.set(k,v)},removeItem:async k=>{storage.delete(k)}}),cacheBackend:{read:async k=>cache.get(k)??null,write:async(k,v)=>{cache.set(k,v)},remove:async k=>{cache.delete(k)},clear:async prefix=>{for(const key of cache.keys())if(key.startsWith(prefix))cache.delete(key)}},network:{getNetworkStateAsync:async()=>({isConnected:true,type:"WIFI"}),addNetworkStateListener:()=>({remove(){}})},appState:{currentState:"active",addEventListener:()=>({remove(){}})},presentation:{label:"Blackcrab SDK fixture observer",surface:"mobile",deviceType:"unknown"}});
+ // Observer-only presentation permission policy; actual server grants/scopes
+ // remain mandatory. No native-app permission guard or production code changes.
+ const runtime=ManagedRuntime.make(ShellSnapshotLoader.layer.pipe(Layer.provideMerge(Connection.layerWithOptions({providerCatalogsOnDemand:true})),Layer.provideMerge(platform),Layer.provideMerge(Layer.succeed(Rpc.RpcPermissionGuard,{authorize:()=>Effect.void}))));
+ const scope=Scope.makeUnsafe();let server:net.Server|undefined;let phase="connect-observer";
+ try{
+  const services=await runtime.runPromise(Effect.gen(function*(){return{registry:yield* EnvironmentRegistry.EnvironmentRegistry,onboarding:yield* ConnectionOnboarding.ConnectionOnboarding}}));
+  const observerPair=await host.pair("Blackcrab SDK fixture observer");
+  const id=await runtime.runPromise(services.onboarding.registerPairing({pairingUrl:host.origin+"pair#token="+observerPair.credential}));
+  await waitFor(async()=> (await runtime.runPromise(services.registry.state(id))).phase==="connected");
+  const shell=await runtime.runPromise(services.registry.run(id,makeEnvironmentShellState()).pipe(Effect.provideService(Scope.Scope,scope)));
+  phase="wait-live-shell";
+  await waitFor(async()=>{const s=await runtime.runPromise(SubscriptionRef.get(shell));return s.status==="live"&&Option.isSome(s.snapshot)});
+  const projectId=Schema.decodeUnknownSync(ProjectId)(randomUUID());
+  phase="create-owned-project";
+  const project=Schema.decodeUnknownSync(ProjectMutation)({type:"project.create",commandId:randomUUID(),projectId,title:"Blackcrab QA project "+process.env.BLACKCRAB_QA_NONCE,workspaceRoot:path.join(host.root,"project"),createWorkspaceRootIfMissing:false});
+  await runtime.runPromise(services.registry.run(id,Rpc.requestGuarded(WS_METHODS.projectsMutate,project)).pipe(Effect.timeout("15 seconds")));
+  phase="observe-owned-project";
+  await waitFor(async()=>{const s=await runtime.runPromise(SubscriptionRef.get(shell));return s.status==="live"&&Option.isSome(s.snapshot)&&s.snapshot.value.projects.some(p=>p.id===projectId&&p.workspaceRoot===path.join(host.root,"project"))});
+  const threadId=Schema.decodeUnknownSync(ThreadId)(randomUUID());
+  const dispatch=(command:any)=>runtime.runPromise(services.registry.run(id,Rpc.requestGuarded(methods.dispatchCommand,decode(command))).pipe(Effect.timeout("15 seconds")));
+  const projection=()=>runtime.runPromise(services.registry.run(id,Rpc.request(methods.getThreadProjection,{threadId})).pipe(Effect.timeout("15 seconds")));
+  phase="create-idle-thread";
+  await dispatch({type:"thread.create",commandId:randomUUID(),threadId,projectId,title:"Blackcrab QA "+process.env.BLACKCRAB_QA_NONCE,modelSelection:{instanceId:"codex",model:"gpt-5-codex"},runtimeMode:"full-access",interactionMode:"default",branch:null,worktreePath:null,createdBy:"user",creationSource:"mobile"});
+  report.host={origin:host.origin,environmentId:host.identity.environmentId,projectId,threadId,artifact:"host-proof9-managed-runtime"};
+  const nativePair=await host.pair("Blackcrab native existing-catalog client");
+  await fs.writeFile(path.join(stage,"native-pairing.private.json"),JSON.stringify({origin:host.origin,credential:nativePair.credential,expiresAt:nativePair.expiresAt,environmentId:host.identity.environmentId,threadId},null,2)+"\n",{mode:0o600});
+  let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve});
+  async function status(){const p=await projection();expect(p.runs).toEqual([]);expect(p.providerSessions).toEqual([]);return{hostAlive:host.alive(),environmentId:host.identity.environmentId,projectId,threadId,title:p.thread.title,archivedAt:p.thread.archivedAt,runs:p.runs.length,providerSessions:p.providerSessions.length}}
+  server=net.createServer(client=>{let text="",busy=false;client.setTimeout(15000,()=>client.destroy());client.on("data",async bytes=>{text+=bytes.toString();if(text.length>4096){client.destroy();return;}if(!text.includes("\n"))return;if(busy){client.destroy();return;}busy=true;try{const command=JSON.parse(text.split("\n")[0]);let result;
+   if(command.op==="status")result=await status();
+   else if(command.op==="renameSDK"&&typeof command.title==="string"&&command.title.length>0&&command.title.length<=128){await dispatch({type:"thread.metadata.update",commandId:randomUUID(),threadId,title:command.title});result=await status();}
+   else if(command.op==="expectNative"&&typeof command.title==="string"){const s=await status();expect(s.title).toBe(command.title);if(typeof command.archived==="boolean")expect(s.archivedAt!==null).toBe(command.archived);report.events.push({kind:"nativeMutationObservedBySDK",...s});result=s;}
+   else if(command.op==="finish"){result=await status();report.final=result;report.passed=true;report.events.push({kind:"fixtureFinished",...result});finish();}
+   else if(command.op==="abort"){report.aborted=true;report.passed=false;report.events.push({kind:"fixtureAbortRequested"});result={aborted:true};finish();}
+   else throw Error("Not an allowed fixture operation");
+   await fs.writeFile(reportFile,JSON.stringify(report,null,2)+"\n",{mode:0o600});client.end(JSON.stringify({ok:true,result})+"\n");
+  }catch{client.end(JSON.stringify({ok:false,error:"Owned fixture operation failed"})+"\n");}});});
+  await new Promise<void>((resolve,reject)=>{server!.once("error",reject);server!.listen(socketPath,resolve)});await fs.chmod(socketPath,0o600);
+  report.ready=true;report.initial=await status();await fs.writeFile(reportFile,JSON.stringify(report,null,2)+"\n",{mode:0o600});
+  await done;
+ }catch(error){report.errorPhase=phase;report.error="Native acceptance fixture failed; inspect private error detail";await fs.writeFile(path.join(stage,"artifacts/native-fixture-error.private.json"),JSON.stringify({phase,name:error instanceof Error?error.name.slice(0,128):"NonError",message:String(error instanceof Error?error.message:error).slice(0,8192),stack:error instanceof Error?error.stack?.slice(0,32768):undefined},null,2)+"\n",{mode:0o600});throw Error(report.error);}
+ finally{if(server)await new Promise<void>(resolve=>server!.close(()=>resolve()));await fs.rm(socketPath,{force:true});await Effect.runPromise(Scope.close(scope,Exit.succeed(undefined)));await runtime.dispose();await host.close();report.hostClosed=true;await fs.writeFile(reportFile,JSON.stringify(report,null,2)+"\n",{mode:0o600});}
+},90*60_000);

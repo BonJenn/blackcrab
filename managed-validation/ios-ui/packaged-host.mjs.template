@@ -1,0 +1,37 @@
+/** Owner-only disposable packaged proof9 host. Never imported by the mobile app. */
+import fs from 'node:fs/promises';import path from 'node:path';import net from 'node:net';import {spawn,execFileSync} from 'node:child_process';import {once} from 'node:events';import {randomBytes,createHmac,timingSafeEqual,createHash} from 'node:crypto';
+import {verifyArtifact} from '__ARTIFACT_MODULE__';
+const artifact=__VERIFIED_HOST_COPY__;
+const expectedManifest='afdbaf815be9d676657939f1235290de5765b81ac008f11f3836b7cb80a9041e';
+const scopes=['orchestration:read','orchestration:operate','settings:write','providers:manage','environment:maintain','preview:operate','diagnostics:read','terminal:read','terminal:operate','source-control:write','filesystem:read','filesystem:write','relay:read','access:read','access:write','relay:write'];
+export async function startPackagedHost(root){
+ await fs.mkdir(root,{mode:0o700});root=await fs.realpath(root);
+ const manifestBytes=await fs.readFile(path.join(artifact,'blackcrab-managed-host.json'));
+ if(createHash('sha256').update(manifestBytes).digest('hex')!==expectedManifest)throw Error('Packaged host manifest pin differs');
+ const manifest=await verifyArtifact(artifact);if(manifest.sourcePatches.length!==9||manifest.sourcePatches.at(-1).id!=='managed-host-identity-proof')throw Error('Packaged host identity support differs');
+ for(const name of ['home','tmp','state','project','bin'])await fs.mkdir(path.join(root,name),{mode:0o700});
+ for(const name of ['git','sh','bash','env','uname','ps','which','tar','sed','stat'])for(const dir of ['/usr/bin','/bin'])try{await fs.access(dir+'/'+name);await fs.symlink(dir+'/'+name,path.join(root,'bin',name));break;}catch{}
+ const listener=net.createServer();listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(resolve=>listener.close(resolve));const origin=`http://127.0.0.1:${port}/`,secret=randomBytes(32).toString('hex');
+ const env={PATH:path.join(root,'bin'),HOME:path.join(root,'home'),TMPDIR:path.join(root,'tmp'),CI:'1',NODE_ENV:'production',LANG:'en_US.UTF-8',LC_ALL:'en_US.UTF-8',OTEL_SDK_DISABLED:'true',T3CODE_DEV_SEED:'0',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_TERMINAL_PROMPT:'0'};
+ const log=await fs.open(path.join(root,'host.log'),'wx',0o600);
+ const child=spawn(path.join(artifact,manifest.entry),['serve','--mode','web','--host','127.0.0.1','--port',String(port),'--base-dir',path.join(root,'state'),'--no-browser','--bootstrap-fd','3'],{cwd:path.join(root,'project'),env,detached:true,stdio:['ignore',log.fd,log.fd,'pipe']});
+ const captured={pid:child.pid,pgid:child.pid,root,started:execFileSync('/bin/ps',['-p',String(child.pid),'-o','lstart='],{encoding:'utf8'}).trim(),closed:false}; await fs.writeFile(path.join(path.dirname(root),'captured-host.private.json'),JSON.stringify(captured),{mode:0o600});
+ let closed=false;
+ async function close(){if(closed)return;closed=true;if(child.exitCode===null&&child.signalCode===null){const done=once(child,'close');try{process.kill(-child.pid,'SIGTERM');}catch{}const force=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)try{process.kill(-child.pid,'SIGKILL');}catch{}},5000);try{await done;}finally{clearTimeout(force);}}await log.close();captured.closed=true;await fs.writeFile(path.join(path.dirname(root),'captured-host.private.json'),JSON.stringify(captured),{mode:0o600});}
+ const bootstrap=()=>createHmac('sha256',secret).update('t3-desktop-bootstrap:'+Math.floor(Date.now()/43_200_000)).digest('hex');
+ child.stdio[3].on('error',()=>{});child.stdio[3].end(JSON.stringify({mode:'desktop',noBrowser:true,port,host:'127.0.0.1',t3Home:path.join(root,'state'),desktopBootstrapToken:bootstrap(),desktopBootstrapSecret:secret,shellEnvironmentPrepared:true,tailscaleServeEnabled:false,tailscaleServePort:443})+'\n');
+ const request=(pathname,options={})=>fetch(new URL(pathname,origin),{redirect:'manual',signal:AbortSignal.timeout(15000),...options});
+ let descriptor;
+ try{const deadline=Date.now()+120000;while(Date.now()<deadline){if(child.exitCode!==null||child.signalCode!==null)throw Error('Captured packaged host exited');try{const r=await request('.well-known/t3/environment');if(r.ok){descriptor=await r.json();break;}}catch{}await new Promise(resolve=>setTimeout(resolve,200));}if(!descriptor?.environmentId)throw Error('Packaged host readiness deadline');}catch(error){await close();throw error;}
+ async function controller(){
+  const nonce=randomBytes(32).toString('hex'),response=await request('.well-known/blackcrab/managed-host-proof?nonce='+nonce),proof=await response.json();
+  const fields=['blackcrab-managed-host-proof-v1',nonce,descriptor.environmentId,origin,'0.1.7',2],expected=createHmac('sha256',secret).update(JSON.stringify(fields)).digest();
+  if(!response.ok||Object.keys(proof).length!==7||proof.version!==1||proof.nonce!==nonce||proof.environmentId!==descriptor.environmentId||proof.origin!==origin||proof.serverVersion!=='0.1.7'||proof.orchestrationProtocolVersion!==2||!/^[a-f0-9]{64}$/.test(proof.proof)||!timingSafeEqual(expected,Buffer.from(proof.proof,'hex')))throw Error('Identity proof failed before any bootstrap credential');
+  const r=await request('oauth/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:bootstrap(),subject_token_type:'urn:t3:params:oauth:token-type:environment-bootstrap',requested_token_type:'urn:ietf:params:oauth:token-type:access_token',scope:scopes.join(' '),client_label:'Blackcrab owned native acceptance controller'})});
+  if(!r.ok)throw Error('Private owner exchange refused');const grant=await r.json();if(typeof grant.access_token!=='string')throw Error('Owner exchange malformed');return grant.access_token;
+ }
+ async function pair(label='Blackcrab native acceptance'){
+  const bearer=await controller();const r=await request('api/auth/pairing-token',{method:'POST',headers:{authorization:'Bearer '+bearer,'content-type':'application/json'},body:JSON.stringify({label,scopes})});if(!r.ok)throw Error('Standard pairing grant refused');const value=await r.json();if(!/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}$/.test(value.credential))throw Error('Standard pairing grant malformed');return {credential:value.credential,expiresAt:value.expiresAt};
+ }
+ return {root,origin,identity:descriptor,child,controller,pair,close,alive:()=>child.exitCode===null&&child.signalCode===null};
+}

@@ -472,7 +472,7 @@ fn descriptor(
     {
         return Err(error());
     }
-    if !uuid(&binding.environment_id)
+    if !desktop_policy::environment_id(&binding.environment_id)
         || binding.generation == 0
         || binding.generation > MAX_SAFE
         || grant.expires_at <= now
@@ -918,6 +918,27 @@ mod tests {
         fixture["descriptor"]["authorization"]["expiresAt"] = json!(grant.expires_at);
         assert_eq!(v, fixture["descriptor"]);
         assert!(!String::from_utf8(bytes).unwrap().contains("bootstrap"));
+    }
+    #[test]
+    fn descriptor_preserves_legacy_environment_identity_and_renewal_request_uuid() {
+        let mut b = binding();
+        let grant = DesktopPairGrant { credential: "23456789ABCD".into(), expires_at: now_ms().unwrap() + 60000 };
+        for value in ["legacy-env", "環境-🦀", "a b", "a\nb"] {
+            b.environment_id = value.into();
+            let bytes = descriptor(&b, Path::new("/private/owned"), &grant).unwrap();
+            let parsed: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(parsed["owner"]["environmentId"], value);
+            let request = json!({"version":1,"kind":"native-client-credential","requestId":"12345678-1234-1234-1234-123456789abc","generation":1,"environmentId":value});
+            assert!(authorize_renewal(&serde_json::to_vec(&request).unwrap(), &b, &mut HashSet::new()).is_ok());
+            let mut bad = request; bad["requestId"] = json!("legacy-env");
+            assert!(authorize_renewal(&serde_json::to_vec(&bad).unwrap(), &b, &mut HashSet::new()).is_err());
+        }
+        for value in ["", " legacy", "legacy\u{feff}"] {
+            b.environment_id = value.into();
+            assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
+        }
+        b.environment_id = "x".repeat(MAX_FRAME);
+        assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
     }
     #[test]
     fn descriptor_browser_capability_matches_the_shared_private_contract() {

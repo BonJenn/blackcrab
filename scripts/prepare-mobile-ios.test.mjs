@@ -167,3 +167,13 @@ test('checked-in lifecycle policy authenticates the actual pinned native archive
   const checked = await verifyNativeInstallInputs(new URL('../', import.meta.url));
   assert.equal(checked.integrity, NATIVE_INSTALL_INPUT.integrity);
 });
+
+
+test('native builds carry only validated Blackcrab public cloud configuration', () => {
+  const env = isolatedBuildEnvironment('/owned', { PATH: '/bin', BLACKCRAB_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only', BLACKCRAB_CLERK_JWT_TEMPLATE: 'blackcrab-relay', BLACKCRAB_RELAY_URL: 'https://relay.example.test/', CLERK_SECRET_KEY: 'private', T3CODE_RELAY_URL: 'https://foreign.example.test' });
+  assert.equal(env.BLACKCRAB_CLERK_PUBLISHABLE_KEY, 'pk_test_fixture_only');
+  assert.equal(env.BLACKCRAB_CLERK_JWT_TEMPLATE, 'blackcrab-relay');
+  assert.equal(env.BLACKCRAB_RELAY_URL, 'https://relay.example.test');
+  assert.equal(env.CLERK_SECRET_KEY, undefined); assert.equal(env.T3CODE_RELAY_URL, undefined);
+  assert.throws(() => isolatedBuildEnvironment('/owned', { PATH: '/bin', BLACKCRAB_RELAY_URL: 'https://relay.example.test' }), /Incomplete Blackcrab/);
+});

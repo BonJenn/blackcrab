@@ -837,7 +837,7 @@ impl ManagedHost {
         origin: url::Url,
         starting: bool,
     ) -> Result<Option<Attached>, String> {
-        let service_selection = if config.ownership == OwnershipMode::Service {
+        let service_selection: Option<(String, String)> = if config.ownership == OwnershipMode::Service {
             #[cfg(unix)]
             { Some(service_issuer::attachment_selection(self, config)?) }
             #[cfg(not(unix))]

@@ -1,0 +1,11 @@
+# Fresh native background-service initialization
+
+`managed_service_initialize` is a main-window-only, argument-free native command. It uses the bundled native payload capability and compiled Host manifest. It accepts neither an artifact path nor an ownership receipt from a renderer. The current supported native setup targets are macOS and Linux; OS service activation is separate.
+
+Setup requires a fresh marked owner with empty host/log directories and no configuration. Existing Direct or Service configurations, unconfigured legacy data and unknown owner files are refused. It verifies the service-profile selection, generates a fresh v4 environment identity and private bootstrap secret, and records Service ownership before runtime installation. That reservation prevents Direct fallback if installation later fails. Partial setup data is retained; automatic repair/retry of a partially configured owner is not implemented here.
+
+The actual service installer validates the packaged executable version and durably publishes the selected runtime. Native code then writes the initial environment identity and protocol-4 service state. It releases the configuration lease before calling the current-executable issuer publisher, whose lock order is service-owner then launcher. No host or OS unit is started by setup.
+
+Production Release library compilation passed with the private acceptance module excluded. Two fresh-owner/identity tests and 21 issuer/boot-session tests passed. A separate isolated real-archive test called the public native initializer from a fresh private owner, checked the resulting identity/configuration and installed issuer selection, and confirmed repeat setup was refused without changing configuration. No journal or host log was created. All captured process groups were quiescent and source inputs were unchanged.
+
+The real-archive test exercises the current-executable publication wrapper with the Rust test harness binary and opens the installed factory in-process. It does not certify external dispatch by a production app executable, the desktop button, OS service installation/control, rendered native entry or full desktop/mobile parity. Those remain acceptance obligations.

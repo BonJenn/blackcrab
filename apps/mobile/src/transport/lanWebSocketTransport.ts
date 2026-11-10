@@ -262,6 +262,9 @@ export class LanWebSocketTransport implements Transport {
         return;
       case "connection_status":
         return;
+      case "providers_result":
+      case "queue_snapshot":
+      case "queue_result":
       case "sessions":
       case "transcript_tail":
       case "approval_requested":

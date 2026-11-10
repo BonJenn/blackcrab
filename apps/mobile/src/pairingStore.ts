@@ -1,9 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import {
-  hasDesktopPairingPayloadExpired,
   isHostPlatform,
-  isPairingCode,
-  parseDesktopPairingPayload,
   type DesktopPairingPayload,
   type HostId,
   type MessageId,
@@ -13,7 +10,6 @@ import {
 
 const STORAGE_KEY = "blackcrab.mobile.pairedHosts.v1";
 const READ_CURSOR_KEY = "blackcrab.mobile.readCursors.v1";
-const MANUAL_HOST_ID_PREFIX = "manual-pairing-";
 
 export type StoredPairingSource = "desktop_payload" | "manual_code";
 
@@ -33,59 +29,10 @@ export interface StoredPairedHost extends PairedHostSummary {
   lanPort?: number;
 }
 
-export type CreateStoredHostResult =
-  | { ok: true; host: StoredPairedHost }
-  | { ok: false; error: string };
-
-export type PairHostFromInputResult =
-  | { ok: true; host: StoredPairedHost; hosts: StoredPairedHost[] }
-  | { ok: false; error: string };
-
 const memoryStore = new Map<string, string>();
 
 export function normalizePairingCode(input: string): string {
   return input.replace(/[\s-]/g, "").toUpperCase();
-}
-
-export function createStoredHostFromPairingInput(
-  input: string,
-  now = new Date(),
-): CreateStoredHostResult {
-  const trimmedInput = input.trim();
-  if (!trimmedInput) {
-    return { ok: false, error: "Enter a pairing code or payload." };
-  }
-
-  const payload = parseDesktopPairingPayload(trimmedInput);
-  if (payload) {
-    if (hasDesktopPairingPayloadExpired(payload, now.getTime())) {
-      return { ok: false, error: "This pairing code has expired." };
-    }
-
-    return {
-      ok: true,
-      host: storedHostFromPayload(payload, now),
-    };
-  }
-
-  const code = normalizePairingCode(trimmedInput);
-  if (!isPairingCode(code)) {
-    return { ok: false, error: "Pairing code is not valid." };
-  }
-
-  return {
-    ok: true,
-    host: {
-      hostId: `${MANUAL_HOST_ID_PREFIX}${code.toLowerCase()}`,
-      displayName: `Desktop ${code.slice(-4)}`,
-      platform: "unknown",
-      appVersion: "unknown",
-      lastSeenAt: now.toISOString(),
-      online: false,
-      pairedAt: now.toISOString(),
-      pairingSource: "manual_code",
-    },
-  };
 }
 
 export function storedHostFromPayload(
@@ -111,18 +58,6 @@ export async function persistPairedHost(
   host: StoredPairedHost,
 ): Promise<StoredPairedHost[]> {
   return upsertStoredHost(host);
-}
-
-export async function pairHostFromInput(
-  input: string,
-): Promise<PairHostFromInputResult> {
-  const result = createStoredHostFromPairingInput(input);
-  if (!result.ok) {
-    return result;
-  }
-
-  const hosts = await upsertStoredHost(result.host);
-  return { ok: true, host: result.host, hosts };
 }
 
 export async function loadStoredHosts(): Promise<StoredPairedHost[]> {

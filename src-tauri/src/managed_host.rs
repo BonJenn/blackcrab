@@ -20,6 +20,10 @@ mod service_issuer;
 #[path = "managed_service_identity.rs"]
 mod service_identity;
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[path = "managed_service_initialization.rs"]
+mod service_initialization;
+
 #[path = "managed_desktop_policy.rs"]
 pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};
@@ -46,7 +50,7 @@ pub(crate) struct HostStatus {
     error: Option<String>,
 }
 // A stored service marker restricts startup; it is not proof of service identity.
-// Only a future native, lease-held migration may select this mode.
+// Fresh native setup may select Service; existing Direct configurations are never migrated.
 #[derive(Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase")]
 enum OwnershipMode {
@@ -205,6 +209,13 @@ impl ManagedHost {
             Probe::Stopped => Ok(status("stopped", Some(&config))),
             Probe::Attached(_) => Ok(status("running", Some(&config))),
         }
+    }
+    /// Explicit fresh service setup. No migration, process spawn or OS activation.
+    pub(crate) async fn initialize_service(&self) -> Result<HostStatus, String> {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        { service_initialization::initialize(self).await }
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        { Err("Background service setup is unavailable on this platform".into()) }
     }
     pub(crate) async fn start(&self, artifact: Option<PathBuf>) -> Result<HostStatus, String> {
         let _operation = self.operation.lock().await;

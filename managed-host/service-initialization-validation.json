@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "state": "NATIVE_FRESH_SERVICE_INITIALIZATION_PASSED",
+  "base": "6b881c22265e301387184a46d0f2b5e601eef8ac",
+  "productionFiles": {
+    "src-tauri/src/managed_host.rs": "31a4e91d8dd25903cfbb050a322e3a2c878db6eb26aa114d665de03b075fc523",
+    "src-tauri/src/managed_service_initialization.rs": "60d7daeb85f07cf4708cac060b464108b6be99b1cc76e26b9464b35e6136e2d1",
+    "src-tauri/src/lib.rs": "6d82d3cda0633462f118da79d3f952d81feea36353d10ed2b5a1ed26bc2adedf",
+    "src-tauri/permissions/app.toml": "a842841e719111cf835e91acd9017be2012d1935ab87b3dd2defc21e71efecb2"
+  },
+  "releaseLibraryCompilePassed": true,
+  "freshOwnerAndIdentityTestsPassed": 2,
+  "issuerAndBootSessionTestsPassed": 21,
+  "productionInputsUnchanged": true,
+  "privateAcceptanceModuleCommitted": false,
+  "realArchiveAcceptancePassed": true,
+  "publicNativeInitializerInvoked": true,
+  "currentExePublicationWrapperInvoked": true,
+  "publishedExecutableKind": "Rust test harness binary",
+  "externalProductIssuerDispatchTested": false,
+  "repeatInitializationRefused": true,
+  "hostLaunchPerformed": false,
+  "osServiceActivationPerformed": false,
+  "providerRuns": 0,
+  "allCapturedGroupsQuiescent": true,
+  "archiveSha256": "fa08c35179f3982b88338309d83999d4ebed2c925e35f6d00616223afd50da8d",
+  "manifestSha256": "866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64",
+  "productionControllerReportSha256": "806916d6f20ac36c3d3bda466706d8801ad0ae576cd2a3144e68a8fb19eb02c4",
+  "runtimeControllerReportSha256": "2a006051b8d3d32d1ecc38cf58192c4555bbdcf738e02eb77bcd02e87f95bd23",
+  "runtimeResultSha256": "d20bfc359cb7b51ab6b0d11976fd1c53e1013209b5d1e4dc6d8bcc85d72cfaf2",
+  "privateRuntimeAcceptanceSourceSha256": "54190a489f671ab2477de78efe69feab756f3050a450fabe63a9cb794e3fed29"
+}

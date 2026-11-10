@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "state": "PRODUCTION_AND_REAL_LEGACY_NATIVE_BINDING_ACCEPTANCE_PASSED",
+  "base": "05954ff79a51dec783ee5f9fbaa292bc8b3333a9",
+  "files": {
+    "src-tauri/src/managed_desktop_policy.rs": "b1a0ba2a3b4e110f42b1ff3d586b2dd318c8fb1eca70fa99fb3e0de6b8eb1b9b",
+    "src-tauri/src/managed_desktop.rs": "65012a58fa556c1a2fdaab857f07b79e6e1dca6b4b51a9afa7aea423d3b5a0c4",
+    "src-tauri/src/managed_host.rs": "740807bc6d22c3a4a334a6017ba835a70849f23b7c70360732662d785373969b",
+    "managed-desktop/descriptor.mjs": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2",
+    "managed-desktop/descriptor.test.mjs": "39a5aacb92323d7c2ffc340ed1d744825243b909915b3ab476fd0e640a126b7f",
+    "managed-desktop/patches/registry.json": "9c14687a74b05bc0214146401e9393837d9b85cb1d0cb8ccfd7fc5ecaa9b8e37"
+  },
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "upstreamFiles": {
+    "packages/contracts/src/baseSchemas.ts": "edd4d2c73cc79ce5e50bffd35b9c861fe091de23a1ac792db864d3b71b09a7af",
+    "apps/server/src/environment/ServerEnvironment.ts": "a559c90d66f7790bbced32f85d7032bffd3e742e4b1580a292dffe732ea5637a"
+  },
+  "javascriptDescriptorTestsPassed": 7,
+  "nativePolicyTestsPassed": 14,
+  "nativeDescriptorRenewalTestPassed": true,
+  "realLauncherCyclesPassed": 2,
+  "legacyNativeBindingAndPairingPassed": true,
+  "existingEnvironmentIdPreserved": true,
+  "retiredEpochs": [
+    8,
+    9
+  ],
+  "allCapturedGroupsQuiescent": true,
+  "runtimeReportSha256": "89229e6b9f2c72f4e4348519c8d357b2006ea93361113c86d0936fe7c7121ca8",
+  "renderedUiAcceptance": false,
+  "freshServiceInitialization": false,
+  "osServiceActivation": false,
+  "providerRuns": 0,
+  "productionValidation": {
+    "releaseLibraryCompilePassed": true,
+    "nativePolicyTestsPassed": 14,
+    "nativeDescriptorRenewalTestsPassed": 1,
+    "sourceFilesUnchanged": true,
+    "allCapturedGroupsQuiescent": true,
+    "privateAcceptanceModulePresent": false,
+    "reportSha256": "a0e5ac7c4975d7ceedae8ea457d05dc247792dda54e2f75fbedffa1482955d06"
+  },
+  "runtimeControllerReportSha256": "de3451a3888565e0e4a8f7eb1ab6f795fc0941860d162ca8eb841ffc4559f1aa",
+  "descriptorProducerPinCorrection": {
+    "old": "bf0526ba6f5a32d00083771eb8a473dcff22353e1a8598234e2af4e298026576",
+    "new": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2"
+  },
+  "packagingValidation": {
+    "descriptorAndResourceTestsPassed": 15,
+    "failed": 0,
+    "optionalActualTauriBundleSkipped": 1,
+    "sourceDigestVerificationPreserved": true
+  }
+}

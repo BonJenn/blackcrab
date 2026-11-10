@@ -280,7 +280,7 @@ impl ManagedHost {
     pub(super) async fn desktop_binding(&self) -> Result<DesktopHostBinding, String> {
         let _operation = self.operation.lock().await;
         let attached = self.ensure_started(None).await?;
-        if attached.origin.port().is_none() || !desktop_policy::uuid(&attached.environment_id) {
+        if attached.origin.port().is_none() || !desktop_policy::environment_id(&attached.environment_id) {
             return Err("Native host needs an explicit loopback port".into());
         }
         let browser = self

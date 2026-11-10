@@ -12,6 +12,15 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(target_os = "macos")]
+#[path = "managed_desktop_home.rs"]
+mod account_home;
+
+#[cfg(target_os = "macos")]
+pub(crate) fn native_account_home() -> Result<PathBuf, String> {
+    account_home::account_home()
+}
+
 const MANIFEST: &str = "blackcrab-managed-desktop.json";
 const APP_ID: &str = "com.blackcrab.desktop.managed";
 const PROFILE: &str = "blackcrab-managed-v1";

@@ -24,6 +24,10 @@ mod service_identity;
 #[path = "managed_service_initialization.rs"]
 mod service_initialization;
 
+#[cfg(target_os = "macos")]
+#[path = "managed_service_control.rs"]
+mod service_control;
+
 #[path = "managed_desktop_policy.rs"]
 pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};
@@ -48,6 +52,16 @@ pub(crate) struct HostStatus {
     environment_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+}
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all="camelCase")]
+pub(crate) enum ServiceAction {Status,Install,Start,Stop,Restart,Uninstall}
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub(crate) struct ServiceStatus {
+    state:&'static str,can_initialize:bool,installed:bool,loaded:bool,
+    #[serde(skip_serializing_if="Option::is_none")]
+    error:Option<String>,
 }
 // A stored service marker restricts startup; it is not proof of service identity.
 // Fresh native setup may select Service; existing Direct configurations are never migrated.
@@ -209,6 +223,12 @@ impl ManagedHost {
             Probe::Stopped => Ok(status("stopped", Some(&config))),
             Probe::Attached(_) => Ok(status("running", Some(&config))),
         }
+    }
+    pub(crate) async fn control_service(&self,action:ServiceAction)->Result<ServiceStatus,String>{
+        #[cfg(target_os="macos")]
+        {service_control::control(self,action).await}
+        #[cfg(not(target_os="macos"))]
+        {if action==ServiceAction::Status{Ok(ServiceStatus{state:"notAvailable",can_initialize:false,installed:false,loaded:false,error:None})}else{Err("Background-service controls are unavailable on this platform".into())}}
     }
     /// Explicit fresh service setup. No migration, process spawn or OS activation.
     pub(crate) async fn initialize_service(&self) -> Result<HostStatus, String> {

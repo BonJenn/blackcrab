@@ -78,6 +78,15 @@ async fn managed_host_status(
     Ok(host.status().await)
 }
 #[tauri::command]
+async fn managed_service_control(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+    action: managed_host::ServiceAction,
+) -> Result<managed_host::ServiceStatus, String> {
+    require_main_window(&window)?;
+    host.control_service(action).await
+}
+#[tauri::command]
 async fn managed_service_initialize(
     window: tauri::WebviewWindow,
     host: State<'_, managed_host::ManagedHost>,
@@ -5174,6 +5183,7 @@ pub fn run() {
             managed_host_status,
             managed_host_start,
             managed_service_initialize,
+            managed_service_control,
             managed_workspace_open,
             managed_bridge::managed_native_pick_folder,
             managed_bridge::managed_native_pick_project_favicon,

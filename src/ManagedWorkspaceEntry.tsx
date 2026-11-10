@@ -1,3 +1,4 @@
+import { ManagedServiceControls } from "./ManagedServiceControls";
 import { ManagedNativeDesktopEntry } from "./ManagedNativeDesktopEntry";
 import { useEffect, useRef, useState } from "react";
 import { managedHostClient, type ManagedHostClient, type ManagedHostStatus } from "./managedHostClient";
@@ -70,7 +71,7 @@ export function ManagedWorkspaceEntry({ client = managedHostClient }: { client?:
     }
   }
 
-  return <><ManagedNativeDesktopEntry /><section className="managed-workspace-entry" aria-label="Managed workspaces" aria-busy={pending !== null}>
+  return <><ManagedNativeDesktopEntry /><ManagedServiceControls /><section className="managed-workspace-entry" aria-label="Managed workspaces" aria-busy={pending !== null}>
     <h3>Managed workspaces</h3>
     <p>Open a separate workspace window. Its service keeps running when the window closes.</p>
     <p role="status">{pending ? pendingLabels[pending] : status ? statusLabels[status.state] : "Workspace service status could not be checked."}</p>

@@ -55,6 +55,9 @@ const DEFAULT_WS_FACTORY = (url: string): MinimalWebSocket =>
 const BACKOFF_SCHEDULE_MS = [1_000, 2_000, 5_000, 15_000, 30_000];
 
 const RELAY_EVENT_TYPES = new Set([
+  "providers_result",
+  "queue_snapshot",
+  "queue_result",
   "sessions",
   "transcript_tail",
   "approval_requested",

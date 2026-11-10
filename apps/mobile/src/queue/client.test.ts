@@ -187,3 +187,56 @@ it("does not run a second outbox removal concurrently when reconnect occurs duri
   expect(f.storage.remove).toHaveBeenCalledTimes(removals);
   expect(JSON.parse([...f.saved.values()][0]).body).toBe("newer command"); f.client.dispose();
 });
+
+it("keeps the durable write exclusive across disconnect and reconnect", async () => {
+  const f = fixture(); await f.open();
+  const saving = deferred<void>();
+  f.storage.write.mockImplementationOnce(async (key, value) => { await saving.promise; f.saved.set(key, value); });
+  const first = f.client.enqueue("host", "session", "first saved message");
+  f.setStatus("disconnected"); f.setStatus("connected");
+  f.reply(); await flush();
+  expect(await f.client.enqueue("host", "session", "overwriting message")).toBe(false);
+  expect(f.storage.write).toHaveBeenCalledOnce();
+  expect(f.client.state("host", "session").busy).toBe(true);
+  saving.resolve(); expect(await first).toBe(true);
+  expect(f.client.state("host", "session").pending?.body).toBe("first saved message");
+  expect(f.actions.filter(action => action.operation.type === "enqueue")).toHaveLength(0);
+  expect(f.client.state("host", "session").needsRefresh).toBe(true);
+  f.client.refresh("host", "session"); f.reply(); await flush();
+  f.client.retry("host", "session"); f.reply(undefined, { receipt: f.receipt() }); await flush();
+  expect(f.client.state("host", "session").pending).toBeNull();
+  expect(f.saved.size).toBe(0); f.client.dispose();
+});
+
+it("keeps an unfinished write when the legacy screen detaches and reopens", async () => {
+  const f = fixture(); await f.open();
+  const saving = deferred<void>();
+  f.storage.write.mockImplementationOnce(async (key, value) => { await saving.promise; f.saved.set(key, value); });
+  const first = f.client.enqueue("host", "session", "retained while navigating");
+  f.client.bind(null, null); f.client.bind(f.transport, "host");
+  await f.client.open("host", "session");
+  expect(f.client.state("host", "session").busy).toBe(true);
+  expect(await f.client.enqueue("host", "session", "second message")).toBe(false);
+  saving.resolve(); expect(await first).toBe(true);
+  expect(f.client.state("host", "session").pending?.body).toBe("retained while navigating");
+  expect(f.actions.map(action => action.operation.type)).toEqual(["get"]);
+  f.client.refresh("host", "session"); f.reply(); await flush();
+  f.client.retry("host", "session"); f.reply(undefined, { receipt: f.receipt() }); await flush();
+  expect(f.client.state("host", "session").pending).toBeNull(); f.client.dispose();
+});
+
+it("releases a failed write after reconnect without losing the draft or blocking recovery", async () => {
+  const f = fixture(); await f.open();
+  const saving = deferred<void>();
+  f.storage.write.mockImplementationOnce(async () => { await saving.promise; throw Error("disk full"); });
+  const first = f.client.enqueue("host", "session", "unsaved draft");
+  f.setStatus("disconnected"); f.setStatus("connected");
+  expect(f.client.state("host", "session").busy).toBe(true);
+  saving.resolve(); expect(await first).toBe(false);
+  expect(f.client.state("host", "session")).toMatchObject({ busy: false, pending: null, needsRefresh: true });
+  expect(f.client.state("host", "session").error).toContain("draft is unchanged");
+  expect(f.saved.size).toBe(0);
+  f.client.refresh("host", "session"); f.reply(); await flush();
+  expect(await f.client.enqueue("host", "session", "unsaved draft")).toBe(true);
+  f.reply(undefined, { receipt: f.receipt() }); await flush(); f.client.dispose();
+});

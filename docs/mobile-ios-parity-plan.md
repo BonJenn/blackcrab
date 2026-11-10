@@ -111,6 +111,22 @@ passed, and iOS Hermes bundle export succeeded. The combined desktop/mobile tree
 127 native tests, Cargo check and production build). CI now typechecks workspaces
 as well as the root application. No signed build or real-device claim is made.
 
+### Queue ownership through legacy navigation
+
+The legacy screen now keeps one queue controller for the app lifetime, including
+while the full workspace interface is visible. An in-flight recovery-file write
+keeps the queue busy across disconnect, reconnect and screen detachment. A second
+send cannot overwrite that unfinished save; a connection change still requires
+refresh and explicit retry with the original command ID. A failed save preserves
+the draft and releases the busy state for recovery.
+
+Validation: the overwrite regression failed before the fix. Afterward, 39 tests
+across queue, draft, transport and composer paths passed, including an actual-file
+recovery test using Node filesystem adapters for the Expo boundary. Scoped strict
+TypeScript checking uses the prepared Expo 58.0.14 / React Native 0.88.0 dependency
+graph. These checks do not establish populated installed-iOS upgrade acceptance,
+provider execution or off-LAN delivery; those gates remain open.
+
 ### Remembered startup host increment
 
 Explicit connection/pairing choices now persist independently of pairing order.

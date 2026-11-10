@@ -56,6 +56,7 @@ jobs:
           fork-integration/boot-service/owned-auth/source-mirror.test.mjs
           fork-integration/boot-service/backend-identity/*.test.mjs
           fork-integration/boot-service/launcher-adapter/*.test.mjs
+          fork-integration/boot-service/browser-channel/*.test.mjs
 
       - run: node --test scripts/managed-native-resources.test.mjs
 

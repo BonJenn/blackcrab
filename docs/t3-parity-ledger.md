@@ -44,6 +44,30 @@ For every applicable scenario record: owner; implementation PR and merged stage 
 - E23: The compiler-enabled iOS Release at `47b65a55da249591e387cf0beca31a7b55ce44c5` built and passed strict signature verification. Fresh owned-device tests passed baseline pairing and catalog seeding, preserved the legacy keychain/queue digests, and displayed the retained catalog after installing the new app without uninstalling. Installed paths and file hashes match the pinned signed source. The simulator's twelve framework-directory permission changes are accepted only for that complete source inventory, alongside the existing exact binary-mode rules. Thirty portable controller tests pass. The native rename dialog opened, but prior test input either inserted at an interior caret or could not find an edit-menu item. The corrected runner uses XCTest's supported Command-A event and verifies the replacement field before saving. Its source-bound nonsecret canary passed with zero failures/skips and privately reviewed redacted exports. The full baseline-to-upgrade run then passed both UI phases with zero failures/skips. The independent SDK confirmed the exact renamed title and archived state, zero runs/provider sessions and clean captured-host closure. Legacy digests remained unchanged on the fresh device; populated legacy migration remains unverified. Failed attempts closed their captured hosts with zero provider sessions. These results do not certify broader mobile parity.
 - E24: The reviewed native desktop artifact built with full upstream typecheck and strict signature verification. The exact QA archive passed verification before and after archive roundtrip with unchanged inventories. An isolated lifecycle attempt authenticated and reused the same window, then exposed a test-only bundle-identity quit guard, which was corrected. A subsequent attempt stopped at host readiness. Fixed nonsecret failure categories now distinguish readiness timeout, host exit and other owner failure. The revised native test binary compiled with all 77 source inputs stable and passed 20 focused tests. Full normal quit/reopen and production entry-button acceptance remain pending.
 
+## Current evidence interpretation (2026-11-10)
+
+E14/E20 describe historical preparation states. Full-interface PR #213, compiler
+work #227 and native acceptance #229 are now merged to stage; E23 and the
+[committed installed result](../managed-validation/ios-ui/acceptance-result.json)
+are the later evidence for retained catalog, rename and archive. The empty
+legacy queue in that run leaves populated migration open. E24 and the desktop
+service stack remain bounded working-branch evidence until their integration
+and merge gates pass.
+
+- E25: Mobile transport PR [#238](https://github.com/BonJenn/blackcrab/pull/238)
+  merged at `b387bdbac9058f72d1dddba8a9d480d41de5a484`. LAN and encrypted
+  relay transports now deliver validated queue and provider responses. Four
+  regressions failed before the fix; 50 focused tests, scoped typing and all
+  five CI checks passed after it. Installed iOS and real remote relay acceptance
+  remain open.
+
+The 144 grouped scenario rows below are acceptance obligations. Their open
+status does not imply that every underlying feature is absent. The
+[current delivery snapshot](t3-parity-plan.md#current-integration-and-acceptance-status-2026-11-10)
+records implementation, integration and accepted behavior separately. No
+full-row completion or percentage is inferred from imported source, PR counts
+or neighboring tests.
+
 ## Per-document scenario inventory
 
 W = web, D = desktop, M = mobile. All rows U unless explicitly P; all applicable G1–G8 still apply. Mobile means native iOS release acceptance; Android reference behavior is inventoried separately rather than silently used as an iOS substitute.

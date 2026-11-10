@@ -76,6 +76,28 @@ client action before its backend works.
 | 20 | Secrets, maintenance and distribution | Scoped secret references, diagnostics/triage, provider updates, tested macOS/Windows/Linux/headless packaging | Pending |
 | 21 | Complete parity ledger | Every target user doc, RPC/MCP action and setting mapped to scenarios and evidence per supported client/provider | [Scenario inventory](t3-parity-ledger.md) covers 47 user docs plus contract/settings registries; all scenarios still require accepted evidence; full certification pending |
 
+## Current integration and acceptance status (2026-11-10)
+
+This snapshot is reconciled against stage `b387bdbac9058f72d1dddba8a9d480d41de5a484`.
+The detailed delivery rows above preserve the evidence available when each
+increment landed. Use this snapshot for the current integration status.
+
+| Capability | Implementation / integration | Accepted behavior | Remaining acceptance |
+|---|---|---|---|
+| Independent managed host | Packaged host and runtime integration merged in #201, #202, #207 and #212 | Relocated authentication, project recovery, shared-SDK thread metadata/deduplication and read-only enforcement | Full provider execution, remote exposure and broad domain scenarios |
+| Full native iOS interface | #213 and #227 merged to stage | Standalone Release build, strict simulator signature, full-interface installed launch | Physical-device and distribution validation |
+| iOS catalog and metadata controls | #229 merged; acceptance result committed | Pair baseline, install upgrade without uninstalling, retain catalog, rename and archive; independent SDK confirms mutations and zero provider runs | Populated legacy migration, broader agent/workspace actions and failure recovery |
+| Legacy mobile queue/provider delivery | #238 merged | Actual LAN and encrypted relay transports deliver queue/results/provider discovery; 50 focused tests and scoped typing pass | Installed iOS and real off-LAN relay validation |
+| Full desktop native client | Implementation remains in the #215 stack | Packaged client/browser and native lifecycle evidence recorded in the stack | Normal Root entry, reuse, quit/reopen, remaining native methods and merge to stage |
+| Background service and native browser attachment | Implementation remains in #217–237 | Native service setup/control fixtures and browser protocol tests recorded in the stack | Current combined artifact/runtime validation and merge to stage |
+| Remaining T3 workflows and external services | Covered by the scenario inventory; upstream source inclusion alone is not an integration result | No blanket acceptance claimed | Provider turns, complete coding/orchestration workflows, push, remote/cloud configuration and release gates |
+
+The scenario ledger groups multiple behaviors and surfaces into each row. Its
+144 open rows measure outstanding acceptance obligations, not the fraction of
+code implemented. Track implementation, integration and accepted behavior
+separately; neither merged PR counts nor open-row counts provide a defensible
+overall completion percentage. Full parity remains open.
+
 ## Implementation decisions
 
 The provider compatibility steps preserved the existing Rust/Tauri backend.

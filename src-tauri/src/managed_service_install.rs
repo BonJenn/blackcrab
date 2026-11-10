@@ -74,6 +74,18 @@ impl SelectedServiceRuntime {
             version: artifact.version,
         })
     }
+    /// Feature capability derives only from this native-selected manifest.
+    pub(super) fn supports_native_browser(&self) -> Result<bool> {
+        let bytes=read_regular(&self.source.join(MANIFEST),64*1024*1024)?;
+        if format!("{:x}",Sha256::digest(&bytes))!=self.manifest{return Err(InstallError::Verification);}
+        let manifest:Value=serde_json::from_slice(&bytes).map_err(|_|InstallError::Profile)?;
+        let registry:Value=serde_json::from_str(include_str!("../../fork-integration/boot-service/browser-channel/registry.json")).map_err(|_|InstallError::Profile)?;
+        let actual=manifest["sourcePatches"].as_array().ok_or(InstallError::Profile)?;
+        let patches=registry["patches"].as_array().ok_or(InstallError::Profile)?;
+        let added=registry["addedSources"].as_array().ok_or(InstallError::Profile)?;
+        if patches.len()!=3||added.len()!=1{return Err(InstallError::Profile);}
+        Ok(patches.iter().chain(added.iter()).all(|record|actual.iter().any(|value|value["id"]==record["id"]&&value["sha256"]==record["sha256"])))
+    }
     pub(super) fn version_directory(&self) -> PathBuf {
         self.owner.join("host/runtime/versions").join(&self.version)
     }
@@ -591,6 +603,22 @@ mod tests {
         }
     }
     const VALID: &str = "#!/bin/sh\nprintf 't3code v0.1.7\\n'\n";
+    #[test]
+    fn browser_feature_requires_every_pin_from_the_selected_manifest() {
+        let fixture=Fixture::new();let mut selection=fixture.selection(VALID,true);
+        assert!(!selection.supports_native_browser().unwrap());
+        let mut manifest:Value=serde_json::from_slice(&fs::read(selection.source.join(MANIFEST)).unwrap()).unwrap();
+        let registry:Value=serde_json::from_str(include_str!("../../fork-integration/boot-service/browser-channel/registry.json")).unwrap();
+        for record in registry["patches"].as_array().unwrap().iter().chain(registry["addedSources"].as_array().unwrap().iter()) {
+            manifest["sourcePatches"].as_array_mut().unwrap().push(json!({"id":record["id"],"sha256":record["sha256"]}));
+        }
+        let bytes=serde_json::to_vec(&manifest).unwrap();fs::write(selection.source.join(MANIFEST),&bytes).unwrap();
+        assert!(selection.supports_native_browser().is_err());
+        selection.manifest=format!("{:x}",Sha256::digest(&bytes));assert!(selection.supports_native_browser().unwrap());
+        manifest["sourcePatches"].as_array_mut().unwrap().pop();let bytes=serde_json::to_vec(&manifest).unwrap();
+        fs::write(selection.source.join(MANIFEST),&bytes).unwrap();selection.manifest=format!("{:x}",Sha256::digest(bytes));
+        assert!(!selection.supports_native_browser().unwrap());
+    }
     #[test]
     fn synthetic_profile4_transaction_is_private_verified_and_durable() {
         let f = Fixture::new();

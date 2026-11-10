@@ -51,9 +51,12 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
             .map_err(|_| "The bundled runtime does not support background-service setup")?;
         fresh_owner(&owned)?;
         let environment_id = new_environment_id()?;
-        let config = Configuration { schema: 1, ownership: OwnershipMode::Service,
+        let mut config = Configuration { schema: 1, ownership: OwnershipMode::Service,
             artifact_path: selected.version_directory().join("payload"), manifest_digest: expected.into(),
             bootstrap_secret: random_secret()?, environment_id: Some(environment_id.clone()), browser: None };
+        if native_browser_supported() && selected.supports_native_browser().map_err(|_| "The bundled service browser capability failed verification")? {
+            config.browser = Some(crate::managed_browser::Capability::allocate(&owned.root)?);
+        }
         owned.save_config(&config)?;
         File::open(&owned.root).and_then(|file| file.sync_all()).map_err(io_error)?;
         let mut installation = selected.prepare().map_err(|_| "Service runtime preparation failed; setup data was retained")?;

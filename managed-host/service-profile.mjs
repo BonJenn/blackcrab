@@ -17,6 +17,7 @@ const GROUPS=[
  ['identity-v2','fork-integration/owner-control/identity-v2/','identity-v2',['candidate-owner-proof-v2-http','candidate-owner-proof-v2-issuer-interface']],
  ['backend','fork-integration/boot-service/backend-identity/','fixtures',['owned-proof-config','owned-proof-serviceLauncherClient','owned-proof-http','owned-proof-concrete-source']],
  ['launcher','fork-integration/boot-service/launcher-adapter/','launcher',['owned-service-serviceLauncher','owned-service-cli-server','owned-service-OwnedLauncherBootstrap','owned-service-OwnedServiceLauncherLoss']],
+ ['browser','fork-integration/boot-service/browser-channel/','object',['owned-browser-auth','owned-browser-config','owned-browser-launcher','owned-browser-policy']],
 ];
 const ENTRY_SOURCES={
  'apps/server/src/bin.ts':'bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598',
@@ -64,7 +65,7 @@ export async function serviceProfilePlan(){
    else{canonical.set(record.id,normalized);records.push(normalized);}
   }
  }
- if(descriptors.length!==44||records.length!==42||aliases.length!==2)throw Error('Service profile composition changed');
+ if(descriptors.length!==48||records.length!==46||aliases.length!==2)throw Error('Service profile composition changed');
  return {profile:SERVICE_PROFILE,protocol:4,version:'0.1.7',records,descriptors,aliases,data,entrySources:{...ENTRY_SOURCES}};
 }
 /** Source consistency API; actual producer below ALWAYS authenticates a fresh archive. */

@@ -6,4 +6,6 @@ The optional capability travels only in the private native authentication envelo
 
 Validation: seven portable policy/profile tests passed, including complete composition against pinned original source and the unchanged default producer. Production Release compilation and 26 focused native tests passed (23 issuer/boot, one selected-feature manifest test and two fresh-setup tests). Frozen source inputs remained unchanged and all captured compiler/test process groups were quiescent.
 
+Eleven permanent launcher regression tests also pass, including private FD0 capability delivery with IPC3, rejection of malformed/configuration-bearing capabilities before child spawn, existing trial-update handling, helper loss and cleanup failure behavior. The browser cases load the exact registered launcher result and policy bytes. Three public-projection privacy checks pass as well.
+
 This change is not runtime acceptance: rebuilding the complete service artifact, typing/bundling the effective server graph, real native/Electron socket handshake, reconnect and shutdown still require validation. It does not certify full desktop or iOS parity.

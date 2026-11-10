@@ -225,20 +225,34 @@ Metro resources, including an external-cache boundary. Physical devices, signed
 distribution and the full native mobile workflows remain open.
 
 
-### Full native interface validation (in progress)
+### Full native interface integration and bounded installed acceptance
 
-PR #213 integrates the pinned native interface through one process-lifetime
-owner and retains legacy Hosts/queues separately. It remains a draft until its
-own native boot, existing-catalog retention and control flows pass. A clean CI
-install exposed a local dependency-clone omission; the coherent markdown type
-pin and complete installed-layout/context guard correct that boundary. Earlier
-incomplete-clone type/bundle and native outputs are explicitly not accepted as
-clean-install evidence. The corrected workspace typecheck, 140 mobile tests and
-installed graph checks pass; native output still requires acceptance.
+PR #213 merged at `baabfc233714aab00835f0c0899e7250a02fafd1`, followed by
+#227 at `3740b343d512964b86953517e0ddbf6941b60e29` and #229 at
+`3e7777e622d91b19e22b58d9b5348196a2a94b11`. The full pinned interface is
+integrated through one process-lifetime owner with a retained legacy Hosts route.
 
-Actual prebuild checks also exposed SDK defaults of iOS 16.4 for the widget and
-share extensions while their dependencies require iOS 18. Owned configuration
-now raises both, preserving higher targets, and verifies all app/widget/share
-Debug and Release configurations before compilation. Failed builds and their
-input manifests remain separate from accepted evidence. No physical-device,
-remote push, signed distribution or complete parity claim is made.
+The standalone Release at source `47b65a55da249591e387cf0beca31a7b55ce44c5`
+passed strict simulator signature verification. On a fresh owned iOS 26.2
+simulator, both baseline and upgraded UI phases passed with zero failures or
+skips. Installing without uninstalling preserved the catalog; native rename and
+archive actions were independently confirmed through the shared SDK. The host
+closed cleanly with zero runs and zero provider sessions. The committed
+[acceptance result](../managed-validation/ios-ui/acceptance-result.json) records
+these outcomes. The legacy queue was initially empty, so populated legacy
+migration remains unverified.
+
+PR #238 merged at `b387bdbac9058f72d1dddba8a9d480d41de5a484`. Both legacy
+LAN and encrypted relay transports now dispatch validated queue results,
+queue snapshots and provider responses to their clients. Four wire regressions
+failed before the fix; 50 tests across six files and scoped TypeScript checking
+passed afterward, followed by all five CI checks. This fixes the event path but
+does not supply installed-device or real off-LAN relay evidence.
+
+The native platform configuration also raises widget/share extension targets to
+iOS 18 where needed and checks all app/extension build configurations. Earlier
+failed dependency clones and native builds remain excluded from accepted evidence.
+
+Provider turns, complete M1–M6 workflows, populated legacy recovery, physical
+devices, push/background behavior and signed distribution remain open. The
+installed catalog/metadata tests establish only their named behaviors.

@@ -2,7 +2,7 @@
 use super::*;
 use crate::managed_service_install::SelectedServiceRuntime;
 
-fn fresh_owner(host: &ManagedHost) -> Result<(), String> {
+pub(super) fn fresh_owner(host: &ManagedHost) -> Result<(), String> {
     if host.read_config()?.is_some() {
         return Err("This workspace is already configured; service setup cannot replace or migrate it".into());
     }

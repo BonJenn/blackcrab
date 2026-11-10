@@ -672,7 +672,7 @@ fn verify_installed_copy(directory: &Path, file: &Path, expected: &str) -> Resul
 /// Read-only attachment selection. Never takes the service-owner lease, mints
 /// an envelope, changes the journal, or starts a process. The caller owns the
 /// configuration snapshot is checked; the compiled manifest remains the trust anchor.
-pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configuration) -> Result<(String, String)> {
+fn attachment_binding(host: &ManagedHost, expected_config: &Configuration) -> Result<Binding> {
     let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256")
         .filter(|value| hex_digest(value)).ok_or_else(invalid)?;
     let binding: Binding = serde_json::from_slice(&private_bytes(&host.root.join(BINDING), LIMIT)?)
@@ -690,7 +690,36 @@ pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configu
     if serde_json::to_value(&config).map_err(|_| invalid())? != serde_json::to_value(expected_config).map_err(|_| invalid())? {
         return Err(invalid());
     }
+    Ok(binding)
+}
+pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configuration) -> Result<(String, String)> {
+    let binding = attachment_binding(host, expected_config)?;
     Ok((binding.manifest_sha256, binding.version))
+}
+/// Native-only selection for an OS service plan. No deserialized caller receipt.
+pub(super) fn control_generation(host: &ManagedHost, expected_config: &Configuration) -> Result<u64> {
+    Ok(attachment_binding(host, expected_config)?.generation)
+}
+
+fn stopped_control_journal(previous: Option<&Journal>, generation: u64, current_boot: &str) -> Result<()> {
+    if boot_session::normalize(current_boot.as_bytes()).as_deref() != Ok(current_boot) { return Err(invalid()); }
+    let Some(journal) = previous else { return Ok(()); };
+    if journal.generation != generation { return Err(invalid()); }
+    if journal.phase == Phase::Retired { return Ok(()); }
+    let old = journal.boot_session_id.as_deref().ok_or_else(invalid)?;
+    if boot_session::normalize(old.as_bytes()).as_deref() != Ok(old) || old == current_boot {
+        return Err("The native service session requires recovery before it can be restarted".into());
+    }
+    // Predict only. The installed issuer performs any durable prior-boot
+    // reconciliation; a service-control action never rewrites an epoch.
+    Ok(())
+}
+pub(super) fn require_stopped_for_control(host: &ManagedHost, config: &Configuration) -> Result<()> {
+    let _session = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true)
+        .map_err(|_| "The native service session is still active".to_owned())?;
+    let _transaction = managed_payload::owned_lock(&host.root.join("launcher.lock"), true).map_err(|_| invalid())?;
+    let binding = attachment_binding(host, config)?;
+    stopped_control_journal(read_journal(&host.root)?.as_ref(), binding.generation, &boot_session::read_boot_session_id()?)
 }
 
 fn verify_selection(host: &ManagedHost, binding: &Binding) -> Result<Configuration> {
@@ -1242,6 +1271,21 @@ mod tests {
             boot_session_id: Some("27e29119-7aee-46e8-86f1-212756a4da80".into()),
         });
         assert!(core.begin(MAX_SAFE, 7).is_err());
+    }
+    #[test]
+    fn service_control_never_resets_uncertain_same_boot_issuance() {
+        let boot="12345678-1234-1234-1234-123456789abc";
+        let old="87654321-1234-1234-1234-123456789abc";
+        let mut journal=Journal{schema:1,generation:7,epoch:3,session:"a".repeat(64),phase:Phase::Issued,boot_session_id:Some(boot.into())};
+        let before=serde_json::to_vec(&journal).unwrap();
+        assert!(stopped_control_journal(Some(&journal),7,boot).is_err());
+        assert_eq!(serde_json::to_vec(&journal).unwrap(),before);
+        journal.phase=Phase::Prepared;assert!(stopped_control_journal(Some(&journal),7,boot).is_err());
+        journal.boot_session_id=None;assert!(stopped_control_journal(Some(&journal),7,boot).is_err());
+        journal.boot_session_id=Some(old.into());assert!(stopped_control_journal(Some(&journal),7,boot).is_ok());
+        assert!(stopped_control_journal(Some(&journal),8,boot).is_err());
+        journal.phase=Phase::Retired;assert!(stopped_control_journal(Some(&journal),7,boot).is_ok());
+        assert!(stopped_control_journal(None,7,boot).is_ok());assert!(stopped_control_journal(None,7,"invented-boot").is_err());
     }
     #[test]
     fn existing_environment_identity_is_not_narrowed_to_uuid() {

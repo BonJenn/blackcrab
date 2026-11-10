@@ -51,3 +51,6 @@ tauri-plugin-updater = "2"
 [dev-dependencies]
 # Used only by the relay-client integration test to spin up a real relay.
 blackcrab-relay = { path = "../apps/relay" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+plist = "=1.8.0"

@@ -7,7 +7,8 @@
     "src-tauri/src/managed_desktop.rs": "65012a58fa556c1a2fdaab857f07b79e6e1dca6b4b51a9afa7aea423d3b5a0c4",
     "src-tauri/src/managed_host.rs": "740807bc6d22c3a4a334a6017ba835a70849f23b7c70360732662d785373969b",
     "managed-desktop/descriptor.mjs": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2",
-    "managed-desktop/descriptor.test.mjs": "39a5aacb92323d7c2ffc340ed1d744825243b909915b3ab476fd0e640a126b7f"
+    "managed-desktop/descriptor.test.mjs": "39a5aacb92323d7c2ffc340ed1d744825243b909915b3ab476fd0e640a126b7f",
+    "managed-desktop/patches/registry.json": "9c14687a74b05bc0214146401e9393837d9b85cb1d0cb8ccfd7fc5ecaa9b8e37"
   },
   "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
   "upstreamFiles": {
@@ -39,5 +40,15 @@
     "privateAcceptanceModulePresent": false,
     "reportSha256": "a0e5ac7c4975d7ceedae8ea457d05dc247792dda54e2f75fbedffa1482955d06"
   },
-  "runtimeControllerReportSha256": "de3451a3888565e0e4a8f7eb1ab6f795fc0941860d162ca8eb841ffc4559f1aa"
+  "runtimeControllerReportSha256": "de3451a3888565e0e4a8f7eb1ab6f795fc0941860d162ca8eb841ffc4559f1aa",
+  "descriptorProducerPinCorrection": {
+    "old": "bf0526ba6f5a32d00083771eb8a473dcff22353e1a8598234e2af4e298026576",
+    "new": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2"
+  },
+  "packagingValidation": {
+    "descriptorAndResourceTestsPassed": 15,
+    "failed": 0,
+    "optionalActualTauriBundleSkipped": 1,
+    "sourceDigestVerificationPreserved": true
+  }
 }

@@ -4,7 +4,7 @@
   "base": "18ea8c31341cb564a73b0c41e936e3ee87a5b98e",
   "files": {
     "src-tauri/src/managed_host.rs": "4fe281d7b4fa9641bf367cb690e5f1562cdb4bfb536c841e4145e2d55e1d491a",
-    "src-tauri/src/managed_service_issuer.rs": "70d35dce6995c3afd703fba2802855a360bc368295802ea4f57e0ff32220f841"
+    "src-tauri/src/managed_service_issuer.rs": "cd8c1e2978daaef1b96d95f9f3bbcc5aac5d1d0e55b2531d0e1aad5969fef1c8"
   },
   "hostManifestSha256": "866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64",
   "hostArchiveSha256": "fa08c35179f3982b88338309d83999d4ebed2c925e35f6d00616223afd50da8d",
@@ -26,5 +26,20 @@
   "guiAcceptance": false,
   "freshServiceInitialization": false,
   "osServiceActivation": false,
-  "providerRuns": 0
+  "providerRuns": 0,
+  "privateHarnessIsolation": {
+    "runtimeTestSourceSha256": "70d35dce6995c3afd703fba2802855a360bc368295802ea4f57e0ff32220f841",
+    "committedProductionSourceSha256": "cd8c1e2978daaef1b96d95f9f3bbcc5aac5d1d0e55b2531d0e1aad5969fef1c8",
+    "onlyDifference": "Remove the cfg(test) private artifact_acceptance module declaration; no runtime implementation change",
+    "privateModuleCommitted": false
+  },
+  "productionValidation": {
+    "releaseLibraryCompilePassed": true,
+    "identityTestsPassed": 6,
+    "issuerAndBootSessionTestsPassed": 21,
+    "unverifiedSelectionTestPassed": true,
+    "allCapturedGroupsQuiescent": true,
+    "sourceFilesUnchanged": true,
+    "reportSha256": "323f3eae3c40cec9e1b5ac22f9d4efb613cefa73fee109b4c3126da013e3bf90"
+  }
 }

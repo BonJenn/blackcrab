@@ -200,7 +200,7 @@ not shipping build evidence or repository dependency patches. The next native
 build increment must provide a reproducible physical staging workspace and pod
 floor adjustment. No distribution-signed release or physical-device claim is made.
 
-### Complete native platform increment (in progress)
+### Complete native platform increment (merged foundation)
 
 The owned mobile platform now uses Expo 58.0.14, React Native 0.88.0 and React
 19.3.0, preserving desktop React 19.1 and existing legacy Hosts, queues and the
@@ -209,16 +209,36 @@ preserved; this increment does not activate the full T3 mobile interface. Exact
 upstream dependency patches and one recorded Expo Widgets workspace adapter are
 applied independently of the immutable reference source.
 
-A standalone signed simulator probe compiled after pinning Expo Modules JSI
-58.0.15 in both app and Core contexts. The framework exports the exact symbol
-whose absence caused the earlier pre-JavaScript dyld exit. The corrected Release
-Hermes product cold-launched on a fresh iOS 27.1 Duo simulator, rendered Blackcrab
-Remote and remained alive for over two minutes without a native/JavaScript fatal
-error. This is probe evidence; a fresh committed-source producer must still
-repeat build, integrity, signature and launch checks before this increment merges.
+PR #210 merged to stage at `7f62f15652b3398c39fb94952e6f001c45c22d55`.
+Its clean source `2fa3808` producer built a standalone Release app with Expo
+Modules JSI 58.0.15 in both app and Core contexts, verified its ad-hoc signature
+and cold-launched it on a fresh iOS 27.1 Duo simulator. Hermes loaded and the
+existing Blackcrab interface rendered without fatal JavaScript/dyld errors.
+The preserved native executable SHA256 is
+`5eb84dc6edb83118ae352bc8c06f3f81400cedece0a50db43a280cb72a9139b1`.
+This validates the platform build/launch foundation, not the full native interface.
 
 On Node 26, all 173 desktop tests, desktop typing and production build passed
 after explicitly disabling Node web storage in jsdom test workers. Thirteen native
 preparation helper tests cover isolation, exact ABI roots and bounded native/
 Metro resources, including an external-cache boundary. Physical devices, signed
 distribution and the full native mobile workflows remain open.
+
+
+### Full native interface validation (in progress)
+
+PR #213 integrates the pinned native interface through one process-lifetime
+owner and retains legacy Hosts/queues separately. It remains a draft until its
+own native boot, existing-catalog retention and control flows pass. A clean CI
+install exposed a local dependency-clone omission; the coherent markdown type
+pin and complete installed-layout/context guard correct that boundary. Earlier
+incomplete-clone type/bundle and native outputs are explicitly not accepted as
+clean-install evidence. The corrected workspace typecheck, 140 mobile tests and
+installed graph checks pass; native output still requires acceptance.
+
+Actual prebuild checks also exposed SDK defaults of iOS 16.4 for the widget and
+share extensions while their dependencies require iOS 18. Owned configuration
+now raises both, preserving higher targets, and verifies all app/widget/share
+Debug and Release configurations before compilation. Failed builds and their
+input manifests remain separate from accepted evidence. No physical-device,
+remote push, signed distribution or complete parity claim is made.

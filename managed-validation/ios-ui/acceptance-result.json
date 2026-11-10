@@ -1,0 +1,26 @@
+{
+  "legacyDigestsUnchanged": true,
+  "legacyQueueInitiallyEmpty": true,
+  "mode": "owned-credential",
+  "os": "26.2",
+  "passed": true,
+  "source": "47b65a55da249591e387cf0beca31a7b55ce44c5",
+  "zeroProviderSessions": true,
+  "zeroRuns": true,
+  "format": 1,
+  "baselineUi": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "upgradedUi": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "independentSdkRenameArchiveVerified": true,
+  "capturedHostClosed": true,
+  "portableGuardTestsPassed": 30,
+  "runnerSourceSha256": "59a85e51789a61c72d85dee57b0dc2f40d795dc00063f2b4e77655c08586cd3b",
+  "runnerExecutableSha256": "e1a9b5399f85f1d723901334e25aa209334b94311954168579a1755fd0197d2c"
+}

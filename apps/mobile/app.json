@@ -4,15 +4,40 @@
     "slug": "blackcrab-remote",
     "scheme": "blackcrab-remote",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "deploymentTarget": "18.0",
       "supportsTablet": true,
       "bundleIdentifier": "dev.blackcrab.remote",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Blackcrab Remote connects to your desktop on the same Wi-Fi to control Claude Code sessions.",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSLocalNetworkUsageDescription": "Blackcrab Remote connects to your agents on your local network or private tailnet.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "Blackcrab Remote saves images you choose to your photo library.",
+        "NSMicrophoneUsageDescription": "Blackcrab Remote uses your microphone for voice input.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "UIBackgroundModes": [
+          "audio"
+        ],
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.dev.blackcrab.remote"
+        ]
       }
     },
     "android": {
@@ -20,15 +45,25 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "blockedPermissions": [
+        "android.permission.ACTIVITY_RECOGNITION"
+      ],
+      "predictiveBackGestureEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/blackcrab.png",
+        "backgroundColor": "#111827"
+      }
     },
     "web": {
       "bundler": "metro"
     },
     "experiments": {
+      "reactCompiler": true,
       "typedRoutes": false
     },
     "plugins": [
+      "./plugins/with-owned-network.cjs",
       "expo-secure-store",
       "expo-asset",
       [
@@ -64,21 +99,191 @@
             ]
           }
         }
+      ],
+      "react-native-pdf-jsi",
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Blackcrab Remote uses your microphone for voice input.",
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": false
+        }
+      ],
+      [
+        "expo-quick-actions",
+        {
+          "androidIcons": {
+            "shortcut_icon": {
+              "foregroundImage": "./assets/blackcrab.png",
+              "backgroundColor": "#111827"
+            }
+          }
+        }
+      ],
+      "./plugins/with-owned-share-name.cjs",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "extensionBundleIdentifier": "dev.blackcrab.remote.sharing",
+            "appGroupId": "group.dev.blackcrab.remote",
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsImageWithMaxCount": 8,
+              "supportsMovieWithMaxCount": 8,
+              "supportsFileWithMaxCount": 8
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "*/*"
+            ],
+            "multipleShareMimeTypes": [
+              "*/*"
+            ]
+          }
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "dev.blackcrab.remote.widgets",
+          "groupIdentifier": "group.dev.blackcrab.remote",
+          "enablePushNotifications": false,
+          "frequentUpdates": true,
+          "enableAndroid": true,
+          "widgets": [
+            {
+              "name": "SubscriptionUsage",
+              "displayName": "Subscription usage",
+              "description": "Subscription quotas from your connected Blackcrab environments.",
+              "ios": {
+                "configuration": {
+                  "title": "Subscription usage",
+                  "description": "Shows usage limits for your connected environments.",
+                  "parameters": {
+                    "codexPeriod": {
+                      "title": "Codex limits",
+                      "type": "enum",
+                      "default": "auto",
+                      "values": [
+                        {
+                          "name": "Both",
+                          "value": "auto"
+                        },
+                        {
+                          "name": "Session",
+                          "value": "session"
+                        },
+                        {
+                          "name": "Weekly",
+                          "value": "weekly"
+                        }
+                      ]
+                    },
+                    "claudePeriod": {
+                      "title": "Claude limits",
+                      "type": "enum",
+                      "default": "auto",
+                      "values": [
+                        {
+                          "name": "Both",
+                          "value": "auto"
+                        },
+                        {
+                          "name": "Session",
+                          "value": "session"
+                        },
+                        {
+                          "name": "Weekly",
+                          "value": "weekly"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "systemLarge",
+                  "systemExtraLarge",
+                  "accessoryRectangular"
+                ]
+              },
+              "android": {
+                "minWidth": 250,
+                "minHeight": 180,
+                "targetCellWidth": 4,
+                "targetCellHeight": 3,
+                "resizeMode": "both",
+                "initialLayout": "./.generated/native-ui/apps/mobile/src/widgets/SubscriptionUsage.android.tsx"
+              }
+            },
+            {
+              "name": "AgentActivity",
+              "displayName": "Agent activity",
+              "description": "Current activity of your Blackcrab agents.",
+              "android": null,
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryRectangular"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/blackcrab.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#111827",
+          "imageWidth": 180
+        }
       ]
     ],
     "extra": {
-      "eas": {
-        "projectId": "33fb14fd-4b87-4e85-920c-b6d4204e4567"
+      "managedNativeFeatures": {
+        "cloudConfigured": false,
+        "remoteWidgetPushConfigured": false,
+        "nativeExtensionsRequireSigning": true
       }
     },
-    "owner": "bonjenn",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/33fb14fd-4b87-4e85-920c-b6d4204e4567",
       "enabled": false,
       "checkAutomatically": "NEVER"
-    }
+    },
+    "icon": "./assets/blackcrab.png"
   }
 }

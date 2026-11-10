@@ -55,6 +55,10 @@ jobs:
 
       - run: npm run test:mobile:experience
 
+      - run: node --test mobile-experience/activation/*.test.mjs apps/mobile/root-shell/*.test.mjs
+
+      - run: npm run test:mobile:catalog
+
       - run: npm run test:mobile:resolution
 
       - run: npm run verify:mobile:consumers
@@ -144,3 +148,14 @@ jobs:
         run: cargo build --locked --manifest-path experiments/host-core-prototype/Cargo.toml
       - name: verify process ownership and reconnect
         run: python3 experiments/host-core-prototype/smoke.py
+
+  ios-validation-guards:
+    name: iOS acceptance portable guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python3 -m unittest discover -s managed-validation/ios-ui -p controller_test.py

@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "status": "compiler-enabled-native-catalog-rename-archive-passed",
+  "productionAppModified": false,
+  "requiresExplicitUserXCTestApproval": true,
+  "appBundleId": "dev.blackcrab.remote",
+  "requiredSource": "47b65a55da249591e387cf0beca31a7b55ce44c5",
+  "requiredHostManifestSha256": "afdbaf815be9d676657939f1235290de5765b81ac008f11f3836b7cb80a9041e",
+  "phases": [
+    "verify-private-owned-device-and-artifacts",
+    "record-legacy-storage-digests",
+    "install-2fa-baseline",
+    "start-real-proof9-sdk-observer",
+    "seed-baseline",
+    "verify-catalog-durability",
+    "terminate-app",
+    "overwrite-compiler-enabled-build-without-uninstall",
+    "control-upgraded",
+    "sdk-verify-rename-archive-zero-runs-zero-providerSessions",
+    "verify-legacy-storage-digests-unchanged",
+    "cleanup-only-captured-owned-processes"
+  ],
+  "pendingEnforcement": [
+    "broader mobile control scenarios and physical-device/distribution acceptance"
+  ],
+  "implementedEnforcement": [
+    "fixed app full inventory/signature pins",
+    "fresh controller-created nonce device identity",
+    "Swift actual simulator identity guards",
+    "private owners-enabled APFS raw sinks",
+    "independent real SDK observer and captured-host cleanup",
+    "low-water stop latch prevents reboots",
+    "legacy fixed-key/queue digests",
+    "official xcresult exact-one-pass zero-skip gate",
+    "nonce phase device completion attachment",
+    "official private activity/attachment export review",
+    "verified fixed HFS-to-private-APFS host copy",
+    "optimized Python rejection",
+    "mountpoint identity/device postconditions",
+    "exact pinned prebuilt Products reuse before device creation",
+    "xctestrun product path rebasing for private phase descriptors",
+    "deployment/runtime/arm64 eligibility checks",
+    "three stable >=6GiB preboot samples and both-volume >=2GiB low-water guards",
+    "prebuilt/current Xcode27.1 build27A9275 match",
+    "exact current inventory-bound twelve framework directory 0700-to-0755 install mode policy; signed installed bytes verified"
+  ],
+  "runnerBuildForTestingPassed": true,
+  "uiTestsExecuted": true,
+  "explicitUserApprovalRecorded": true,
+  "resourceGoRequired": true,
+  "approvalScope": [
+    "fresh owned default iOS26.2 simulator only",
+    "isolated task-owned idle host",
+    "native catalog retention rename archive",
+    "zero provider/model turns",
+    "never control existing devices"
+  ],
+  "prebuiltRunnerReuseImplemented": true,
+  "prebuiltRunnerReused": false
+}

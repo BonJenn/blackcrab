@@ -1,2 +1,6 @@
 @import "./.generated/styles/global.css";
-@source "../../vendor/t3-mobile/apps/mobile/src";
+@source "./.generated/native-ui/apps/mobile/src";
+@source "./.generated/native-ui/OwnedActivation.ts";
+@source "./root-shell";
+@source "./App.tsx";
+@source "./LegacyApp.tsx";

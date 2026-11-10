@@ -19,5 +19,5 @@ config.resolver.extraNodeModules = {
 module.exports = (async () => {
   const { prepareMobileResources } = await import(pathToFileURL(path.join(workspaceRoot, 'mobile-experience/resources.mjs')).href);
   await prepareMobileResources(workspaceRoot);
-  return withUniwindConfig(config, { cssEntryFile: './global.css', extraThemes: require('../../vendor/t3-mobile/apps/mobile/generated-uniwind-theme-names.json'), polyfills: { rem: 14 } });
+  return withUniwindConfig(config, { cssEntryFile: './global.css', extraThemes: require('./.generated/native-ui/apps/mobile/generated-uniwind-theme-names.json'), polyfills: { rem: 14 } });
 })();

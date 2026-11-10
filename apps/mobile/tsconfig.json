@@ -11,13 +11,35 @@
     "types": [
       "react-native"
     ],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@blackcrab/native-ui": [
+        "./.generated/native-ui/OwnedActivation.ts"
+      ]
+    }
   },
   "include": [
     "index.ts",
     "App.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "tools/**/*.ts"
+    "tools/**/*.ts",
+    "LegacyApp.tsx",
+    "root-shell/**/*.mts",
+    "root-shell/**/*.ts",
+    "native-ui-types.d.ts",
+    ".generated/native-ui/OwnedActivation.ts",
+    ".generated/native-ui/apps/mobile/src/types/**/*.d.ts",
+    ".generated/native-ui/apps/mobile/assets.d.ts",
+    ".generated/native-ui/apps/mobile/uniwind-types.d.ts",
+    ".generated/native-ui/apps/mobile/src/**/*.ts",
+    ".generated/native-ui/apps/mobile/src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    ".generated/native-ui/**/*.test.ts",
+    ".generated/native-ui/**/*.test.tsx",
+    ".generated/native-ui/**/*.test-support.ts",
+    ".generated/native-ui/apps/mobile/src/test-fixtures.ts"
   ]
 }

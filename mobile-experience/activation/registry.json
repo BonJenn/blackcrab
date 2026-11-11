@@ -404,7 +404,7 @@
     {
       "path": "owned-cloud-config.cjs",
       "template": "adapters/owned-cloud-config.cjs",
-      "sha256": "866d13110636708745c106e9b2766a830aee950b47e417aa16f8366bed865a75"
+      "sha256": "f3ec7ac587f5907c08661a6fb59c671a100b460bcd585bb19d4283a2fa9cc0b5"
     },
     {
       "path": "owned-cloud-config.d.cts",

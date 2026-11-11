@@ -79,7 +79,7 @@ export async function prepareManagedNativeResources({desktop,host,env=process.en
   const tree=await checkArchiveTree(root);
   const after=await fs.readFile(path.join(root,manifestName));
   if(!before.equals(after))throw Error('Artifact manifest changed during verification');
-  stage ??= await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-managed-payloads-'));
+  stage ??= await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-managed-payloads-')));
   await fs.chmod(stage,0o700);
   const name=`managed-${role}-payload.tar.gz`, archive=path.join(stage,name);
   const metadataFlags=process.platform==='darwin'?['--no-fflags','--no-mac-metadata']:[];

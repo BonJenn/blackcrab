@@ -101,3 +101,18 @@ test('actual Tauri bundle-only keeps both opaque resource archives byte-identica
  }
  t.diagnostic(JSON.stringify({blobs,trust:prepared.env,log:result.stderr}));
 });
+
+test('resource maps use canonical archive paths when TMPDIR is a symlink',async t=>{
+ const {root}=await fixture(t,'host');
+ const temporary=await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()),'native-resource-temp-alias-'));
+ t.after(()=>fs.rm(temporary,{recursive:true,force:true}));
+ const storage=path.join(temporary,'storage'),alias=path.join(temporary,'alias');
+ await fs.mkdir(storage);await fs.symlink(storage,alias,'dir');
+ const previous=process.env.TMPDIR;let result;
+ try{process.env.TMPDIR=alias;result=await prepareManagedNativeResources({host:root,env:{}});}
+ finally{if(previous===undefined)delete process.env.TMPDIR;else process.env.TMPDIR=previous;}
+ t.after(result.cleanup);
+ const [archive]=Object.keys(result.config.bundle.resources);
+ assert.equal(archive,await fs.realpath(archive));
+ assert.equal(path.dirname(path.dirname(archive)),storage);
+});

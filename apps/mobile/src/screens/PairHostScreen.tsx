@@ -21,11 +21,9 @@ import {
 
 import {
   normalizePairingCode,
-  pairHostFromInput,
-  type PairHostFromInputResult,
   type StoredPairedHost,
 } from "../pairingStore";
-import { pairOverLan } from "../transport/pairOverLan";
+import { manualPairingTarget, pairOverLan } from "../transport/pairOverLan";
 import type { Transport } from "../transport/types";
 import { screenStyles } from "./styles";
 
@@ -44,6 +42,7 @@ const DEVICE_NAME = `Phone (${Platform.OS})`;
 export function PairHostScreen({ onPaired }: PairHostScreenProps) {
   const [mode, setMode] = useState<PairMode>("manual");
   const [pairingInput, setPairingInput] = useState("");
+  const [desktopAddress, setDesktopAddress] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,41 +63,24 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
     setError(null);
 
     const payload = parseDesktopPairingPayload(input);
-    if (payload && !hasDesktopPairingPayloadExpired(payload)) {
-      try {
-        const result = await pairOverLan(payload, { deviceName: DEVICE_NAME });
-        setBusy(false);
-        setPairingInput("");
-        onPaired(result.hosts, result.host, result.transport);
-        return;
-      } catch (e) {
-        setBusy(false);
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Could not reach the desktop on this network.",
-        );
-        return;
-      }
-    }
-
-    let result: PairHostFromInputResult;
     try {
-      result = await pairHostFromInput(input);
-    } catch {
+      if (payload && hasDesktopPairingPayloadExpired(payload)) throw new Error("This pairing code has expired.");
+      const target = payload ?? manualPairingTarget(desktopAddress, input);
+      const result = await pairOverLan(target, { deviceName: DEVICE_NAME });
       setBusy(false);
-      setError("Could not save paired host.");
+      setPairingInput("");
+      setDesktopAddress("");
+      onPaired(result.hosts, result.host, result.transport);
+      return;
+    } catch (e) {
+      setBusy(false);
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not reach the desktop on this network.",
+      );
       return;
     }
-
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-
-    setPairingInput("");
-    onPaired(result.hosts, result.host, null);
   }
 
   async function handlePair() {
@@ -120,7 +102,7 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
       <Text style={screenStyles.heading}>Pair desktop</Text>
       <View style={localStyles.statusRow}>
         <Text style={localStyles.statusLabel}>Transport</Text>
-        <Text style={localStyles.statusValue}>Local demo</Text>
+        <Text style={localStyles.statusValue}>Local network</Text>
       </View>
 
       <View style={localStyles.modeRow}>
@@ -156,6 +138,22 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
             />
           </View>
 
+          {!payloadPreview && <View style={localStyles.field}>
+            <Text style={localStyles.label}>Desktop address</Text>
+            <TextInput
+              accessibilityLabel="Desktop address and port"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!busy}
+              onChangeText={setDesktopAddress}
+              placeholder="192.168.1.10:9000"
+              placeholderTextColor="#6b7480"
+              style={localStyles.input}
+              value={desktopAddress}
+            />
+            <Text style={localStyles.statusLabel}>Use the address and port shown in the desktop Remote settings.</Text>
+          </View>}
+
           {payloadPreview && (
             <PairingPreview
               label="Desktop"
@@ -167,7 +165,7 @@ export function PairHostScreen({ onPaired }: PairHostScreenProps) {
             <PairingPreview
               label="Code"
               primary={recognizedCode}
-              secondary="Manual local entry"
+              secondary="Pair with the entered desktop address"
             />
           )}
 

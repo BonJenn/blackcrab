@@ -294,3 +294,34 @@ proof9 packaged direct host. It does not certify the latest managed service prof
 live cloud/off-LAN access, populated legacy migration, physical devices, push,
 distribution signing, or the remaining M1–M6 workflows. No merged stage revision is
 claimed by this result.
+
+
+### Current managed service and native iOS acceptance (2026-11-11)
+
+The same combined Release product at `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`
+passed a second fresh-device test against the current 70-record managed service
+profile. The service manifest is
+`9eac410b7393b18f510fe2d59a756880575bfcfe8fa8c171046f36abd1fa7937`;
+the earlier proof9 host result above remains separate historical evidence.
+
+A private Release entry called the unchanged native initializer, current-executable
+issuer publisher, original packaged launcher, authentication and pairing code. Fresh
+setup and two preflight start/stop cycles passed. Repeated setup and runtime
+replacement were refused; desktop attachment did not start a stopped service.
+
+The native baseline paired with a second fresh service owner. Installing the current
+app without uninstalling retained the catalog. Rename and archive passed through
+the native UI and were confirmed by the shared SDK. The original service then
+stopped and restarted; the SDK reconnected and confirmed the same renamed, archived
+thread. The service retired all three epochs, configuration stayed unchanged, both
+captured owners closed, and both new simulators were confirmed shut down. Provider
+sessions and runs remained zero. Thirty controller guards and the source-bound
+nonsecret logging canary passed. The app inventory was unchanged. See the
+[structured result](../managed-validation/ios-ui/current-service-acceptance-result.json).
+
+This is combined-candidate evidence, with no merged stage revision. The private
+entry does not certify the desktop Settings button or OS service-manager controls.
+The post-restart assertion covers SDK reconnection and stored metadata; the native
+iOS UI's reconnect behavior was not asserted. Cloud/off-LAN, real providers, broader
+M1–M6 workflows, populated legacy migration, physical devices, push and distribution
+signing remain open.

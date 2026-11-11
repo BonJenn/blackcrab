@@ -31,7 +31,9 @@ export async function buildManagedDesktop({archive,cacheDir,output,node,pnpm,ele
  await step('annotation-css',node,[path.join(source,'apps/desktop/scripts/build-preview-annotation-css.mjs')],path.join(source,'apps/desktop'));
  await step('desktop',node,[path.join(source,'node_modules/vite-plus/bin/vp'),'pack'],path.join(source,'apps/desktop'));
  const effectBundle=await assertBundleEffectSingleton(path.join(source,'apps/desktop/dist-electron'),effectRuntime.root);
- const staging=path.join(work,'artifact');await fs.mkdir(staging);await step('electron-extract','/usr/bin/ditto',['-x','-k',electronArchive,staging]);
+ // Keep the final rename on the output filesystem when the build cache is on another volume.
+ await fs.mkdir(path.dirname(output),{recursive:true});
+ const staging=await fs.mkdtemp(path.join(path.dirname(output),'.blackcrab-desktop-artifact-'));await step('electron-extract','/usr/bin/ditto',['-x','-k',electronArchive,staging]);
  const app=path.join(staging,'Blackcrab.app');await fs.rename(path.join(staging,'Electron.app'),app);const contents=path.join(app,'Contents'),payload=path.join(contents,'Resources/app');await fs.mkdir(payload);
  await fs.rename(path.join(contents,'MacOS/Electron'),path.join(contents,'MacOS/Blackcrab'));
  await fs.cp(path.join(source,'apps/desktop/dist-electron'),path.join(payload,'apps/desktop/dist-electron'),{recursive:true});await fs.cp(path.join(source,'apps/web/dist'),path.join(payload,'apps/server/dist/client'),{recursive:true});

@@ -68,6 +68,8 @@ records implementation, integration and accepted behavior separately. No
 full-row completion or percentage is inferred from imported source, PR counts
 or neighboring tests.
 
+- E27: The [combined iOS acceptance result](../managed-validation/ios-ui/combined-acceptance-result.json) records a fresh signed Release at local integration source `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`. After the isolated build-input fixes in #249/#252, a source-bound XCTest runner passed its nonsecret canary and both baseline/upgrade UI phases on fresh owned iOS 26.2 simulators, with zero failures or skips. Installation without uninstall retained the paired catalog; native rename and archive were independently confirmed through the SDK. Legacy digests stayed unchanged, no runs/provider sessions were created, and captured host/device cleanup passed. This exercised the prior proof9 direct host, not the latest managed service profile or cloud access. The legacy queue was empty. The source is a combined integration candidate, with no merged stage SHA claimed; broader workflows and G1–G8 remain open.
+
 ## Per-document scenario inventory
 
 W = web, D = desktop, M = mobile. All rows U unless explicitly P; all applicable G1–G8 still apply. Mobile means native iOS release acceptance; Android reference behavior is inventoried separately rather than silently used as an iOS substitute.

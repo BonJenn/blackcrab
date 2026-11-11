@@ -272,3 +272,25 @@ failed dependency clones and native builds remain excluded from accepted evidenc
 Provider turns, complete M1–M6 workflows, populated legacy recovery, physical
 devices, push/background behavior and signed distribution remain open. The
 installed catalog/metadata tests establish only their named behaviors.
+
+
+### Combined iOS Release acceptance (2026-11-11)
+
+A fresh combined-source Release at `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`
+now builds with an embedded Hermes bundle and a verified ad-hoc simulator signature.
+Native staging includes the shared cloud patch inputs, carries the validated hosted
+origin, and uses the current Live Activity adapter digest (#249/#252).
+
+The exact product passed a fresh iOS 26.2 baseline-to-upgrade test without
+uninstalling. Its paired catalog remained available; rename and archive through the
+native interface were confirmed by the independent shared SDK. Both UI phases
+passed one test, with zero skips/failures. Legacy storage digests stayed unchanged,
+the captured host closed, both owned simulators shut down, and no provider runs or
+sessions were created. Thirty controller guards and a new source-bound nonsecret
+input canary also passed. See the [structured result](../managed-validation/ios-ui/combined-acceptance-result.json).
+
+This is evidence for a local combined integration candidate against the prior
+proof9 packaged direct host. It does not certify the latest managed service profile,
+live cloud/off-LAN access, populated legacy migration, physical devices, push,
+distribution signing, or the remaining M1–M6 workflows. No merged stage revision is
+claimed by this result.

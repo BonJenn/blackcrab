@@ -1,0 +1,77 @@
+--- a/apps/server/src/http.ts
++++ b/apps/server/src/http.ts
+@@ -1,3 +1,4 @@
++// @effect-diagnostics-next-line nodeBuiltinImport:off -- Identity proofs require native HMAC over their fixed public transcript.
+ import { createHmac } from "node:crypto";
+ import * as Mime from "effect/http/Mime";
+ import {
+@@ -321,11 +322,18 @@
+ 
+ // Public proof of possession, never an authentication grant. The nonce and public
+ // identity are signed; neither a Host header nor caller input chooses the origin.
+-export const layerManagedHostProof = HttpRouter.add(
++class ManagedHostProofError extends Schema.TaggedError<ManagedHostProofError>()("ManagedHostProofError", {}) {}
++
++const signManagedHostFields = (secret: string, fields: ReadonlyArray<string | number | undefined>) =>
++  createHmac("sha256", secret).update(JSON.stringify(fields)).digest("hex");
++
++export const layerManagedHostProof = Layer.unwrap(Effect.gen(function* () {
++  const config = yield* ServerConfig.ServerConfig;
++  const serverEnvironment = yield* ServerEnvironment.ServerEnvironment;
++  return HttpRouter.add(
+   "GET",
+   "/.well-known/blackcrab/managed-host-proof",
+   Effect.gen(function* () {
+-    const config = yield* ServerConfig.ServerConfig;
+     const request = yield* HttpServerRequest.HttpServerRequest;
+     const query = new URL(request.url, "http://127.0.0.1").searchParams;
+     const nonce = query.get("nonce");
+@@ -340,16 +348,17 @@
+         return HttpServerResponse.empty({ status: 400 });
+       }
+       if (!isOwnedServiceConfig(config)) return HttpServerResponse.empty({ status: 404 });
+-      const descriptor = yield* (yield* ServerEnvironment.ServerEnvironment).getDescriptor;
++      const descriptor = yield* serverEnvironment.getDescriptor;
+       // Listener binding may be LAN/Tailnet; the native control origin remains
+       // captured loopback. Host/Origin headers and query never choose identity.
+-      try {
+-        const proof = proveOwnedServiceIdentity(config, nonce, descriptor);
+-        if (proof === undefined) return HttpServerResponse.empty({ status: 503 });
+-        return HttpServerResponse.jsonUnsafe(proof, { headers: { "Cache-Control": "no-store" } });
+-      } catch {
+-        return HttpServerResponse.empty({ status: 503 });
+-      }
++      return yield* Effect.try({try: () => proveOwnedServiceIdentity(config, nonce, descriptor), catch: () => new ManagedHostProofError({})}).pipe(
++        Effect.match({
++          onFailure: () => HttpServerResponse.empty({ status: 503 }),
++          onSuccess: (proof) => proof === undefined
++            ? HttpServerResponse.empty({ status: 503 })
++            : HttpServerResponse.jsonUnsafe(proof, { headers: { "Cache-Control": "no-store" } }),
++        }),
++      );
+     }
+     // An owned service cannot downgrade to Direct's v1 proof.
+     if (isOwnedServiceConfig(config)) return HttpServerResponse.empty({ status: 404 });
+@@ -360,12 +369,11 @@
+     if (nonce === null || !/^[a-f0-9]{64}$/.test(nonce)) {
+       return HttpServerResponse.empty({ status: 400 });
+     }
+-    const descriptor = yield* (yield* ServerEnvironment.ServerEnvironment).getDescriptor;
++    const descriptor = yield* serverEnvironment.getDescriptor;
+     const origin = `http://127.0.0.1:${config.port}/`;
+     const fields = ["blackcrab-managed-host-proof-v1", nonce, descriptor.environmentId,
+       origin, descriptor.serverVersion, descriptor.orchestrationProtocolVersion];
+-    const proof = createHmac("sha256", config.desktopBootstrapSecret)
+-      .update(JSON.stringify(fields)).digest("hex");
++    const proof = signManagedHostFields(config.desktopBootstrapSecret, fields);
+     return HttpServerResponse.jsonUnsafe({ version: 1, nonce,
+       environmentId: descriptor.environmentId, origin,
+       serverVersion: descriptor.serverVersion,
+@@ -373,6 +381,7 @@
+       { headers: { "Cache-Control": "no-store" } });
+   }),
+ );
++}));
+ 
+ const layerEnvironmentMetadata = HttpApiBuilder.group(
+   EnvironmentHttpApi,

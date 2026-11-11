@@ -30,6 +30,13 @@ fn new_environment_id() -> Result<String, String> {
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
     Ok(format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..]))
 }
+fn enable_native_browser(config: &mut Configuration, owner: &Path) -> Result<(), String> {
+    let capability = crate::managed_browser::Capability::allocate(owner)?;
+    // Browser capabilities require the same schema for Service and Direct owners.
+    config.schema = 2;
+    config.browser = Some(capability);
+    Ok(())
+}
 pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String> {
     let _operation = host.operation.lock().await;
     // Only the bundled native capability may choose the runtime. No request path.
@@ -55,7 +62,7 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
             artifact_path: selected.version_directory().join("payload"), manifest_digest: expected.into(),
             bootstrap_secret: random_secret()?, environment_id: Some(environment_id.clone()), browser: None };
         if native_browser_supported() && selected.supports_native_browser().map_err(|_| "The bundled service browser capability failed verification")? {
-            config.browser = Some(crate::managed_browser::Capability::allocate(&owned.root)?);
+            enable_native_browser(&mut config, &owned.root)?;
         }
         owned.save_config(&config)?;
         File::open(&owned.root).and_then(|file| file.sync_all()).map_err(io_error)?;
@@ -83,6 +90,34 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fresh_service_browser_configuration_is_readable_and_rejects_schema_downgrade() {
+        let base = std::env::temp_dir().join(format!("blackcrab-service-browser-schema-{}", random_secret().unwrap()));
+        fs::create_dir(&base).unwrap();
+        let base = fs::canonicalize(base).unwrap();
+        let host = ManagedHost::new(base.join("owner"));
+        host.prepare().unwrap(); host.initialize_locked().unwrap();
+        let mut config = Configuration { schema:1, ownership:OwnershipMode::Service,
+            artifact_path:base.join("runtime"), manifest_digest:"a".repeat(64),
+            bootstrap_secret:"b".repeat(64), environment_id:Some(new_environment_id().unwrap()), browser:None };
+        host.save_config(&config).unwrap();
+        let legacy = host.read_config().unwrap().unwrap();
+        assert_eq!(legacy.schema, 1);
+        assert!(legacy.browser.is_none());
+        enable_native_browser(&mut config, &host.root).unwrap();
+        host.save_config(&config).unwrap();
+        let restored = host.read_config().unwrap().unwrap();
+        assert_eq!(restored.ownership, OwnershipMode::Service);
+        assert_eq!(restored.environment_id, config.environment_id);
+        assert_eq!(restored.browser, config.browser);
+        restored.browser.as_ref().unwrap().validate(&host.root).unwrap();
+        // A malformed old-schema configuration must remain rejected on reads.
+        config.schema = 1;
+        host.save_config(&config).unwrap();
+        assert_eq!(host.read_config().err().as_deref(), Some("Incompatible native browser configuration"));
+        fs::remove_dir_all(config.browser.unwrap().path.parent().unwrap()).unwrap();
+        fs::remove_dir_all(base).unwrap();
+    }
     #[test]
     fn fresh_identity_uses_v4_uuid_without_changing_request_id_policy() {
         let id = new_environment_id().unwrap();

@@ -1,0 +1,11 @@
+--- a/apps/server/src/cli/config.ts
++++ b/apps/server/src/cli/config.ts
+@@ -297,7 +297,7 @@
+   const launcherMode = yield* resolveServiceLauncherMode();
+   const authEnvelope = launcherMode.ownedAuth === undefined ? undefined : yield* readOwnedServiceAuthBootstrap(launcherMode.ownedAuth);
+   if (authEnvelope !== undefined && (Option.isSome(normalizedFlags.bootstrapFd) || env.bootstrapFd !== undefined))
+-    return yield* Effect.fail(new CliError.UserError({cause: "Owned service auth uses private FD0; desktop bootstrap is unavailable."}));
++    return yield* new CliError.UserError({cause: "Owned service auth uses private FD0; desktop bootstrap is unavailable."});
+   const bootstrapFd = Option.getOrUndefined(normalizedFlags.bootstrapFd) ?? env.bootstrapFd;
+   const bootstrapEnvelope =
+     bootstrapFd !== undefined

@@ -33,8 +33,8 @@
       "beforeSha256": "47e86ee029d43dc6c77d1e5e4c0a1cb8416bba76fdab3d1378db80035a4b8b2a",
       "kind": "template",
       "template": "adapters/CloudAuthProvider.tsx",
-      "templateSha256": "68dac5bc06437c2009c9a2db7e0c2fe5cb2391381afb0c5662e61f9acf803669",
-      "afterSha256": "68dac5bc06437c2009c9a2db7e0c2fe5cb2391381afb0c5662e61f9acf803669"
+      "templateSha256": "8827efacf58981ae7ec0ccc1cb96ce7a7d7075b633d630b97c9a5e51e7651bdd",
+      "afterSha256": "8827efacf58981ae7ec0ccc1cb96ce7a7d7075b633d630b97c9a5e51e7651bdd"
     },
     {
       "path": "src/components/T3Wordmark.tsx",
@@ -58,12 +58,22 @@
       "kind": "replace",
       "replacements": [
         {
-          "before": "  return {\n    clerk: {\n      publishableKey: trimNonEmpty(extra?.clerk?.publishableKey),\n      jwtTemplate: trimNonEmpty(extra?.clerk?.jwtTemplate),\n    },\n    relay: {\n      url: normalizeSecureRelayUrl(trimNonEmpty(extra?.relay?.url) ?? \"\"),\n    },\n    observability: {\n      tracesUrl: normalizeSecureUrl(extra?.observability?.tracesUrl),\n      tracesDataset: trimNonEmpty(extra?.observability?.tracesDataset),\n      tracesToken: trimNonEmpty(extra?.observability?.tracesToken),\n    },\n  } satisfies CloudPublicConfig;",
-          "after": "  return {clerk:{publishableKey:null,jwtTemplate:null},relay:{url:null},observability:{tracesUrl:null,tracesDataset:null,tracesToken:null}} satisfies CloudPublicConfig;",
+          "before": "import { normalizeSecureRelayUrl } from \"@t3tools/shared/relayUrl\";",
+          "after": "import { resolveOwnedCloudConfig } from \"../../../../../owned-cloud-config.cjs\";",
           "count": 1
+        },
+        {
+          "before": "type UntrustedSection<T> = {\n  readonly [Key in keyof T]?: unknown;\n};\n\ntype ExpoExtra =\n  | {\n      readonly [Section in keyof CloudPublicConfig]?: UntrustedSection<CloudPublicConfig[Section]>;\n    }\n  | undefined;\n\nfunction trimNonEmpty(value: unknown): string | null {\n  return typeof value === \"string\" && value.trim() ? value.trim() : null;\n}\n\nfunction normalizeSecureUrl(value: unknown): string | null {\n  const raw = trimNonEmpty(value);\n  if (raw === null) {\n    return null;\n  }\n  try {\n    const url = new URL(raw);\n    return url.protocol === \"https:\" ? url.toString() : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function resolveCloudPublicConfig(extra: ExpoExtra = Constants.expoConfig?.extra) {\n  return {\n    clerk: {\n      publishableKey: trimNonEmpty(extra?.clerk?.publishableKey),\n      jwtTemplate: trimNonEmpty(extra?.clerk?.jwtTemplate),\n    },\n    relay: {\n      url: normalizeSecureRelayUrl(trimNonEmpty(extra?.relay?.url) ?? \"\"),\n    },\n    observability: {\n      tracesUrl: normalizeSecureUrl(extra?.observability?.tracesUrl),\n      tracesDataset: trimNonEmpty(extra?.observability?.tracesDataset),\n      tracesToken: trimNonEmpty(extra?.observability?.tracesToken),\n    },\n  } satisfies CloudPublicConfig;\n}\n",
+          "after": "export function resolveCloudPublicConfig(extra: unknown = Constants.expoConfig?.extra) {\n  const cloud = resolveOwnedCloudConfig(extra);\n  return {\n    clerk: { publishableKey: cloud?.publishableKey ?? null, jwtTemplate: cloud?.jwtTemplate ?? null },\n    relay: { url: cloud?.relayUrl ?? null },\n    observability: { tracesUrl: null, tracesDataset: null, tracesToken: null },\n  } satisfies CloudPublicConfig;\n}\n",
+          "count": 1
+        },
+        {
+          "before": "T3CODE_CLERK_JWT_TEMPLATE",
+          "after": "BLACKCRAB_CLERK_JWT_TEMPLATE",
+          "count": 2
         }
       ],
-      "afterSha256": "d4ec9fbfd590b409ebc272b438adc9a4f90b6aa3c0e1000c13d3a7c2713d0c68"
+      "afterSha256": "42b8b4149bb5d9ff66f9ddf2b8763a53faf8695f24448f07734e59918afb07e9"
     },
     {
       "path": "src/App.tsx",
@@ -379,6 +389,16 @@
   ],
   "rootAdditions": [
     {
+      "path": "owned-cloud-config.cjs",
+      "template": "adapters/owned-cloud-config.cjs",
+      "sha256": "25dd3cea60962a8b0dac1ab0f9ff6bf868a89373f0afcd9df9dfdb993b7883f5"
+    },
+    {
+      "path": "owned-cloud-config.d.cts",
+      "template": "adapters/owned-cloud-config.d.cts",
+      "sha256": "b617a391b25bd41fcd5e35c42f501c7274938e9acfd37320fe77668756d84baa"
+    },
+    {
       "path": "owned-root-lifecycle.mjs",
       "template": "adapters/owned-root-lifecycle.mjs",
       "sha256": "04afdea099a62c5b4f80563c3fffd8a5ea785a806393c3f8d0da2cc6243b22e1"
@@ -421,6 +441,7 @@
       "scheme": "blackcrab-remote",
       "iosBundleIdentifier": "dev.blackcrab.remote",
       "upstreamCloudEnabled": false,
+      "ownedCloudConfiguration": "explicit BLACKCRAB public build variables; no inherited upstream account or relay",
       "upstreamOTAEnabled": false
     },
     "serviceLifetime": {

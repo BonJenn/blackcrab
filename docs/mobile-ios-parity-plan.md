@@ -200,6 +200,22 @@ not shipping build evidence or repository dependency patches. The next native
 build increment must provide a reproducible physical staging workspace and pod
 floor adjustment. No distribution-signed release or physical-device claim is made.
 
+### Owned cloud configuration and account activation
+
+The full native interface can be configured with Blackcrab's own Clerk publishable
+key, relay JWT template and HTTPS relay origin. The build validates the complete
+set, carries those public values through isolated native preparation, and enables
+the Clerk native plugin with Blackcrab keychain identity and Apple sign-in support.
+The generated interface reads only the owned configuration namespace and attaches
+the pinned account service, retaining its relay discovery, account cleanup,
+onboarding and notification registration behavior. Unconfigured builds remain
+local-only without clearing saved accounts or catalogs.
+
+See [the configuration guide](mobile-cloud-configuration.md). This implements the
+previously disabled activation path; it does not establish a deployed Blackcrab
+identity/relay service, native account sign-in, off-LAN delivery, push or distribution.
+Those M5–M7 acceptance gates remain open.
+
 ### Complete native platform increment (merged foundation)
 
 The owned mobile platform now uses Expo 58.0.14, React Native 0.88.0 and React

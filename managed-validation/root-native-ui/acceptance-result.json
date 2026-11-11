@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "kind": "manual-root-native-entry-acceptance",
+  "observedAt": "2026-11-11",
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "rootSourceBase": "3e74740f36829abfa2f9626abe35b1f28194074a",
+  "qaPatchSha256": "7299ff109517523ed22a81c9250e61bd108aa5ec8c768c390657e82926f884fd",
+  "signedRootBinarySha256": "5b5e4bb71fee11f27c6769d98fce7dd06e0ecfdb72140128b081d4368829878b",
+  "nativeManifestSha256": "82659693f28e09d9d9794c51f0a76e01d2c3853c7704171909d381dc45839178",
+  "hostManifestSha256": "f97ab782c6f30c60825140fddff89e6e5e820e03dfdf57347751ef56230856af",
+  "platform": {
+    "os": "macOS",
+    "version": "27.0.1",
+    "architecture": "arm64"
+  },
+  "method": "Actual native accessibility clicks and keyboard actions through CUA; host database counts read only after shutdown",
+  "observations": {
+    "rootOpenButtonLaunches": 4,
+    "timestampPreferenceRetained": true,
+    "unsentDraftTextRetained": true,
+    "previewUrlAndPageRestored": true,
+    "restoredPreviewAcceptsClicks": true,
+    "previewNavigationAndBack": true,
+    "floatingPreviewReattachmentPreservedPageState": true,
+    "localHostSettingsRenderedAfterReopen": true,
+    "reloadHttpAuthDescriptorAndShellStatus": 200,
+    "reloadWebSocketHandshakeStatus": 101,
+    "noProviderPromptSubmitted": true
+  },
+  "databaseCounts": {
+    "desktopAuthSessions": 4,
+    "desktopSessionsConnected": 4,
+    "providerSessions": 0,
+    "runs": 0
+  },
+  "terminal": {
+    "rootExitCode": 0,
+    "terminalReportPresent": true,
+    "capturedRootExited": true,
+    "processControlRecoveredFromPid": false,
+    "rootTerminal": {
+      "allCapturedNativesExited": true,
+      "backgroundThreadsSettled": true,
+      "capturedHostGroupsAbsent": true,
+      "capturedHostSpawns": 1,
+      "capturedNativeSpawns": 4,
+      "capturedNativesAlreadyExitedBeforeClose": 3,
+      "cleanupPassed": true,
+      "openCalls": 4,
+      "operationsAndWorkersSettled": true,
+      "originalAuthAccessConnected": true,
+      "providerCommands": 0,
+      "schema": 1,
+      "scope": "actual original Root main window entry; sealed non-adoptable QA package",
+      "sdkNormalQuitSuccessesDuringClose": 1,
+      "statusCalls": 5
+    },
+    "passed": true
+  },
+  "fixture": {
+    "capturedServerStopped": true
+  },
+  "evidenceHashes": {
+    "parentTerminal": "7e7ca91b6feb0410a2367c3685a6f310e842c48de73cb603284fe09a045be280",
+    "rootTerminal": "970d24531792a4dbf615c550571ceec79bfcf97aa36bf73519db80f20563bf62",
+    "controller": "df624a0ad87ba1ad458cf19d02ff9786180b3f73f16222c737d26ebcd6211035",
+    "fixtureController": "0d29be6ea49f3f4633976d90cb039d213f9f5b9f398ee5df147f315ca782edcf",
+    "fixtureRequests": "3577882425dc2f5a4dfd9cd8809796a3388c669df1c8d658a2615811112580cb",
+    "uiObservations": "152d97dcc55c218253381e2b96023db75ae6ddbe8c86c98888661a4917e2c500"
+  },
+  "limitations": [
+    "sealed non-adoptable QA identities and isolated data",
+    "Direct bundled host, not service profile 4",
+    "No provider turns, cloud, real-device mobile, release signing, Windows or Linux acceptance",
+    "Composer status fix was discovered in this run; the changed component has separate build/typecheck evidence and has not been exercised in a rebuilt native artifact",
+    "An operator used the test app between checkpoints; only specifically observed QA actions are claimed"
+  ],
+  "fullParity": false
+}

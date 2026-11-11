@@ -68,6 +68,8 @@ records implementation, integration and accepted behavior separately. No
 full-row completion or percentage is inferred from imported source, PR counts
 or neighboring tests.
 
+- E25: [Actual Root/native UI acceptance](../managed-validation/root-native-ui/acceptance-result.json) on 2026-11-11 used the sealed macOS arm64 QA bundle based on `3e74740f36829abfa2f9626abe35b1f28194074a`, not the newer service profile 4 or cloud-configured clients. Four actual Settings → Full desktop launches authenticated; normal native quit/reopen retained the time preference, unsent draft text, and embedded browser URL/page. Restored browser clicks, navigation/Back, and floating-to-docked page state worked. Three native menu quits and the final original-SDK quit completed, with all captured hosts/native children and workers settled. Host database counts were four connected desktop auth sessions, zero provider sessions and zero runs. An apparent disconnected composer state was traced to missing-provider setup being included in its disconnected flag; the shared component now reports the provider/project requirement while preserving its send gates. Full web typechecking/build passed for that correction, but the corrected native artifact has not been exercised. These bounded observations supersede the earlier window-capture blocker for this QA bundle only; none of G1–G8 or the complete grouped scenarios is certified by this evidence.
+
 ## Per-document scenario inventory
 
 W = web, D = desktop, M = mobile. All rows U unless explicitly P; all applicable G1–G8 still apply. Mobile means native iOS release acceptance; Android reference behavior is inventoried separately rather than silently used as an iOS substitute.

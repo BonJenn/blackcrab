@@ -744,5 +744,27 @@
     "beforeSha256": null,
     "afterSha256": "8b2104a923b155b216bd229684edfee3022e6fc132204f2fce41406e99be965f",
     "sha256": "8b2104a923b155b216bd229684edfee3022e6fc132204f2fce41406e99be965f"
+  },
+  {
+    "id": "composer-availability-reason",
+    "target": "apps/web/src/components/chat/ChatComposer.tsx",
+    "file": "composer-availability-reason.patch",
+    "sha256": "2ad53b62a9e8c04d7da270ab1dae08954daff292a9c712cf2781f71708a387fc",
+    "beforeSha256": "2695957b1f3cfadeb65592c6c35f56ac663499bd4b99761bdc5a51ac0456fd1b",
+    "afterSha256": "9a4ad628b6e39bbd3d5b5b1e857364e6a045d231a469d7d0cd3a9439eda7ca09",
+    "replacements": [
+      {
+        "before": "  const voiceSendDisabledReason =\n    sendDisabledReason ?? (speechInput.preparing ? \"Preparing voice input\" : null);",
+        "after": "  const composerSendDisabledReason = projectSelectionRequired\n    ? \"Choose a project to start a thread\"\n    : noProviderAvailable\n      ? \"Enable a provider in Settings to send a message\"\n      : (sendDisabledReason ?? (speechInput.preparing ? \"Preparing voice input\" : null));"
+      },
+      {
+        "before": "                      sendDisabledReason={voiceSendDisabledReason}\n                      isEnvironmentUnavailable={\n                        environmentUnavailable !== null ||\n                        noProviderAvailable ||\n                        projectSelectionRequired\n                      }",
+        "after": "                      sendDisabledReason={composerSendDisabledReason}\n                      isEnvironmentUnavailable={environmentUnavailable !== null}"
+      },
+      {
+        "before": "                    sendDisabledReason={voiceSendDisabledReason}\n                    isEnvironmentUnavailable={\n                      environmentUnavailable !== null ||\n                      noProviderAvailable ||\n                      projectSelectionRequired\n                    }",
+        "after": "                    sendDisabledReason={composerSendDisabledReason}\n                    isEnvironmentUnavailable={environmentUnavailable !== null}"
+      }
+    ]
   }
 ]

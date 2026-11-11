@@ -6,15 +6,17 @@
  * using it as the live connection.
  */
 
-import type { DesktopPairingPayload } from "@blackcrab/remote-protocol";
+import { isPairingCode, type DesktopPairingPayload } from "@blackcrab/remote-protocol";
 
 import {
   persistPairedHost,
+  normalizePairingCode,
   storedHostFromPayload,
   type StoredPairedHost,
 } from "../pairingStore";
 import {
   LanWebSocketTransport,
+  lanWebSocketUrl,
   type LanWebSocketTransportConfig,
 } from "./lanWebSocketTransport";
 
@@ -36,12 +38,34 @@ export interface PairOverLanResult {
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-export function buildLanUrl(payload: DesktopPairingPayload): string {
-  return `ws://${payload.lanHost}:${payload.lanPort}`;
+export interface ManualPairingTarget {
+  type: "manual_address";
+  lanHost: string;
+  lanPort: number;
+  code: string;
+}
+
+export function manualPairingTarget(address: string, input: string): ManualPairingTarget {
+  const code = normalizePairingCode(input);
+  if (!isPairingCode(code)) throw new Error("Pairing code is not valid.");
+  const value = address.trim();
+  let url: URL;
+  try { url = new URL(value.includes("://") ? value : `ws://${value}`); }
+  catch { throw new Error("Enter the desktop address and port shown in Remote settings."); }
+  const port = value.match(/:(\d+)\/?$/)?.[1];
+  if (url.protocol !== "ws:" || !url.hostname || !port || Number(port) < 1 || Number(port) > 65535 ||
+      url.username || url.password || url.search || url.hash || (url.pathname !== "" && url.pathname !== "/")) {
+    throw new Error("Enter the desktop address and port shown in Remote settings.");
+  }
+  return { type: "manual_address", code, lanHost: url.hostname.replace(/^\[|\]$/g, ""), lanPort: Number(port) };
+}
+
+export function buildLanUrl(payload: Pick<DesktopPairingPayload, "lanHost" | "lanPort">): string {
+  return lanWebSocketUrl(payload.lanHost, payload.lanPort);
 }
 
 export async function pairOverLan(
-  payload: DesktopPairingPayload,
+  payload: DesktopPairingPayload | ManualPairingTarget,
   options: PairOverLanOptions,
 ): Promise<PairOverLanResult> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -69,21 +93,37 @@ export async function pairOverLan(
       url: buildLanUrl(payload),
       pairingCode: payload.code,
       deviceName: options.deviceName,
-      hostId: payload.hostId,
+      hostId: payload.type === "manual_address" ? undefined : payload.hostId,
       webSocketFactory: options.webSocketFactory,
       timers: options.timers,
-      onPaired: ({ remoteToken, e2eKey, deviceId }) => {
+      onPaired: ({ remoteToken, hostId, e2eKey, deviceId }) => {
         finalize(async () => {
           clearTimeout(timeoutHandle);
+          if (payload.type !== "manual_address" && hostId !== payload.hostId) {
+            transport?.close();
+            throw new Error("Desktop identity did not match the pairing details.");
+          }
+          const now = new Date();
           const host: StoredPairedHost = {
-            ...storedHostFromPayload(payload),
+            ...(payload.type === "manual_address" ? {
+              hostId,
+              displayName: `Desktop ${payload.lanHost}`,
+              platform: "unknown" as const,
+              appVersion: "unknown",
+              pairedAt: now.toISOString(),
+              pairingSource: "manual_code" as const,
+              lanHost: payload.lanHost,
+              lanPort: payload.lanPort,
+            } : storedHostFromPayload(payload, now)),
             remoteToken,
             e2eKey,
             deviceId,
             online: true,
-            lastSeenAt: new Date().toISOString(),
+            lastSeenAt: now.toISOString(),
           };
-          const hosts = await persistPairedHost(host);
+          let hosts: StoredPairedHost[];
+          try { hosts = await persistPairedHost(host); }
+          catch (error) { transport?.close(); throw error; }
           resolve({ host, hosts, transport: transport! });
         });
       },

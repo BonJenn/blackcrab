@@ -1,0 +1,11 @@
+--- a/infra/relay/src/previewTunnelSweep.test.ts
++++ b/infra/relay/src/previewTunnelSweep.test.ts
+@@ -8,7 +8,7 @@
+ import { sweepPreviewStage } from "./previewTunnelSweep.ts";
+ 
+ const KEY = "0123456789abcdef";
+-const TUNNEL_NAME = `t3coderelay-managedendpoint-pr-42-${KEY}`;
++const TUNNEL_NAME = `blackcrabconnect-managedendpoint-pr-42-${KEY}`;
+ 
+ // Answers the Cloudflare endpoints the sweep calls and records each request.
+ const fakeCloudflare = (options: {

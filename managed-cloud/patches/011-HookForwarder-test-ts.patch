@@ -1,0 +1,11 @@
+--- a/infra/relay/src/hooks/HookForwarder.test.ts
++++ b/infra/relay/src/hooks/HookForwarder.test.ts
+@@ -59,7 +59,7 @@
+   environmentId,
+   hostname: "env.example.test",
+   tunnelId: "tunnel-id",
+-  tunnelName: `t3coderelay-managedendpoint-dev-${endpointKey}`,
++  tunnelName: `blackcrabconnect-managedendpoint-dev-${endpointKey}`,
+   dnsRecordId: "dns-record-id",
+   readyAt: "2026-05-25T00:00:00.000Z",
+   tunnelReleasedAt: null,

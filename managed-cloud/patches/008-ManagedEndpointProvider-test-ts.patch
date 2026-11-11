@@ -1,0 +1,20 @@
+--- a/infra/relay/src/environments/ManagedEndpointProvider.test.ts
++++ b/infra/relay/src/environments/ManagedEndpointProvider.test.ts
+@@ -424,7 +424,7 @@
+ }
+ 
+ function expectedManagedTunnelName(environmentId: string, userId = "user_ABC"): string {
+-  return `t3coderelay-managedendpoint-dev-julius-${expectedManagedEndpointHash(environmentId, userId)}`;
++  return `blackcrabconnect-managedendpoint-dev-julius-${expectedManagedEndpointHash(environmentId, userId)}`;
+ }
+ 
+ describe("ManagedEndpointProvider", () => {
+@@ -560,7 +560,7 @@
+           | { readonly name?: string }
+           | undefined
+       )?.name;
+-      expect(requestedName).toMatch(/^t3coderelay-managedendpoint-dev-julius-[a-f0-9]{16}$/);
++      expect(requestedName).toMatch(/^blackcrabconnect-managedendpoint-dev-julius-[a-f0-9]{16}$/);
+       const configBody = (
+         tunnelCalls.find((call) => call.operation === "putConfiguration")?.input as
+           | { readonly tunnelConfig?: unknown }

@@ -218,6 +218,19 @@
       "afterSha256": "2180b914b90940380e602e1ec4620c1414538302314129b375672df7d7b15fb9"
     },
     {
+      "path": "src/features/connection/ConnectionEnvironmentRow.tsx",
+      "beforeSha256": "5f30e7802c429b207089bc9e9c5013934460e33ba6a5b3c1e9b21bda9f0c29cd",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"",
+          "after": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"\n          accessibilityValue={{ text: diagnosis?.headline ?? statusLabel ?? \"\" }}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "9eb252181a099d2bc2c40fb1253951c78b84f54aba3a692bf023ea5bad630642"
+    },
+    {
       "path": "src/features/connection/pairing.ts",
       "beforeSha256": "6c5cd1183158d63551665856bb3d6093119aab3f6dc893ac5fa42db9b7d175b2",
       "kind": "replace",

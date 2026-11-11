@@ -1,0 +1,15 @@
+--- a/apps/server/src/OwnedLauncherBootstrap.ts
++++ b/apps/server/src/OwnedLauncherBootstrap.ts
+@@ -1,3 +1,4 @@
++// @effect-diagnostics nodeBuiltinImport:off globalTimers:off -- Native child handles and bootstrap deadlines exist before the child Effect runtime.
+ import {validOwnedServiceBrowser} from "./OwnedServiceBrowser.ts";
+ // Native-owned candidate. Only Node builtins; never load the child Effect graph here.
+ import * as CP from 'node:child_process';
+@@ -7,6 +8,7 @@
+ import * as Path from 'node:path';
+ import type { OwnedServiceBinding } from './cloud/serviceProtocol.ts';
+ const LIMIT = 64 * 1024;
++// @effect-diagnostics-next-line extendsNativeError:off -- This synchronous launcher boundary must not load the child Effect graph.
+ export class OwnedBootstrapError extends Error {
+     constructor() { super('Owned service bootstrap is unavailable.'); }
+ }

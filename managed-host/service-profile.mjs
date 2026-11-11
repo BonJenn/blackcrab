@@ -11,12 +11,14 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const roots=new URL('../',import.meta.url);
 const GROUPS=[
  ['identity','fork-integration/identity/','object',['001-own-pairing-app-links','002-own-desktop-provider-return','003-own-mobile-pairing-reader','004-own-managed-policy']],
- ['managed-host','managed-host/patches/','array',['office-font-file-url-path','managed-native-local-api','managed-native-folder-picker-entry','managed-native-project-icon-api','managed-native-project-icon-picker','managed-native-project-icon-entry','blackcrab-renderer-origin','blackcrab-packaged-cors','managed-host-identity-proof',...Array.from({length:10},(_,i)=>`native-browser-host-${i+1}`),'blackcrab-pairing-app-links','blackcrab-provider-auth-return']],
+ ['managed-host','managed-host/patches/','array',['office-font-file-url-path','managed-native-local-api','managed-native-folder-picker-entry','managed-native-project-icon-api','managed-native-project-icon-picker','managed-native-project-icon-entry','blackcrab-renderer-origin','blackcrab-packaged-cors','managed-host-identity-proof',...Array.from({length:10},(_,i)=>`native-browser-host-${i+1}`),'blackcrab-pairing-app-links','blackcrab-provider-auth-return','native-browser-types-1','native-browser-types-2','native-browser-types-3','native-browser-types-4']],
  ['boot','fork-integration/boot-service/','object',['001-owned-service-and-local-installer','002-owned-payload-layout','003-launcher-payload-layout','004-owned-layout-protocol','005-unconfigured-owned-updater-gate']],
  ['auth','fork-integration/boot-service/owned-auth/','fixtures',['owned-auth-config','owned-auth-serviceProtocol','owned-auth-serviceLauncherClient','owned-auth-bootstrap-source']],
  ['identity-v2','fork-integration/owner-control/identity-v2/','identity-v2',['candidate-owner-proof-v2-http','candidate-owner-proof-v2-issuer-interface']],
  ['backend','fork-integration/boot-service/backend-identity/','fixtures',['owned-proof-config','owned-proof-serviceLauncherClient','owned-proof-http','owned-proof-concrete-source']],
  ['launcher','fork-integration/boot-service/launcher-adapter/','launcher',['owned-service-serviceLauncher','owned-service-cli-server','owned-service-OwnedLauncherBootstrap','owned-service-OwnedServiceLauncherLoss']],
+ ['browser','fork-integration/boot-service/browser-channel/','object',['owned-browser-auth','owned-browser-config','owned-browser-launcher','owned-browser-policy']],
+ ['typecheck','fork-integration/boot-service/typecheck/','object',["owned-types-ManagedOwnerProofIssuer", "owned-types-OwnedLauncherBootstrap", "owned-types-OwnedServiceAuthBootstrap", "owned-types-OwnedServiceProof", "owned-types-config", "owned-types-http"]],
 ];
 const ENTRY_SOURCES={
  'apps/server/src/bin.ts':'bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598',
@@ -64,7 +66,7 @@ export async function serviceProfilePlan(){
    else{canonical.set(record.id,normalized);records.push(normalized);}
   }
  }
- if(descriptors.length!==44||records.length!==42||aliases.length!==2)throw Error('Service profile composition changed');
+ if(descriptors.length!==58||records.length!==56||aliases.length!==2)throw Error('Service profile composition changed');
  return {profile:SERVICE_PROFILE,protocol:4,version:'0.1.7',records,descriptors,aliases,data,entrySources:{...ENTRY_SOURCES}};
 }
 /** Source consistency API; actual producer below ALWAYS authenticates a fresh archive. */

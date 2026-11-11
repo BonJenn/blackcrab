@@ -89,12 +89,14 @@ export async function buildManagedHost({ archive, cacheDir, output, node, pnpm, 
     processControl?.assertRunning();
   }
   try {
-    await step('install', pnpm, [ '--filter', 't3...', '--filter', '@t3tools/web...', '--filter', '@t3tools/scripts...', 'install', '--frozen-lockfile', '--ignore-scripts', ...(offline ? ['--offline'] : [])]);
+    await step('install', pnpm, [ '--filter', 't3...', '--filter', '@t3tools/web...', '--filter', '@t3tools/scripts...', 'install', '--store-dir', path.join(cacheDir, 'pnpm-store'), '--frozen-lockfile', '--ignore-scripts', ...(offline ? ['--offline'] : [])]);
+    // Run the pinned compiler directly; package-manager script runners may auto-install.
+    if (profile === SERVICE_PROFILE) await step('server-typecheck', node, [path.join(source, 'node_modules/@effect/tsgo/dist/effect-tsgo.cjs'), 'tsrs', '--noEmit'], path.join(source, 'apps/server'));
     // Exercise the real Effect Node adapter before publishing a Unix browser-capable host.
     // Windows does not advertise leased UDS; its existing FD transport remains unchanged.
     if (process.platform !== 'win32') await step('browser-channel-regression', node, [path.join(source, 'node_modules/vite-plus/bin/vp'), 'test', 'run', 'src/preview/SocketDesktopBrowserChannel.test.ts', 'src/preview/ServerBrowser.test.ts', '--maxWorkers=1'], path.join(source, 'apps/server'));
-    await step('web', pnpm, [ '--filter', '@t3tools/web', 'build']);
-    await step('executable', pnpm, [ '--filter', 't3', 'build:exe']);
+    await step('web', node, ['--run', 'build'], path.join(source, 'apps/web'));
+    await step('executable', node, ['--run', 'build:exe'], path.join(source, 'apps/server'));
     await step('monitor', 'cargo', ['build', '--release', '--locked', '--manifest-path', 'native/resource-monitor/Cargo.toml']);
     const monitor = path.join(work, 'resource-monitor'); await fs.mkdir(monitor);
     const monitorName = `t3-resource-monitor${process.platform === 'win32' ? '.exe' : ''}`;

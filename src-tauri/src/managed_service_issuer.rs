@@ -27,6 +27,7 @@ const LAUNCHER_REGISTRY: &str =
     include_str!("../../fork-integration/boot-service/launcher-adapter/registry.json");
 const BACKEND_REGISTRY: &str =
     include_str!("../../fork-integration/boot-service/backend-identity/registry.json");
+const BROWSER_REGISTRY: &str = include_str!("../../fork-integration/boot-service/browser-channel/registry.json");
 const BINDING: &str = "native-issuer-binding.json";
 const JOURNAL: &str = "native-issuer-epoch.json";
 const REGISTRY: &str = include_str!("../../fork-integration/boot-service/registry.json");
@@ -98,6 +99,8 @@ struct OwnedServiceAuthBootstrap<'a> {
     binding: OwnedServiceBinding<'a>,
     desktop_bootstrap_token: String,
     desktop_bootstrap_secret: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    desktop_browser_socket: Option<&'a crate::managed_browser::Capability>,
 }
 /// Factory authority comes from fixed installed layout + compiled anchors, not requests.
 pub(super) struct NativeIssuer {
@@ -251,6 +254,7 @@ impl NativeIssuer {
         {
             return Err(invalid());
         }
+        if let Some(browser) = &config.browser { browser.validate(&self.host.root)?; }
         let envelope = OwnedServiceAuthBootstrap {
             schema: 1,
             kind: "blackcrab-owned-service-auth-v1",
@@ -262,6 +266,7 @@ impl NativeIssuer {
             },
             desktop_bootstrap_token: bootstrap_token(&config.bootstrap_secret, now_ms()?)?,
             desktop_bootstrap_secret: &config.bootstrap_secret,
+            desktop_browser_socket: config.browser.as_ref(),
         };
         let envelope = serde_json::to_value(envelope).map_err(|_| invalid())?;
         // Never persist the secret-bearing envelope; persist uncertain issuance BEFORE exposing it.
@@ -812,6 +817,7 @@ fn verify_payload_config(host: &ManagedHost, binding: &Binding) -> Result<Config
     }
     require_source_records(actual, LAUNCHER_REGISTRY, 2, 2)?;
     require_source_records(actual, BACKEND_REGISTRY, 3, 1)?;
+    if config.browser.is_some() { require_source_records(actual, BROWSER_REGISTRY, 3, 1)?; }
     Ok(config)
 }
 fn require_source_records(
@@ -1076,6 +1082,23 @@ mod tests {
         serde_json::from_slice(&core.prepare_verified(1, 7, config(), lease).unwrap()).unwrap()
     }
     #[test]
+    fn browser_envelope_uses_only_the_native_owned_capability() {
+        let fixture=Fixture::new();let mut core=fixture.core();
+        let capability=crate::managed_browser::Capability::allocate(&fixture.0).unwrap();
+        let mut configuration=config();configuration.browser=Some(capability.clone());
+        let lease=managed_payload::owned_lock(&fixture.0.join("launcher.lock"),true).unwrap();
+        let response:Value=serde_json::from_slice(&core.prepare_verified(1,7,configuration,lease).unwrap()).unwrap();
+        assert_eq!(response["envelope"]["desktopBrowserSocket"],serde_json::to_value(&capability).unwrap());
+        assert_eq!(response["envelope"].as_object().unwrap().len(),6);
+        assert!(response["envelope"].get("host").is_none());
+        drop(core);
+        let foreign=Fixture::new();let mut core=foreign.core();let mut configuration=config();configuration.browser=Some(capability.clone());
+        let lease=managed_payload::owned_lock(&foreign.0.join("launcher.lock"),true).unwrap();
+        assert!(core.prepare_verified(1,7,configuration,lease).is_err());
+        fs::remove_file(capability.path.parent().unwrap().join(".blackcrab-browser-owner.json")).unwrap();
+        fs::remove_dir(capability.path.parent().unwrap()).unwrap();
+    }
+    #[test]
     fn preflight_frame_contains_no_envelope_and_precedes_recovery_authority() {
         let fixture = Fixture::new();
         let mut core = fixture.core();
@@ -1092,7 +1115,7 @@ mod tests {
     }
     #[test]
     fn mandatory_launcher_and_concrete_backend_source_records_are_all_required() {
-        for (registry, patches, added) in [(LAUNCHER_REGISTRY, 2, 2), (BACKEND_REGISTRY, 3, 1)] {
+        for (registry, patches, added) in [(LAUNCHER_REGISTRY, 2, 2), (BACKEND_REGISTRY, 3, 1), (BROWSER_REGISTRY, 3, 1)] {
             let parsed: Value = serde_json::from_str(registry).unwrap();
             let mut actual = parsed["patches"].as_array().unwrap().clone();
             actual.extend(parsed["addedSources"].as_array().unwrap().clone());

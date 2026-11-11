@@ -1,0 +1,16 @@
+--- a/apps/server/src/OwnedLauncherBootstrap.ts
++++ b/apps/server/src/OwnedLauncherBootstrap.ts
+@@ -1,3 +1,4 @@
++import {validOwnedServiceBrowser} from "./OwnedServiceBrowser.ts";
+ // Native-owned candidate. Only Node builtins; never load the child Effect graph here.
+ import * as CP from 'node:child_process';
+ import * as FS from 'node:fs/promises';
+@@ -220,7 +221,7 @@
+             throw fail();
+         const envelope = response.envelope;
+         const binding = envelope.binding;
+-        if (!keys(envelope, ['schema', 'kind', 'binding', 'desktopBootstrapToken', 'desktopBootstrapSecret']) || envelope.schema !== 1 || envelope.kind !== 'blackcrab-owned-service-auth-v1' || !hex(envelope.desktopBootstrapToken) || !hex(envelope.desktopBootstrapSecret) || !record(binding) || !keys(binding, ['profile', 'generation', 'manifestSha256', 'environmentId']) || binding.profile !== 'blackcrab-local-service-layout-v1' || binding.generation !== this.#binding.generation || binding.manifestSha256 !== this.#binding.manifestSha256 || binding.environmentId !== this.#binding.environmentId)
++        if (!keys(envelope, ['schema', 'kind', 'binding', 'desktopBootstrapToken', 'desktopBootstrapSecret', ...(Object.hasOwn(envelope,'desktopBrowserSocket') ? ['desktopBrowserSocket'] : [])]) || (Object.hasOwn(envelope,'desktopBrowserSocket') && !validOwnedServiceBrowser(envelope.desktopBrowserSocket)) || envelope.schema !== 1 || envelope.kind !== 'blackcrab-owned-service-auth-v1' || !hex(envelope.desktopBootstrapToken) || !hex(envelope.desktopBootstrapSecret) || !record(binding) || !keys(binding, ['profile', 'generation', 'manifestSha256', 'environmentId']) || binding.profile !== 'blackcrab-local-service-layout-v1' || binding.generation !== this.#binding.generation || binding.manifestSha256 !== this.#binding.manifestSha256 || binding.environmentId !== this.#binding.environmentId)
+             throw fail();
+         this.#session = response.session;
+         this.#envelope = Buffer.from(JSON.stringify(envelope) + '\n');

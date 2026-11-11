@@ -1,0 +1,15 @@
+--- a/apps/server/src/OwnedServiceProof.ts
++++ b/apps/server/src/OwnedServiceProof.ts
+@@ -1,9 +1,10 @@
++// @effect-diagnostics nodeBuiltinImport:off -- Native HMAC proof uses the privately captured bootstrap secret.
+ // Private server module. Captured FD0 issuance stays out of public configuration.
+ import {createHmac} from 'node:crypto';
+ import type {OwnedServiceAuthBootstrap} from './OwnedServiceAuthBootstrap.ts';
+ 
+-interface Configuration {readonly port:number;readonly desktopBootstrapSecret?:string}
+-interface Descriptor {readonly environmentId:string;readonly serverVersion:string;readonly orchestrationProtocolVersion:number}
++interface Configuration {readonly port:number;readonly desktopBootstrapSecret?:string|undefined}
++interface Descriptor {readonly environmentId:string;readonly serverVersion:string;readonly orchestrationProtocolVersion?:number|undefined}
+ interface Proof {
+  readonly version:2;readonly nonce:string;readonly environmentId:string;readonly origin:string;
+  readonly serverVersion:string;readonly orchestrationProtocolVersion:2;readonly manifestSha256:string;

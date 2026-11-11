@@ -1,0 +1,11 @@
+--- a/apps/server/src/cli/config.ts
++++ b/apps/server/src/cli/config.ts
+@@ -389,7 +389,7 @@
+   const shellEnvironmentPrepared = bootstrap?.shellEnvironmentPrepared;
+   const desktopTelemetryFd = bootstrap?.desktopTelemetryFd;
+   const desktopTelemetryControlFd = bootstrap?.desktopTelemetryControlFd;
+-  const desktopBrowserSocket = bootstrap?.desktopBrowserSocket;
++  const desktopBrowserSocket = authEnvelope?.desktopBrowserSocket ?? bootstrap?.desktopBrowserSocket;
+   const desktopBrowserFd = authEnvelope?.desktopBrowserFd ?? bootstrap?.desktopBrowserFd;
+   const desktopBrowserControlFd = authEnvelope?.desktopBrowserControlFd ?? bootstrap?.desktopBrowserControlFd;
+   const resourceMonitorPath = bootstrap?.resourceMonitorPath;

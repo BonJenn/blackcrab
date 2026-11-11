@@ -28,7 +28,7 @@ test('active root uses one sticky activation and retains full App while native l
 });
 test('own configuration keeps self-hosted native capabilities and own extension identity without upstream account activation', async () => {
  const {expo:c}=JSON.parse(await fs.readFile(new URL('../app.json',import.meta.url)));
- assert.equal(c.scheme,'blackcrab-remote'); assert.equal(c.ios.bundleIdentifier,'dev.blackcrab.remote');
+ assert.deepEqual(c.scheme,['blackcrab-remote','blackcrab']); assert.equal(c.ios.bundleIdentifier,'dev.blackcrab.remote');
  assert.equal(c.orientation,'default'); assert.equal(c.ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads,true);
  assert(c.ios.infoPlist.UIBackgroundModes.includes('audio')); assert(c.ios.infoPlist.NSPhotoLibraryAddUsageDescription);
  assert(c.ios.infoPlist['UISupportedInterfaceOrientations~ipad'].includes('UIInterfaceOrientationLandscapeLeft'));

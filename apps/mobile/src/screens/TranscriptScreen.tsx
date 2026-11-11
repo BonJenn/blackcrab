@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -107,6 +107,8 @@ export function TranscriptScreen({
   const live = entries != null;
   const hostData = entries ?? EMPTY_ENTRIES;
   const listRef = useRef<FlatList<TranscriptEntry>>(null);
+  const keyboardFrameRef = useRef<ComponentRef<typeof View>>(null);
+  const [keyboardVerticalOffset, setKeyboardVerticalOffset] = useState(0);
   const savedDraft = useDraft(hostId, sessionId || "", draftClient);
   const draft = savedDraft.text;
   const [draftResetReviewed, setDraftResetReviewed] = useState(false);
@@ -336,10 +338,11 @@ export function TranscriptScreen({
     setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  return (
+  const content = (
     <KeyboardAvoidingView
       style={screenStyles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={keyboardVerticalOffset}
     >
       <View style={localStyles.header}>
         <Text
@@ -462,6 +465,19 @@ export function TranscriptScreen({
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+  );
+  return (
+    <View
+      ref={keyboardFrameRef}
+      collapsable={false}
+      style={localStyles.keyboardFrame}
+      onLayout={Platform.OS === "ios" ? () => {
+        // iOS reports the keyboard in window coordinates; this screen sits below the app headers.
+        keyboardFrameRef.current?.measureInWindow((_x, y) => setKeyboardVerticalOffset(y));
+      } : undefined}
+    >
+      {content}
+    </View>
   );
 }
 
@@ -664,6 +680,7 @@ function ToolResultCard({ text, truncated }: { text: string; truncated?: boolean
 }
 
 const localStyles = StyleSheet.create({
+  keyboardFrame: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",

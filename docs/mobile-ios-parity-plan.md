@@ -325,3 +325,30 @@ The post-restart assertion covers SDK reconnection and stored metadata; the nati
 iOS UI's reconnect behavior was not asserted. Cloud/off-LAN, real providers, broader
 M1–M6 workflows, populated legacy migration, physical devices, push and distribution
 signing remain open.
+
+### Native iOS cold reconnect after service restart (2026-11-11)
+
+The same combined Release app and current managed service now passed the native
+cold-reconnect case left open by the previous acceptance result. After the baseline
+pairing and upgrade/rename/archive phases, the test terminated the app, restarted
+the service, and unarchived that same thread through the independent SDK. A cold
+launch displayed the unarchived thread without pairing again. Native rename and
+archive then succeeded again, and the SDK verified the exact new title and archive
+state on the same thread.
+
+All three native UI phases passed one test each with zero failures or skips. The
+source-bound redaction canary and 30 controller checks passed. All three service
+epochs closed; both owned simulators shut down; provider runs and sessions remained
+zero. The app inventory and service configuration remained unchanged. See the
+[structured result](../managed-validation/ios-ui/current-service-reconnect-result.json)
+and the [executed XCTest source](../managed-validation/ios-ui/scenarios/service-reconnect.swift).
+
+Earlier attempts reached the reconnect and rename dialog but failed when XCTest's
+Command-A shortcut did not select the text. The successful runner uses native touch
+selection, asserts an empty field before typing, then asserts the exact new title.
+Those earlier attempts remain failures; their cleanup was verified separately.
+
+This remains local combined-candidate evidence with no merged stage revision. It
+does not close foreground/background recovery, revoked credentials, live cloud or
+off-LAN access, real provider runs, populated migration, physical-device testing,
+push/Live Activity, signing, or the actual desktop service Settings/OS controls.

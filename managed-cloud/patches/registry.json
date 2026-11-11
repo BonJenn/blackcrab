@@ -1,0 +1,390 @@
+[
+  {
+    "id": "blackcrab-cloud-001",
+    "file": "001--env-example.patch",
+    "target": "infra/relay/.env.example",
+    "sha256": "b2e77c26d6f5be867152d18b026ad27f24a3f52e919202facc8d65c199e9f758",
+    "beforeSha256": "120393b3f8c2ca3d5fcb75b5d48437aed45dd5b3187169aefbec22a92485edaa",
+    "afterSha256": "e42812866d4ed9dc625281be3f11e05b2456434e7a28e0fa98c02672e334e95e",
+    "replacements": [
+      {
+        "before": "APNS_BUNDLE_ID=...\n",
+        "after": "APNS_BUNDLE_ID=dev.blackcrab.remote\n"
+      },
+      {
+        "before": "# Required: Relay API and managed tunnel domains\n",
+        "after": "# Required: explicit private file for generated client configuration\nBLACKCRAB_RELAY_CLIENT_CONFIG_ENV=/absolute/private/path/blackcrab-relay-client.env\n\n# Required: Relay API and managed tunnel domains\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-002",
+    "file": "002-alchemy-run-ts.patch",
+    "target": "infra/relay/alchemy.run.ts",
+    "sha256": "e0e65a7846f945e2aac03947679b4dd1982efc842fff784ed5c34411dcd32d6d",
+    "beforeSha256": "9ff40772b50eb61a890523639e9e14bba4fa4cb040b9ef44e244db5b09047772",
+    "afterSha256": "547628f020786cdbe3e3702cf3abc4e2387d25b4b42e953c70744de78d9c68a7",
+    "replacements": [
+      {
+        "before": "  \"T3CodeRelay\",\n",
+        "after": "  \"BlackcrabConnectRelay\",\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-003",
+    "file": "003-tunnel-census-ts.patch",
+    "target": "infra/relay/scripts/tunnel-census.ts",
+    "sha256": "701b7ef61b62cbb76e9ade45f345bce2f4b69684e67c1fe8830725c92dbff976",
+    "beforeSha256": "f9bf087024e2e93172bdfce7a357cdb226539cd74fa6e7c102fe41021d497aca",
+    "afterSha256": "56420762c93fdc5eb76e9a01331bc4712d914e79221470b83ec89fb5dc50ede2",
+    "replacements": [
+      {
+        "before": "const PREFIX = \"t3coderelay-managedendpoint-\";\n",
+        "after": "const PREFIX = \"blackcrabconnect-managedendpoint-\";\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-004",
+    "file": "004-clientConfig-test-ts.patch",
+    "target": "infra/relay/src/clientConfig.test.ts",
+    "sha256": "d0afa143fbd05248f313fe1456b011606467dc24bada8eca7bc4a412399e6c41",
+    "beforeSha256": "6c7f5847141900d698011d41f8a5e1d50e4758b0b49a7071503e2f5a92d88e95",
+    "afterSha256": "4720d031d7d1f74c20cb2df7eb968caa80c025620eb45362b24f056c4bb1aaf0",
+    "replacements": [
+      {
+        "before": "        ConfigProvider.layer(\n          ConfigProvider.fromUnknown({ T3CODE_RELAY_CLIENT_CONFIG_ENV: target }),\n        ),\n",
+        "after": "        ConfigProvider.layer(\n          ConfigProvider.fromUnknown({ BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: target }),\n        ),\n"
+      },
+      {
+        "before": "        .deploy(PublishClientConfig({ ...clientConfig(\"v1\"), url: undefined }))\n        .pipe(\n          Effect.provide(\n            ConfigProvider.layer(\n              ConfigProvider.fromUnknown({ T3CODE_RELAY_CLIENT_CONFIG_ENV: target }),\n            ),\n          ),\n          Effect.exit,\n        );\n",
+        "after": "        .deploy(PublishClientConfig({ ...clientConfig(\"v1\"), url: undefined }))\n        .pipe(\n          Effect.provide(\n            ConfigProvider.layer(\n              ConfigProvider.fromUnknown({ BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: target }),\n            ),\n          ),\n          Effect.exit,\n        );\n"
+      },
+      {
+        "before": "              ConfigProvider.fromUnknown({ T3CODE_RELAY_CLIENT_CONFIG_ENV: target }),\n",
+        "after": "              ConfigProvider.fromUnknown({ BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: target }),\n"
+      },
+      {
+        "before": "      expect(first).toContain(\"T3CODE_RELAY_URL=https://relay.example.com\\n\");\n",
+        "after": "      expect(first).toContain(\"BLACKCRAB_RELAY_URL=https://relay.example.com\\n\");\n      expect(first).toContain(\"T3CODE_RELAY_URL=https://relay.example.com\\n\");\n"
+      },
+      {
+        "before": "describe(\"PublishClientConfig\", () => {\n",
+        "after": "describe(\"PublishClientConfig\", () => {\n  test.provider(\"requires an explicit nonempty client configuration destination\", (stack) =>\n    Effect.gen(function* () {\n      for (const values of [{}, { BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: \"\" }]) {\n        const exit = yield* stack.deploy(PublishClientConfig(clientConfig(\"v1\"))).pipe(\n          Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values))),\n          Effect.exit,\n        );\n        expect(exit._tag).toBe(\"Failure\");\n        expect(String(exit)).toContain(\"BLACKCRAB_RELAY_CLIENT_CONFIG_ENV\");\n      }\n    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),\n  );\n"
+      },
+      {
+        "before": "      expect(third).toContain(\"KEEP=yes\\n\");\n",
+        "after": "      expect(third).toContain(\"KEEP=yes\\n\");\n\n      const moved = path.join(dir, \"moved.env\");\n      yield* stack.deploy(PublishClientConfig(clientConfig(\"v2\"))).pipe(\n        Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({\n          BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: moved,\n        }))),\n      );\n      expect(yield* fs.readFileString(moved)).toContain(\"BLACKCRAB_RELAY_URL=https://relay.example.com\\n\");\n      expect(yield* fs.readFileString(target)).toBe(third);\n"
+      },
+      {
+        "before": "  test.provider(\"requires an explicit nonempty client configuration destination\", (stack) =>\n    Effect.gen(function* () {\n      for (const values of [{}, { BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: \"\" }]) {\n        const exit = yield* stack.deploy(PublishClientConfig(clientConfig(\"v1\"))).pipe(\n          Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values))),\n          Effect.exit,\n        );\n        expect(exit._tag).toBe(\"Failure\");\n        expect(String(exit)).toContain(\"BLACKCRAB_RELAY_CLIENT_CONFIG_ENV\");\n      }\n    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),\n",
+        "after": "  test.provider(\"requires an explicit nonempty client configuration destination\", (stack) =>\n    Effect.gen(function* () {\n      for (const values of [{}, { BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: \"\" }]) {\n        const exit = yield* stack\n          .deploy(PublishClientConfig(clientConfig(\"v1\")))\n          .pipe(\n            Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values))),\n            Effect.exit,\n          );\n        expect(exit._tag).toBe(\"Failure\");\n        expect(String(exit)).toContain(\"BLACKCRAB_RELAY_CLIENT_CONFIG_ENV\");\n      }\n    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),\n"
+      },
+      {
+        "before": "\n      const moved = path.join(dir, \"moved.env\");\n      yield* stack.deploy(PublishClientConfig(clientConfig(\"v2\"))).pipe(\n        Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({\n          BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: moved,\n        }))),\n      );\n      expect(yield* fs.readFileString(moved)).toContain(\"BLACKCRAB_RELAY_URL=https://relay.example.com\\n\");\n      expect(yield* fs.readFileString(target)).toBe(third);\n    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),\n  );\n\n",
+        "after": "\n      const moved = path.join(dir, \"moved.env\");\n      yield* stack.deploy(PublishClientConfig(clientConfig(\"v2\"))).pipe(\n        Effect.provide(\n          ConfigProvider.layer(\n            ConfigProvider.fromUnknown({\n              BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: moved,\n            }),\n          ),\n        ),\n      );\n      expect(yield* fs.readFileString(moved)).toContain(\n        \"BLACKCRAB_RELAY_URL=https://relay.example.com\\n\",\n      );\n      expect(yield* fs.readFileString(target)).toBe(third);\n    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),\n  );\n\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-005",
+    "file": "005-clientConfig-ts.patch",
+    "target": "infra/relay/src/clientConfig.ts",
+    "sha256": "9e31d494b8f0db0e8b18f64e2042d0c3429cc70138996814c6d0ffb04f922545",
+    "beforeSha256": "d37ece52c4b79a3ad110b71f0e45f23ccffc9221e27a722071875bcde904530d",
+    "afterSha256": "14d0ff26e96edd09aebd216f9887d5361e6bfb2eb3b9a7a7273f68f2aee43955",
+    "replacements": [
+      {
+        "before": "import * as Option from \"effect/Option\";\nimport * as Path from \"effect/Path\";\n",
+        "after": "import * as Path from \"effect/Path\";\n"
+      },
+      {
+        "before": "import * as Path from \"effect/Path\";\nimport * as Redacted from \"effect/Redacted\";\n",
+        "after": "import * as Redacted from \"effect/Redacted\";\n"
+      },
+      {
+        "before": "    T3CODE_RELAY_URL: config.url,\n",
+        "after": "    BLACKCRAB_RELAY_URL: config.url,\n    T3CODE_RELAY_URL: config.url,\n"
+      },
+      {
+        "before": "export const PublishClientConfig = Alchemy.Action(\n  \"PublishClientConfig\",\n  Effect.gen(function* () {\n    const fs = yield* FileSystem.FileSystem;\n    const path = yield* Path.Path;\n    const override = yield* Config.String(\"T3CODE_RELAY_CLIENT_CONFIG_ENV\").pipe(Config.option);\n    const repoRootEnv = path.fromFileUrl(new URL(\"../../../.env\", import.meta.url));\n    const target = Option.isSome(override) ? override.value : yield* repoRootEnv;\n    return Effect.fn(function* (input: RelayClientConfig) {\n      const url = input.url;\n      if (url === undefined) return yield* new RelayUrlUnavailableError();\n      const entries = relayClientConfigEnv({ ...input, url });\n      // Reject line breaks in provider values to prevent injected assignments.\n      for (const [name, value] of Object.entries(entries)) {\n        if (/[\\r\\n]/u.test(value)) return yield* new EnvValueNotSingleLineError({ key: name });\n      }\n      const existing = (yield* fs.exists(target)) ? yield* fs.readFileString(target) : \"\";\n      yield* fs.writeFileString(target, reconcileEnvFile(existing, entries));\n      yield* Console.log(`Wrote relay client configuration to ${target}`);\n      return { path: target };\n    });\n  }),\n);\n",
+        "after": "const publishClientConfig = Alchemy.Action(\n  \"PublishClientConfig\",\n  Effect.fn(function* (input: RelayClientConfig & { readonly target: string }) {\n    const fs = yield* FileSystem.FileSystem;\n    const { target, url } = input;\n    if (url === undefined) return yield* new RelayUrlUnavailableError();\n    const entries = relayClientConfigEnv({ ...input, url });\n    // Reject line breaks in provider values to prevent injected assignments.\n    for (const [name, value] of Object.entries(entries)) {\n      if (/[\\r\\n]/u.test(value)) return yield* new EnvValueNotSingleLineError({ key: name });\n    }\n    const existing = (yield* fs.exists(target)) ? yield* fs.readFileString(target) : \"\";\n    yield* fs.writeFileString(target, reconcileEnvFile(existing, entries));\n    yield* Console.log(`Wrote relay client configuration to ${target}`);\n    return { path: target };\n  }),\n);\n\nexport const PublishClientConfig = Effect.fn(\"PublishClientConfig\")(function* (\n  input: { [Key in keyof RelayClientConfig]: Alchemy.Input<RelayClientConfig[Key]> },\n) {\n  // Include the destination in the action input so moving it also republishes unchanged values.\n  const target = yield* Config.NonEmptyString(\"BLACKCRAB_RELAY_CLIENT_CONFIG_ENV\");\n  return yield* publishClientConfig({ ...input, target });\n});\n"
+      },
+      {
+        "before": "  }),\n);\n\nexport const PublishClientConfig = Effect.fn(\"PublishClientConfig\")(function* (\n  input: { [Key in keyof RelayClientConfig]: Alchemy.Input<RelayClientConfig[Key]> },\n) {\n  // Include the destination in the action input so moving it also republishes unchanged values.\n  const target = yield* Config.NonEmptyString(\"BLACKCRAB_RELAY_CLIENT_CONFIG_ENV\");\n  return yield* publishClientConfig({ ...input, target });\n});\n",
+        "after": "  }),\n);\n\nexport const PublishClientConfig = Effect.fn(\"PublishClientConfig\")(function* (input: {\n  [Key in keyof RelayClientConfig]: Alchemy.Input<RelayClientConfig[Key]>;\n}) {\n  // Include the destination in the action input so moving it also republishes unchanged values.\n  const target = yield* Config.NonEmptyString(\"BLACKCRAB_RELAY_CLIENT_CONFIG_ENV\");\n  return yield* publishClientConfig({ ...input, target });\n});\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-006",
+    "file": "006-db-ts.patch",
+    "target": "infra/relay/src/db.ts",
+    "sha256": "4921456109b002c81614498de4250f1deb3da52e0c3d791c7d11b28fed0c2b74",
+    "beforeSha256": "8521b2f9cbc7d95d6642f3ccb96855975a5946ef50cda3995094b3dd8398cd60",
+    "afterSha256": "17ef7c311b5335d0ac94a17ff245cbfa0b046b5a8adee746daa6336ba4e0c3aa",
+    "replacements": [
+      {
+        "before": "          name: \"t3coderelay\",\n",
+        "after": "          name: \"blackcrabconnectrelay\",\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-007",
+    "file": "007-deploymentConfig-ts.patch",
+    "target": "infra/relay/src/deploymentConfig.ts",
+    "sha256": "361ebadeb8be7c994a28a97f239a43b2a2dfa154bdc13bfa4c27ebb707739212",
+    "beforeSha256": "451cffe2335c953881794fec7e84d90441e294f88a24b67855ebabae1ec6a452",
+    "afterSha256": "a69e90540a77f82040f855a1bc6c204767677385b2d95f7531002eea830c5525",
+    "replacements": [
+      {
+        "before": "const MANAGED_ENDPOINT_TUNNEL_PREFIX = \"t3coderelay-managedendpoint\";\n",
+        "after": "const MANAGED_ENDPOINT_TUNNEL_PREFIX = \"blackcrabconnect-managedendpoint\";\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-008",
+    "file": "008-ManagedEndpointProvider-test-ts.patch",
+    "target": "infra/relay/src/environments/ManagedEndpointProvider.test.ts",
+    "sha256": "b04bc34c463a5500f2ce88f5482ea269ac9083f7ad3bd5b17922abb68be31a28",
+    "beforeSha256": "7bf970aef0a0fa961b7939475bb7ee6fc139b2c2c10a6c756637d3d60b1c5dcc",
+    "afterSha256": "2d92dde7f238909066d54ed72a8e93bc9afaa07c283034d5af4d8d547c5e111a",
+    "replacements": [
+      {
+        "before": "  return `t3coderelay-managedendpoint-dev-julius-${expectedManagedEndpointHash(environmentId, userId)}`;\n",
+        "after": "  return `blackcrabconnect-managedendpoint-dev-julius-${expectedManagedEndpointHash(environmentId, userId)}`;\n"
+      },
+      {
+        "before": "      expect(requestedName).toMatch(/^t3coderelay-managedendpoint-dev-julius-[a-f0-9]{16}$/);\n",
+        "after": "      expect(requestedName).toMatch(/^blackcrabconnect-managedendpoint-dev-julius-[a-f0-9]{16}$/);\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-009",
+    "file": "009-ManagedEndpointReaper-test-ts.patch",
+    "target": "infra/relay/src/environments/ManagedEndpointReaper.test.ts",
+    "sha256": "abef8f88c0ab61d80e40b8b1e0435a29db58be5a17f49341099f82593548d96a",
+    "beforeSha256": "2c6a0c978b66ae934fe6894c38ae25f1a9747a2c2b37ec745f82eed6d64c5a64",
+    "afterSha256": "d90787dcd1aa45d47aaeea27dcc8dc9b237f53754b0f3fe2b3758535930faf4d",
+    "replacements": [
+      {
+        "before": "const PREFIX = \"t3coderelay-managedendpoint-prod-\";\n",
+        "after": "const PREFIX = \"blackcrabconnect-managedendpoint-prod-\";\n"
+      },
+      {
+        "before": "          name: entry.name!.replace(PREFIX, `t3coderelay-managedendpoint-${stage}-`),\n",
+        "after": "          name: entry.name!.replace(PREFIX, `blackcrabconnect-managedendpoint-${stage}-`),\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-010",
+    "file": "010-HeldHooks-test-ts.patch",
+    "target": "infra/relay/src/hooks/HeldHooks.test.ts",
+    "sha256": "1f0937094b57fb8dd3e87d91a605ff4f0b89c3bb7f39bdce8e0a15d4f121f1a3",
+    "beforeSha256": "f0ec2517567419a19fe7e89138d75a0ead77b3659e7ed454fbd01ea88563a000",
+    "afterSha256": "bfc647cf785e2aac66221d4314d258fc0c07dd0d0ea47fb1dcc5635d8b148cd1",
+    "replacements": [
+      {
+        "before": "  tunnelName: `t3coderelay-managedendpoint-dev-${key}`,\n",
+        "after": "  tunnelName: `blackcrabconnect-managedendpoint-dev-${key}`,\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-011",
+    "file": "011-HookForwarder-test-ts.patch",
+    "target": "infra/relay/src/hooks/HookForwarder.test.ts",
+    "sha256": "d278abfb20b295927978a1e6694eb92f58178f9631f6bd4e1dc65edce563c52c",
+    "beforeSha256": "50c8f7966d8a79082a6207f34c23727235bd6a3db112a1302ee880f22739580e",
+    "afterSha256": "d189e3b513f725d7c77ecde1a011bf66f703a536f035824e9e932566b5718b78",
+    "replacements": [
+      {
+        "before": "  tunnelName: `t3coderelay-managedendpoint-dev-${endpointKey}`,\n",
+        "after": "  tunnelName: `blackcrabconnect-managedendpoint-dev-${endpointKey}`,\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-012",
+    "file": "012-Api-test-ts.patch",
+    "target": "infra/relay/src/http/Api.test.ts",
+    "sha256": "bf0670065d977c0e0c50b3fe1f4e47cc028ec1d262accc1d944d3d6d55e70a42",
+    "beforeSha256": "5dad20a691b436ec7dabf7fcd997fa6f009891684b4fdc097eb129fdf1aaf065",
+    "afterSha256": "85866dcd9610fd22923e19c5daf3382792518c00c7d5458855f81b671eaec897",
+    "replacements": [
+      {
+        "before": "                tunnelName: `t3coderelay-managedendpoint-dev-${endpointKey}`,\n",
+        "after": "                tunnelName: `blackcrabconnect-managedendpoint-dev-${endpointKey}`,\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-013",
+    "file": "013-monitoring-ts.patch",
+    "target": "infra/relay/src/monitoring.ts",
+    "sha256": "46dade58f5f5698e3c3e2cc0f9737a0c269a25c6d19535218d32680fd06cfba2",
+    "beforeSha256": "fff5a4a4ab34d4d672d0cdf156d9cda9e244b9894c870591121bedc95a096720",
+    "afterSha256": "108a5a551d99615ee0d7014a68400fdf4562c5c1218397c5f38210b36e72a62e",
+    "replacements": [
+      {
+        "before": "import { relayResourceNameForStage } from \"./deploymentConfig.ts\";\n",
+        "after": "import { relayResourceNameForStage } from \"./deploymentConfig.ts\";\nimport { RelayDeploymentConfig } from \"./zone.ts\";\n"
+      },
+      {
+        "before": "const relayDashboardCharts = (dataset: string): ReadonlyArray<QueryChart> => {\n",
+        "after": "const relayDashboardCharts = (dataset: string, relayPublicOrigin: string): ReadonlyArray<QueryChart> => {\n"
+      },
+      {
+        "before": "          `    kind == \"client\" and url startswith \"https://relay.t3.codes/v1/environments/\" and url endswith \"/connect\", \"3. Relay connect, minting a host credential\",`,\n",
+        "after": "          `    kind == \"client\" and url startswith ${JSON.stringify(`${relayPublicOrigin}/v1/environments/`)} and url endswith \"/connect\", \"3. Relay connect, minting a host credential\",`,\n"
+      },
+      {
+        "before": "  if (Option.isNone(page)) return;\n",
+        "after": "  if (Option.isNone(page)) return;\n  const { relayPublicOrigin } = yield* RelayDeploymentConfig;\n"
+      },
+      {
+        "before": "      const charts = relayDashboardCharts(dataset);\n",
+        "after": "      const charts = relayDashboardCharts(dataset, relayPublicOrigin);\n"
+      },
+      {
+        "before": "        name: relayResourceNameForStage(\"t3-code-relay-health\", stage),\n",
+        "after": "        name: relayResourceNameForStage(\"blackcrab-connect-relay-health\", stage),\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: links failing\",\n",
+        "after": "    name: \"Blackcrab Connect relay: links failing\",\n"
+      },
+      {
+        "before": "      \"Share of POST /v1/client/environment-links (turning on T3 Connect) answering 5xx over 15 min. Healthy: median 11%, worst 75%. #16810: 87-96%.\",\n",
+        "after": "      \"Share of POST /v1/client/environment-links (turning on Blackcrab Connect) answering 5xx over 15 min. Healthy: median 11%, worst 75%. #16810: 87-96%.\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: tunnel recovery failing\",\n",
+        "after": "    name: \"Blackcrab Connect relay: tunnel recovery failing\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: environments unreachable\",\n",
+        "after": "    name: \"Blackcrab Connect relay: environments unreachable\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: push delivery failing\",\n",
+        "after": "    name: \"Blackcrab Connect relay: push delivery failing\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: Cloudflare API rate limited\",\n",
+        "after": "    name: \"Blackcrab Connect relay: Cloudflare API rate limited\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: traffic dropped\",\n",
+        "after": "    name: \"Blackcrab Connect relay: traffic dropped\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: Cloudflare API near its limit\",\n",
+        "after": "    name: \"Blackcrab Connect relay: Cloudflare API near its limit\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: links degraded\",\n",
+        "after": "    name: \"Blackcrab Connect relay: links degraded\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: database slow\",\n",
+        "after": "    name: \"Blackcrab Connect relay: database slow\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: tunnel cleanup stopped\",\n",
+        "after": "    name: \"Blackcrab Connect relay: tunnel cleanup stopped\",\n"
+      },
+      {
+        "before": "    name: \"T3 Connect relay: tunnel deletions failing\",\n",
+        "after": "    name: \"Blackcrab Connect relay: tunnel deletions failing\",\n"
+      },
+      {
+        "before": "        description: `T3 Connect relay health. Alerts and runbook: ${RUNBOOK_URL}`,\n",
+        "after": "        description: `Blackcrab Connect relay health. Alerts and runbook: ${RUNBOOK_URL}`,\n"
+      },
+      {
+        "before": "  query: { apl },\n});\n\nconst relayDashboardCharts = (dataset: string, relayPublicOrigin: string): ReadonlyArray<QueryChart> => {\n  const source = `['${dataset}']`;\n  const linkRequests = `${source}\\n| where kind == \"server\" and ['attributes.http.request.method'] == \"POST\" and ['attributes.http.route'] == ${LINK_ROUTE}`;\n  const tunnelRequests = `${source}\\n| where kind == \"server\" and ['attributes.http.request.method'] == \"POST\" and ['attributes.http.route'] in (${TUNNEL_ROUTES})`;\n  const clientConnections = `${source}\\n| where name == \"relay.connection.attempt\" and error != true\\n| extend surface = tostring(['resource.custom']['t3.client.surface'])\\n| where isnotempty(surface)`;\n",
+        "after": "  query: { apl },\n});\n\nconst relayDashboardCharts = (\n  dataset: string,\n  relayPublicOrigin: string,\n): ReadonlyArray<QueryChart> => {\n  const source = `['${dataset}']`;\n  const linkRequests = `${source}\\n| where kind == \"server\" and ['attributes.http.request.method'] == \"POST\" and ['attributes.http.route'] == ${LINK_ROUTE}`;\n  const tunnelRequests = `${source}\\n| where kind == \"server\" and ['attributes.http.request.method'] == \"POST\" and ['attributes.http.route'] in (${TUNNEL_ROUTES})`;\n  const clientConnections = `${source}\\n| where name == \"relay.connection.attempt\" and error != true\\n| extend surface = tostring(['resource.custom']['t3.client.surface'])\\n| where isnotempty(surface)`;\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-014",
+    "file": "014-previewStages-test-ts.patch",
+    "target": "infra/relay/src/previewStages.test.ts",
+    "sha256": "3086c598b27b18e006856b56099a6b70ad1f5d49191e1ee77e9de76ac29d9887",
+    "beforeSha256": "15449a9677df9b82087e31b3670aac688c970c71f3dd4c71d8c161c962f4bda5",
+    "afterSha256": "466a140ea063e1f185ddbca5280cca4c57e326684b4cf4b2a546ff9eb90afcb0",
+    "replacements": [
+      {
+        "before": "    expect(isPreviewTunnelName(`t3coderelay-managedendpoint-pr-42-${KEY}`, \"pr-42\")).toBe(true);\n",
+        "after": "    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-${KEY}`, \"pr-42\")).toBe(true);\n"
+      },
+      {
+        "before": "    expect(isPreviewTunnelName(`t3coderelay-managedendpoint-pr-42-${KEY}`, \"pr-4\")).toBe(false);\n",
+        "after": "    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-${KEY}`, \"pr-4\")).toBe(false);\n"
+      },
+      {
+        "before": "    expect(isPreviewTunnelName(`t3coderelay-managedendpoint-prod-${KEY}`, \"pr-42\")).toBe(false);\n",
+        "after": "    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-prod-${KEY}`, \"pr-42\")).toBe(false);\n"
+      },
+      {
+        "before": "    expect(isPreviewTunnelName(`t3coderelay-managedendpoint-pr-42-xyz`, \"pr-42\")).toBe(false);\n",
+        "after": "    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-xyz`, \"pr-42\")).toBe(false);\n"
+      },
+      {
+        "before": "    const mine = `t3coderelay-managedendpoint-pr-42-${KEY}`;\n",
+        "after": "    const mine = `blackcrabconnect-managedendpoint-pr-42-${KEY}`;\n"
+      },
+      {
+        "before": "    const otherStage = `t3coderelay-managedendpoint-pr-7-${KEY}`;\n",
+        "after": "    const otherStage = `blackcrabconnect-managedendpoint-pr-7-${KEY}`;\n"
+      },
+      {
+        "before": "  });\n\n  it(\"matches only tunnels of the exact stage\", () => {\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-${KEY}`, \"pr-42\")).toBe(true);\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-${KEY}`, \"pr-4\")).toBe(false);\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-prod-${KEY}`, \"pr-42\")).toBe(false);\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-xyz`, \"pr-42\")).toBe(false);\n  });\n\n  it(\"matches only hostnames of the exact stage under the tunnel zone\", () => {\n",
+        "after": "  });\n\n  it(\"matches only tunnels of the exact stage\", () => {\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-${KEY}`, \"pr-42\")).toBe(\n      true,\n    );\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-${KEY}`, \"pr-4\")).toBe(\n      false,\n    );\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-prod-${KEY}`, \"pr-42\")).toBe(\n      false,\n    );\n    expect(isPreviewTunnelName(`blackcrabconnect-managedendpoint-pr-42-xyz`, \"pr-42\")).toBe(false);\n  });\n\n  it(\"matches only hostnames of the exact stage under the tunnel zone\", () => {\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-015",
+    "file": "015-previewTunnelSweep-test-ts.patch",
+    "target": "infra/relay/src/previewTunnelSweep.test.ts",
+    "sha256": "1f2c36949a8492a3d738cd4b676fead5ad7ab32c7a2f3fc46a167baf8bb33c24",
+    "beforeSha256": "36679452ef6aa1f3ba8faf292b63f906e713fef89ecb6a012a16bf2b6f1d05f5",
+    "afterSha256": "14d46cd36857a6f33f3dc4bd2e87eb996402f732b7137483785f2407cacbfb7f",
+    "replacements": [
+      {
+        "before": "const TUNNEL_NAME = `t3coderelay-managedendpoint-pr-42-${KEY}`;\n",
+        "after": "const TUNNEL_NAME = `blackcrabconnect-managedendpoint-pr-42-${KEY}`;\n"
+      }
+    ]
+  },
+  {
+    "id": "blackcrab-cloud-016",
+    "file": "016-previewTunnelSweep-ts.patch",
+    "target": "infra/relay/src/previewTunnelSweep.ts",
+    "sha256": "eb2d943985a94ca048995db1853dfb3ca810974427395913544a4bd179dc25bf",
+    "beforeSha256": "7c8bb8b739863b848f20d4560711b0a2ff19663f76fa6cb86207e15b28bce0da",
+    "afterSha256": "11806d005ad13c30373d2ac37c9e367dfcb0288da1523e0bdf3c8dcc01c4964b",
+    "replacements": [
+      {
+        "before": "  \"T3CodeRelay.PreviewTunnelSweep\",\n",
+        "after": "  \"BlackcrabConnectRelay.PreviewTunnelSweep\",\n"
+      },
+      {
+        "before": "export const PreviewTunnelSweep = Resource<PreviewTunnelSweep>(\"T3CodeRelay.PreviewTunnelSweep\");\n",
+        "after": "export const PreviewTunnelSweep = Resource<PreviewTunnelSweep>(\"BlackcrabConnectRelay.PreviewTunnelSweep\");\n"
+      },
+      {
+        "before": "  PreviewTunnelSweepAttributes\n>;\n\nexport const PreviewTunnelSweep = Resource<PreviewTunnelSweep>(\"BlackcrabConnectRelay.PreviewTunnelSweep\");\n\nconst API = \"https://api.cloudflare.com/client/v4\";\nconst PAGE_SIZE = 100;\n\n",
+        "after": "  PreviewTunnelSweepAttributes\n>;\n\nexport const PreviewTunnelSweep = Resource<PreviewTunnelSweep>(\n  \"BlackcrabConnectRelay.PreviewTunnelSweep\",\n);\n\nconst API = \"https://api.cloudflare.com/client/v4\";\nconst PAGE_SIZE = 100;\n\n"
+      }
+    ]
+  }
+]

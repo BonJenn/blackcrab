@@ -116,13 +116,8 @@
           "count": 1
         },
         {
-          "before": "import { DEFAULT_HOSTED_APP_URL } from \"@t3tools/shared/connectAuth\";\n",
-          "after": "",
-          "count": 1
-        },
-        {
           "before": "const appLinking = {",
-          "after": "const ownedAppLinkPrefixes = [Linking.createURL(\"/\"), \"blackcrab-remote://\"];\n\nconst appLinking = {",
+          "after": "const ownedAppLinkPrefixes = [Linking.createURL(\"/\"), \"blackcrab-remote://\", \"blackcrab://\", ...(DEFAULT_HOSTED_APP_URL ? [DEFAULT_HOSTED_APP_URL] : [])];\n\nconst appLinking = {",
           "count": 1
         },
         {
@@ -161,7 +156,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "13393ad175f8e71943e20d8f85116079ea9eb25c2ad80e820076c80a6260def4"
+      "afterSha256": "5102b62a72fe6858548efd96bd8d587f92612b3fb5c9f2ebb0e3aec59b776182"
     },
     {
       "path": "src/features/voice-input/GlobalVoiceInputControl.tsx",
@@ -216,12 +211,12 @@
       "replacements": [
         {
           "before": "^t3code(-dev|-preview)?:",
-          "after": "^blackcrab-remote:",
+          "after": "^blackcrab(?:-remote)?:",
           "count": 1
         },
         {
           "before": "export function shouldHandleAppLink(url: string, cloudConfigured: boolean): boolean {",
-          "after": "function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {\n  let url: URL;\n  try { url = new URL(value); } catch { return false; }\n  if (url.username || url.password) return false;\n  return prefixes.some((prefix) => {\n    let base: URL;\n    try { base = new URL(prefix); } catch { return false; }\n    if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;\n    if (url.protocol === \"blackcrab-remote:\" && prefix === \"blackcrab-remote://\") return value.startsWith(prefix);\n    if (![\"exp:\", \"exps:\", \"http:\", \"https:\"].includes(url.protocol) || url.host !== base.host) return false;\n    const path = base.pathname.replace(/\\/+$/, \"\");\n    return url.pathname === path || url.pathname.startsWith(path + \"/\");\n  });\n}\n\nexport function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = [\"blackcrab-remote://\"]): boolean {",
+          "after": "function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {\n  let url: URL;\n  try { url = new URL(value); } catch { return false; }\n  if (url.username || url.password) return false;\n  return prefixes.some((prefix) => {\n    let base: URL;\n    try { base = new URL(prefix); } catch { return false; }\n    if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;\n    if ([\"blackcrab-remote:\", \"blackcrab:\"].includes(url.protocol) && prefix === url.protocol + \"//\") return value.startsWith(prefix);\n    if (![\"exp:\", \"exps:\", \"http:\", \"https:\"].includes(url.protocol) || url.host !== base.host) return false;\n    const path = base.pathname.replace(/\\/+$/, \"\");\n    return url.pathname === path || url.pathname.startsWith(path + \"/\");\n  });\n}\n\nexport function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = [\"blackcrab-remote://\", \"blackcrab://\"]): boolean {",
           "count": 1
         },
         {
@@ -230,7 +225,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "040537e41a6e274fa3fd25c3525ff8113ac3b518de61a67e0f6da98134e9a4c4"
+      "afterSha256": "2180b914b90940380e602e1ec4620c1414538302314129b375672df7d7b15fb9"
     },
     {
       "path": "src/features/connection/pairing.ts",
@@ -239,11 +234,29 @@
       "replacements": [
         {
           "before": "url.protocol === \"t3code:\"",
-          "after": "url.protocol === \"blackcrab-remote:\"",
+          "after": "(url.protocol === \"blackcrab-remote:\" || url.protocol === \"blackcrab:\")",
           "count": 1
         }
       ],
-      "afterSha256": "8e411febfc2093bcb8685758b28d346ac7e190b35f0a37c4cc6714b0c8627a03"
+      "afterSha256": "95893c880975ddb1fd36e0aa760be5eea7c71a721710b77d3a8dc4aad80847ff"
+    },
+    {
+      "path": "src/features/prompt-links/prompt-link-actions.ts",
+      "beforeSha256": "5459c286362dbe32bc58781fc2baedca083ffd90d3285a64dce4cc9977c3f8e3",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { buildNewThreadLink, type LinkedPrompt } from \"@t3tools/shared/promptLinks\";",
+          "after": "import { buildNewThreadLink, promptLinkDeepLink, type LinkedPrompt } from \"@t3tools/shared/promptLinks\";\nimport { DEFAULT_HOSTED_APP_URL } from \"@t3tools/shared/connectAuth\";",
+          "count": 1
+        },
+        {
+          "before": "buildNewThreadLink({ prompt }), { target: \"prompt link\" }",
+          "after": "(DEFAULT_HOSTED_APP_URL ? buildNewThreadLink({ prompt }) : promptLinkDeepLink(\"/new?\" + new URLSearchParams({ prompt }).toString())), { target: \"prompt link\" }",
+          "count": 1
+        }
+      ],
+      "afterSha256": "0abe96ad8a933e2c0e13f8b67559e6c6f356253d1e6d5c687d95fdcea9dcca5a"
     },
     {
       "path": "src/lib/authClientMetadata.ts",
@@ -391,12 +404,12 @@
     {
       "path": "owned-cloud-config.cjs",
       "template": "adapters/owned-cloud-config.cjs",
-      "sha256": "25dd3cea60962a8b0dac1ab0f9ff6bf868a89373f0afcd9df9dfdb993b7883f5"
+      "sha256": "866d13110636708745c106e9b2766a830aee950b47e417aa16f8366bed865a75"
     },
     {
       "path": "owned-cloud-config.d.cts",
       "template": "adapters/owned-cloud-config.d.cts",
-      "sha256": "b617a391b25bd41fcd5e35c42f501c7274938e9acfd37320fe77668756d84baa"
+      "sha256": "0dc77fe362709417fad80680fbaa4ee3c556990d8d0e395fae9297129e9a221f"
     },
     {
       "path": "owned-root-lifecycle.mjs",

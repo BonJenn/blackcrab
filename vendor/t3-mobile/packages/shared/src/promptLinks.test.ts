@@ -1,5 +1,9 @@
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+vi.hoisted(() => {
+  vi.stubGlobal("__BLACKCRAB_HOSTED_APP_URL__", "https://app.blackcrab.example");
+});
 
 import {
   buildNewThreadLink,
@@ -41,14 +45,14 @@ describe("sanitizeLinkedPrompt", () => {
 describe("parseNewThreadLink", () => {
   it("reads a shared prompt with its optional repository and model", () => {
     const result = parseNewThreadLink(
-      "?prompt=Rate+me&repo=https://github.com/pingdotgg/t3code.git&provider=Codex&model=gpt-5",
+      "?prompt=Rate+me&repo=https://github.com/pingdotgg/blackcrab.git&provider=Codex&model=gpt-5",
     );
     expect(result).toEqual({
       ok: true,
       value: {
         kind: "new",
         prompt: { text: "Rate me", hiddenCharacters: 0 },
-        repository: { owner: "pingdotgg", name: "t3code" },
+        repository: { owner: "pingdotgg", name: "blackcrab" },
         provider: "codex",
         model: "gpt-5",
       },
@@ -57,15 +61,15 @@ describe("parseNewThreadLink", () => {
 
   it("reads a pull request link, whose prompt is optional", () => {
     for (const pr of [
-      "pingdotgg/t3code/42",
-      "pingdotgg/t3code%2342",
-      "https://github.com/pingdotgg/t3code/pull/42/files",
+      "pingdotgg/blackcrab/42",
+      "pingdotgg/blackcrab%2342",
+      "https://github.com/pingdotgg/blackcrab/pull/42/files",
     ]) {
       expect(parseNewThreadLink(`?pr=${pr}`)).toEqual({
         ok: true,
         value: {
           kind: "pull-request",
-          pullRequest: { owner: "pingdotgg", name: "t3code", number: 42 },
+          pullRequest: { owner: "pingdotgg", name: "blackcrab", number: 42 },
           prompt: null,
         },
       });
@@ -96,7 +100,7 @@ describe("link round trips", () => {
   it("builds a link that parses back to the same prompt", () => {
     const link = buildNewThreadLink({
       prompt: "Swear count & rating?",
-      repository: { owner: "pingdotgg", name: "t3code" },
+      repository: { owner: "pingdotgg", name: "blackcrab" },
       provider: "claudeAgent",
       model: "opus",
     });
@@ -116,27 +120,27 @@ describe("link round trips", () => {
     const path = promptLinkAppPath(link);
     expect(path).toBe("/env-1/mcp%3A1");
     const deepLink = promptLinkDeepLink(path!);
-    expect(deepLink).toBe("t3code://threads/env-1/mcp%3A1");
+    expect(deepLink).toBe("blackcrab://threads/env-1/mcp%3A1");
     expect(promptLinkAppPath(deepLink)).toBe(path);
   });
 
   it("maps app scheme and hosted links to in-app paths, and nothing else", () => {
-    expect(promptLinkAppPath("t3code://new?prompt=hi")).toBe("/new?prompt=hi");
-    expect(promptLinkAppPath("t3code-dev://threads/env-1/thread-1")).toBe("/env-1/thread-1");
-    expect(promptLinkAppPath("https://app.t3.codes/env-1/thread-1?prompt=go")).toBe(
+    expect(promptLinkAppPath("blackcrab://new?prompt=hi")).toBe("/new?prompt=hi");
+    expect(promptLinkAppPath("blackcrab-dev://threads/env-1/thread-1")).toBe("/env-1/thread-1");
+    expect(promptLinkAppPath("https://app.blackcrab.example/env-1/thread-1?prompt=go")).toBe(
       "/env-1/thread-1?prompt=go",
     );
-    expect(promptLinkAppPath("https://app.t3.codes/threads/env-1/thread-1")).toBe(
+    expect(promptLinkAppPath("https://app.blackcrab.example/threads/env-1/thread-1")).toBe(
       "/env-1/thread-1",
     );
-    expect(promptLinkAppPath("https://app.t3.codes/threads/env-1/thread-1?prompt=go")).toBe(
-      "/env-1/thread-1?prompt=go",
-    );
+    expect(
+      promptLinkAppPath("https://app.blackcrab.example/threads/env-1/thread-1?prompt=go"),
+    ).toBe("/env-1/thread-1?prompt=go");
     // The web app's own thread route, reloaded, is no link.
-    expect(promptLinkAppPath("https://app.t3.codes/env-1/thread-1")).toBeNull();
-    expect(promptLinkAppPath("https://app.t3.codes/threads/env-1")).toBeNull();
-    expect(promptLinkAppPath("https://app.t3.codes/settings/general")).toBeNull();
+    expect(promptLinkAppPath("https://app.blackcrab.example/env-1/thread-1")).toBeNull();
+    expect(promptLinkAppPath("https://app.blackcrab.example/threads/env-1")).toBeNull();
+    expect(promptLinkAppPath("https://app.blackcrab.example/settings/general")).toBeNull();
     expect(promptLinkAppPath("https://evil.test/new?prompt=hi")).toBeNull();
-    expect(promptLinkAppPath("t3code://app/index.html")).toBeNull();
+    expect(promptLinkAppPath("blackcrab://app/index.html")).toBeNull();
   });
 });

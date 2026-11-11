@@ -8256,8 +8256,8 @@
     },
     {
       "path": "packages/shared/src/connectAuth.ts",
-      "bytes": 2801,
-      "sha256": "287baca5ab6ca54e9dac18fb357e66a41d5031f795d925fa0033a35f4be985a6",
+      "bytes": 2957,
+      "sha256": "f29404840d41206cce93b13760343bd09c5b28308f14309881cd7da3f333b274",
       "runtime": true
     },
     {
@@ -8478,8 +8478,8 @@
     },
     {
       "path": "packages/shared/src/promptLinks.ts",
-      "bytes": 8230,
-      "sha256": "429c76e919c56353b620a2b91e5fe5d7be8e8084a61fc8a9ed3246718d5ea922",
+      "bytes": 8365,
+      "sha256": "e8effa152f7821f6c7e19a7db6d938abd561494315b4326d8d06f8a026a6d732",
       "runtime": true
     },
     {
@@ -8526,8 +8526,8 @@
     },
     {
       "path": "packages/shared/src/remote.ts",
-      "bytes": 7808,
-      "sha256": "de815ac7f3e17e217d4ca6345d9d0715892d669a660a3707dcd1b99c75f4fdfb",
+      "bytes": 7814,
+      "sha256": "91effae188940289772167361cb692e482877c54a8fe9b435796a08d3c05c05a",
       "runtime": true
     },
     {
@@ -8628,8 +8628,8 @@
     },
     {
       "path": "packages/shared/src/threadLinks.ts",
-      "bytes": 9027,
-      "sha256": "df6f710445a0f09515ee60e9c679b670de07e756f7784218262a80513997d237",
+      "bytes": 9192,
+      "sha256": "4e58c871567ea8ee5190b47938437b4e3e6cbfa60cda5fc7d0eca8d67d0dea5f",
       "runtime": true
     },
     {

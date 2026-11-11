@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+vi.hoisted(() => {
+  vi.stubGlobal("__BLACKCRAB_HOSTED_APP_URL__", "https://app.blackcrab.example");
+});
 import { EnvironmentId, ProviderInstanceId } from "@t3tools/contracts";
 import {
   codexAuthorizationRequest,
@@ -23,7 +27,7 @@ const authorizationUrl = () => {
 };
 const input = {
   authorizationUrl: authorizationUrl(),
-  returnUrl: "https://app.t3.codes/welcome#agents:remote-environment",
+  returnUrl: "https://app.blackcrab.example/welcome#agents:remote-environment",
   environmentId: EnvironmentId.make("remote-environment"),
   instanceId: ProviderInstanceId.make("work-codex"),
   flowId: "flow-one",

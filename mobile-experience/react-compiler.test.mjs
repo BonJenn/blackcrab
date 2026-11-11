@@ -116,6 +116,8 @@ test('configuration, published plugin lock, and original source graph fail close
 
 test('owned dynamic Expo configuration preserves compiler enablement without executing any upstream config', async () => {
   const vm = await import('node:vm');
+  const { createRequire } = await import('node:module');
+  const ownedCloud = createRequire(import.meta.url)('./activation/adapters/owned-cloud-config.cjs');
   const module = { exports: {} }, calls = [];
   const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.json'))).expo;
   vm.runInNewContext(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.config.js'), 'utf8'), {
@@ -123,6 +125,7 @@ test('owned dynamic Expo configuration preserves compiler enablement without exe
     require(name) {
       if (name === 'node:path') return path;
       if (name === 'node:child_process') return { execFileSync: (...args) => calls.push(args) };
+      if (name === '../../mobile-experience/activation/adapters/owned-cloud-config.cjs') return ownedCloud;
       throw new Error('Unexpected dynamic configuration dependency: ' + name);
     },
   });

@@ -42,7 +42,13 @@ function resolveOwnedCloudConfig(extra) {
 function configureOwnedCloud(config, environment) {
   const cloud = cloudConfigFromEnvironment(environment);
   const { blackcrabCloud: ignored, ...extra } = config.extra ?? {};
-  const plugins = (config.plugins ?? []).filter(entry => (Array.isArray(entry) ? entry[0] : entry) !== '@clerk/expo');
+  const plugins = (config.plugins ?? [])
+    .filter(entry => (Array.isArray(entry) ? entry[0] : entry) !== '@clerk/expo')
+    .map(entry => {
+      if ((Array.isArray(entry) ? entry[0] : entry) !== 'expo-widgets') return entry;
+      const options = Array.isArray(entry) ? entry[1] ?? {} : {};
+      return ['expo-widgets', { ...options, enablePushNotifications: cloud !== null }];
+    });
   if (cloud) plugins.push(['@clerk/expo', { theme: './.generated/native-ui/apps/mobile/clerk-theme.json', keychainService: 'dev.blackcrab.remote.clerk', appleSignIn: true }]);
   const hostedHost = cloud?.hostedAppUrl ? new URL(cloud.hostedAppUrl).hostname : null;
   return { ...config, scheme: ['blackcrab-remote', 'blackcrab'],

@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { applyRecordedAdapter } from './generator.mjs';
 import cloud from './adapters/owned-cloud-config.cjs';
+import updates from './adapters/owned-update-config.cjs';
 const require = createRequire(import.meta.url), ts = require('typescript');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const registry = JSON.parse(fs.readFileSync(path.join(here, 'registry.json')));
@@ -147,6 +148,7 @@ test('actual Expo config injects the owned service and rejects incomplete input 
         if (name === 'node:path') return path;
         if (name === 'node:child_process') return { execFileSync: (...args) => { calls.push(args); } };
         if (name === '../../mobile-experience/activation/adapters/owned-cloud-config.cjs') return cloud;
+        if (name === '../../mobile-experience/activation/adapters/owned-update-config.cjs') return updates;
         throw Error('Unexpected config import: ' + name);
       },
     });

@@ -9,6 +9,7 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify, parseArgs } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cloudConfigFromEnvironment } from '../mobile-experience/activation/adapters/owned-cloud-config.cjs';
+import { updateConfigFromEnvironment } from '../mobile-experience/activation/adapters/owned-update-config.cjs';
 const execute = promisify(execFile);
 const defaultRepo = fileURLToPath(new URL('../', import.meta.url));
 const OWN_NEW_FILES = new Set([
@@ -194,6 +195,12 @@ export function isolatedBuildEnvironment(root, original = process.env) {
     BLACKCRAB_CLERK_JWT_TEMPLATE: cloud.jwtTemplate,
     BLACKCRAB_RELAY_URL: cloud.relayUrl,
     ...(cloud.hostedAppUrl ? { BLACKCRAB_HOSTED_APP_URL: cloud.hostedAppUrl } : {}),
+  });
+  const updates = updateConfigFromEnvironment(original);
+  if (updates) Object.assign(env, {
+    BLACKCRAB_EAS_PROJECT_ID: updates.projectId,
+    BLACKCRAB_UPDATE_CHANNEL: updates.channel,
+    BLACKCRAB_MOBILE_UPDATES_ENABLED: updates.enabled ? '1' : '0',
   });
   if (original.DEVELOPER_DIR) env.DEVELOPER_DIR = original.DEVELOPER_DIR;
   return env;

@@ -1,0 +1,26 @@
+--- a/infra/relay/src/dbConfig.ts
++++ b/infra/relay/src/dbConfig.ts
+@@ -1,3 +1,23 @@
++import * as Config from "effect/Config";
++import * as Schema from "effect/Schema";
++
++/** Require a deliberate capacity selection before provisioning production. */
++export const relayDatabaseClusterSize = Config.schema(
++  Schema.Literals([
++    "PS_5",
++    "PS_10",
++    "PS_20",
++    "PS_40",
++    "PS_80",
++    "PS_160",
++    "PS_320",
++    "PS_640",
++    "PS_1280",
++    "PS_2560",
++  ]),
++  "BLACKCRAB_RELAY_DATABASE_SIZE",
++);
++
+ export type RelayDatabaseMode = "shared-database" | "stage-branch";
+ 
+ export function relayDatabaseMode(stage: string): RelayDatabaseMode {

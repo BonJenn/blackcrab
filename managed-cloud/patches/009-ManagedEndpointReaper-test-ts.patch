@@ -1,0 +1,20 @@
+--- a/infra/relay/src/environments/ManagedEndpointReaper.test.ts
++++ b/infra/relay/src/environments/ManagedEndpointReaper.test.ts
+@@ -12,7 +12,7 @@
+ 
+ const NOW = "2026-08-25T12:00:00.000Z";
+ const NOW_MILLIS = DateTime.makeUnsafe(NOW).epochMilliseconds;
+-const PREFIX = "t3coderelay-managedendpoint-prod-";
++const PREFIX = "blackcrabconnect-managedendpoint-prod-";
+ 
+ function tunnel(input: {
+   readonly id: string;
+@@ -499,7 +499,7 @@
+       ({ stage, expected }) => {
+         const stageLegacyTunnels = legacyTunnels.map((entry) => ({
+           ...entry,
+-          name: entry.name!.replace(PREFIX, `t3coderelay-managedendpoint-${stage}-`),
++          name: entry.name!.replace(PREFIX, `blackcrabconnect-managedendpoint-${stage}-`),
+         }));
+         const state = harness({
+           namespace: stage,

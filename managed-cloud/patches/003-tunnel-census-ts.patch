@@ -1,0 +1,11 @@
+--- a/infra/relay/scripts/tunnel-census.ts
++++ b/infra/relay/scripts/tunnel-census.ts
+@@ -10,7 +10,7 @@
+ import * as HttpClientRequest from "effect/http/HttpClientRequest";
+ import * as HttpClientResponse from "effect/http/HttpClientResponse";
+ 
+-const PREFIX = "t3coderelay-managedendpoint-";
++const PREFIX = "blackcrabconnect-managedendpoint-";
+ const PAGE_SIZE = 1_000;
+ const DAY_MS = 86_400_000;
+ 

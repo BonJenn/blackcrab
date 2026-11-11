@@ -1,0 +1,11 @@
+--- a/infra/relay/src/db.ts
++++ b/infra/relay/src/db.ts
+@@ -47,7 +47,7 @@
+   const database =
+     mode === "shared-database"
+       ? yield* Planetscale.PostgresDatabase("RelayPostgresDatabase", {
+-          name: "t3coderelay",
++          name: "blackcrabconnectrelay",
+           region: { slug: "us-west" },
+           clusterSize: "PS_80",
+           migrations: { dir: schema.out, table: "relay_migrations" },

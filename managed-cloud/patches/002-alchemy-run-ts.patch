@@ -1,0 +1,11 @@
+--- a/infra/relay/alchemy.run.ts
++++ b/infra/relay/alchemy.run.ts
+@@ -17,7 +17,7 @@
+ import * as RelayWorker from "./src/worker.ts";
+ 
+ export default Alchemy.Stack(
+-  "T3CodeRelay",
++  "BlackcrabConnectRelay",
+   {
+     providers: Layer.mergeAll(
+       Axiom.providers(),

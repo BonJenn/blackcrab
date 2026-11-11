@@ -41,7 +41,7 @@ jobs:
 
       - run: node --test fork-integration/identity/*.test.mjs fork-integration/owner-control/*.test.mjs fork-integration/boot-service/*.test.mjs
 
-      - run: node --test managed-desktop/*.test.mjs
+      - run: node --test managed-desktop/*.test.mjs managed-cloud/*.test.mjs
 
       - run: node --test src-tauri/src/managed_desktop.contract.test.mjs
 
@@ -157,3 +157,41 @@ jobs:
         with:
           python-version: "3.14"
       - run: python3 -m unittest discover -s managed-validation/ios-ui -p controller_test.py
+
+  managed-cloud-clients:
+    name: cloud clients (pinned source + types + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "26.12.1"
+      - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      - name: prepare pinned Blackcrab clients
+        id: clients
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          import { createWriteStream } from 'node:fs';
+          import path from 'node:path';
+          import { Readable } from 'node:stream';
+          import { pipeline } from 'node:stream/promises';
+          import { UPSTREAM } from './managed-host/artifact.mjs';
+          import { prepareCloudClients } from './managed-cloud/clients.mjs';
+          const archive = path.join(process.env.RUNNER_TEMP, 'blackcrab-clients-upstream.tar.gz');
+          const response = await fetch(`https://api.github.com/repos/BonJenn/t3code/tarball/${UPSTREAM.commit}`);
+          if (!response.ok || !response.body) throw new Error(`Source download failed: ${response.status}`);
+          await pipeline(Readable.fromWeb(response.body), createWriteStream(archive, { flags: 'wx' }));
+          const prepared = await prepareCloudClients({ archive, cacheDir: path.join(process.env.RUNNER_TEMP, 'blackcrab-clients') });
+          await fs.appendFile(process.env.GITHUB_OUTPUT, `source=${prepared.source}\n`);
+          NODE
+      - name: install pinned dependencies
+        working-directory: ${{ steps.clients.outputs.source }}
+        run: pnpm --filter '@t3tools/desktop...' --filter '@t3tools/web...' --filter . install --frozen-lockfile --ignore-scripts
+      - name: typecheck complete desktop source
+        working-directory: ${{ steps.clients.outputs.source }}/apps/desktop
+        run: node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit
+      - name: test owned cloud and original account/link behavior
+        working-directory: ${{ steps.clients.outputs.source }}
+        run: node --no-experimental-webstorage node_modules/vite-plus/bin/vp test run --config blackcrab-cloud-test.config.ts

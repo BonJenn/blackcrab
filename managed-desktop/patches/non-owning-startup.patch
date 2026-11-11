@@ -16,3 +16,13 @@
    if (!settings.localEnvironmentEnabled) {
      yield* logBootstrapInfo("bootstrap skipping local environment (disabled in settings)");
      if (!(yield* Ref.get(state.quitting))) {
+@@ -256,8 +265,7 @@
+     if (
+       !environment.isDevelopment &&
+       !settings.wslOnly &&
+-      Option.isSome(config) &&
+-      Option.isNone(config.value.preflightFailure)
++      Option.match(config, { onNone: () => false, onSome: value => Option.isNone(value.preflightFailure) })
+     ) {
+       yield* desktopWindow.ensureMain;
+     }

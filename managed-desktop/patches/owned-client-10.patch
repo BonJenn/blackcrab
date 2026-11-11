@@ -1,0 +1,10 @@
+--- a/apps/desktop/vite.config.ts
++++ b/apps/desktop/vite.config.ts
+@@ -11,6 +11,7 @@
+   id === "electron" || id.startsWith("electron/") || isDesktopRuntimeExternalDependency(id);
+ const shouldLaunchElectronAfterPack = process.env.T3CODE_DESKTOP_DEV === "1";
+ const publicConfigDefine = {
++  __BLACKCRAB_HOSTED_APP_URL__: JSON.stringify(repoEnv.T3CODE_HOSTED_APP_URL?.trim() ?? ""),
+   __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
+     repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
+   ),

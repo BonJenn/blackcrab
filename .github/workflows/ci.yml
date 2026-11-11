@@ -188,7 +188,8 @@ jobs:
           NODE
       - name: install pinned dependencies
         working-directory: ${{ steps.clients.outputs.source }}
-        run: pnpm --filter '@t3tools/desktop...' --filter '@t3tools/web...' --filter . install --frozen-lockfile --ignore-scripts
+        # The desktop tsconfig also includes ../../scripts/lib and its workspace dependencies.
+        run: pnpm --filter '@t3tools/desktop...' --filter '@t3tools/web...' --filter '@t3tools/scripts...' --filter . install --frozen-lockfile --ignore-scripts
       - name: typecheck complete desktop source
         working-directory: ${{ steps.clients.outputs.source }}/apps/desktop
         run: node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit

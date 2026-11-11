@@ -444,3 +444,25 @@ The UI test uses detailed diagnostics because the summary row does not expose it
 status to accessibility; that gap remains open. This is the update-disabled local
 combined candidate, not merged-stage, live cloud, physical-device, populated
 migration, all-permissions or complete parity certification.
+
+### Connection summary accessibility
+
+The owned adapter now exposes the visible connection status or diagnosis headline
+as the main environment button's accessibility value. Its Manage/Expand action
+label and behavior remain unchanged. A fresh combined Release build passed native
+checks for the Connected value, the authentication diagnosis after revocation,
+and the Connected value after re-pairing. The independent SDK also confirmed
+restored rename/archive control of the same thread and a single repaired environment.
+
+An initial canary stopped at a stale widget dylib hash and remains excluded.
+The replacement check permits only the observed mode changes for the exact new
+product inventory, with unchanged bytes and installed signature verification.
+
+All six UI phases and both pairing canaries passed, alongside 31 controller guards,
+29 activation/build-preparation checks, and full staged mobile typechecking. The
+captured service owner closed and both owned simulators shut down; no provider
+runs or sessions were created. See the [result](../managed-validation/ios-ui/current-service-accessibility-result.json)
+and [executed native scenario](../managed-validation/ios-ui/scenarios/service-connection-accessibility.swift).
+This verifies native accessibility values on the simulator, not spoken VoiceOver
+on a physical device or the remaining G5 scenarios. The build uses the combined
+candidate recorded in the result, with cloud and owned update delivery unconfigured.

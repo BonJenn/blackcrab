@@ -3,8 +3,9 @@
 The root controller files below preserve the earlier upgrade-acceptance harness.
 Later scenarios and their exact source/artifact digests are recorded separately:
 [current service foreground recovery](current-service-foreground-result.json),
-[service/SDK revocation and scoped recovery](current-service-sdk-revocation-result.json), and
-[native revocation and pairing recovery](current-service-revocation-result.json).
+[service/SDK revocation and scoped recovery](current-service-sdk-revocation-result.json),
+[native revocation and pairing recovery](current-service-revocation-result.json), and
+[native connection summary accessibility](current-service-accessibility-result.json).
 The [scenario sources](scenarios/README.md) are review copies, not CI entry points.
 Each result states its own source revision and limits; no combined candidate is
 presented as an already merged stage build.
@@ -82,8 +83,8 @@ The accepted results above verify native context-menu rename and archive, with
 independent SDK confirmation. Fresh-device legacy digests were unchanged but the
 legacy queue was empty; that does not certify populated legacy queue recovery.
 iOS 26.2 acceptance does not certify iOS 27.1 migration or physical-device
-distribution. The observed environment summary-row accessibility gap is recorded
-in the parity ledger; detailed diagnostics are a separate UI surface.
+distribution. The linked accessibility result verifies the corrected environment
+summary values; spoken VoiceOver and physical-device coverage remain separate.
 
 ## Proposed budget and invocation boundary
 

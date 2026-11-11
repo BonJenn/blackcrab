@@ -28,8 +28,13 @@ remain required.
 
 Deployment uses the original Alchemy stack with Blackcrab-owned Cloudflare,
 PlanetScale, Clerk, and Axiom configuration. The original production topology
-creates a retained PlanetScale `PS_80` database with two replicas; a deployment
-must explicitly account for those resources before it is applied. Non-production
+creates a retained PlanetScale Postgres database with two replicas. Production
+requires `BLACKCRAB_RELAY_DATABASE_SIZE` to select its compute capacity explicitly.
+The example uses `PS_5` for a small new deployment; use `PS_80` to retain the
+original capacity. Supported network-storage sizes run from `PS_5` through
+`PS_2560`. Missing, empty, or unrecognized values stop production provisioning.
+Review the provider's region-specific price before applying the stack; smaller
+compute keeps the original database schema, authentication, and remote features. Non-production
 stages reference the production stack's database and DNS zones and create their
 own database branch.
 

@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import {
   isHostPlatform,
   type DesktopPairingPayload,
@@ -29,7 +30,9 @@ export interface StoredPairedHost extends PairedHostSummary {
   lanPort?: number;
 }
 
-const memoryStore = new Map<string, string>();
+// A mutation reads and replaces a whole collection. Keep later mutations and
+// reads behind the durable write, including when the preceding write fails.
+const pendingOperations = new Map<string, Promise<void>>();
 
 export function normalizePairingCode(input: string): string {
   return input.replace(/[\s-]/g, "").toUpperCase();
@@ -57,34 +60,22 @@ export function storedHostFromPayload(
 export async function persistPairedHost(
   host: StoredPairedHost,
 ): Promise<StoredPairedHost[]> {
-  return upsertStoredHost(host);
+  if (!isStoredPairedHost(host)) throw new Error("Invalid paired host.");
+  return updateCollection(STORAGE_KEY, "paired hosts", isStoredPairedHost, hosts =>
+    [host, ...hosts.filter(stored => stored.hostId !== host.hostId)],
+  );
 }
 
 export async function loadStoredHosts(): Promise<StoredPairedHost[]> {
-  const value = await readStoredValue(STORAGE_KEY);
-  if (!value) return [];
-
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isStoredPairedHost);
-  } catch {
-    return [];
-  }
+  return serialize(STORAGE_KEY, async () =>
+    readCollection(await durableStorage(), STORAGE_KEY, "paired hosts", isStoredPairedHost),
+  );
 }
 
 export async function forgetStoredHost(hostId: HostId): Promise<StoredPairedHost[]> {
-  const hosts = await loadStoredHosts();
-  const nextHosts = hosts.filter((host) => host.hostId !== hostId);
-  await writeStoredValue(STORAGE_KEY, JSON.stringify(nextHosts));
-  return nextHosts;
-}
-
-async function upsertStoredHost(host: StoredPairedHost): Promise<StoredPairedHost[]> {
-  const hosts = await loadStoredHosts();
-  const nextHosts = [host, ...hosts.filter((stored) => stored.hostId !== host.hostId)];
-  await writeStoredValue(STORAGE_KEY, JSON.stringify(nextHosts));
-  return nextHosts;
+  return updateCollection(STORAGE_KEY, "paired hosts", isStoredPairedHost, hosts =>
+    hosts.filter(host => host.hostId !== hostId),
+  );
 }
 
 function isStoredPairedHost(value: unknown): value is StoredPairedHost {
@@ -107,7 +98,10 @@ function isStoredPairedHost(value: unknown): value is StoredPairedHost {
     (value.deviceId === undefined || typeof value.deviceId === "string") &&
     (value.relayUrl === undefined || typeof value.relayUrl === "string") &&
     (value.lanHost === undefined || typeof value.lanHost === "string") &&
-    (value.lanPort === undefined || typeof value.lanPort === "number")
+    (value.lanPort === undefined || (
+      typeof value.lanPort === "number" && Number.isInteger(value.lanPort) &&
+      value.lanPort >= 1 && value.lanPort <= 65535
+    ))
   );
 }
 
@@ -126,34 +120,26 @@ export interface StoredReadCursor {
 }
 
 export function readCursorKey(hostId: HostId, sessionId: SessionId): string {
-  return `${hostId}:${sessionId}`;
+  return JSON.stringify([hostId, sessionId]);
 }
 
 export async function loadReadCursors(): Promise<StoredReadCursor[]> {
-  const value = await readStoredValue(READ_CURSOR_KEY);
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isStoredReadCursor);
-  } catch {
-    return [];
-  }
+  return serialize(READ_CURSOR_KEY, async () =>
+    readCollection(await durableStorage(), READ_CURSOR_KEY, "read positions", isStoredReadCursor),
+  );
 }
 
 export async function saveReadCursor(
   cursor: StoredReadCursor,
 ): Promise<StoredReadCursor[]> {
-  const existing = await loadReadCursors();
+  if (!isStoredReadCursor(cursor)) throw new Error("Invalid read position.");
   const key = readCursorKey(cursor.hostId, cursor.sessionId);
-  const next = [
+  return updateCollection(READ_CURSOR_KEY, "read positions", isStoredReadCursor, existing => [
     cursor,
     ...existing.filter(
       (c) => readCursorKey(c.hostId, c.sessionId) !== key,
     ),
-  ];
-  await writeStoredValue(READ_CURSOR_KEY, JSON.stringify(next));
-  return next;
+  ]);
 }
 
 function isStoredReadCursor(value: unknown): value is StoredReadCursor {
@@ -162,44 +148,73 @@ function isStoredReadCursor(value: unknown): value is StoredReadCursor {
     typeof value.hostId === "string" &&
     typeof value.sessionId === "string" &&
     typeof value.lastReadMessageId === "string" &&
-    typeof value.readAtMs === "number"
+    typeof value.readAtMs === "number" && Number.isFinite(value.readAtMs)
   );
 }
 
-async function readStoredValue(key: string): Promise<string | null> {
-  if (await canUseSecureStore()) {
-    return SecureStore.getItemAsync(key);
-  }
-
-  const storage = getLocalStorage();
-  if (storage) {
-    return storage.getItem(key);
-  }
-
-  return memoryStore.get(key) ?? null;
+function serialize<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const result = (pendingOperations.get(key) ?? Promise.resolve()).then(operation);
+  const settled = result.then(() => {}, () => {});
+  pendingOperations.set(key, settled);
+  void settled.then(() => {
+    if (pendingOperations.get(key) === settled) pendingOperations.delete(key);
+  });
+  return result;
 }
 
-async function writeStoredValue(key: string, value: string): Promise<void> {
-  if (await canUseSecureStore()) {
-    await SecureStore.setItemAsync(key, value);
-    return;
-  }
-
-  const storage = getLocalStorage();
-  if (storage) {
-    storage.setItem(key, value);
-    return;
-  }
-
-  memoryStore.set(key, value);
-}
-
-async function canUseSecureStore(): Promise<boolean> {
+async function readCollection<T>(
+  storage: DurableStorage,
+  key: string,
+  label: string,
+  validate: (value: unknown) => value is T,
+): Promise<T[]> {
+  let value: string | null;
+  try { value = await storage.getItem(key); }
+  catch { throw new Error(`Could not read saved ${label}. Reopen the app to retry.`); }
+  if (value === null) return [];
   try {
-    return await SecureStore.isAvailableAsync();
-  } catch {
-    return false;
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every(validate)) return parsed;
+  } catch { /* Preserve the complete original value, including malformed JSON. */ }
+  throw new Error(`Saved ${label} could not be read. No saved data was changed.`);
+}
+
+function updateCollection<T>(
+  key: string,
+  label: string,
+  validate: (value: unknown) => value is T,
+  update: (current: T[]) => T[],
+): Promise<T[]> {
+  return serialize(key, async () => {
+    // Choose once for the entire operation; never read from a fallback and then
+    // replace an existing keychain collection when native storage recovers.
+    const storage = await durableStorage();
+    const current = await readCollection(storage, key, label, validate);
+    const next = update(current);
+    try { await storage.setItem(key, JSON.stringify(next)); }
+    catch { throw new Error(`Could not save ${label}. Reopen the app to retry.`); }
+    return next;
+  });
+}
+
+interface DurableStorage {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+}
+
+async function durableStorage(): Promise<DurableStorage> {
+  if (Platform.OS === "web") {
+    const storage = getLocalStorage();
+    if (!storage) throw new Error("Browser storage is unavailable. Saved pairings cannot be read or changed.");
+    return storage;
   }
+  try {
+    if (await SecureStore.isAvailableAsync()) return {
+      getItem: key => SecureStore.getItemAsync(key),
+      setItem: (key, value) => SecureStore.setItemAsync(key, value),
+    };
+  } catch { /* A native failure must not switch to a different store. */ }
+  throw new Error("Secure storage is unavailable. Reopen the app to retry.");
 }
 
 interface LocalStorageLike {

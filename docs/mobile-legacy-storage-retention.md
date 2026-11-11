@@ -28,28 +28,37 @@ drafts and queue recovery. Scoped strict TypeScript checking also passed.
 Loopback transport tests verify that a newly accepted connection closes when
 existing credentials cannot be read, preserving the original stored bytes.
 
-These checks use controlled storage adapters and inert loopback protocol fixtures.
-They do not establish iOS keychain behavior across an installed application
-upgrade, physical-device behavior, or live cloud/off-LAN/provider acceptance.
-No schema migration, data deletion, or automatic corruption repair is performed.
+The unit and transport checks use controlled storage adapters and inert loopback
+protocol fixtures. Native upgrade validation is recorded below. No schema
+migration, data deletion, or automatic corruption repair is performed.
 
-## Populated native upgrade still required
+## Populated native upgrade
 
-Use only a fresh task-owned simulator and an isolated host with no provider
-execution. Install the recorded baseline build, pair through its UI, open an
-existing inert session and enter a multiline unsent draft. Exercise the queue's
-uncertain-delivery path with a controlled fixture without executing a provider.
-Record the baseline product identity and the nonempty host, cursor, draft and
-queue state. Identify fixture evidence explicitly rather than presenting it as
-real-provider or real-legacy-server acceptance.
+On November 11, 2026, all four XCUITest phases passed on a fresh owned iPhone 17
+Pro simulator running iOS 26.2. The Release candidate was installed over the
+baseline without erasing the application container. Both artifacts and the
+compiled test runner were pinned and verified.
 
-Install the newly built candidate over the same application without erasing its
-container. Verify the same host/session identities and visible draft recovery,
-plus pending queue recovery without automatic duplicate submission. Verify
-cross-host/session isolation and a second cold launch. Native file/keychain
-inventories supplement UI and protocol observations; unchanged file digests alone
-do not prove recovery. An empty legacy queue does not satisfy this gate.
+- The baseline UI paired two inert hosts, saved three drafts across host/session
+  boundaries, recorded read positions, and left one uncertain message in the
+  durable outbox alongside a newer draft.
+- Installation preserved the app-scoped keychain snapshot and persisted draft
+  and queue records. Native UI checks then recovered both host identities, all
+  three drafts, unread markers, and the pending message.
+- An explicit retry submitted the original command unchanged. Its receipt
+  cleared the recovery record while preserving the newer draft.
+- A cold launch retained the recovered state. The protocol fixture observed
+  zero automatic resubmissions and zero provider runs. The owned simulator was
+  shut down and all captured child processes exited.
+
+The baseline is integration reference `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`,
+which includes queue-event delivery. The candidate is combined integration
+`8254c98fb614181512e95ca7d8422cfacfb5a74e`, including this storage fix. This is
+not evidence of upgrading an older published release or connecting to a real
+legacy server. The [sanitized acceptance record](mobile-legacy-upgrade-acceptance.json)
+contains artifact, runner, and result digests; private pairing credentials and
+raw native logs are excluded.
 
 Draft attachments, the managed mobile experience's update path, owned Expo
-updates, physical devices and full desktop legacy migration remain separate
-acceptance obligations in the parity ledger.
+updates, physical devices, live cloud/off-LAN/provider behavior, and full desktop
+legacy migration remain separate acceptance obligations in the parity ledger.

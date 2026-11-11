@@ -16,8 +16,9 @@ const OWN_NEW_FILES = new Set([
   'apps/mobile/plugins/with-ios-pod-floor.cjs', 'apps/mobile/plugins/with-ios-pod-floor.test.cjs',
   'docs/native-ios-build.md',
 ]);
-const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', 'managed-host/artifact.mjs', 'managed-host/source.mjs', ...OWN_NEW_FILES]);
-const PREFIXES = ['apps/', 'packages/', 'vendor/t3-mobile/', 'mobile-experience/', 'shared-runtime/'];
+const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', 'managed-host/artifact.mjs', 'managed-host/source.mjs', 'managed-host/controlled-process.mjs', ...OWN_NEW_FILES]);
+// Mobile resource generation reuses the host's authenticated cloud patches.
+const PREFIXES = ['apps/', 'packages/', 'vendor/t3-mobile/', 'mobile-experience/', 'shared-runtime/', 'managed-host/patches/'];
 const EXPECTED_WORKSPACES = ['apps/*', 'packages/*', 'vendor/t3-mobile/packages/*'];
 export const NATIVE_INSTALL_INPUT = Object.freeze({
   archive: 'vendor/t3-mobile/apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz',
@@ -192,6 +193,7 @@ export function isolatedBuildEnvironment(root, original = process.env) {
     BLACKCRAB_CLERK_PUBLISHABLE_KEY: cloud.publishableKey,
     BLACKCRAB_CLERK_JWT_TEMPLATE: cloud.jwtTemplate,
     BLACKCRAB_RELAY_URL: cloud.relayUrl,
+    ...(cloud.hostedAppUrl ? { BLACKCRAB_HOSTED_APP_URL: cloud.hostedAppUrl } : {}),
   });
   if (original.DEVELOPER_DIR) env.DEVELOPER_DIR = original.DEVELOPER_DIR;
   return env;

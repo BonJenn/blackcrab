@@ -5,6 +5,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { pathToFileURL } from 'node:url';
+import { configureOwnedCloud } from '../mobile-experience/activation/adapters/owned-cloud-config.cjs';
 import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments, resolveNpmCache, verifyNativeInstallInputs, NATIVE_INSTALL_INPUT } from './prepare-mobile-ios.mjs';
 const execute = promisify(execFile);
 async function fixture(run) {
@@ -37,6 +39,32 @@ test('physically snapshots tracked workspaces from spaced source; excludes crede
   assert(!JSON.stringify(snapshot.metadata).includes('do-not-copy'));
   await fs.writeFile(path.join(snapshot.repo, 'apps/mobile/app.json'), 'changed only in stage');
   assert.equal(await fs.readFile(path.join(repo, 'apps/mobile/app.json'), 'utf8'), '{"expo":{}}');
+}));
+
+test('isolated snapshot can apply and validate the mobile cloud patches without the original checkout', async () => fixture(async ({ repo, base }) => {
+  // Exercise the production modules after staging: importing from the checkout
+  // would hide missing transitive modules and registry payloads in the snapshot.
+  for (const file of ['mobile-experience/cloud-source-patches.mjs', 'managed-host/source.mjs', 'managed-host/artifact.mjs', 'managed-host/controlled-process.mjs', 'managed-host/patches']) {
+    const target = path.join(repo, file);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.cp(new URL('../' + file, import.meta.url), target, { recursive: true });
+  }
+  await execute('git', ['-C', repo, 'add', '.']);
+  await execute('git', ['-C', repo, '-c', 'user.name=Native Test', '-c', 'user.email=native@example.invalid', 'commit', '-qm', 'mobile cloud build inputs']);
+  const snapshot = await createSourceSnapshot({ repoRoot: repo, stagingParent: base });
+  const staged = await import(pathToFileURL(path.join(snapshot.repo, 'mobile-experience/cloud-source-patches.mjs')).href);
+  const records = await staged.mobileCloudPatchRecords();
+  assert.equal(records.length, 12);
+  for (const record of records) {
+    assert.equal(record.replacements.length, 1);
+    const target = path.join(snapshot.repo, record.target);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, record.replacements[0].before);
+  }
+  const result = await staged.applyMobileCloudSourcePatches(snapshot.repo);
+  for (const [index, patch] of result.patches.entries()) {
+    await staged.validateMobileCloudSourcePatch(result.originals[index].bytes, await fs.readFile(path.join(snapshot.repo, patch.target)), patch);
+  }
 }));
 
 test('requires explicit dirty snapshot and records actual content; refuses arbitrary new workspace inputs', async () => fixture(async ({ repo, base, write }) => {
@@ -176,4 +204,14 @@ test('native builds carry only validated Blackcrab public cloud configuration', 
   assert.equal(env.BLACKCRAB_RELAY_URL, 'https://relay.example.test');
   assert.equal(env.CLERK_SECRET_KEY, undefined); assert.equal(env.T3CODE_RELAY_URL, undefined);
   assert.throws(() => isolatedBuildEnvironment('/owned', { PATH: '/bin', BLACKCRAB_RELAY_URL: 'https://relay.example.test' }), /Incomplete Blackcrab/);
+});
+
+test('isolated native builds retain hosted links and domain association through Expo configuration', () => {
+  const env = isolatedBuildEnvironment('/owned', { PATH: '/bin', BLACKCRAB_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only', BLACKCRAB_CLERK_JWT_TEMPLATE: 'blackcrab-relay', BLACKCRAB_RELAY_URL: 'https://relay.example.test', BLACKCRAB_HOSTED_APP_URL: 'https://app.example.test/' });
+  const config = configureOwnedCloud({}, env);
+  assert.equal(config.extra.blackcrabCloud.hostedAppUrl, 'https://app.example.test');
+  assert.deepEqual(config.ios.associatedDomains, ['applinks:app.example.test']);
+  assert.equal(config.android.intentFilters[0].data[0].host, 'app.example.test');
+  assert.equal(isolatedBuildEnvironment('/owned', { PATH: '/bin', T3CODE_HOSTED_APP_URL: 'https://foreign.example.test' }).BLACKCRAB_HOSTED_APP_URL, undefined);
+  assert.throws(() => isolatedBuildEnvironment('/owned', { ...env, BLACKCRAB_HOSTED_APP_URL: 'https://app.example.test/path' }), /BLACKCRAB_HOSTED_APP_URL must be an HTTPS origin/);
 });

@@ -76,6 +76,10 @@ or neighboring tests.
 
 - E31: [Owned mobile update configuration](mobile-updates.md) restores the original generated App update initializer and unchanged updater implementation. Explicit Blackcrab Expo project/channel inputs replace inherited update settings; release channels use fingerprint compatibility and unconfigured builds remain disabled. The installed Expo plist plugin, isolated build environment, original generated updater tests and disabled/development/background-boundary tests are exercised locally. This is implementation and mocked-native/configuration evidence only: no owned Expo project, update-enabled native binary, live update/rollback, signing or physical-device acceptance is established. E27–E30 used update-disabled binaries and do not certify this change.
 
+- E32: [Current service SDK revocation and scoped recovery](../managed-validation/ios-ui/current-service-sdk-revocation-result.json) on 2026-11-11 used the unchanged original native service and two real shared SDK clients at combined source `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`. The public auth API revoked a live client, its connection became blocked, the old bearer lost HTTP authentication and RPC-ticket access, and an attempted edit did not persist. Re-pairing the same environment with read-only scopes retained one catalog entry and allowed reads, while the host rejected a bare-RPC edit. A new operate grant restored rename/archive, and a native service restart preserved both metadata and revocation of the original credential. Both SDKs disposed and all three native epochs closed; runs/provider sessions stayed zero. Native network, storage and app-state ports were test adapters. This is service/SDK evidence, not native UI, off-LAN, OAuth/DPoP/replay, other revoke endpoints, live providers or complete G3 certification.
+
+- E33: [Native iOS revocation and pairing recovery](../managed-validation/ios-ui/current-service-revocation-result.json) on 2026-11-11 exercised the same combined Release and current 70-record service profile. After upgrade retention and initial rename/archive, the original auth API revoked the running native client's session. Expanded native connection diagnostics displayed the authentication failure. The app paired through Settings using a fresh read/operate grant, explicitly acknowledged the original app's legacy-permission notice, retained one environment, and displayed metadata changed remotely while revoked. The independent SDK verified a new session with exactly read/operate scopes, then confirmed native rename/archive on the same original thread. All six UI phases and both source-bound pairing canaries passed without failures/skips; 30 controller checks passed. Both native epochs closed, owned simulators shut down, product/configuration and legacy digests remained unchanged, and runs/provider sessions stayed zero. Failed harness attempts are excluded. This local combined candidate has no merged stage SHA and used updates disabled. The summary-row accessibility gap, broader permission protocols, desktop service UI, live cloud/off-LAN, provider execution, physical devices, populated migration and remaining gates remain open.
+
 ## Per-document scenario inventory
 
 W = web, D = desktop, M = mobile. All rows U unless explicitly P; all applicable G1–G8 still apply. Mobile means native iOS release acceptance; Android reference behavior is inventoried separately rather than silently used as an iOS substitute.
@@ -314,7 +318,7 @@ W = web, D = desktop, M = mobile. All rows U unless explicitly P; all applicable
 
 ### UD38 — `t3-connect-troubleshooting.md`
 
-- UD38.1 U: Four-leg device/cloud/tunnel/host diagnostics and first failure, exact identity/version/quota/expiry/clock.
+- UD38.1 U: Four-leg device/cloud/tunnel/host diagnostics and first failure, exact identity/version/quota/expiry/clock. Observed native iOS gap: the environment summary row exposes only its Manage label to accessibility, hiding connection status/diagnosis text. Expanded diagnostics remain accessible; summary-row status accessibility needs correction and native verification.
 - UD38.2 U: TCP/UDP port7844, direct fallback, tunnel/DNS/proxy failures and retryable versus permanent failure.
 - UD38.3 U: Copy details and tunnel logs redact credentials; mobile locked/background transport and nondefault endpoints tested on independent infrastructure.
 
@@ -380,7 +384,7 @@ W = web, D = desktop, M = mobile. All rows U unless explicitly P; all applicable
 - X02 U — **Delegation and workflows:** Capabilities discovery, child creation/list/read/wait/interrupt, durable tasks, workflow scripts, background waits and cancellation trees; parent approvals/results; force stop versus stop workflow; cross-host links with expiry and permission intersections.
 - X03 U — **Thread configuration/transfer:** Native compatible restart, portable fork, merge-back and worktree handoff/status/list; exact history import, shared-worktree ownership and live-write exclusion; title/metadata/organize/query updates.
 - X04 U — **Filesystem/assets/uploads:** Read/write/search/list and shell open boundaries; path traversal/symlink/out-of-workspace enforcement; attachment prepare/upload/discard/reply/send, content-types/length/expiry and asset lifecycle; URLs authenticated to selected environment.
-- X05 U — **OAuth/auth/credentials:** Discovery, pairing/session/browser session, one-time WS tickets, public-client registration/consent/code/token and DPoP/replay protection; revoke client/others/link immediately; scopes never auto-expand when owner settings change.
+- X05 P — **OAuth/auth/credentials:** Discovery, pairing/session/browser session, one-time WS tickets, public-client registration/consent/code/token and DPoP/replay protection; revoke client/others/link immediately; scopes never auto-expand when owner settings change. E32 covers one live bearer client, scoped re-pairing and revocation persistence; remaining auth protocols, actor/scope matrices and endpoints are unverified.
 - X06 U — **Settings/control plane:** Nested schema defaults/migration/unknown-entry round-trip, patch atomicity/required scopes, project inheritance/reset and mixed-host partial failures; publish host status/capacity/power/background profile and enforce disable states.
 - X07 U — **Maintenance/diagnostics:** Database/storage metrics, cleanup reports, backup/restore/repair/update, local process stop and host restart; logs/traces/telemetry endpoints redact sensitive data; destructive operations authorized with concrete previews.
 - X08 U — **Transport subscriptions:** All RPC subscriptions: initial snapshot+live ordering, multiple environments and accounts, explicit unsubscribe/backpressure, binary stream control and expiry; no cross-client leaked data after route/account change.
@@ -486,14 +490,14 @@ Source: `apps/server/src/sourceControl/sourceControlDefinitions.ts`: six drivers
 49 declarations from `environmentHttp.ts` (including four symbolic webhook routes resolved below). These require authenticated route, cache/content-type, origin/CSRF where relevant, replay, validation and permission evidence; HTTP reads must agree with WS projections.
 
 - U `GET /.well-known/t3/environment` (`descriptor`)
-- U `GET /api/auth/session` (`session`)
+- P `GET /api/auth/session` (`session`) — E32: revoked bearer is unauthenticated, including after restart; remaining route matrix open.
 - U `POST /api/auth/browser-session` (`browserSession`)
 - U `POST /oauth/token` (`token`)
 - U `POST /api/auth/websocket-ticket` (`webSocketTicket`)
-- U `POST /api/auth/websocket-ticket/:use` (`webSocketTicketFor`)
-- U `POST /api/auth/pairing-token` (`pairingCredential`)
+- P `POST /api/auth/websocket-ticket/:use` (`webSocketTicketFor`) — E32: revoked bearer cannot obtain an RPC ticket; remaining route matrix open.
+- P `POST /api/auth/pairing-token` (`pairingCredential`) — E32: owner issues read-only and operate pairing grants; remaining route matrix open.
 - U `POST /api/auth/pairing-links/revoke` (`revokePairingLink`)
-- U `POST /api/auth/clients/revoke` (`revokeClient`)
+- P `POST /api/auth/clients/revoke` (`revokeClient`) — E32: live paired client is revoked and loses access; remaining route matrix open.
 - U `POST /api/auth/clients/revoke-others` (`revokeOtherClients`)
 - U `GET /.well-known/oauth-protected-resource` (`protectedResource`)
 - U `GET /.well-known/oauth-protected-resource/mcp` (`mcpProtectedResource`)

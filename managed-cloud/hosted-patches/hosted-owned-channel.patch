@@ -1,0 +1,11 @@
+--- a/apps/web/src/hostedPairing.ts
++++ b/apps/web/src/hostedPairing.ts
+@@ -89,7 +89,7 @@
+ }): string {
+   const configured = configuredHostedAppUrl();
+   if (!configured) throw new Error("Blackcrab hosted release channels are not configured.");
+-  const url = new URL("/__t3code/channel", configured);
++  const url = new URL("/__blackcrab/channel", configured);
+   url.searchParams.set("channel", input.channel);
+   return url.toString();
+ }

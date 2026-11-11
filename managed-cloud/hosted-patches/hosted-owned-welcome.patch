@@ -1,0 +1,78 @@
+--- a/apps/web/src/components/onboarding/WelcomeWizard.tsx
++++ b/apps/web/src/components/onboarding/WelcomeWizard.tsx
+@@ -91,10 +91,8 @@
+ import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
+ import { presentSavedCloudEnvironmentConnection } from "../cloud/cloudEnvironmentConnectionPresentation";
+ import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
+-import { T3Wordmark } from "../T3Wordmark";
+ import { Alert, AlertDescription } from "../ui/alert";
+ import { Button } from "../ui/button";
+-import { CommandBlock } from "../CommandBlock";
+ import { Checkbox } from "../ui/checkbox";
+ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
+ import { Input } from "../ui/input";
+@@ -239,12 +237,11 @@
+         initialFocus={() => document.getElementById("onboarding-pairing-url") ?? true}
+       >
+         <WizardHeader
+-          title="Set up T3 Code"
++          title="Set up Blackcrab"
+           identity={
+-            <div className="flex items-baseline gap-1.5" role="img" aria-label="T3 Code">
+-              <T3Wordmark className="h-4 w-auto shrink-0" aria-hidden />
++            <div className="flex items-baseline gap-1.5" role="img" aria-label="Blackcrab">
+               <span className="text-2xl font-medium tracking-tight text-muted-foreground">
+-                Code
++                Blackcrab
+               </span>
+             </div>
+           }
+@@ -444,9 +441,7 @@
+       ) : null}
+       <div className="mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+         <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
+-          {telemetryOff ?? "T3 Code collects anonymous usage data to help us improve it."} To read
+-          more about how your data is used{telemetryOff === undefined ? " and how to opt out" : ""},
+-          see our{" "}
++          {telemetryOff ? <>{telemetryOff} </> : null}For details about how Blackcrab handles your data, see our{" "}
+           <a
+             className="underline underline-offset-2 hover:text-foreground"
+             href={PRIVACY_POLICY_URL}
+@@ -507,7 +502,7 @@
+           }
+         >
+           <CloudIcon className="size-4 text-muted-foreground" />
+-          <span className="flex-1 text-left">T3 Connect</span>
++          <span className="flex-1 text-left">Blackcrab Connect</span>
+           <span className="text-xs text-muted-foreground">
+             {!isLoaded
+               ? "Loading sign-in…"
+@@ -539,11 +534,10 @@
+               ) : null}
+             </div>
+             <p className="text-sm text-muted-foreground">
+-              Run this on each computer you want to connect.
++              Open Blackcrab on each computer you want to connect and sign in with the same account.
+             </p>
+-            <CommandBlock command="npx t3 connect" className="mt-3" />
+             <p className="mt-3 text-xs text-muted-foreground">
+-              Keep T3 Code running. Select the computers you want to set up above.
++              Keep Blackcrab running. Select the computers you want to set up above.
+             </p>
+           </div>
+         </CollapsiblePanel>
+@@ -649,12 +643,10 @@
+           </div>
+           <CollapsiblePanel>
+             <p className="pt-3 text-sm text-muted-foreground">
+-              On the computer with your code, start T3 Code or run{" "}
+-              <code className="font-mono">npx t3 serve</code>, then run:
++              Open Blackcrab on the computer with your code. In Settings → Connections, create a pairing link and paste it here.
+             </p>
+-            <CommandBlock command="npx t3 pair" className="mt-2" />
+             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+-              On a tailnet, run <code className="font-mono">npx t3 pair --tailscale</code> instead.
++              For a tailnet connection, select Tailscale HTTPS in the computer’s connection settings before creating the link.
+             </p>
+           </CollapsiblePanel>
+         </Collapsible>

@@ -1,0 +1,11 @@
+--- a/apps/web/vite.config.ts
++++ b/apps/web/vite.config.ts
+@@ -299,6 +299,8 @@
+       ],
+     },
+     define: {
++      __BLACKCRAB_DESKTOP_DOWNLOAD_URL__: JSON.stringify(process.env.BLACKCRAB_DESKTOP_DOWNLOAD_URL ?? ""),
++      __BLACKCRAB_PRIVACY_POLICY_URL__: JSON.stringify(process.env.BLACKCRAB_PRIVACY_POLICY_URL ?? ""),
+       __BLACKCRAB_HOSTED_APP_URL__: JSON.stringify(configuredHostedAppUrl ?? ""),
+       "import.meta.env.VITE_WS_URL": JSON.stringify(configuredWsUrl ?? ""),
+       // Override .env URLs with empty values in single-origin dev so clients use window.location.origin.

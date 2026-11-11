@@ -199,3 +199,63 @@ jobs:
       - name: test owned cloud and original account/link behavior
         working-directory: ${{ steps.clients.outputs.source }}
         run: node --no-experimental-webstorage node_modules/vite-plus/bin/vp test run --config blackcrab-cloud-test.config.ts
+
+  managed-hosted-web:
+    name: hosted web (${{ matrix.mode }}, pinned build + types + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [single, channels]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "26.12.1"
+      - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      - name: build original hosted app with owned fixture settings
+        id: hosted
+        env:
+          HOSTED_TEST_MODE: ${{ matrix.mode }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          import { createWriteStream } from 'node:fs';
+          import path from 'node:path';
+          import { Readable } from 'node:stream';
+          import { pipeline } from 'node:stream/promises';
+          import { execFileSync } from 'node:child_process';
+          import { UPSTREAM } from './managed-host/artifact.mjs';
+          import { buildHostedWeb } from './managed-cloud/hosted-build.mjs';
+          const archive = path.join(process.env.RUNNER_TEMP, 'blackcrab-hosted-upstream.tar.gz');
+          const response = await fetch(`https://api.github.com/repos/BonJenn/t3code/tarball/${UPSTREAM.commit}`);
+          if (!response.ok || !response.body) throw new Error(`Source download failed: ${response.status}`);
+          await pipeline(Readable.fromWeb(response.body), createWriteStream(archive, { flags: 'wx' }));
+          const environment = {
+            BLACKCRAB_CLERK_PUBLISHABLE_KEY: 'pk_test_Y2xlcmsuYmxhY2tjcmFiLmV4YW1wbGUk',
+            BLACKCRAB_CLERK_JWT_TEMPLATE: 'blackcrab-relay',
+            BLACKCRAB_RELAY_URL: 'https://relay.blackcrab.example',
+            BLACKCRAB_HOSTED_APP_URL: 'https://app.blackcrab.example',
+            BLACKCRAB_CLERK_CLI_OAUTH_CLIENT_ID: 'blackcrab-cli-fixture',
+            BLACKCRAB_APPLE_TEAM_ID: 'BC12345678',
+            BLACKCRAB_DESKTOP_DOWNLOAD_URL: 'https://blackcrab.example/download',
+            BLACKCRAB_PRIVACY_POLICY_URL: 'https://blackcrab.example/privacy',
+            ...(process.env.HOSTED_TEST_MODE === 'channels' ? {
+              BLACKCRAB_HOSTED_LATEST_URL: 'https://latest.blackcrab.example',
+              BLACKCRAB_HOSTED_NIGHTLY_URL: 'https://nightly.blackcrab.example',
+              BLACKCRAB_HOSTED_APP_CHANNEL: 'latest',
+            } : {}),
+          };
+          const result = await buildHostedWeb({ archive,
+            cacheDir: path.join(process.env.RUNNER_TEMP, 'blackcrab-hosted-cache'),
+            output: path.join(process.env.RUNNER_TEMP, 'blackcrab-hosted-artifact'),
+            node: process.execPath, pnpm: execFileSync('which', ['pnpm'], { encoding: 'utf8' }).trim(), environment });
+          await fs.appendFile(process.env.GITHUB_OUTPUT, `source=${result.source}\n`);
+          NODE
+      - name: typecheck complete hosted web source
+        working-directory: ${{ steps.hosted.outputs.source }}/apps/web
+        run: node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit
+      - name: test original pairing and owned deployment routing
+        working-directory: ${{ steps.hosted.outputs.source }}
+        run: node --no-experimental-webstorage node_modules/vite-plus/bin/vp test run --config blackcrab-hosted-test.config.ts

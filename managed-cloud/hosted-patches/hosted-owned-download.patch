@@ -1,0 +1,10 @@
+--- a/apps/web/src/branding.ts
++++ b/apps/web/src/branding.ts
+@@ -25,4 +25,6 @@
+   injectedDesktopAppBranding?.displayName ??
+   formatAppDisplayName({ baseName: APP_BASE_NAME, stageLabel: APP_STAGE_LABEL });
+ export const APP_VERSION = import.meta.env.APP_VERSION || "0.0.0";
+-export const DESKTOP_DOWNLOAD_URL = "";
++declare const __BLACKCRAB_DESKTOP_DOWNLOAD_URL__: string | undefined;
++export const DESKTOP_DOWNLOAD_URL =
++  typeof __BLACKCRAB_DESKTOP_DOWNLOAD_URL__ === "undefined" ? "" : (__BLACKCRAB_DESKTOP_DOWNLOAD_URL__ ?? "");

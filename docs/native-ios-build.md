@@ -1,6 +1,6 @@
 # Native iOS builds
 
-Blackcrab Remote uses Expo SDK 54 / React Native 0.81.5. Its checked-in source
+Blackcrab Remote uses Expo SDK 58.0.14 / React Native 0.88.0 / React 19.3.0. Its checked-in source
 can live on `G-DRIVE PRO`; native builds run in a separate physical workspace
 whose path contains no whitespace. Expo Constants and Updates currently have
 upstream build scripts that split paths containing spaces. Staging avoids
@@ -8,7 +8,7 @@ modifying those scripts, their relative package paths, or shared dependencies.
 
 ## Prepare
 
-Install Xcode and its simulator platform, CocoaPods, Node and npm. Select the
+Install Xcode and its simulator platform, CocoaPods, Node 26.12.1 and npm 12.2.2. Select the
 intended Xcode with `xcode-select`, or supply `DEVELOPER_DIR` in the environment.
 Run from the repository:
 
@@ -26,7 +26,8 @@ node scripts/prepare-mobile-ios.mjs --mode prepare --include-working-tree
 
 This flag does not admit arbitrary untracked workspace files. Commit or move
 those files first. The helper copies tracked `apps`, `packages`, and vendored T3
-sources plus root manifests/build inputs; it excludes `.env` files, registry
+sources plus root manifests/build inputs and the shared cloud patch registry,
+payloads and patch runner; it excludes `.env` files, registry
 credentials, signing material, Git metadata and installed dependencies. It
 rejects symlink inputs and concurrent source edits. Desktop-only source changes
 are outside this snapshot. `source-manifest.json` records the revision, relevant
@@ -39,11 +40,14 @@ the minimum deployment floor. It uses
 an isolated HOME, npm configuration/cache and temporary directory; account,
 provider, npm authentication and shell-startup settings are not inherited.
 Public registry and CocoaPods network access is required. The default app
-configuration is used; signing credentials and private environment-specific
+configuration is used unless the validated public `BLACKCRAB_CLERK_PUBLISHABLE_KEY`,
+`BLACKCRAB_CLERK_JWT_TEMPLATE` and `BLACKCRAB_RELAY_URL` are supplied together.
+The optional `BLACKCRAB_HOSTED_APP_URL` then configures shared links and native
+domain association. Signing credentials and private environment-specific
 configuration are deliberately unsupported here.
 
 The Expo config plugin `apps/mobile/plugins/with-ios-pod-floor.cjs` sets an
-application minimum of iOS 15.1 and adds an idempotent generated Podfile hook.
+application minimum of iOS 18.0 and adds an idempotent generated Podfile hook.
 That hook raises lower pod deployment targets, including resource bundles such
 as ReachabilitySwift, while preserving higher requirements. Unsupported symbolic
 targets or changed Podfile hook structure fail explicitly. It does not patch

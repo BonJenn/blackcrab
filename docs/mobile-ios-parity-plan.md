@@ -496,3 +496,15 @@ Validation: 88 tests across 13 files passed, including real loopback WebSocket
 pairing, durable-store readback, token reconnect, negative handshake cases and the
 manual form. Scoped strict TypeScript checking passed. Installed iOS and off-LAN
 acceptance remain separate work.
+
+### Legacy storage retention
+
+The legacy host catalog and read-position cache now preserve unreadable values,
+require durable platform storage and serialize overlapping updates. Pairing closes
+its accepted connection when the prior catalog cannot be read or the new record
+cannot be saved. The v1 storage formats remain unchanged. The 122 affected tests
+and scoped strict TypeScript checking passed. See
+[storage behavior and the populated native upgrade gate](mobile-legacy-storage-retention.md).
+Four native XCUITest phases passed for a populated baseline, installed upgrade,
+explicit queue retry and cold restart on the recorded combined candidate. Older
+published-release upgrades, attachments and physical-device acceptance remain open.

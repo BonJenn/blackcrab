@@ -56,9 +56,9 @@
       "id": "003-launcher-payload-layout",
       "target": "apps/server/src/serviceLauncher.ts",
       "beforeSha256": "2108510af0eceded95a7b51148d74f0ab420cba82937cd6fe7cf1dcf9d22d9e9",
-      "afterSha256": "14652fabb08682c449991ef6049b98da0684b4b7899245b875f8176e535c26f1",
+      "afterSha256": "dc1de4e9cce8cdc94975977053dcb895d5badbdf1e97ed0cfd7e9facc3dd55a4",
       "file": "patches/003-launcher-payload-layout.patch",
-      "sha256": "918e8b5d4434fcea6020fb1d5e3d1cfa3d59054aa641642b42147181c97bf36f",
+      "sha256": "94e0b0ad1fe2f0c1f72ce789d5074c8d80066c69c230042183e0b565637284c6",
       "replacements": [
         {
           "before": "entryPath: NodePath.join(versionDir, executableName),",
@@ -67,6 +67,10 @@
         {
           "before": "async function runtimeExists(baseDir: string, version: string): Promise<boolean> {\n  const paths = runtimePaths(baseDir, version);\n  try {\n    const [entry, sentinel] = await Promise.all([\n      NodeFSP.stat(paths.entryPath),\n      NodeFSP.readFile(paths.sentinelPath, \"utf8\"),\n    ]);\n    return entry.isFile() && sentinel.trim() === version;\n  } catch {\n    return false;\n  }\n}",
           "after": "async function readOwnedRuntimeMetadata(file: string, maximum: number, privateFile: boolean): Promise<Buffer> {\n  const handle = await NodeFSP.open(file,\n    NodeFS.constants.O_RDONLY | NodeFS.constants.O_NOFOLLOW | NodeFS.constants.O_NONBLOCK);\n  try {\n    const stat = await handle.stat();\n    if (typeof process.getuid !== \"function\" || !stat.isFile() || stat.nlink !== 1 ||\n        stat.uid !== process.getuid() || !Number.isSafeInteger(stat.size) || stat.size > maximum ||\n        (privateFile && (stat.mode & 0o777) !== 0o600)) throw new Error(\"Invalid owned service metadata\");\n    const bytes = Buffer.alloc(stat.size + 1);\n    let length = 0;\n    while (length < bytes.length) {\n      const read = await handle.read(bytes, length, bytes.length - length, length);\n      if (!read.bytesRead) break;\n      length += read.bytesRead;\n    }\n    if (length !== stat.size) throw new Error(\"Owned service metadata changed\");\n    return bytes.subarray(0, length);\n  } finally {\n    await handle.close();\n  }\n}\n\nasync function runtimeExists(baseDir: string, version: string): Promise<boolean> {\n  const paths = runtimePaths(baseDir, version);\n  try {\n    const layout: unknown = JSON.parse((await readOwnedRuntimeMetadata(\n      NodePath.join(paths.versionDir, \".blackcrab-service-layout.json\"), 1024, true)).toString(\"utf8\"));\n    if (typeof layout !== \"object\" || layout === null || Array.isArray(layout)) return false;\n    const record = layout as Record<string, unknown>;\n    if (Object.keys(record).sort().join(\",\") !== \"manifestSha256,profile,protocol,schema,version\" ||\n        record.schema !== 1 || record.profile !== \"blackcrab-local-service-layout-v1\" ||\n        record.protocol !== SERVICE_LAUNCHER_PROTOCOL || record.version !== version ||\n        typeof record.manifestSha256 !== \"string\" || !/^[a-f0-9]{64}$/.test(record.manifestSha256)) return false;\n    const [entry, sentinel, manifest] = await Promise.all([\n      NodeFSP.lstat(paths.entryPath),\n      readOwnedRuntimeMetadata(paths.sentinelPath, 128, true),\n      readOwnedRuntimeMetadata(NodePath.join(paths.versionDir, \"payload\", \"blackcrab-managed-host.json\"), 64 * 1024 * 1024, false),\n    ]);\n    return entry.isFile() && !entry.isSymbolicLink() && sentinel.toString(\"utf8\").trim() === version &&\n      NodeCrypto.createHash(\"sha256\").update(manifest).digest(\"hex\") === record.manifestSha256;\n  } catch {\n    return false;\n  }\n}"
+        },
+        {
+          "before": "      // Let in-progress updates start replacements first; replacements observe the marker and own pre-activation tunnel cleanup.\n      this.#stopping = true;\n",
+          "after": "      // Let in-progress updates start replacements first; replacements observe the marker and own pre-activation tunnel cleanup.\n      this.#stopping = true;\n      // A preceding transition may have installed a timer after stop was requested.\n      this.#clearTimer();\n"
         }
       ]
     },

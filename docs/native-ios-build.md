@@ -137,9 +137,10 @@ profiles must include that group; the main profile also needs Push Notifications
 Associated Domains and Sign in with Apple. Enabling the App Groups capability
 alone does not associate the group. The currently available App Store Connect
 API key could enable capabilities but could not create/link App Groups; Xcode's
-App Groups lookup returned 401. This account setup is still a release blocker.
-After linking, recheck provisioning: automatic export may still require an
-Apple ID session or explicit profiles if the lookup remains unauthorized.
+App Groups lookup returned 401 until the owner completed the association.
+After that account step, automatic export succeeded and the verifier confirmed
+all required capabilities on the main app and both extensions. Recheck generated
+profiles after changing capabilities rather than accepting a stripped export.
 
 Only after successful export verification does the report record `archived`,
 the explicit build number/team, the embedded

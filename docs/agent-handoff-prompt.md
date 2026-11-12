@@ -24,15 +24,21 @@ worktree. Evidence root:
 Read combined-parity-_s49gx2k/integration-plan.json for local evidence, but older
 keys can be stale; prefer the dated handoff, latest specific result and GitHub.
 Do not adopt PIDs, kill unrelated apps, touch live user databases, or overwrite
-accepted artifacts. No native compile/export is running. The device archive
-passed; corrected export failed on Apple's App Groups API authorization.
-Read the handoff for the reusable archive, exact reports and pending owner action.
+accepted artifacts. No native compile/export is running. The device archive,
+corrected signed export and Apple's validation passed. Upload was received by
+Apple, processing is VALID, and captured shell session 92016 exited successfully.
+Version 1.0.0 (4) is IN_BETA_TESTING and available to the owner's existing tester.
+Read ios-device-release-102m5jw4/apple-submission-result.json and
+testflight-delivery-verification.json before any retry. Upload alone is not
+TestFlight availability; the separate distribution verification now passes.
+Do not submit build 4 again.
 
-Known source state: stage b512cc0ab53d1302694c0bf2965cd4b798f7dcb4.
+Known source state: stage 0165cdd541ed480075aa26d3d74b5fc4dc13fc36.
 Current release worktree: evidence root/ios-device-release-102m5jw4/source,
 branch parity/ios-device-release, with the release helper/configuration changes.
 Its parent directory's release-pr.json records publication when available;
-recheck the actual PR head/checks and preserve the native signing acceptance gate.
+PR #262 had all nine checks pass on 12236e32f03395a39b3e113c81368ce2556f7cf3;
+recheck the final documentation head/checks. Native signing acceptance now passes.
 PR #215 head b4edea278ee710a3de6bdb9fd9778cd722cb8a8a has all nine CI checks
 passing and no conflicts/reviews, but is draft awaiting current bundled Root
 launch/reuse/quit/reattach acceptance. Its watch was stopped. See the handoff
@@ -67,26 +73,33 @@ were verified through the user's EAS account. App Store app 6780360079 and Expo
 project @bonjenn/blackcrab-remote already exist. Build 4 compiled successfully.
 The first unsigned-archive export silently stripped capabilities: DO NOT upload
 that IPA. The corrected helper preserves generated entitlements before automatic
-signing and verifies every capability afterward. Its export is blocked by the
-App Group association; the owner was asked to link group.dev.blackcrab.remote to
-all three bundle IDs. Other capabilities are enabled and verified. Apple's App
-Groups lookup returns 401 with the current API key; cached Apple login is invalid.
-Automatic export may still need a valid Apple ID session or explicit profiles
-after linking. Existing keys remain authorized. No new TestFlight upload is
-asserted. Read the handoff for private signing paths; never print their contents.
+signing and verifies every capability afterward. The owner confirmed the App
+Group association on all three bundle IDs; the next automatic export succeeded.
+Accepted IPA is export-candidate-tHj97G/export/BlackcrabRemote.ipa under the
+archive workspace recorded in the handoff. Build 4 has verified App Groups on
+all targets, production push, Apple sign-in and app.blackcrab.app associated
+domain. Apple validation, processing and internal distribution passed. The old
+automatic Team (Expo) group did not expose the build and rejected manual
+assignment. Blackcrab Internal Release is now a manually distributed internal
+group containing build 4 and the existing account-holder tester; no new tester
+was created. API readback confirms the build is IN_BETA_TESTING and accessible.
+Installation of build 4 on the owner's phone is not yet observed. Read the
+handoff for private signing paths; never print their contents.
 
 Cloud source typecheck and 324 tests pass; hosted app is staged READY on Vercel
-with no aliases promoted. Relay/database are not operational: PlanetScale
-requires the owner's billing verification, and Cloudflare needs the additional
-account_api_tokens:create permission. Both owner questions were asked; the
-five-minute Cloudflare request expired unapproved. Existing keys ARE authorized;
-key rotation is not a prerequisite. Continue independent release work.
+with no aliases promoted. The owner completed PlanetScale billing and approved
+Cloudflare account_api_tokens:create. PR #263 fixed Hyperdrive's connection
+limit to the supported 20 and merged. The database and full relay are deployed;
+https://relay.blackcrab.app/health executes a database query and returns 200.
+OAuth metadata and unauthenticated-access rejection checks pass. See
+cloud-release-latest.json. Sign-in, off-LAN operation and actual push delivery
+remain unverified. Existing keys are authorized; rotation is not a prerequisite.
 
-PR #261 is merged to stage at b512cc0. Immediate work: implement
-and validate device archive/export/TestFlight delivery, reconcile and validate
+PR #261 and #263 are merged. TestFlight 1.0.0 (4) is available to the owner.
+Immediate work: finish PR #262, reconcile and validate
 the current desktop/service stack, finish real workflows and owned cloud access
-using the authorized existing keys, then install the Mac build and confirm processed
-TestFlight tester availability. Follow current tool instructions for PR linking,
+using the authorized existing keys, install the Mac build and verify actual
+physical-device remote flows. Follow current tool instructions for PR linking,
 watching and handoff. No unasked new top-level threads or replacement goals.
 
 Keep AGENTS.md and CLAUDE.md byte-identical within every important directory.

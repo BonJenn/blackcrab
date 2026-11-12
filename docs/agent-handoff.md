@@ -1,6 +1,6 @@
 # Blackcrab parity and release handoff
 
-Snapshot: 2026-11-12 09:26 UTC (2026-11-12 Pacific). This is a continuation checkpoint,
+Snapshot: 2026-11-12 16:16 UTC, after TestFlight delivery. This is a continuation checkpoint,
 not a completion report. Recheck mutable GitHub/account/filesystem facts before
 acting. Root and directory AGENTS.md/CLAUDE.md files are paired guidance.
 
@@ -65,27 +65,34 @@ was stopped. The original guidance worktree is `P/parity-agent-handoff-pzvormc3/
 Current release worktree (W): `P/ios-device-release-102m5jw4/source`, branch
 `parity/ios-device-release`, based on that stage commit. Release evidence (R)
 is its parent `P/ios-device-release-102m5jw4`. Release helper/config/guides are
-published in draft PR https://github.com/BonJenn/blackcrab/pull/262.
+published in PR https://github.com/BonJenn/blackcrab/pull/262. Native release
+acceptance is complete; the final documentation revision needs its own CI result.
 `R/release-pr.json` records the latest published head. Its initial frontend CI
 failure was a stale `assert(!c.owner)` expectation after configuring the verified
 Blackcrab Expo owner. The corrected test requires `bonjenn` and retains the
 disabled-by-default service/update assertions. All 52 activation/root-shell
 tests pass locally using the prepared Node 26.12.1 / Expo 58.0.14 dependency tree.
-Recheck GitHub for the updated CI result; the native export gate remains unmet.
+All nine checks passed on 12236e32f03395a39b3e113c81368ce2556f7cf3 in run
+43192800373, and the signed-export gate subsequently passed. Recheck the latest
+PR head/checks after this handoff update; the old CI watch was stopped.
 
-No native build or export is running. Shell sessions 72436 (compile/first export)
-and 51669 (corrected export) finished. The Release arm64 iphoneos archive passed:
+No native compile, export or upload is running. Apple validation and upload
+passed; captured shell session 92016 exited successfully. Version 1.0.0 (4) is
+VALID and IN_BETA_TESTING, with export compliance complete and access verified
+for the owner's existing tester account. Evidence is
+`R/testflight-delivery-verification.json`. Do not upload build 4 again. The Release
+arm64 iphoneos archive passed:
 `/private/tmp/blackcrab-ios-bDCQj6/artifacts/device-attempt-3/BlackcrabRemote.xcarchive`.
 Prepared workspace: `/private/tmp/blackcrab-ios-bDCQj6`; all 3,380 frozen inputs
 were checked before compilation, with only recorded app.json build-number/team
 overrides. The current helper's producer hash is separate from that snapshot.
 The first exported IPA lost capabilities and must NOT be uploaded. The corrected
-export preserves them but failed provisioning; see the distribution section.
+export passed after the owner linked the App Group; see the distribution section.
 `R/run-verified-export.mjs` copies the successful original archive before using
 the latest helper. `R/current-export.json` names the latest attempt:
-`/private/tmp/blackcrab-ios-bDCQj6/artifacts/export-candidate-Q0L6OJ/`.
-`R/device-export-blocker.json` records three 401 responses specifically from
-Apple's `/xcbuild/v1/appGroups` endpoint. General Apple API access still works.
+`/private/tmp/blackcrab-ios-bDCQj6/artifacts/export-candidate-tHj97G/`.
+`R/device-export-blocker.json` retains the historical 401 responses before the
+owner linked the group; it is superseded by the accepted export report.
 No certificate was revoked. The earlier owned temporary signing keychain was
 cleaned up; the current exporter uses automatic cloud-managed signing without
 importing the P12. Do not terminate unrelated Xcode processes or adopt PIDs.
@@ -97,7 +104,12 @@ not delete shared caches or user data for space.
 
 ## Integrated work and current merge state
 
-Last verified stage: `b512cc0ab53d1302694c0bf2965cd4b798f7dcb4` (including #261).
+Last verified stage: `0165cdd541ed480075aa26d3d74b5fc4dc13fc36` (including #263).
+PR #263 fixed the inherited Hyperdrive pool limit from 40 to the account's
+supported 20; all nine checks passed and it merged. The database, runtime role
+and connection were provisioned, then the complete relay deployed successfully.
+Evidence: `P/cloud-hyperdrive-limit-7xyd6j7j/merged.json` and
+`P/cloud-release-latest.json`. No further watch is active for #263.
 Many mobile/cloud increments through #260 are merged. Not every numbered PR
 is merged: the desktop and background-service chains below remain open.
 
@@ -233,22 +245,24 @@ Do not print credential values or request rotation again as a prerequisite.
 
 Current cloud implementation and deployment evidence:
 
-- Fresh pinned relay source: `/private/tmp/blackcrab-relay-release-47FcSg/blackcrab-managed-source-5YUxF6`.
+- Current deployed relay source: `/private/tmp/blackcrab-hyperdrive-tIMNMT/blackcrab-managed-source-bdMc2N`.
   All 133 source files and 18 patches were verified; frozen install, full
   typecheck and 36 files / 324 tests passed. See its sibling validation/result.json.
 - Private setup directory (C): `/private/tmp/blackcrab-clerk-setup-gjrvqjqi`.
   `run-relay-deployment.py` supports plan/deploy and targeted database modes.
   The full plan passed (24 creates, one zone adoption). Official Alchemy
   planning bootstrapped the encrypted `alchemy-state-store` Worker/Secrets Store.
-- Actual database provisioning failed because PlanetScale could not verify the
-  account's credit card. User was asked to update billing for bonjennprojects;
-  no response yet. Schema generation passed, but no database was created.
-- Cloudflare's refreshed OAuth grant works for Workers, Hyperdrive and Secrets
-  Store. Account token provisioning returns 403: missing account_api_tokens:create.
-  The additional authorization request expired unapproved at 08:14:42 UTC.
-  No new permission was asserted. `C/authorize-cloudflare-provisioning.mjs`
-  issues a fresh request when the owner is ready. Existing-scope refresh uses
-  `C/refresh-cloudflare-existing.mjs`; do not request all authorizations again.
+- The owner updated PlanetScale billing. Database blackcrabconnectrelay and its
+  runtime role were created. Hyperdrive initially rejected 40 connections, then
+  succeeded at 20 with #263. No duplicate database was created.
+- The owner approved account_api_tokens:create at 15:51:51 UTC. Scoped tokens,
+  relay Worker, queues, storage and telemetry resources were then provisioned.
+  `C/relay-deploy-latest.json` reports PASSED. The live relay is
+  https://relay.blackcrab.app; its health endpoint executes SELECT 1 and returns
+  200, OAuth metadata has the owned issuer and DPoP requirement, and an
+  unauthenticated environment request returns 401. See
+  `P/cloud-hyperdrive-limit-7xyd6j7j/relay-live-acceptance.json`.
+  Refresh existing grants when needed; do not ask for completed scopes again.
 - Hosted app was built from current pinned source and uploaded successfully to
   Vercel project blackcrab-app under bonjenns-projects with --prebuilt --prod
   --skip-domain. Deployment `dpl_9hAgt9zC3Zw38ZW1mHfe7FS2qZMh` is READY:
@@ -258,18 +272,18 @@ Current cloud implementation and deployment evidence:
   Evidence: `R/hosted-deployment-verification.json`, `R/hosted-web-artifact`,
   `R/hosted-release-build.json`, `R/hosted-artifact-files.json`.
 
-The relay/database are still not operational, and staged hosted HTML is not
-end-to-end sign-in or remote-control proof. Required live evidence includes
+The relay/database are deployed and basic live checks pass. This and staged
+hosted HTML are not end-to-end sign-in or remote-control proof. Remaining evidence includes
 sign-in, host registration, pairing, off-LAN encrypted agent operations,
 revocation/reconnect and push/background delivery. An existing APNs key for
 team YF28W3NGG6 was found, linked to Blackcrab in EAS, and configured privately
 for production relay use. No notification was sent; live delivery is unverified.
 See `R/apns-preparation.json` and `C/blackcrab-apns.env` (never print its values).
-Continue independent local release work while the two account actions are pending.
+PlanetScale billing and Cloudflare permission are no longer account blockers.
 
 Read only the needed private setup records; never print environment/key files.
 `C/database-current-budget-preflight.json` records live pricing.
-`C/relay-deploy-database-latest.json` records the billing failure;
+`C/relay-deploy-database-latest.json` records successful database/connection setup;
 `D/cloud-provisioning/setup-plan.json` retains setup history. Older rotation
 hold strings are superseded by the user's explicit existing-key authorization.
 
@@ -283,12 +297,16 @@ checkout's target/debug/bundle/macos; do not tell the user these are current.
 Apple/Expo access was verified without asking for new credentials:
 
 - Personal Apple team YF28W3NGG6; existing App Store Connect app 6780360079,
-  Blackcrab Remote, bundle dev.blackcrab.remote. Latest Apple build was 3;
-  this release uses build 4. Do not create a duplicate app.
-- The existing Team (Expo) internal TestFlight group has one tester and access
-  to all builds. Build 3 is processed but expired. The tester matches the account
-  holder and is INSTALLED. Xcode registered the share/widgets identifiers during
-  the first export. No new build has been uploaded.
+  Blackcrab Remote, bundle dev.blackcrab.remote. Version 1.0.0 (4) is now
+  uploaded, processed and available for internal testing. Build 3 is expired.
+  Do not create a duplicate app or reuse build number 4.
+- The existing Team (Expo) automatic group did not expose the new build and
+  rejects explicit assignment. A manual internal group, Blackcrab Internal
+  Release (`e0956911-71d7-4b8e-a339-7c846bd673b7`), now contains build 4 and
+  the existing account-holder tester. No new tester was created. API readback
+  confirms groupHasBuild, accountHolderIsTester and IN_BETA_TESTING. The tester
+  record's INSTALLED state predates this release; installation of build 4 on
+  the user's phone is not yet observed. The old automatic group is unchanged.
 - Existing Expo project @bonjenn/blackcrab-remote,
   33fb14fd-4b87-4e85-920c-b6d4204e4567; account bonjenn already signed in.
 - EAS cached CLI under `/Users/jonathanbenn/.npm/_npx/6bc7bae5c2059953/node_modules/eas-cli`
@@ -313,30 +331,33 @@ with generated capabilities before Xcode export, then checks all capabilities,
 the actual expected certificate/team, all three bundle IDs and build number 4.
 It rejects the real stripped-entitlement regression in the focused tests.
 
-Apple account setup is now the concrete blocker:
+Apple account setup and signed export now pass:
 
 - Main bundle ID `SZ6PPG34P8` and extension IDs `RXPA6QBRK7` / `K4B8S96VB4`
   are registered. Required capabilities were enabled and read back through the
   API: App Groups on all three; Push Notifications, Associated Domains and Sign
   in with Apple on the main app. `R/apple-capabilities-verified.json` records this.
-- The actual `group.dev.blackcrab.remote` association remains pending. Public
-  App Groups API requests return 404; Xcode's private App Groups endpoint returns
-  401 for the existing API key. Restoring the cached Apple login found no valid
-  session. Do not misdiagnose this as an expired key or rotate it blindly.
-- The owner was asked to register that App Group and associate it under App
-  Groups → Configure with dev.blackcrab.remote, dev.blackcrab.remote.sharing,
-  and dev.blackcrab.remote.widgets. No response has arrived. See
-  `R/apple-session-group-result.json` and `R/device-export-blocker.json`.
-- After association, verify regenerated profiles and retry export from a copy
-  of the existing archive. If automatic signing still cannot read App Groups,
-  use an authorized Apple ID session or explicit profiles with the already
-  available team distribution identity; do not strip entitlements to get a pass.
+- The owner confirmed `group.dev.blackcrab.remote` is linked to all three
+  identifiers. Xcode's next automatic export succeeded with the existing key.
+  The prior App Group lookup 401 and invalid profiles are historical failures.
+- Accepted IPA: `/private/tmp/blackcrab-ios-bDCQj6/artifacts/export-candidate-tHj97G/export/BlackcrabRemote.ipa`.
+  SHA-256: `cc350063805b35ab55b78d5225b72b648ca417bf4868a06ca9d3b0be0770d2df`.
+  The sibling build-report.json records verified signatures, all three targets'
+  build number 4 and App Group entitlements, production APS, Apple sign-in and
+  applinks:app.blackcrab.app. The generated non-exempt-encryption flag is false.
 
-`R/submit-device-ipa.mjs` was prepared but NOT RUN; it still points to the old
-failed export and must be updated to the newly verified report before use.
+`R/submit-device-ipa.mjs` now targets the accepted export, rechecks its digest,
+verified targets and unused build number before validation/upload. Apple
+validation and upload passed; `R/apple-submission-result.json` records completion.
+Apple build ID is `0003ebb6-c832-452d-92f9-d3ff9bb0d867`, version 1.0.0 (4),
+processing VALID, non-exempt encryption false. Internal distribution is verified
+in `R/testflight-delivery-verification.json`; the manual release-group setup is
+recorded in `R/testflight-internal-release-group.json`. External beta review has
+not been requested; this delivery is for the owner's internal tester account.
 `R/verify-device-export.mjs` also predates the required expected-entitlements
 argument. Use the current production verifier, not that stale diagnostic script.
-No new IPA upload or TestFlight availability is asserted.
+The owner can open TestFlight → Blackcrab Remote → Install/Update for 1.0.0 (4).
+Physical-device installation, off-LAN control and push delivery remain unverified.
 
 The working production EAS profile now explicitly names the existing Expo
 project, production update channel, App Store app ID and Apple team. Cloud
@@ -348,8 +369,8 @@ Audit the existing `.github/workflows/release.yml`: it creates Tauri installers
 and a draft GitHub release, but must include the reviewed managed host/client
 payloads before it satisfies this parity delivery. Install the resulting current
 Mac app through a reversible replacement and verify its ordinary launch/version.
-Verify Apple processing and availability to the user's tester account after iOS
-upload; an upload acknowledgement alone does not finish TestFlight delivery.
+Future uploads must verify Apple processing and tester access independently;
+build 4 now meets those distribution checks.
 
 Official references consulted:
 [Apple upload/build processing](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds),
@@ -357,14 +378,11 @@ Official references consulted:
 
 ## Immediate continuation order
 
-1. Preserve the completed archive and failed-export evidence. Await the owner's
-   App Group association, then finish profile/export verification without
-   rebuilding npm/Pods or revoking other certificates. No process is running.
+1. TestFlight version 1.0.0 (4) is available to the owner. Preserve the accepted
+   archive/IPA and account evidence; do not rebuild or re-upload this increment.
 2. Publish or update the release implementation/docs PR to stage after validation;
-   link immediately. Keep it draft while real signed-export acceptance
-   is blocked, then merge after that evidence and required checks pass. Submit
-   only the verified IPA using existing Apple/Expo access, then confirm Apple
-   processing and the user's tester access. Never count upload alone.
+   link immediately. Signed-export acceptance is now positive; merge after
+   required checks pass on the final head. Never count upload alone as delivery.
 3. Integrate remaining desktop/service parents in reviewed units, preserving
    all current stage fixes. Rebuild current artifacts as needed and complete
    normal Root/native and independent-host workflows once UI access works.
@@ -372,10 +390,11 @@ Official references consulted:
    agent start/resume/stream/approvals/interrupt/queue, workspace/source-control
    and checkpoints, files/terminal/browser, delegation/goals/schedules and
    settings. Record actual failures, implement fixes and validate each scenario.
-5. Deploy using the authorized existing keys within the approved budget and verify
-   live hosted/relay/off-LAN access and native background/push behavior.
-6. Finish signed Mac packaging/installation and iOS distribution/TestFlight;
-   give the user exact app path/version and TestFlight app/build availability.
+5. Promote/configure the hosted app and verify sign-in, off-LAN access and native
+   background/push behavior against the deployed relay within the approved budget.
+6. Finish signed Mac packaging/installation and physical-device acceptance;
+   give the user the exact Mac app path/version. TestFlight delivery of 1.0.0 (4)
+   is complete; later runtime fixes may require a new build number.
 
 Keep moving on independent work when one gate is blocked. Do not claim full
 parity or shipping readiness by reducing the remaining scenario list.

@@ -21,3 +21,11 @@
            migrations: { dir: schema.out, table: "relay_migrations" },
            replicas: 2,
          }).pipe(RemovalPolicy.retain())
+@@ -80,6 +80,6 @@
+     caching: {
+       disabled: true,
+     },
+-    originConnectionLimit: 40,
++    originConnectionLimit: 20,
+   });
+ });

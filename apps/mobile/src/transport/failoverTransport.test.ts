@@ -96,11 +96,9 @@ describe("FailoverTransport", () => {
     lan.deliver({
       v: 1,
       msg: {
-        type: "pairing_response",
-        code: "ABCDEFGH",
+        type: "auth_response",
         status: "accepted",
         hostId: "host-1",
-        remoteToken: "TOK",
       },
     });
 

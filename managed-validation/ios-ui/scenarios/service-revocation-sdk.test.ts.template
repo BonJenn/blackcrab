@@ -1,0 +1,173 @@
+/** Actual owned native service + shared SDK. No provider turns or native UI. */
+import { it, expect, vi } from 'vitest';
+vi.mock('expo-network', () => ({}));
+vi.mock('expo-file-system/legacy', () => ({ documentDirectory: 'file:///unused/' }));
+vi.mock('expo-secure-store', () => ({}));
+vi.mock('react-native', () => ({ AppState: {}, Platform: { OS: 'ios', Version: '26', isPad: false } }));
+import * as Effect from 'effect/Effect';
+import * as Layer from 'effect/Layer';
+import * as ManagedRuntime from 'effect/ManagedRuntime';
+import * as Schema from 'effect/Schema';
+import * as Option from 'effect/Option';
+import * as Stream from 'effect/Stream';
+import * as Exit from 'effect/Exit';
+import * as Cause from 'effect/Cause';
+import * as SubscriptionRef from 'effect/SubscriptionRef';
+import { OrchestrationV2Command, ProjectId, ProjectMutation, ThreadId, WS_METHODS, ORCHESTRATION_V2_WS_METHODS as methods } from '@t3tools/contracts';
+import { Connection, ConnectionOnboarding, EnvironmentRegistry, EnvironmentSupervisor } from '@t3tools/client-runtime/connection';
+import * as Rpc from '@t3tools/client-runtime/rpc';
+import { makeManagedPlatformLayer } from '../../src/managed/platform';
+import { makeManagedStorageLayer } from '../../src/managed/storage';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { startPackagedHost } from './packaged-host.mjs';
+
+const root = process.env.BLACKCRAB_QA_WORKDIR!;
+if (!root) throw Error('Private workspace required');
+const decode = Schema.decodeUnknownSync(OrchestrationV2Command);
+async function waitFor(check: () => Promise<boolean>, timeout = 45000) {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    if (await check()) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw Error('Owned auth fixture condition deadline');
+}
+
+function client(label: string) {
+  const storage = new Map<string, string>(), cache = new Map<string, string>();
+  const platform = makeManagedPlatformLayer({
+    storageLayer: makeManagedStorageLayer({
+      getItem: async key => storage.get(key) ?? null,
+      setItem: async (key, value) => { storage.set(key, value); },
+      removeItem: async key => { storage.delete(key); },
+    }),
+    cacheBackend: {
+      read: async key => cache.get(key) ?? null,
+      write: async (key, value) => { cache.set(key, value); },
+      remove: async key => { cache.delete(key); },
+      clear: async prefix => { for (const key of cache.keys()) if (key.startsWith(prefix)) cache.delete(key); },
+    },
+    network: { getNetworkStateAsync: async () => ({ isConnected: true, type: 'WIFI' }), addNetworkStateListener: () => ({ remove() {} }) },
+    appState: { currentState: 'active', addEventListener: () => ({ remove() {} }) },
+    presentation: { label, surface: 'mobile', deviceType: 'unknown' },
+  });
+  const runtime = ManagedRuntime.make(Connection.layerWithOptions({ providerCatalogsOnDemand: true }).pipe(Layer.provideMerge(platform)));
+  const services = () => runtime.runPromise(Effect.gen(function* () {
+    return { registry: yield* EnvironmentRegistry.EnvironmentRegistry, onboarding: yield* ConnectionOnboarding.ConnectionOnboarding };
+  }));
+  return { runtime, services };
+}
+
+it('revokes a live client, enforces read-only repair, restores authorized control and persists revocation across restart', async () => {
+  const report: Record<string, unknown> = { passed: false, sdkOnly: true, providerTurnsRequested: 0 };
+  const reportFile = path.join(root, 'artifacts/auth-revocation-result.private.json');
+  const host = await startPackagedHost(path.join(root, 'native-control-host'));
+  const owner = client('Blackcrab revocation owner'), remote = client('Blackcrab revoked SDK client');
+  let phase = 'pair';
+  try {
+    const ownerServices = await owner.services(), remoteServices = await remote.services();
+    const firstGrant = await host.pair(), secondGrant = await host.pair();
+    const id = await owner.runtime.runPromise(ownerServices.onboarding.registerPairing({ pairingUrl: host.origin + 'pair#token=' + firstGrant.credential }));
+    const remoteId = await remote.runtime.runPromise(remoteServices.onboarding.registerPairing({ pairingUrl: host.origin + 'pair#token=' + secondGrant.credential }));
+    expect(remoteId).toBe(id);
+    const connected = (c: typeof owner, s: typeof ownerServices) => waitFor(async () => (await c.runtime.runPromise(s.registry.state(id))).phase === 'connected');
+    await connected(owner, ownerServices); await connected(remote, remoteServices);
+
+    const savedHeaders = async (c: typeof owner, s: typeof ownerServices) => {
+      const auth = await c.runtime.runPromise(s.registry.run(id, Effect.gen(function* () {
+        const supervisor = yield* EnvironmentSupervisor.EnvironmentSupervisor;
+        const prepared = yield* SubscriptionRef.get(supervisor.prepared);
+        if (Option.isNone(prepared)) throw Error('No prepared owned connection');
+        return prepared.value.httpAuthorization;
+      })));
+      if (auth?._tag !== 'Bearer') throw Error('Fixture requires its original bearer session');
+      return { authorization: 'Bearer ' + auth.token };
+    };
+    const ownerHeaders = await savedHeaders(owner, ownerServices), revokedHeaders = await savedHeaders(remote, remoteServices);
+    const authClient = await owner.runtime.runPromise(Rpc.makeEnvironmentHttpApiGroupClient(host.origin, 'auth'));
+    const snapshot = async (c = owner, s = ownerServices) => {
+      const event = await c.runtime.runPromise(s.registry.run(id, Rpc.subscribe(WS_METHODS.subscribeAuthAccess, {}).pipe(Stream.runHead)));
+      if (Option.isNone(event) || event.value.type !== 'snapshot') throw Error('No authoritative auth snapshot');
+      return event.value.payload;
+    };
+    // Use the server's current-session identity, not a presentation label that
+    // can be inherited from the pairing grant or normalized by the server.
+    const remoteAccess = await snapshot(remote, remoteServices);
+    const revokedSession = remoteAccess.clientSessions.filter(value => value.current);
+    expect(revokedSession.length).toBe(1);
+    const sessionId = revokedSession[0]!.sessionId;
+    const authBefore = await snapshot();
+    expect(authBefore.clientSessions.some(value => value.sessionId === sessionId && !value.current)).toBe(true);
+    const projectId = Schema.decodeUnknownSync(ProjectId)(randomUUID()), threadId = Schema.decodeUnknownSync(ThreadId)(randomUUID());
+    const project = Schema.decodeUnknownSync(ProjectMutation)({ type: 'project.create', commandId: randomUUID(), projectId, title: 'Blackcrab auth QA', workspaceRoot: path.join(host.root, 'project'), createWorkspaceRootIfMissing: false });
+    await owner.runtime.runPromise(ownerServices.registry.run(id, Rpc.request(WS_METHODS.projectsMutate, project)));
+    const dispatch = (c: typeof owner, s: typeof ownerServices, command: unknown) => c.runtime.runPromise(s.registry.run(id, Rpc.request(methods.dispatchCommand, decode(command))).pipe(Effect.timeout('15 seconds')));
+    const projection = (c = owner, s = ownerServices) => c.runtime.runPromise(s.registry.run(id, Rpc.request(methods.getThreadProjection, { threadId })).pipe(Effect.timeout('15 seconds')));
+    const rename = (title: string) => ({ type: 'thread.metadata.update', commandId: randomUUID(), threadId, title });
+    phase = 'initial-control';
+    await dispatch(owner, ownerServices, { type: 'thread.create', commandId: randomUUID(), threadId, projectId, title: 'Auth QA initial', modelSelection: { instanceId: 'codex', model: 'gpt-5-codex' }, runtimeMode: 'full-access', interactionMode: 'default', branch: null, worktreePath: null, createdBy: 'user', creationSource: 'mobile' });
+    expect((await projection(remote, remoteServices)).thread.id).toBe(threadId);
+    await dispatch(remote, remoteServices, rename('Auth QA before revoke'));
+    expect((await projection()).thread.title).toBe('Auth QA before revoke');
+    report.initialRemoteReadAndControl = true;
+
+    phase = 'revoke';
+    const revoked = await owner.runtime.runPromise(authClient.revokeClient({ headers: ownerHeaders, payload: { sessionId } }));
+    expect(revoked.revoked).toBe(true);
+    expect((await snapshot()).clientSessions.some(value => value.sessionId === sessionId)).toBe(false);
+    await waitFor(async () => (await remote.runtime.runPromise(remoteServices.registry.state(id))).phase === 'blocked');
+    expect((await owner.runtime.runPromise(authClient.session({ headers: revokedHeaders }))).authenticated).toBe(false);
+    const ticketDenied = await owner.runtime.runPromise(Effect.exit(authClient.webSocketTicketFor({ headers: revokedHeaders, params: { use: 'rpc' } })));
+    expect(Exit.isFailure(ticketDenied)).toBe(true);
+    await expect(dispatch(remote, remoteServices, rename('Must not persist after revoke'))).rejects.toThrow();
+    expect((await projection()).thread.title).toBe('Auth QA before revoke');
+    report.liveSessionBlocked = true; report.revokedHttpAuthenticationRejected = true; report.revokedRpcTicketRejected = true; report.revokedMutationAbsent = true;
+
+    const repair = async (scopes: readonly ['orchestration:read'] | readonly ['orchestration:read', 'orchestration:operate']) => {
+      const grant = await owner.runtime.runPromise(authClient.pairingCredential({ headers: ownerHeaders, payload: { label: 'Blackcrab owned repair', scopes } }));
+      const repairedId = await remote.runtime.runPromise(remoteServices.onboarding.registerPairing({ pairingUrl: host.origin + 'pair#token=' + grant.credential, expectedEnvironmentId: id }));
+      expect(repairedId).toBe(id); await connected(remote, remoteServices);
+      const entries = await remote.runtime.runPromise(SubscriptionRef.get(remoteServices.registry.entries));
+      expect(entries.size).toBe(1);
+    };
+    phase = 'read-only-repair';
+    await repair(['orchestration:read']);
+    expect((await projection(remote, remoteServices)).thread.id).toBe(threadId);
+    // Deliberately use bare RPC, without the client presentation guard, to test host enforcement.
+    const forbidden = await remote.runtime.runPromise(Effect.exit(remoteServices.registry.run(id, Rpc.request(methods.dispatchCommand, decode(rename('Must not persist with read-only scope'))))).pipe(Effect.timeout('15 seconds')));
+    expect(Exit.isFailure(forbidden)).toBe(true);
+    if (Exit.isFailure(forbidden)) expect(Cause.pretty(forbidden.cause)).toMatch(/orchestration:operate|scope|forbidden|authoriz/i);
+    expect((await projection()).thread.title).toBe('Auth QA before revoke');
+    report.repairPreservedEnvironmentAndCatalog = true; report.readOnlyRepairCanRead = true; report.readOnlyMutationRejectedByHost = true;
+
+    phase = 'authorized-repair';
+    await repair(['orchestration:read', 'orchestration:operate']);
+    await dispatch(remote, remoteServices, rename('Auth QA authorized repair'));
+    await dispatch(remote, remoteServices, { type: 'thread.archive', commandId: randomUUID(), threadId });
+    expect((await projection()).thread.title).toBe('Auth QA authorized repair');
+    expect((await projection()).thread.archivedAt).not.toBeNull();
+    report.authorizedRepairRestoredControl = true;
+
+    phase = 'restart';
+    await host.restart(); await connected(owner, ownerServices); await connected(remote, remoteServices);
+    const retained = await projection(remote, remoteServices);
+    expect(retained.thread.title).toBe('Auth QA authorized repair'); expect(retained.thread.archivedAt).not.toBeNull();
+    expect(retained.runs).toEqual([]); expect(retained.providerSessions).toEqual([]);
+    expect((await owner.runtime.runPromise(authClient.session({ headers: revokedHeaders }))).authenticated).toBe(false);
+    report.restartRetainedAuthorizedSessionAndMetadata = true; report.revocationSurvivedServiceRestart = true;
+    report.zeroRuns = true; report.zeroProviderSessions = true; report.passed = true;
+  } catch (error) {
+    report.failurePhase = phase;
+    await fs.writeFile(path.join(root, 'failure.private.txt'), String(error instanceof Error ? error.stack : error), { mode: 0o600 });
+    throw Error('Owned service auth acceptance failed; private diagnostic retained');
+  } finally {
+    try { await remote.runtime.dispose(); } finally {
+      try { await owner.runtime.dispose(); } finally {
+        await host.close(); report.capturedHostClosed = true;
+        await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });
+      }
+    }
+  }
+}, 900_000);

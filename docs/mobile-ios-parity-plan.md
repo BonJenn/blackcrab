@@ -403,6 +403,48 @@ An owned Expo project, a newly built update-enabled binary, actual update/rollba
 delivery and persisted-state/device acceptance remain open. Earlier simulator
 results used update-disabled binaries. These source tests do not close those gates.
 
+### Service revocation and scoped pairing recovery (2026-11-11)
+
+Two original shared SDK clients passed revocation and recovery against the actual
+current native service. Revoking the remote session blocked its live connection,
+HTTP authentication, RPC-ticket creation and further edits. Pairing the same
+environment with a read-only grant preserved one catalog entry and allowed reads;
+the host rejected a bare-RPC edit without relying on the client permission guard.
+A fresh operate grant restored rename/archive. After a service restart, the
+authorized client retained the edited metadata and the old credential remained
+revoked. No runs or provider sessions were created, and all captured owners closed.
+
+See the [SDK result](../managed-validation/ios-ui/current-service-sdk-revocation-result.json)
+and [executed source template](../managed-validation/ios-ui/scenarios/service-revocation-sdk.test.ts.template).
+The native storage/network/app-state ports in this scenario were test adapters.
+This does not establish native UI recovery, live relay access, OAuth/DPoP/replay,
+other revoke endpoints, physical devices or complete permission coverage.
+
+### Native revocation and pairing recovery (2026-11-11)
+
+The installed combined Release and current service profile passed six native UI
+phases: baseline pairing, upgrade retention with rename/archive, holding the live
+environment, displaying revoked authentication in expanded diagnostics, pairing
+again, and rename/archive after recovery. The app stayed running across revocation
+and re-pairing. The scenario checked and acknowledged the original app's exact
+legacy-permission notice for its sole host; no system permission dialog was handled.
+
+The independent SDK confirmed a new session with exactly `orchestration:read` and
+`orchestration:operate`, one environment, remote metadata visibility, and native
+control of the same original thread. All six phases and both pairing-form canaries
+passed with zero failures/skips, and 30 controller checks passed. The captured
+service owner closed both epochs, the owned simulators shut down, and no runs or
+provider sessions were created. App/configuration and legacy digests were unchanged;
+the legacy queue was empty. Earlier failed harness attempts remain excluded.
+
+See the [native result](../managed-validation/ios-ui/current-service-revocation-result.json),
+[executed Swift source](../managed-validation/ios-ui/scenarios/service-revocation.swift)
+and [independent SDK observer](../managed-validation/ios-ui/scenarios/service-revocation-observer.test.ts.template).
+The UI test uses detailed diagnostics because the summary row does not expose its
+status to accessibility; that gap remains open. This is the update-disabled local
+combined candidate, not merged-stage, live cloud, physical-device, populated
+migration, all-permissions or complete parity certification.
+
 ### Authenticated manual pairing
 
 Legacy manual pairing now accepts a desktop address and code, performs the LAN

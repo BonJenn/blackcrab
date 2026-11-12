@@ -79,9 +79,10 @@ used inert fixtures with zero provider runs; keep real provider evidence separat
 Keep secret values out of logs, assertions, reports, Git and chat. In particular,
 do not deep-compare or print environment objects containing credentials.
 Use the available private-secret mechanism when a credential is needed.
-An unresolved Clerk rotation blocks cloud deployment; consult the current
-handoff before using existing cloud configuration. Preserve the user's approved
-budget and completed account authorizations; do not request them again blindly.
+The user explicitly authorized using the existing cloud credentials on
+2026-11-12, superseding the earlier Clerk rotation hold. Use them privately
+within the approved budget. Preserve completed account authorizations; do not
+request them again blindly.
 
 ## Handoffs and continuity
 

@@ -29,4 +29,5 @@ User intent now includes installing the Mac app and publishing to their
 TestFlight. Complete build/review/validation work and use that authorization;
 do not add a redundant approval stop for routine release steps. Escalate only
 an actual missing account action, legal agreement or new spending decision.
-Keep cloud deployment separate while the recorded Clerk rotation is unresolved.
+The user explicitly authorized existing cloud credentials on 2026-11-12;
+the earlier Clerk rotation hold no longer blocks deployment.

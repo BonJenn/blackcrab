@@ -7,13 +7,20 @@ Do not interpolate credentials or user paths into shell command strings.
 Preserve the main dirty checkout and shared installed dependency trees.
 Native builds should use exact committed source snapshots and owned work areas.
 
-`prepare-mobile-ios.mjs` currently prepares/builds a standalone arm64 simulator
-Release using physical whitespace-free staging, the locked npm graph, recorded
-native patches/resources and an iOS 18 pod floor. Its isolated environment
-intentionally excludes account credentials. A generic device destination alone
-does not change its explicit iphonesimulator SDK or ad-hoc signing policy.
-Implement a deliberate device archive/export path for TestFlight; do not label
-a simulator product as an IPA or quietly inject signing secrets into snapshots.
+`prepare-mobile-ios.mjs` prepares/builds a standalone arm64 simulator Release
+or an explicit iphoneos archive/App Store IPA. Both use physical whitespace-free
+staging, locked npm inputs, recorded native patches/resources and an iOS 18 pod
+floor. The build environment excludes account credentials; device export accepts
+explicit owner-only signing files outside the source snapshot. Compile the
+archive unsigned, preserve generated capabilities with ad-hoc archive signatures,
+then use Xcode distribution export. Verify the expected certificate, team,
+app/extension bundle IDs, build numbers and every generated entitlement.
+Automatic export selects its certificate; the supplied SHA-1 verifies the result.
+Do not accept an IPA that lost push, app groups, sign-in or hosted-link entitlements.
+App Group capability enablement and actual group association are separate steps.
+Do not substitute a simulator artifact for a device release. No export implies
+upload, Apple processing or TestFlight availability. Preserve failed logs and
+reuse a verified prepared workspace for signing-only corrections.
 
 `tauri-build.mjs` and managed-native resource helpers package the normal Mac
 root. Preserve complete opaque payload archives, framework links and exact pins.

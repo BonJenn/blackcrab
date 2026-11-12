@@ -221,6 +221,145 @@ export function simulatorReleaseBuildArguments({ workspace, scheme, destination,
   return ['-workspace', workspace, '-scheme', scheme, '-configuration', 'Release', '-sdk', 'iphonesimulator', '-destination', destination, '-derivedDataPath', derivedData, '-jobs', '2', 'ARCHS=arm64', 'ONLY_ACTIVE_ARCH=YES', 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=', 'build'];
 }
 
+/** Device distribution uses an explicit team and private signing inputs outside the source snapshot. */
+export function deviceSigningArguments({ teamId, appleApiKeyPath, appleApiKeyId, appleApiIssuerId, certificateSha1 }) {
+  if (!/^[A-Z0-9]{10}$/.test(teamId ?? '') || !/^[A-Z0-9]{10}$/.test(appleApiKeyId ?? '') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(appleApiIssuerId ?? '')) throw new Error('Device archives require an explicit Apple team and App Store Connect API key identifiers.');
+  if (!/^[0-9A-F]{40}$/i.test(certificateSha1 ?? '')) throw new Error('Device archives require the SHA-1 of the intended distribution certificate.');
+  for (const input of [appleApiKeyPath]) {
+    if (typeof input !== 'string' || !path.isAbsolute(input) || /[\s"'\\]/.test(input)) throw new Error('Device signing inputs must use absolute whitespace-free paths.');
+  }
+  return ['-allowProvisioningUpdates', '-authenticationKeyPath', appleApiKeyPath, '-authenticationKeyID', appleApiKeyId, '-authenticationKeyIssuerID', appleApiIssuerId];
+}
+
+export function deviceArchiveArguments({ workspace, scheme, derivedData, archivePath, signing }) {
+  deviceSigningArguments(signing);
+  return ['-workspace', workspace, '-scheme', scheme, '-configuration', 'Release', '-sdk', 'iphoneos', '-destination', 'generic/platform=iOS', '-derivedDataPath', derivedData, '-archivePath', archivePath, '-jobs', '2',
+    'ARCHS=arm64', 'ONLY_ACTIVE_ARCH=NO', 'CODE_SIGNING_ALLOWED=NO', 'DEVELOPMENT_TEAM=' + signing.teamId, 'archive'];
+}
+
+export function deviceExportOptions(teamId) {
+  if (!/^[A-Z0-9]{10}$/.test(teamId ?? '')) throw new Error('An explicit Apple team is required for export.');
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>' +
+    '<key>method</key><string>app-store-connect</string><key>destination</key><string>export</string>' +
+    '<key>teamID</key><string>' + teamId + '</string><key>signingStyle</key><string>automatic</string>' +
+    '<key>manageAppVersionAndBuildNumber</key><false/><key>stripSwiftSymbols</key><true/><key>uploadSymbols</key><true/>' +
+    '</dict></plist>\n';
+}
+
+async function validateDeviceSigning(signing, sourceRepo) {
+  deviceSigningArguments(signing);
+  const source = await fs.realpath(sourceRepo);
+  for (const input of [signing.appleApiKeyPath]) {
+    const stat = await fs.lstat(input), physical = await fs.realpath(input);
+    if (!stat.isFile() || physical !== input || inside(source, physical)) throw new Error('Signing inputs must be physical files outside the source repository.');
+    if ((stat.mode & 0o077) !== 0) throw new Error('Signing inputs must be accessible only to their owner.');
+  }
+}
+
+/** Archive an already prepared private workspace, then sign and verify the exported IPA. */
+export async function archivePreparedMobileIos({ report, signing, env, run, artifactDirectory = path.join(report.stage, 'artifacts') }) {
+  const mobile = path.join(report.repo, 'apps/mobile');
+  await validateDeviceSigning(signing, report.repo);
+  await fs.mkdir(artifactDirectory, { recursive: true });
+  report.archivePath = path.join(artifactDirectory, 'BlackcrabRemote.xcarchive');
+  report.nativeBuild = { sdk: 'iphoneos', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: false, jobs: 2, metroWorkers: 2 };
+  await run('device-archive', 'xcodebuild', deviceArchiveArguments({ workspace: report.workspace, scheme: report.scheme, derivedData: report.derivedData, archivePath: report.archivePath, signing: signing }), mobile, 60 * 60_000);
+  const products = path.join(report.archivePath, 'Products/Applications');
+  const apps = (await fs.readdir(products)).filter(name => name.endsWith('.app'));
+  if (apps.length !== 1) throw new Error('Expected one archived device application.');
+  report.deviceApp = path.join(products, apps[0]);
+  const bundle = await fs.readFile(path.join(report.deviceApp, 'main.jsbundle'));
+  if (bundle.subarray(0, 8).toString('hex') !== 'c61fbc03c103191f') throw new Error('Device archive must contain the standalone Hermes bundle.');
+  report.hermesBundle = { bytes: bundle.length, sha256: hash(bundle) };
+  const bundleId = (await execute('plutil', ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', path.join(report.deviceApp, 'Info.plist')], { env })).stdout.trim();
+  if (bundleId !== 'dev.blackcrab.remote') throw new Error('Device archive bundle ID differs.');
+  await exportMobileIosArchive({ report, signing, env, run, artifactDirectory });
+}
+
+/** Preserve generated capabilities in an ad-hoc archive before Xcode distribution signing. */
+export async function exportMobileIosArchive({ report, signing, env, run, artifactDirectory }) {
+  await validateDeviceSigning(signing, report.repo);
+  const mobile = path.join(report.repo, 'apps/mobile');
+  const targets = [
+    { name: 'expo-sharing-extension', bundleId: 'dev.blackcrab.remote.sharing', target: path.join(report.deviceApp, 'PlugIns/expo-sharing-extension.appex') },
+    { name: 'ExpoWidgetsTarget', bundleId: 'dev.blackcrab.remote.widgets', target: path.join(report.deviceApp, 'PlugIns/ExpoWidgetsTarget.appex') },
+    { name: report.scheme, bundleId: 'dev.blackcrab.remote', target: report.deviceApp },
+  ];
+  const expectedEntitlements = {};
+  for (const { name, bundleId, target } of targets) {
+    const identifier = (await execute('plutil', ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', path.join(target, 'Info.plist')], { env })).stdout.trim();
+    if (identifier !== bundleId) throw new Error('Archived app or extension identifier differs.');
+    const file = path.join(mobile, 'ios', name, name + '.entitlements');
+    const configured = JSON.parse((await execute('plutil', ['-convert', 'json', '-o', '-', file], { env })).stdout);
+    if (!configured['com.apple.security.application-groups']?.includes('group.dev.blackcrab.remote')) throw new Error('Generated app-group entitlement is missing.');
+    expectedEntitlements[bundleId] = { ...configured, ...(configured['aps-environment'] ? { 'aps-environment': 'production' } : {}) };
+  }
+  // An unsigned export otherwise silently loses the generated capabilities.
+  // Sign inner frameworks first, then extensions and the containing app.
+  const frameworks = path.join(report.deviceApp, 'Frameworks');
+  for (const name of await fs.readdir(frameworks)) {
+    if (name.endsWith('.framework') || name.endsWith('.dylib')) await run('archive-framework-entitlements', 'codesign', ['--force', '--sign', '-', '--timestamp=none', path.join(frameworks, name)], mobile);
+  }
+  for (const { name, target } of targets) await run('archive-app-entitlements', 'codesign', ['--force', '--sign', '-', '--timestamp=none', '--entitlements', path.join(mobile, 'ios', name, name + '.entitlements'), target], mobile);
+  report.expectedEntitlements = expectedEntitlements;
+  const exportOptions = path.join(artifactDirectory, 'ExportOptions.plist');
+  await fs.writeFile(exportOptions, deviceExportOptions(signing.teamId));
+  report.exportPath = path.join(artifactDirectory, 'export');
+  await run('export-archive', 'xcodebuild', ['-exportArchive', '-archivePath', report.archivePath, '-exportPath', report.exportPath, '-exportOptionsPlist', exportOptions, ...deviceSigningArguments(signing)], mobile, 30 * 60_000);
+  const ipas = (await fs.readdir(report.exportPath)).filter(name => name.endsWith('.ipa'));
+  if (ipas.length !== 1) throw new Error('Expected one App Store distribution IPA.');
+  const ipa = path.join(report.exportPath, ipas[0]), bytes = await fs.readFile(ipa);
+  report.ipa = { path: ipa, bytes: bytes.length, sha256: hash(bytes) };
+  report.archiveSigning = 'ad-hoc capability preservation; Xcode applies automatic distribution signing during IPA export';
+  report.exportedApplication = await verifyExportedDeviceIpa({ ipa, directory: path.join(artifactDirectory, 'export-verification'), signing, env, expectedBuildNumber: report.buildNumber, expectedEntitlements });
+  report.signing = { teamId: signing.teamId, certificateSha1: signing.certificateSha1, method: 'app-store-connect', style: 'automatic', bundleId: 'dev.blackcrab.remote', uploaded: false };
+}
+
+export function verifyDistributionEntitlements(actual, { teamId, bundleId, configured }) {
+  if (actual['application-identifier'] !== teamId + '.' + bundleId || actual['get-task-allow'] !== false || !actual['com.apple.security.application-groups']?.includes('group.dev.blackcrab.remote')) throw new Error('Exported distribution entitlements differ.');
+  for (const [key, value] of Object.entries(configured)) {
+    const present = actual[key];
+    if (Array.isArray(value) ? !Array.isArray(present) || value.some(item => !present.includes(item)) : present !== value) throw new Error('Exported distribution entitlement missing or changed: ' + key);
+  }
+}
+
+/** Verify the distribution product, including extension identity and non-debug entitlements. */
+export async function verifyExportedDeviceIpa({ ipa, directory, signing, env, expectedBuildNumber, expectedEntitlements }) {
+  if (!/^[1-9][0-9]{0,8}$/.test(expectedBuildNumber ?? '')) throw new Error('Expected distribution build number is required.');
+  if (!expectedEntitlements || ['dev.blackcrab.remote', 'dev.blackcrab.remote.sharing', 'dev.blackcrab.remote.widgets'].some(id => !expectedEntitlements[id])) throw new Error('Generated entitlement expectations are required for all targets.');
+  await fs.mkdir(directory);
+  await execute('ditto', ['-x', '-k', ipa, directory], { env });
+  const payload = path.join(directory, 'Payload');
+  const apps = (await fs.readdir(payload)).filter(name => name.endsWith('.app'));
+  if (apps.length !== 1) throw new Error('Expected one exported application.');
+  const app = path.join(payload, apps[0]);
+  await execute('codesign', ['--verify', '--deep', '--strict', app], { env });
+  const plugins = path.join(app, 'PlugIns');
+  const extensions = (await fs.readdir(plugins)).filter(name => name.endsWith('.appex')).map(name => path.join(plugins, name));
+  const expected = new Set(['dev.blackcrab.remote', 'dev.blackcrab.remote.sharing', 'dev.blackcrab.remote.widgets']);
+  const verified = [];
+  for (const target of [app, ...extensions]) {
+    const bundleId = (await execute('plutil', ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', path.join(target, 'Info.plist')], { env })).stdout.trim();
+    if (!expected.delete(bundleId)) throw new Error('Unexpected or duplicate exported bundle identifier.');
+    const identity = await execute('codesign', ['-d', '--verbose=4', target], { env });
+    if (!identity.stderr.split('\n').includes('TeamIdentifier=' + signing.teamId)) throw new Error('Exported signing team differs.');
+    const certificatePrefix = path.join(directory, bundleId + '.certificate');
+    await execute('codesign', ['-d', '--extract-certificates=' + certificatePrefix, target], { env });
+    const certificateSha1 = createHash('sha1').update(await fs.readFile(certificatePrefix + '0')).digest('hex').toUpperCase();
+    if (certificateSha1 !== signing.certificateSha1.toUpperCase()) throw new Error('Exported distribution certificate differs.');
+    const entitlements = await execute('codesign', ['-d', '--entitlements', ':-', target], { env });
+    const file = path.join(directory, bundleId + '.entitlements.plist');
+    await fs.writeFile(file, entitlements.stdout, { mode: 0o600 });
+    const decoded = JSON.parse((await execute('plutil', ['-convert', 'json', '-o', '-', file], { env })).stdout);
+    verifyDistributionEntitlements(decoded, { teamId: signing.teamId, bundleId, configured: expectedEntitlements[bundleId] });
+    const buildNumber = (await execute('plutil', ['-extract', 'CFBundleVersion', 'raw', '-o', '-', path.join(target, 'Info.plist')], { env })).stdout.trim();
+    if (buildNumber !== expectedBuildNumber) throw new Error('Exported app or extension build number differs.');
+    verified.push({ bundleId, buildNumber, certificateSha1, entitlementsVerified: true });
+  }
+  if (expected.size) throw new Error('The exported app is missing a required extension.');
+  return { path: app, targets: verified, distributionSignaturesVerified: true };
+}
+
 /** Explicit caches must already exist outside the source repo; npm receives the canonical path. */
 export async function resolveNpmCache(stageRoot, sourceRepo, requested) {
   const source = await fs.realpath(sourceRepo);
@@ -239,11 +378,21 @@ export async function prepareMobileIos(options = {}) {
   if (process.platform !== 'darwin') throw new Error('Native iOS preparation requires macOS and installed Xcode/CocoaPods.');
   if(process.version!=='v26.12.1')throw new Error('Native SDK58 preparation requires Node 26.12.1.');
   const { mode = 'prepare', destination = 'generic/platform=iOS Simulator' } = options;
-  if (!['prepare', 'build'].includes(mode)) throw new Error('Use --mode prepare or --mode build.');
+  if (!['prepare', 'build', 'archive'].includes(mode)) throw new Error('Use --mode prepare, build or archive.');
+  if (mode === 'archive') {
+    if (options.destination) throw new Error('Device archives use the generic iOS destination.');
+    await validateDeviceSigning(options.signing ?? {}, options.repoRoot ?? defaultRepo);
+    if (!/^[1-9][0-9]{0,8}$/.test(options.buildNumber ?? '')) throw new Error('Device archives require a positive --build-number chosen from App Store Connect.');
+  }
   const stage = await createSourceSnapshot(options), mobile = path.join(stage.repo, 'apps/mobile');
   const env = isolatedBuildEnvironment(stage.root);
+  if (mode === 'archive') {
+    const configPath = path.join(mobile, 'app.json'), config = JSON.parse(await fs.readFile(configPath, 'utf8'));
+    config.expo.ios = { ...config.expo.ios, buildNumber: options.buildNumber, appleTeamId: options.signing.teamId };
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
+  }
   await Promise.all([fs.mkdir(env.HOME), fs.mkdir(env.TMPDIR), fs.writeFile(env.NPM_CONFIG_USERCONFIG, '', { mode: 0o600 }), fs.writeFile(env.NPM_CONFIG_GLOBALCONFIG, '', { mode: 0o600 })]);
-  const report = { schemaVersion: 1, mode, stage: stage.root, repo: stage.repo, sourceManifest: path.join(stage.root, 'artifacts/source-manifest.json'), logs: path.join(stage.root, 'logs'), status: 'running', executedOnDevice: false };
+  const report = { schemaVersion: 1, mode, stage: stage.root, repo: stage.repo, sourceManifest: path.join(stage.root, 'artifacts/source-manifest.json'), logs: path.join(stage.root, 'logs'), status: 'running', executedOnDevice: false, ...(mode === 'archive' ? { buildNumber: options.buildNumber, appConfigOverrides: { ios: { buildNumber: options.buildNumber, appleTeamId: options.signing.teamId } } } : {}) };
   const reportPath = path.join(stage.root, 'artifacts/build-report.json');
   await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
   const npmCommand=options.npmCli?process.execPath:'npm';
@@ -284,27 +433,31 @@ export async function prepareMobileIos(options = {}) {
     if (workspaces.length !== 1) throw new Error('Expected one generated iOS workspace.');
     report.workspace = path.join(mobile, 'ios', workspaces[0]); report.scheme = workspaces[0].slice(0, -'.xcworkspace'.length);
     report.podfileLockSha256 = hash(await fs.readFile(path.join(mobile, 'ios/Podfile.lock')));
-    if (mode === 'build') {
+    if (mode === 'build' || mode === 'archive') {
       report.entryFile = await resolveNativeEntry(stage.repo);
       env.ENTRY_FILE = report.entryFile;
       const parent = options.derivedDataParent ? await fs.realpath(options.derivedDataParent) : stage.root;
       report.derivedData = await fs.mkdtemp(path.join(parent, 'blackcrab-ios-derived-'));
-      report.nativeBuild = { sdk: 'iphonesimulator', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: true, jobs: 2, metroWorkers: 2 };
-      report.nativeBuild.arguments = simulatorReleaseBuildArguments({ workspace: report.workspace, scheme: report.scheme, destination, derivedData: report.derivedData });
-      await run('xcodebuild', 'xcodebuild', report.nativeBuild.arguments, mobile, 60 * 60_000);
-      report.products = path.join(report.derivedData, 'Build/Products/Release-iphonesimulator');
-      const apps = (await fs.readdir(report.products)).filter(name => name.endsWith('.app'));
-      if (apps.length !== 1) throw new Error('Expected one simulator application product.');
-      report.simulatorApp = path.join(report.products, apps[0]);
-      const bundlePath = path.join(report.simulatorApp, 'main.jsbundle');
-      const bundle = await fs.readFile(bundlePath);
-      if (bundle.subarray(0, 8).toString('hex') !== 'c61fbc03c103191f') throw new Error('Expected an embedded standalone Hermes product bundle.');
-      report.hermesBundle = { path: bundlePath, bytes: bundle.length, sha256: hash(bundle) };
-      await run('codesign-verify', 'codesign', ['--verify', '--deep', '--strict', report.simulatorApp], mobile);
-      report.signing = 'Xcode ad-hoc simulator signing; not distribution signing';
+      if (mode === 'build') {
+        report.nativeBuild = { sdk: 'iphonesimulator', configuration: 'Release', architectures: ['arm64'], onlyActiveArch: true, jobs: 2, metroWorkers: 2 };
+        report.nativeBuild.arguments = simulatorReleaseBuildArguments({ workspace: report.workspace, scheme: report.scheme, destination, derivedData: report.derivedData });
+        await run('xcodebuild', 'xcodebuild', report.nativeBuild.arguments, mobile, 60 * 60_000);
+        report.products = path.join(report.derivedData, 'Build/Products/Release-iphonesimulator');
+        const apps = (await fs.readdir(report.products)).filter(name => name.endsWith('.app'));
+        if (apps.length !== 1) throw new Error('Expected one simulator application product.');
+        report.simulatorApp = path.join(report.products, apps[0]);
+        const bundlePath = path.join(report.simulatorApp, 'main.jsbundle');
+        const bundle = await fs.readFile(bundlePath);
+        if (bundle.subarray(0, 8).toString('hex') !== 'c61fbc03c103191f') throw new Error('Expected an embedded standalone Hermes product bundle.');
+        report.hermesBundle = { path: bundlePath, bytes: bundle.length, sha256: hash(bundle) };
+        await run('codesign-verify', 'codesign', ['--verify', '--deep', '--strict', report.simulatorApp], mobile);
+        report.signing = 'Xcode ad-hoc simulator signing; not distribution signing';
+      } else {
+        await archivePreparedMobileIos({ report, signing: options.signing, env, run });
+      }
     }
     const swiftPins=path.join(report.workspace,'xcshareddata/swiftpm/Package.resolved');try{const bytes=await fs.readFile(swiftPins);report.swiftPackagePins=JSON.parse(bytes);report.swiftPackagePinsSha256=hash(bytes);}catch(error){if(error.code!=='ENOENT')throw error;}
-    report.status = mode === 'build' ? 'built' : 'prepared';
+    report.status = mode === 'archive' ? 'archived' : mode === 'build' ? 'built' : 'prepared';
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
     return { ...report, reportPath };
   } catch (error) {
@@ -317,9 +470,10 @@ export async function prepareMobileIos(options = {}) {
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   const { values } = parseArgs({ options: {
     mode: { type: 'string', default: 'prepare' }, 'include-working-tree': { type: 'boolean', default: false },
+    'build-number': { type: 'string' }, 'team-id': { type: 'string' }, 'signing-certificate': { type: 'string' }, 'apple-api-key-path': { type: 'string' }, 'apple-api-key-id': { type: 'string' }, 'apple-api-issuer-id': { type: 'string' },
     'npm-cli': { type: 'string' }, 'npm-cache': { type: 'string' }, 'staging-parent': { type: 'string' }, 'derived-data-parent': { type: 'string' }, destination: { type: 'string' },
   } });
   try {
-    console.log(JSON.stringify(await prepareMobileIos({ mode: values.mode, includeWorkingTree: values['include-working-tree'], npmCli: values['npm-cli'], npmCache: values['npm-cache'], stagingParent: values['staging-parent'], derivedDataParent: values['derived-data-parent'], destination: values.destination }), null, 2));
+    console.log(JSON.stringify(await prepareMobileIos({ mode: values.mode, includeWorkingTree: values['include-working-tree'], npmCli: values['npm-cli'], npmCache: values['npm-cache'], stagingParent: values['staging-parent'], derivedDataParent: values['derived-data-parent'], destination: values.destination, buildNumber: values['build-number'], signing: { teamId: values['team-id'], certificateSha1: values['signing-certificate'], appleApiKeyPath: values['apple-api-key-path'], appleApiKeyId: values['apple-api-key-id'], appleApiIssuerId: values['apple-api-issuer-id'] } }), null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

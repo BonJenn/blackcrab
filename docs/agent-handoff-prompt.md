@@ -24,9 +24,15 @@ worktree. Evidence root:
 Read combined-parity-_s49gx2k/integration-plan.json for local evidence, but older
 keys can be stale; prefer the dated handoff, latest specific result and GitHub.
 Do not adopt PIDs, kill unrelated apps, touch live user databases, or overwrite
-accepted artifacts. No heavy build/native fixture was active at the checkpoint.
+accepted artifacts. No native compile/export is running. The device archive
+passed; corrected export failed on Apple's App Groups API authorization.
+Read the handoff for the reusable archive, exact reports and pending owner action.
 
-Known source state: stage f69c62951e868d69a13ed0712f2e4fb448538638.
+Known source state: stage b512cc0ab53d1302694c0bf2965cd4b798f7dcb4.
+Current release worktree: evidence root/ios-device-release-102m5jw4/source,
+branch parity/ios-device-release, with the release helper/configuration changes.
+Its parent directory's release-pr.json records publication when available;
+recheck the actual PR head/checks and preserve the native signing acceptance gate.
 PR #215 head b4edea278ee710a3de6bdb9fd9778cd722cb8a8a has all nine CI checks
 passing and no conflicts/reviews, but is draft awaiting current bundled Root
 launch/reuse/quit/reattach acceptance. Its watch was stopped. See the handoff
@@ -46,25 +52,40 @@ UI acceptance. Old QA apps in the repo are not the latest installed build.
 Cloud: blackcrab.app is owned; public delegation now uses Cloudflare's beau and
 khloe nameservers. Vercel/Clerk/Cloudflare/R2/Axiom authorizations were completed.
 Do not ask for those again blindly. Budget: at most $30/month base plus metered;
-reviewed small database/Workers quote approximately $20/month. Deployment is
-blocked by rotation/revocation of the previously exposed production Clerk key.
-The user most recently said they will do that later. Respect that deferral;
-continue independent work and request the replacement only through private input
-when they are ready. Never log environments/secrets or publish credentials.
+reviewed small database/Workers quote approximately $20/month. On 2026-11-12
+the user explicitly instructed using the existing credentials, superseding the
+earlier Clerk rotation hold. Continue deployment with the private stored keys.
+Never log environments/secrets or publish credentials. Existing intended Apple
+team push credentials were also linked/configured privately; no APNs delivery
+proof or new key creation is asserted.
 
 Release: Node 26.12.1, npm 12.2.2; upstream producers pnpm 12.14.0. Mobile is
 Expo58/RN0.88/React19.3 with iOS18 minimum; root React is19.1. Existing iOS
-helper builds an arm64 simulator Release, not a TestFlight device archive.
-Personal Apple team YF28W3NGG6 has a local Developer ID identity; no Blackcrab
-iOS distribution profile was found. Do not use an unrelated organization's
-distribution identity. Expo state is signed in as bonjenn. GitHub already has
-Apple API/signing and Tauri updater secret names configured. Check available
-access before asking for credentials; never export secret values for diagnosis.
+helper now adds explicit iphoneos archive/export; 19 helper tests pass.
+Existing Apple team YF28W3NGG6, distribution certificate and submission API key
+were verified through the user's EAS account. App Store app 6780360079 and Expo
+project @bonjenn/blackcrab-remote already exist. Build 4 compiled successfully.
+The first unsigned-archive export silently stripped capabilities: DO NOT upload
+that IPA. The corrected helper preserves generated entitlements before automatic
+signing and verifies every capability afterward. Its export is blocked by the
+App Group association; the owner was asked to link group.dev.blackcrab.remote to
+all three bundle IDs. Other capabilities are enabled and verified. Apple's App
+Groups lookup returns 401 with the current API key; cached Apple login is invalid.
+Automatic export may still need a valid Apple ID session or explicit profiles
+after linking. Existing keys remain authorized. No new TestFlight upload is
+asserted. Read the handoff for private signing paths; never print their contents.
 
-Immediate work: finish paired guidance PR #261/checkpoint if pending, implement
+Cloud source typecheck and 324 tests pass; hosted app is staged READY on Vercel
+with no aliases promoted. Relay/database are not operational: PlanetScale
+requires the owner's billing verification, and Cloudflare needs the additional
+account_api_tokens:create permission. Both owner questions were asked; the
+five-minute Cloudflare request expired unapproved. Existing keys ARE authorized;
+key rotation is not a prerequisite. Continue independent release work.
+
+PR #261 is merged to stage at b512cc0. Immediate work: implement
 and validate device archive/export/TestFlight delivery, reconcile and validate
 the current desktop/service stack, finish real workflows and owned cloud access
-once the Clerk blocker clears, then install the Mac build and confirm processed
+using the authorized existing keys, then install the Mac build and confirm processed
 TestFlight tester availability. Follow current tool instructions for PR linking,
 watching and handoff. No unasked new top-level threads or replacement goals.
 

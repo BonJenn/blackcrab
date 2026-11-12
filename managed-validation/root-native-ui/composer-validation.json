@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "sourceComponent": "apps/web/src/components/chat/ChatComposer.tsx",
+  "componentSha256": "9a4ad628b6e39bbd3d5b5b1e857364e6a045d231a469d7d0cd3a9439eda7ca09",
+  "sourcePatch": "composer-availability-reason",
+  "fullWebTypecheck": true,
+  "productionWebBuild": true,
+  "checks": {
+    "web-typecheck": {
+      "exitCode": 0,
+      "logSha256": "13b984a78cb7af07d5a09291430332c5e80b67c854c789274973b7a5e114d887"
+    },
+    "web-build": {
+      "exitCode": 0,
+      "logSha256": "4e5c849ee257f0aa5f103225d01d95ce08c909b4a81a25730e6d6b7c0025d2c8"
+    }
+  },
+  "nativeRuntimeFixVerified": false,
+  "testScope": "One shared composer component; no authorization, provider execution, submission handlers, or persistence changes"
+}

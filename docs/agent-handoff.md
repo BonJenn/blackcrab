@@ -64,10 +64,14 @@ was stopped. The original guidance worktree is `P/parity-agent-handoff-pzvormc3/
 
 Current release worktree (W): `P/ios-device-release-102m5jw4/source`, branch
 `parity/ios-device-release`, based on that stage commit. Release evidence (R)
-is its parent `P/ios-device-release-102m5jw4`. Release helper/config/guides live
-on this branch. This checkpoint precedes publication; `R/release-pr.json` will
-record the PR URL and head after publication. Recheck Git and GitHub for its
-current status; the native export gate remains unmet.
+is its parent `P/ios-device-release-102m5jw4`. Release helper/config/guides are
+published in draft PR https://github.com/BonJenn/blackcrab/pull/262.
+`R/release-pr.json` records the latest published head. Its initial frontend CI
+failure was a stale `assert(!c.owner)` expectation after configuring the verified
+Blackcrab Expo owner. The corrected test requires `bonjenn` and retains the
+disabled-by-default service/update assertions. All 52 activation/root-shell
+tests pass locally using the prepared Node 26.12.1 / Expo 58.0.14 dependency tree.
+Recheck GitHub for the updated CI result; the native export gate remains unmet.
 
 No native build or export is running. Shell sessions 72436 (compile/first export)
 and 51669 (corrected export) finished. The Release arm64 iphoneos archive passed:

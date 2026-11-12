@@ -32,13 +32,15 @@ test('active root uses one sticky activation and retains full App while native l
  assert.doesNotMatch(legacy,/new MobileQueueClient|queueClient\.dispose\(/);
  assert(legacy.includes('loadStoredHosts')); assert(!app.includes('src/managed/native'));
 });
-test('own configuration keeps self-hosted native capabilities and own extension identity without upstream account activation', async () => {
+test('owned Expo account preserves self-hosted defaults and native extension identities', async () => {
  const {expo:c}=JSON.parse(await fs.readFile(new URL('../app.json',import.meta.url)));
  assert.deepEqual(c.scheme,['blackcrab-remote','blackcrab']); assert.equal(c.ios.bundleIdentifier,'dev.blackcrab.remote');
  assert.equal(c.orientation,'default'); assert.equal(c.ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads,true);
  assert(c.ios.infoPlist.UIBackgroundModes.includes('audio')); assert(c.ios.infoPlist.NSPhotoLibraryAddUsageDescription);
  assert(c.ios.infoPlist['UISupportedInterfaceOrientations~ipad'].includes('UIInterfaceOrientationLandscapeLeft'));
- assert(!c.ios.appleTeamId); assert(!c.ios.associatedDomains); assert(!c.owner); assert(!c.extra.eas); assert.equal(c.updates.enabled,false); assert(!c.updates.url);
+ // Naming our Expo owner is release metadata, not activation of hosted services.
+ assert.equal(c.owner,'bonjenn');
+ assert(!c.ios.appleTeamId); assert(!c.ios.associatedDomains); assert(!c.extra.eas); assert.equal(c.updates.enabled,false); assert(!c.updates.url);
  const plugins=new Map(c.plugins.map(p=>Array.isArray(p)?p:[p,{}]));
  assert.equal(plugins.get('expo-sharing').ios.appGroupId,'group.dev.blackcrab.remote');
  assert.equal(plugins.get('expo-widgets').bundleIdentifier,'dev.blackcrab.remote.widgets');

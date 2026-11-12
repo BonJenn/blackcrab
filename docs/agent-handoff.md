@@ -1,6 +1,6 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — 2026-11-12 20:41 UTC
+## Current continuation checkpoint — 2026-11-12 21:24 UTC
 
 This section supersedes historical live-state claims below. The owner prioritizes
 background-service integration and a signed update for an existing Blackcrab app
@@ -22,6 +22,7 @@ not complete. TestFlight 1.0.0 (4) is already available to the owner.
   cargo check, 13 QA denial tests, 6 service-owner tests and the debug QA binary.
 - Actual Root UI acceptance is **blocked, not passed**. CUA returned
   `-10005 cgWindowNotFound` for both the fresh bundle ID and its exact app path.
+  Fresh Finder captures also failed with the same error on the #265 and #266 wakes.
   App diagnostics reported one visible, non-minimized 2200×1560 window; that does
   not establish visual acceptance. The owner answered they are away.
 - The captured Root controller was stopped cooperatively and exited 0. All
@@ -36,14 +37,17 @@ not complete. TestFlight 1.0.0 (4) is already available to the owner.
 
 P = `/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes`.
 R = `P/desktop-delivery-m6ki1jlt`; W = `R/source`.
-Branch: `parity/desktop-delivery-integration`. Last base before the reviewed local
-fixes: `1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c`; fixes are now committed as
-`4d88e5f`. Stage a528266 is merged, preserving its 57 mobile branding adapters and
-these newer handoffs (merge a3035e9). Resolve current HEAD/status before continuing. All 17 desktop/service stack tips are ancestors (stack-ancestry-review.json).
-The draft integration PR URL, head and latest check state are recorded in
-`R/integration-pr.json`; verify that local pointer and GitHub before acting.
-Native acceptance still gates final merge/delivery.
-Latest verified origin/stage: `a52826650a0c080421e8c1c6db5ab29cddba0c13` (#264).
+Branch: `parity/desktop-delivery-integration`. PR #265 remains OPEN/DRAFT.
+Its previous head `4a635c7f73ef8945b395f227bf0a9905be36a745` passed all nine
+checks with no review threads/comments. The branch is now incorporating merged
+stage `49bedbd8196575ee0b1280c9d80803657b29159b` (#266); read
+`R/integration-pr.json` for the resulting head and current CI/watch state.
+Only both handoff files conflicted; they were resolved with the newer evidence.
+The 17 service-producer inputs and patch graph still match the real signed build;
+6 focused freeze/profile checks pass (1 optional fixture skipped), and the merged
+mobile consumer verifies 23 packages / 3,170 files. Native lifecycle acceptance
+still gates final merge/delivery. Do not merge merely because CI is green.
+All 17 original desktop/service stack tips remain ancestors.
 
 Do not change/reset/clean/switch/stage-all the main dirty checkout at
 `/Volumes/G-DRIVE PRO/Programming/blackcrab`. Last verified main index SHA256:
@@ -86,7 +90,8 @@ archive only with real lifecycle acceptance for the exact committed stage source
 The service-only resource-map omission is fixed; its actual service regression
 passed 1/1, not just a fixture. Focused integration checks passed 18 with one
 opt-in skipped. Portable release/resource suite passed 23 with three opt-in skipped.
-Actual notarized resource roundtrip separately passed. Required PR CI is pending.
+Actual notarized resource roundtrip separately passed. All nine required PR checks passed on the previous head 4a635c7; the stage
+refresh must pass its own CI before any final merge.
 
 `release.yml` is now explicitly dispatched: managed Apple-silicon is default,
 legacy root-only is an explicit alternative. Tag creation no longer triggers the
@@ -96,8 +101,8 @@ GitHub updater secret only in the intended Tauri job. Its updater metadata check
 rejects stale non-arm64 entries or wrong signatures/URLs. The final release stays
 DRAFT. This workflow has not yet produced a release; never claim otherwise.
 
-Next: inspect R/integration-pr.json; create the draft only if still absent,
-otherwise act on its current CI results. Actionlint 1.7.12 passes
+Next: keep #265 draft until the actual native lifecycle is accepted. Inspect
+R/integration-pr.json and current GitHub before any merge. Actionlint 1.7.12 passes
 both workflows; 24 launcher/QA/freeze tests pass after the integration fixes. While capture is unavailable, independent release review
 can continue. When native UI is available, verify first launch, service enable,
 ready state, Electron open/reuse, normal quit with host survival, reopen retaining
@@ -123,9 +128,62 @@ Export: `/private/tmp/blackcrab-ios-Rymkpu/artifacts/branding-update-export`.
 It is NOT published. Actual bundle audit found 27 T3 Connect / 36 T3 Code byte
 occurrences in shared runtime. Read the mobile parent's
 `runtime-product-copy-findings.json` and `update-export-artifact-audit.json`.
-A recorded shared-client consumer patch is next after desktop release priority;
-no followup worktree/edit exists. Preserve genuine third-party T3 Chat/GitHub App
-identities, licenses and protocols. Never hand-edit vendor inventories.
+The follow-up is implemented in `P/mobile-shared-product-copy-lymbt5zd/source`,
+branch `parity/mobile-shared-product-copy`. PR #266 merged into stage as
+`49bedbd8196575ee0b1280c9d80803657b29159b` after all nine checks passed and
+no reviews/comments remained. It is unwatched. The mobile checkout fast-forwarded
+to that stage merge; only synchronized handoff edits remain afterward. Do not
+create another PR for the already merged product-copy source.
+
+There are 24 recorded shared-runtime copy patches. Connection/relay errors,
+project actions, schemas and provider settings use Blackcrab names. The inherited
+paid T3 Chat upsell is removed; the error reports the actual maximum and unlink
+recovery action. No quota enforcement or paid tier was invented. Genuine T3 Chat
+and T3 Code for GitHub integration names, protocols and schema URLs remain.
+The consumer now reconstructs type/cloud/copy layers in order and retains the
+earliest authenticated original when cloud and copy overlap on promptLinks.ts.
+
+Fresh preparation: `/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/mobile-shared-copy-1hvp4u1l/preparation`;
+its sibling `consumer` was independently verified and copied to the isolated
+worktree. Current consumer verification: 23 packages / 3,170 files. Generated
+mobile UI: 3,237 files. The previous consumer is retained at the parent
+`previous-consumer`. Do not hand-edit any vendor manifest.
+
+All 87 scoped experience/activation tests pass (83 passed initially; the four
+compiler failures were local dependency setup, then all five compiler tests
+passed using the current physical dependency tree). Mobile tsc --noEmit passes.
+The new graph-wide literal audit finds no unexpected T3 Code/Connect/Account
+product text in reachable shared packages. Evidence: parent
+`consumer-generation-result.json`, `mobile-experience-retry-tests.log`,
+`react-compiler-current-tests.log`, `mobile-typecheck.log`, `generated-ui.log`.
+Dependency links are private/read-only and point @t3tools to current source;
+shared caches and the dirty main index remain unchanged. No native app/host/
+simulator or build is active. The original consumer-generation handle was lost
+in compaction; imported-thread recovery returned thread_not_found. Its complete
+output verified twice and a read-only command check found no running build.
+No process control was recovered from PIDs.
+
+Actual current export is now complete from merged stage 49bedbd, in a fresh
+physical source/dependency copy. Original captured exporter handle 22724 exited 0;
+no app or simulator was launched and nothing was published. Exact source,
+dependency, private-log and output paths are recorded in parent
+`shared-copy-export-result.json`. Script: `export-shared-copy.mjs`.
+Export root: `/private/tmp/blackcrab-ios-4AS02K/artifacts/shared-copy-export`.
+Hermes bundle: `_expo/static/js/ios/index-68db308912533f7c7d59071c5b5904b9.hbc`,
+23,309,236 bytes, SHA256
+`937094df9fef008f0cebf2ae66d6d1fe6a9f44eb25b70e8c7f51eb6d08bb9d44`.
+Native runtime exactly matches accepted TestFlight build 4:
+`2cbb84d9fbdb180f1af5bfe3e049108c47d628cb`.
+Actual byte audit passes: Blackcrab Account 1, Blackcrab Connect 37, Blackcrab
+Remote 5; T3 Account/account and T3 Connect 0; T3 Code 1, exactly the genuine
+T3 Code for GitHub name. The inherited paid-tier upsell is absent. Audit script
+`audit-current-export.mjs` and `current-bundle-audit.json` preserve the evidence.
+
+Next mobile gate: validate a compatible installed update, retained drafts/outbox,
+reconnect and rollback on an owned test installation before production OTA.
+Follow docs/mobile-updates.md. Matching source/runtime and successful Hermes
+export do NOT prove download, installation, retention or native acceptance.
+Do not publish the historical Rymkpu export; this fresh export supersedes it.
 
 TestFlight 1.0.0 (4): VALID / IN_BETA_TESTING, owner available in Blackcrab Internal
 Release. App 6780360079, bundle dev.blackcrab.remote, team YF28W3NGG6,
@@ -147,7 +205,8 @@ other files there can contain secrets. Legal/privacy/terms/security pages remain
 404 and public-release work is unfinished.
 Accepted product model: free local/self-hosted open source, public endpoints,
 invite-only hosted beta, then server-enforced entitlements/quotas/cost controls.
-HS01–HS06 are planned, not implemented; read docs/hosted-service-plan.md.
+HS01–HS06 are planned, not implemented; read the desktop worktree
+`R/source/docs/hosted-service-plan.md` (awaiting integration through #265).
 
 Keep paired guides byte-identical and both handoffs current. No new unasked
 agents/threads/goals. Control only original captured children, never recovered PIDs.

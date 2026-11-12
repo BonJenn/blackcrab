@@ -6222,8 +6222,8 @@
     },
     {
       "path": "packages/client-runtime/src/authorization/service.ts",
-      "bytes": 22277,
-      "sha256": "3a90b39889a8b6af94bcecfe0bef69217adbc80ede95f87f3b34970fb1f253ba",
+      "bytes": 22284,
+      "sha256": "f8df52087c5113f49e44cfec37d1c82a4d95800e88cd55161faa9fa402894cf3",
       "runtime": true
     },
     {
@@ -6258,8 +6258,8 @@
     },
     {
       "path": "packages/client-runtime/src/connection/compatibility.ts",
-      "bytes": 1813,
-      "sha256": "e47f9a38d5fe27fd72734e8bb0a5ac8d90d381ae263eba217201adc7441109fd",
+      "bytes": 1815,
+      "sha256": "f049fec8bb6f45eeb5c6fdc7bb68d9fa5ccde41b0884fd9bb7dafe53b091a85b",
       "runtime": true
     },
     {
@@ -6276,8 +6276,8 @@
     },
     {
       "path": "packages/client-runtime/src/connection/diagnosis.ts",
-      "bytes": 13421,
-      "sha256": "05112c1bce26de0a4474ca7698f3a62f7520fdae6ad90e40acbfe0d063382f95",
+      "bytes": 13553,
+      "sha256": "473e4c7b289c272cc953d83456c1928c294d5a858fca32616376bf2b3144e8e6",
       "runtime": true
     },
     {
@@ -6294,8 +6294,8 @@
     },
     {
       "path": "packages/client-runtime/src/connection/hostFreeze.ts",
-      "bytes": 856,
-      "sha256": "c1bb25805d7a9b91d27363c808f36952bd9cf087c85be3540cd5186838821a78",
+      "bytes": 858,
+      "sha256": "832758f4df69fa1de7fc57bde95be0dbf7ac9b479844bc775cb0cbb402a09ab6",
       "runtime": true
     },
     {
@@ -6324,8 +6324,8 @@
     },
     {
       "path": "packages/client-runtime/src/connection/outdatedHostUpdate.ts",
-      "bytes": 9798,
-      "sha256": "d5f19df55bd57f7d6bde215aaa6ddca9f903ea99ed885953db6ab62d85a4449d",
+      "bytes": 9802,
+      "sha256": "79d9beaabba889d3bbcacfc3053b118a7eb92deb0dd8b6f2397d6bc0c8cc6860",
       "runtime": true
     },
     {
@@ -6360,8 +6360,8 @@
     },
     {
       "path": "packages/client-runtime/src/connection/routes.ts",
-      "bytes": 16043,
-      "sha256": "f4a2fb5060f6d15463c26dec7922ea0b53d5311ab715831e5dc6fdb7113ae451",
+      "bytes": 16050,
+      "sha256": "e050541edbcb122b1db253b13843f1a57e21a1b909ff4d9751e2ef3aacc7eb58",
       "runtime": true
     },
     {
@@ -6450,8 +6450,8 @@
     },
     {
       "path": "packages/client-runtime/src/errors/network.ts",
-      "bytes": 351,
-      "sha256": "e34a85a940fcb5ff7812bad4c2c5ef3d40555ee7150d55619ad8c5bb0f0ecbd5",
+      "bytes": 358,
+      "sha256": "e4844861abae41a03d29536b546b4f0951c40ba446161cc4f015aa2bfede90a6",
       "runtime": true
     },
     {
@@ -6726,8 +6726,8 @@
     },
     {
       "path": "packages/client-runtime/src/relay/errorPresentation.ts",
-      "bytes": 5637,
-      "sha256": "db151917f60d581db7ffaf250dce9a4d3f7fa4fd6c5fcebb3c4b204f626e20c7",
+      "bytes": 5235,
+      "sha256": "be159a1ddf8128c82cae93e9523c6d3f4b937d3cdcd7440ffae1e41f197794b1",
       "runtime": true
     },
     {
@@ -6744,8 +6744,8 @@
     },
     {
       "path": "packages/client-runtime/src/relay/managedRelayState.ts",
-      "bytes": 13791,
-      "sha256": "d5913e5c63cd1a670d8556ab48e79f379c2e32e5439c37852e4747c7bc1b2a21",
+      "bytes": 13826,
+      "sha256": "672b75888bfe1b8723bc7a3f99fe3ba2b7002d546e21df72e050bf88e4b8ba1d",
       "runtime": true
     },
     {
@@ -6978,8 +6978,8 @@
     },
     {
       "path": "packages/client-runtime/src/state/peerPairingCode.ts",
-      "bytes": 3860,
-      "sha256": "b2f1b3a5075956f2f7508f422bf6db5803c1c9f0c10ae4b59de66614e1c076c5",
+      "bytes": 3862,
+      "sha256": "0431f0dbe0fe08675bba1a91df6d58ba5a684a967a9f4e77110ca9d3953a2233",
       "runtime": true
     },
     {
@@ -7020,8 +7020,8 @@
     },
     {
       "path": "packages/client-runtime/src/state/projectRemoval.ts",
-      "bytes": 2607,
-      "sha256": "c0fcc6fe8706c66dc9cc7b876e481f59ace70949cd6111c4323ebcd44817272a",
+      "bytes": 2611,
+      "sha256": "ad5b6eecf290b2c132cf26d1a525d0784c80b6b5ed76c02d432347ce49040160",
       "runtime": true
     },
     {
@@ -7038,8 +7038,8 @@
     },
     {
       "path": "packages/client-runtime/src/state/pullRequestDiffHttp.ts",
-      "bytes": 3734,
-      "sha256": "9a4130c962ad85dd8ae2f384502c005bdaf597ba8d2473376f39fdbc5b82c9a1",
+      "bytes": 3736,
+      "sha256": "ef5350f55e1a52caff2992419dcb9f5a9dbbba785ca5f20b4d663eae4ab84d48",
       "runtime": true
     },
     {
@@ -7254,8 +7254,8 @@
     },
     {
       "path": "packages/client-runtime/src/state/threadRequests.ts",
-      "bytes": 15370,
-      "sha256": "d89b405674b865b1c77073165b6a0807f47565e477a971af3ff5f29075ccd291",
+      "bytes": 15372,
+      "sha256": "874806d4795463b2ddbebed70fb1429b9cc991804c0c2f7adb9c316488795a78",
       "runtime": true
     },
     {
@@ -7470,8 +7470,8 @@
     },
     {
       "path": "packages/client-runtime/src/webhookAddress.ts",
-      "bytes": 1064,
-      "sha256": "0683d829300df0390731c7cb29868040df8afc638a725528538ba816d006fef7",
+      "bytes": 1085,
+      "sha256": "3838fc403b2315dfc882170acaa0d296c024f2b40bfbf47185caf0d38367a3b8",
       "runtime": true
     },
     {
@@ -7584,8 +7584,8 @@
     },
     {
       "path": "packages/contracts/src/browserImport.ts",
-      "bytes": 3742,
-      "sha256": "6b67409b749cac6522ff945c759d0ab79abb2ffa14d1ef22de6bc75eb819b87f",
+      "bytes": 3744,
+      "sha256": "3e5a91b6987dafac79c921e9d8fc3ffc0c741196dc7f815b73518842eb3409fd",
       "runtime": true
     },
     {
@@ -7680,8 +7680,8 @@
     },
     {
       "path": "packages/contracts/src/guestShare.ts",
-      "bytes": 6182,
-      "sha256": "b77e7d798b3c27327f0edee835c2bfca5978ad391b5cef9a94c648850fe0fc5c",
+      "bytes": 6189,
+      "sha256": "e7a5920ef956fa6c827e4f2d788cf4cfff9b9eaabc9944fda5bf7a86fa2dd542",
       "runtime": true
     },
     {
@@ -7710,8 +7710,8 @@
     },
     {
       "path": "packages/contracts/src/managedPolicy.ts",
-      "bytes": 10942,
-      "sha256": "1773adae5c5dd92015190ff564a29f5727765a8f475788a1b753ecbdee1c77a9",
+      "bytes": 10951,
+      "sha256": "729acd64f65eb90b1551d73fafe699cc50eba2e412776c56c88de71c2e32f211",
       "runtime": true
     },
     {
@@ -7758,8 +7758,8 @@
     },
     {
       "path": "packages/contracts/src/orchestratorMcp.ts",
-      "bytes": 35732,
-      "sha256": "a1a1f5ffc84c5cc151947db666069a440f1f4f15c96cdd6dabfbc0b9bae826d1",
+      "bytes": 35746,
+      "sha256": "d067820f2c08beaf0bceeb062a47ab970450967adc86df6c011090dfb2819707",
       "runtime": true
     },
     {
@@ -7770,8 +7770,8 @@
     },
     {
       "path": "packages/contracts/src/preview.ts",
-      "bytes": 14055,
-      "sha256": "d93c13bf3c0510629d61cce4249192cc083b3849d00c7e9f2c4abd70b1d4fb3d",
+      "bytes": 14057,
+      "sha256": "d8d974121afc7229628222ce7713734b8f7c48479b383b4d71f19f85325f74ac",
       "runtime": true
     },
     {
@@ -7848,8 +7848,8 @@
     },
     {
       "path": "packages/contracts/src/relay.ts",
-      "bytes": 50418,
-      "sha256": "94ff0570c801adf8fe72ecf17f812e19d8100acc8aa13eece8c44c7265f5ce3b",
+      "bytes": 50427,
+      "sha256": "c3062226c04b53bc4fbe8ef27eb0ae7eb311b2335a87c664a7810b88ca858646",
       "runtime": true
     },
     {
@@ -7932,8 +7932,8 @@
     },
     {
       "path": "packages/contracts/src/t3ProjectFile.ts",
-      "bytes": 5790,
-      "sha256": "efabd7fb41fb38d401169eb661cea698acb679f899ead6b490f02cb57f083fea",
+      "bytes": 5806,
+      "sha256": "8abcb7a1640078231716f8cf8ed9bc504693dc62806d64e704de5c3bed985171",
       "runtime": true
     },
     {
@@ -8094,8 +8094,8 @@
     },
     {
       "path": "packages/provider-opencode/src/settings.ts",
-      "bytes": 1943,
-      "sha256": "c099678ca063d76c4652f0fbcea4309e8089d3b9dfe76ff3ba255ecea0e95723",
+      "bytes": 1945,
+      "sha256": "0f801554a5b18af3847e5d042b395dc671af5436e6f575526243a344ca37e95d",
       "runtime": true
     },
     {
@@ -8478,8 +8478,8 @@
     },
     {
       "path": "packages/shared/src/promptLinks.ts",
-      "bytes": 8365,
-      "sha256": "e8effa152f7821f6c7e19a7db6d938abd561494315b4326d8d06f8a026a6d732",
+      "bytes": 8373,
+      "sha256": "45513c67400f7728966bdf18662bfc6c5bf73663a43acde9af1a2ef751f1621f",
       "runtime": true
     },
     {
@@ -8658,8 +8658,8 @@
     },
     {
       "path": "packages/shared/src/usageLimits.ts",
-      "bytes": 33110,
-      "sha256": "f183c8bbd0c438f06e6033b9e6355951c9ad906663c79aaf6cd9ef5fbf526889",
+      "bytes": 33112,
+      "sha256": "7d7798af947605589b1fc30b013de7cb2676ea09679ae785e0afed8af748abbd",
       "runtime": true
     },
     {
@@ -180796,22 +180796,7 @@
       "from": "packages/client-runtime/src/relay/errorPresentation.ts",
       "specifier": "@t3tools/contracts/relay",
       "kind": "import",
-      "typeOnly": false,
-      "line": 2,
-      "resolutionMode": "runtime",
-      "to": "packages/contracts/src/relay.ts",
-      "workspace": "@t3tools/contracts",
-      "exportKey": "./relay",
-      "conditions": [
-        "import"
-      ],
-      "fromPackage": "@t3tools/client-runtime"
-    },
-    {
-      "from": "packages/client-runtime/src/relay/errorPresentation.ts",
-      "specifier": "@t3tools/contracts/relay",
-      "kind": "import",
-      "typeOnly": false,
+      "typeOnly": true,
       "line": 2,
       "resolutionMode": "types",
       "to": "packages/contracts/src/relay.ts",

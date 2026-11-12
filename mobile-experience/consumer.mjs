@@ -5,7 +5,8 @@ import {UPSTREAM} from '../managed-host/artifact.mjs';
 import { analyzeMobileExperience } from './graph.mjs';
 import { analyzeMobileSlice } from '../shared-runtime/graph.mjs';
 import { applySharedSourcePatches } from '../shared-runtime/patches.mjs';
-import { applyMobileCloudSourcePatches, mobileCloudPatchDescriptors, validateMobileCloudSourcePatch } from './cloud-source-patches.mjs';
+import { applyMobileCloudSourcePatches, mobileCloudPatchDescriptors, mobileCloudPatchedBytes } from './cloud-source-patches.mjs';
+import { applyProductCopyPatches, productCopyDescriptors, productCopyPatchedBytes } from './product-copy-patches.mjs';
 import { verifyExperienceExport, resolveExperienceDependencies, inventoryExperience } from './export.mjs';
 const digest = b => createHash('sha256').update(b).digest('hex');
 const serialize = x => JSON.stringify(x, null, 2) + '\n';
@@ -92,7 +93,15 @@ export async function prepareExperienceConsumers({ preparation, output }) {
         await fs.cp(path.join(preparation, 'source'), source, { recursive: true, errorOnExist: true });
         const typePatches = await applySharedSourcePatches(source);
         const cloudPatches = await applyMobileCloudSourcePatches(source);
-        const patches = { patches: [...typePatches.patches, ...cloudPatches.patches], originals: [...typePatches.originals, ...cloudPatches.originals] };
+        const copyPatches = await applyProductCopyPatches(source);
+        const patches = { patches: [...typePatches.patches, ...cloudPatches.patches, ...copyPatches.patches], originals: [] };
+        // Preserve the authenticated original once. Later layers (such as copy
+        // over owned app links) are reconstructed from the preceding patch.
+        const originals = new Map();
+        for (const group of [typePatches, cloudPatches, copyPatches]) for (const file of group.originals) {
+            if (!originals.has(file.path)) originals.set(file.path, file);
+        }
+        patches.originals = [...originals.values()];
         const graph = unionConsumerGraphs(analyzeMobileExperience(source, { includeGeneratedInputs: true }), analyzeMobileSlice(source));
         const inventory = JSON.parse(await fs.readFile(path.join(preparation, 'RESOURCE-INVENTORY.json'), 'utf8'));
         const lock = resolveExperienceDependencies(await fs.readFile(path.join(source, 'pnpm-lock.yaml'), 'utf8'), graph.packages, inventory.nativeModules);
@@ -184,8 +193,8 @@ export async function verifyExperienceConsumers(root) {
     const graph = JSON.parse(await fs.readFile(path.join(root, 'IMPORT-GRAPH.json'), 'utf8')), changes = JSON.parse(await fs.readFile(path.join(root, 'CONSUMER-CHANGES.json'), 'utf8')), lock = JSON.parse(await fs.readFile(path.join(root, 'DEPENDENCY-LOCK.json'), 'utf8'));
     const expectedFolders = [...originalPackageFolders, 'apps/mobile'].sort();
     if (serialize(graph.packages.map(p => p.folder).sort()) !== serialize(expectedFolders))throw new Error('Consumer package roots differ from original preparation');
-    const cloudDescriptors = await mobileCloudPatchDescriptors();
-    if(changes.sourcePatches?.length!==1+cloudDescriptors.length||changes.sourcePatches[0].target!=='packages/client-runtime/src/rpc/session.ts'||changes.sourcePatches[0].id!=='rpc-send-parameter-types'||serialize(changes.sourcePatches.slice(1))!==serialize(cloudDescriptors))throw new Error('Unexpected consumer source patches');
+    const runtimeDescriptors = [...await mobileCloudPatchDescriptors(), ...await productCopyDescriptors()];
+    if(changes.sourcePatches?.length!==1+runtimeDescriptors.length||changes.sourcePatches[0].target!=='packages/client-runtime/src/rpc/session.ts'||changes.sourcePatches[0].id!=='rpc-send-parameter-types'||serialize(changes.sourcePatches.slice(1))!==serialize(runtimeDescriptors))throw new Error('Unexpected consumer source patches');
     if(changes.packageManifests?.length!==originalPackageFolders.length)throw new Error('Consumer manifest change count differs');
     for(const change of changes.packageManifests)if(!originalPackageFolders.some(folder=>change.path===folder+'/package.json')||change.originalPath!=='original-manifests/'+change.path||!paths.has(change.originalPath))throw new Error('Unsafe consumer original manifest path');
     for(const file of graph.files)if(!paths.has(file.path))throw new Error('Unsafe consumer graph file path');
@@ -220,13 +229,19 @@ export async function verifyExperienceConsumers(root) {
             throw new Error('Consumer graph source mismatch');
     }
     const { validateSharedSourcePatch } = await import('../shared-runtime/patches.mjs');
+    const reconstructed = new Map();
     for (const [index, patch] of changes.sourcePatches.entries()) {
-        const before = await fs.readFile(path.join(root, 'original-files', patch.target));
-        const after = await fs.readFile(path.join(root, patch.target));
-        if (digest(before) !== preparation.files.find(file => file.path === 'source/' + patch.target)?.sha256) throw new Error('Patched original source provenance mismatch');
-        if (index === 0) validateSharedSourcePatch(before, after, patch);
-        else await validateMobileCloudSourcePatch(before, after, patch);
+        const before = reconstructed.get(patch.target) ?? await fs.readFile(path.join(root, 'original-files', patch.target));
+        if (!reconstructed.has(patch.target) && digest(before) !== preparation.files.find(file => file.path === 'source/' + patch.target)?.sha256) throw new Error('Patched original source provenance mismatch');
+        let after;
+        if (index === 0) {
+            after = await fs.readFile(path.join(root, patch.target));
+            validateSharedSourcePatch(before, after, patch);
+        } else if (patch.kind === 'owned-cloud-runtime') after = await mobileCloudPatchedBytes(before, patch);
+        else after = await productCopyPatchedBytes(before, patch);
+        reconstructed.set(patch.target, after);
     }
+    for (const [target, expected] of reconstructed) if (!expected.equals(await fs.readFile(path.join(root,target)))) throw Error('Consumer source patch chain result differs');
     return { packages: Object.keys(generated).length, files: manifest.files.length };
 }
 export function validateConsumerGraphClosure(expected, actual) {

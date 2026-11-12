@@ -232,7 +232,7 @@ export const make = Effect.gen(function* () {
   const sessionPending = () =>
     new ConnectionTransientError({
       reason: "session-pending",
-      detail: "Waiting for the T3 Connect sign-in to load.",
+      detail: "Waiting for the Blackcrab Connect sign-in to load.",
     });
 
   const assertSession = Effect.fnUntraced(function* (

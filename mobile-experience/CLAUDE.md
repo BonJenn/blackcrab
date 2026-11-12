@@ -23,8 +23,11 @@ an explicitly owned Expo project and channel. Production/preview use native
 fingerprint compatibility; development follows its configured policy.
 Do not claim live OTA delivery from config tests alone.
 
-User-facing product names belong in activation/build-registry.py and its pinned
-registry. Keep Blackcrab Account/Connect labels, notifications, widgets and spoken
+App-screen product names belong in activation/build-registry.py and its pinned
+registry. Shared runtime messages belong in product-copy/ and its recorded
+consumer patch layer. Preserve the authenticated original across overlapping
+cloud and copy changes; verify each intermediate layer and final source.
+Keep Blackcrab Account/Connect labels, notifications, widgets and spoken
 accessibility text consistent. Do not mass-rename protocol/native module names or
 erase original licenses. The owned legal routes must be published before public
 release; a changed URL is not proof that the policy document exists.

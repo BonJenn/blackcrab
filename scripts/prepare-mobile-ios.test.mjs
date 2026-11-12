@@ -44,7 +44,17 @@ test('physically snapshots tracked workspaces from spaced source; excludes crede
 test('isolated snapshot can apply and validate the mobile cloud patches without the original checkout', async () => fixture(async ({ repo, base }) => {
   // Exercise the production modules after staging: importing from the checkout
   // would hide missing transitive modules and registry payloads in the snapshot.
-  for (const file of ['mobile-experience/cloud-source-patches.mjs', 'managed-host/source.mjs', 'managed-host/artifact.mjs', 'managed-host/controlled-process.mjs', 'managed-host/patches']) {
+  const inputs = ['mobile-experience/cloud-source-patches.mjs', 'managed-host/source.mjs', 'managed-host/artifact.mjs', 'managed-host/patches'];
+  // The service stack adds this helper; the standalone patch runner does not use it.
+  // Importing the staged runner below still detects any omitted required dependency.
+  const controlledProcess = 'managed-host/controlled-process.mjs';
+  try {
+    await fs.stat(new URL('../' + controlledProcess, import.meta.url));
+    inputs.push(controlledProcess);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  for (const file of inputs) {
     const target = path.join(repo, file);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.cp(new URL('../' + file, import.meta.url), target, { recursive: true });

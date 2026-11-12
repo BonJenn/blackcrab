@@ -27,6 +27,11 @@ jobs:
 
       - run: npm install --global npm@12.2.2
 
+      - name: Check locked Tauri npm and Rust compatibility
+        run: |
+          node --test scripts/check-tauri-versions.test.mjs
+          node scripts/check-tauri-versions.mjs
+
       - run: npm ci
 
       - run: npm run typecheck

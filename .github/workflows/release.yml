@@ -154,6 +154,9 @@ jobs:
           node-version: "26.12.1"
           cache: npm
 
+      - name: Check locked Tauri npm and Rust compatibility
+        run: node scripts/check-tauri-versions.mjs
+
       - name: Download and verify accepted managed payloads
         if: matrix.managed
         shell: bash

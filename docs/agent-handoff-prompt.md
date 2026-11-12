@@ -1,59 +1,51 @@
 # Copyable continuation prompt
 
-Continue the authorized Blackcrab/T3 parity task, prioritizing publication of Mac
-0.4.0 and its website/blog/release notes. Read AGENTS.md and the latest checkpoint
-in docs/agent-handoff.md first; it supersedes the historical native-capture hold.
-The owner explicitly ordered publication and will test the Mac app afterward.
-Do not ask for that approval again, do not wait for window capture, and do not
-claim manual lifecycle/upgrade acceptance or full parity. Preserve required CI,
-Developer ID/notary, payload and updater cryptographic verification.
+Continue the authorized Mac 0.4.0 release and website publication. Read AGENTS.md
+and the latest docs/agent-handoff.md checkpoint before acting. The owner will test
+Mac UI/service/upgrade behavior after publication; no extra publication approval
+or native capture is required. Keep signing/notary/payload/updater checks and do
+not claim full parity or passing manual acceptance.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-R=P/desktop-delivery-m6ki1jlt; active desktop checkout R/source, branch
-parity/desktop-delivery-integration, PR #265 targeting stage. Read
-R/integration-pr.json for exact latest head/CI/watch state; old head4547958 had
-nine passed checks. Release 0.4.0 changes are prepared on this branch. Link any
-PR immediately after push/create. When waiting on required PR checks, watch and
-end the turn; do not poll. Merge only the validated final revision to stage.
+REL=P/mac-release-040-v2llrqsa. Active checkout REL/tauri-version-fix, branch
+release/0.4.0-tauri-version-alignment. Read REL/tauri-fix-pr.json for exact head/PR/CI
+and REL/plan.json for current command handles/release state.
 
-REL=P/mac-release-040-v2llrqsa. Website checkout REL/website, repository
-BonJenn/blackcrab-landing, branch release/0.4.0-website targeting main. Read
-REL/plan.json for live PR/build/publication state and validation logs. Keep the
-website announcement unmerged until the actual Mac v0.4.0 download is public.
-Vercel project blackcrab-landing, team bonjenns-projects, www.blackcrab.app. This
-is not the hosted agent app at app.blackcrab.app.
+PR #265 already merged after nine passed checks to stage 2dee535dce3398d360c61f729f6890cd864f4a15.
+Draft v0.4.0 targets that source but is NOT PUBLIC. Release run 43328470434 failed
+before compilation on six npm/Rust Tauri version mismatches. Signing credentials,
+notarized payloads and keychain setup passed. Watcher 89307 settled; do not rerun it.
 
-After final stage merge, create the source-bound OWNER_TESTING_AUTHORIZED record
-using scripts/macos-release/release-inputs.mjs exports, no checks object. Pack
-existing notarized payloads at
+Fix: exact npm pins api 2.11.1, opener 2.5.4, notification 2.3.3, updater 2.10.1,
+dialog 2.7.1, process 2.3.1; Rust lock and unrelated resolutions unchanged. New
+check-tauri-versions guard in CI/release/native packaging catches the original
+failed lock and passes corrected lock. Portable tests 28 pass / 3 opt-in skips;
+actionlint passes; fresh owned npm ci passed. Root TypeScript/Vite build and actual Tauri CLI info passed without package
+mismatches; all local validation handles are settled. Read REL/plan.json for the
+latest PR and release state. Finish correction PR, link next
+after push/create, pass required CI and merge stage. For PR waits, watch and end;
+never poll or bypass failed checks.
+
+After merge: clean corrected stage source; NEW exact-source OWNER_TESTING_AUTHORIZED
+record and release-input archive under REL/release-inputs-<source>. Original
+REL/release-inputs zip is bound to failed 2dee535 and must not be reused. Reuse
+unchanged notarized inner payloads:
 /private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/{desktop,service-host}.
-Both production payloads are signed/notarized (20 desktop +17 service Mach-Os),
-Developer ID Jonathan Benn / YF28W3NGG6. Evidence R/notary-ticket-audit.json and
-R/notarized-resource-roundtrip.json. No source change requires rebuilding them.
+Update the owned DRAFT v0.4.0 target and replace its input zip/hash, then dispatch
+release.yml managed-apple-silicon with the new hash at corrected stage. Verify
+actual app/DMG/updater and publish stable/latest only when artifact checks pass.
+See REL/artifact-verification-plan.json and REL/updater-verifier. Existing public
+key matches v0.3.0; no real 0.4 updater verification yet. Never export private keys.
 
-Create draft v0.4.0 at exact merged stage SHA, upload fixed asset
-blackcrab-managed-payloads.zip, dispatch release.yml managed-apple-silicon with
-independent payload SHA. Keep draft until actual app/DMG, embedded archives and
-updater cryptography pass. Then publish stable/latest; owner performs manual
-installation/UI/upgrade tests. Existing signing secrets belong only in intended
-workflow jobs; never export the updater private key. Release text is
-R/source/docs/releases/v0.4.0.md; blog mirror docs/blog/2026-11-12-blackcrab-0.4.0.md.
+Website PR #12 https://github.com/BonJenn/blackcrab-landing/pull/12 is draft until
+Mac artifacts are public. Checkout REL/website, head 45074e77ae990e71983a0d0f657461bed76eca03.
+Local tests/types/lint/build passed; home/blog/changelog preview inspected before
+metadata-only follow-up. Merge/deploy to blackcrab-landing Vercel project on
+bonjenns-projects, www.blackcrab.app; verify public pages and actual Mac download,
+plus prior Windows/Linux fallback. Hosted agent app at app.blackcrab.app is separate.
+Browser tab closed and temporary access revoked.
 
-Website changes include homepage/version, blog/changelog, release/download labels
-and stable Windows/Linux fallback for Mac-only latest. Three download tests pass;
-Next production build and scoped lint passed. Final TypeScript import issue was
-fixed using a .mjs Node test. See REL validation reports, complete required preview
-checks, merge/deploy only after Mac publication and verify the actual public links.
-
-No normal outer app/DMG/updater is published or installed yet. No owned native
-app/host/simulator is running. Preserve original child handles; never PID-adopt.
-Preserve all main checkout changes/index and shared caches. The earlier blocked
-CUA QA remains genuine unaccepted evidence, not a release gate for 0.4.0.
-
-Mobile #266 merged stage49bedbd and is unwatched. TestFlight 1.0.0(4) is already
-VALID/IN_BETA_TESTING; do not reupload. Current branded Hermes export is at
-/private/tmp/blackcrab-ios-4AS02K/artifacts/shared-copy-export, runtime
-2cbb84d9fbdb180f1af5bfe3e049108c47d628cb, SHA256
-937094df9fef008f0cebf2ae66d6d1fe6a9f44eb25b70e8c7f51eb6d08bb9d44, NOT published.
-Remaining mobile retention/reconnect/OTA/remote/APNs acceptance is separate.
-Keep handoffs and each changed AGENTS.md/CLAUDE.md pair current and identical.
+No public 0.4, normal app installation, or local native app/host/simulator is running.
+Keep main checkout/index/shared caches unchanged. Keep handoffs and changed guide
+pairs identical. TestFlight 1.0.0 (4) is available; newer branded Hermes export remains
+unpublished. Mobile retention/remote/APNs acceptance and complete parity remain.

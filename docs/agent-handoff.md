@@ -1,6 +1,93 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — Mac 0.4.0 publication
+## Current continuation checkpoint — repair the first Mac 0.4.0 release build
+
+The owner explicitly authorized Mac 0.4.0 publication and will test it afterward,
+including the website/blog/release-notes workflow. This still supersedes the old
+native window-capture hold. Do not ask for publication approval again or fabricate
+PASSED lifecycle evidence. Full parity is not complete.
+
+PR #265 passed all nine checks and merged to stage as
+2dee535dce3398d360c61f729f6890cd864f4a15. A draft v0.4.0 exists at that source;
+no public 0.4.0 release or normal Mac installation has happened. Its uploaded
+blackcrab-managed-payloads.zip is 330197017 bytes, SHA256
+6989edd5fc4ac97dd28aa4807696e851aa4a42a0481c3d2760f91560ffd0f43d.
+
+The first release run failed before native compilation:
+https://github.com/BonJenn/blackcrab/actions/runs/43328470434
+Job 131566853528 passed Apple/updater credential preflights, actual notarized
+payload verification, npm ci and signing-keychain setup. Tauri rejected six npm
+packages newer than the major/minor lines of their locked Rust counterparts.
+The original run watcher 89307 exited1 and is settled; do not rerun that old source.
+
+### Current fix and exact continuation
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+REL=P/mac-release-040-v2llrqsa. Active fix checkout REL/tauri-version-fix, branch
+release/0.4.0-tauri-version-alignment from stage 2dee535. Read REL/tauri-fix-pr.json
+for the resulting PR/head/CI status and REL/plan.json for live release state.
+The old integration checkout R/source remains clean at the failed stage source;
+do not use it to prepare the corrected release without updating to the fix.
+
+The fix pins these root npm packages to the existing Rust versions:
+api 2.11.1, plugin-opener 2.5.4, notification 2.3.3, updater 2.10.1, dialog 2.7.1,
+process 2.3.1. Cargo.lock and all unrelated dependency resolutions are unchanged.
+A new check-tauri-versions.mjs guard checks both lockfiles in frontend CI,
+before release payload processing and before native packaging. It rejects missing,
+ambiguous or mismatched families. Tauri's own package check remains enabled.
+
+The real failed release lock reproduces all six mismatches in the new guard;
+the corrected lock passes. Regression evidence: REL/tauri-version-regression.json.
+Portable tests: 28 passed, three explicit opt-in skips. Actionlint passes both
+workflows. A fresh physical npm ci in the fix checkout passed; it does not use or
+modify the main checkout's shared node_modules. Root typecheck/Vite build and actual Tauri CLI info both passed, with no package
+mismatch. Results are under REL/tauri-fix-*.log. Handles 89685 and 27163 exited 0;
+all local validation commands have settled and no owned process remains.
+
+Next commit/push this correction as a PR to stage, link it immediately, review
+required checks and merge the validated head. For a PR check wait, watch and end
+the turn; do not poll. After merge, use clean corrected stage source to create a
+NEW source-bound OWNER_TESTING_AUTHORIZED record and input archive in a new
+REL/release-inputs-<source> directory. Reuse the unchanged notarized inner payloads;
+no inner service/desktop source was changed by this fix. Update the existing DRAFT
+v0.4.0 target to the corrected merge and replace only its owned input zip with the
+new verified archive/hash. Do not republish old inputs or mutate a public tag.
+Dispatch release.yml managed-apple-silicon at the corrected source with that hash.
+
+Finish the actual signed outer app/DMG/updater build, verify signatures, tickets,
+root identity/version/arm64, embedded payload manifests and updater cryptography,
+then publish stable/latest v0.4.0. REL/artifact-verification-plan.json records the
+checks, not passing evidence. REL/updater-verifier contains an isolated verifier
+built offline from checksum-authenticated minisign-verify 0.2.5, the same crate
+locked by the app. The existing public key and app identity match v0.3.0. No actual
+0.4.0 updater archive has yet been verified. Never export its private signing key.
+
+### Website and unchanged delivery evidence
+
+Website PR #12: https://github.com/BonJenn/blackcrab-landing/pull/12
+Checkout REL/website, branch release/0.4.0-website, head
+45074e77ae990e71983a0d0f657461bed76eca03. Previous preview 642b68f passed browser
+inspection of home/blog/changelog; the follow-up only corrects metadata. Three
+download tests, TypeScript, lint and Next production build passed. Keep it draft
+until actual signed Mac artifacts are public, then merge/deploy the existing
+Vercel blackcrab-landing project / bonjenns-projects team to www.blackcrab.app.
+Verify public home/blog/changelog/releases/Mac download and older Windows/Linux
+fallback. This is separate from app.blackcrab.app. Temporary preview access was
+revoked and the opened tab closed. No website production change has been made.
+
+Final signed/notarized inner payloads remain:
+/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/{desktop,service-host}.
+Developer ID Jonathan Benn / YF28W3NGG6; Apple Accepted submission
+2958751f-0bbd-4d03-bc20-e805a52acfc2 covers all 37 native CDHashes. Exact manifest
+hashes and source references remain below and in REL/artifact-verification-plan.json.
+No owned native app/host/simulator is running. Preserve the main dirty checkout,
+its index and shared caches. Keep private live handoff pointers current.
+
+Mobile TestFlight 1.0.0 (4) is already VALID/IN_BETA_TESTING. The newer branded
+Hermes export is not published; retention/reconnect/OTA/remote/APNs validation
+remains separate ongoing work. Do not reupload build 4 or claim full parity.
+
+## Historical checkpoint before first release build — Mac 0.4.0 publication
 
 This checkpoint supersedes the older native-capture merge/publication hold below.
 The owner explicitly said: “publish the mac release and ill test it myself. this

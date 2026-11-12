@@ -1,0 +1,38 @@
+--- a/apps/server/src/preview/DesktopBrowserChannel.ts
++++ b/apps/server/src/preview/DesktopBrowserChannel.ts
+@@ -23,12 +23,15 @@
+ import * as NodeNet from "node:net";
+ 
+ import * as ServerConfig from "../config.ts";
++import { makeSocketChannel } from "./SocketDesktopBrowserChannel.ts";
++import type { Attachment } from "@t3tools/shared/leasedDesktopBrowser";
+ import { writeAllToFileDescriptor } from "../resourceTelemetry/DesktopTelemetryReceiver.ts";
+ 
+ const decodeEvent = Schema.decodeUnknownEffect(DesktopBrowserEvent);
+ const encodeCommand = Schema.encodeEffect(Schema.fromJsonString(DesktopBrowserCommand));
+ 
+ export interface DesktopTabKey {
++  readonly attachment?: Attachment;
+   readonly threadId: string;
+   readonly tabId: string;
+ }
+@@ -39,6 +42,8 @@
+   DesktopBrowserChannel,
+   {
+     readonly available: boolean;
++    readonly identity?: (key: DesktopTabKey) => Attachment | undefined;
++    readonly isCurrent?: (identity: Attachment) => boolean;
+     /** Subscribe before checking so concurrent attaches cannot be missed. */
+     readonly awaitAttached: (key: DesktopTabKey, timeout: Duration.Input) => Effect.Effect<boolean>;
+     readonly detached: Stream.Stream<DesktopTabKey>;
+@@ -58,6 +63,10 @@
+ 
+ const make = Effect.gen(function* () {
+   const config = yield* ServerConfig.ServerConfig;
++  if (config.desktopBrowserSocket) {
++    if (config.desktopBrowserFd !== undefined || config.desktopBrowserControlFd !== undefined) return yield* Effect.die("Unix browser transport and legacy FD browser transport are mutually exclusive");
++    return yield* makeSocketChannel(config.desktopBrowserSocket);
++  }
+   const inputFd = config.desktopBrowserFd;
+   const controlFd = config.desktopBrowserControlFd;
+   const changes = yield* PubSub.unbounded<{ key: DesktopTabKey; attached: boolean }>();

@@ -1,0 +1,68 @@
+{
+  "upstream": {
+    "commit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+    "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6"
+  },
+  "actualHttpSourceChain": [
+    {
+      "id": "blackcrab-packaged-cors",
+      "file": "008-blackcrab-packaged-cors.patch",
+      "target": "apps/server/src/http.ts",
+      "beforeSha256": "0247640c83ee449c33e448719b44879085ca809df2645bcf428e6a713ba07829",
+      "afterSha256": "634108cc8ec2001e55368b9498411e0543d24293cd471c8b292da9aca4cdb325",
+      "sha256": "00a4fff2714cd4b4a3b8257e7fa695c0d8793655009b55eb877c80335e2f93ff",
+      "replacements": [
+        {
+          "before": "export const layerBrowserApiCors = Layer.unwrap(\n  Effect.gen(function* () {\n    const config = yield* ServerConfig.ServerConfig;\n    const devOrigin = config.devUrl?.origin;\n    // Credentialed dev requests need explicit Vite/Electron origins; packaged desktop uses the default wildcard.\n    return HttpRouter.cors({\n      ...(devOrigin\n        ? {\n            allowedOrigins: [devOrigin, ...DESKTOP_RENDERER_ORIGINS, ...config.devAllowedOrigins],\n            credentials: true,\n          }\n        : {}),\n      allowedMethods: browserApiCorsAllowedMethods,\n      allowedHeaders: browserApiCorsAllowedHeaders,\n      maxAge: 600,\n    });\n  }),\n);\n",
+          "after": "export const layerBrowserApiCors = Layer.unwrap(\n  Effect.gen(function* () {\n    const config = yield* ServerConfig.ServerConfig;\n    const devOrigin = config.devUrl?.origin;\n    // Credentialed dev requests need explicit Vite/Electron origins; packaged desktop uses the default wildcard.\n    const options = {\n      ...(devOrigin\n        ? {\n            allowedOrigins: [devOrigin, ...DESKTOP_RENDERER_ORIGINS, ...config.devAllowedOrigins],\n            credentials: true,\n          }\n        : {}),\n      allowedMethods: browserApiCorsAllowedMethods,\n      allowedHeaders: browserApiCorsAllowedHeaders,\n      maxAge: 600,\n    };\n    const cors = HttpMiddleware.cors(options);\n    const nativeCors = HttpMiddleware.cors({ ...options, allowedOrigins: [\"blackcrab://app\"] });\n    return HttpRouter.middleware(HttpMiddleware.make(app => Effect.gen(function* () {\n      const request = yield* HttpServerRequest.HttpServerRequest;\n      return yield* (request.headers.origin === \"blackcrab://app\" ? nativeCors(app) : cors(app));\n    })), { global: true });\n  }),\n);\n"
+        }
+      ]
+    },
+    {
+      "id": "managed-host-identity-proof",
+      "file": "009-managed-host-identity-proof.patch",
+      "target": "apps/server/src/http.ts",
+      "sha256": "53b6c869f3522a8a315ba4be7185133214c185d45acfe0f07300b9ad00cfba3a",
+      "beforeSha256": "634108cc8ec2001e55368b9498411e0543d24293cd471c8b292da9aca4cdb325",
+      "afterSha256": "38c953bc26d3f6a02a048676ed612de8d7f9523bea71af4c4690110b933f1752",
+      "replacements": [
+        {
+          "before": "import * as Mime from \"effect/http/Mime\";",
+          "after": "import { createHmac } from \"node:crypto\";\nimport * as Mime from \"effect/http/Mime\";"
+        },
+        {
+          "before": "export const layerServerEnvironmentHttpApi = HttpApiBuilder.group(",
+          "after": "// Public proof of possession, never an authentication grant. The nonce and public\n// identity are signed; neither a Host header nor caller input chooses the origin.\nexport const layerManagedHostProof = HttpRouter.add(\n  \"GET\",\n  \"/.well-known/blackcrab/managed-host-proof\",\n  Effect.gen(function* () {\n    const config = yield* ServerConfig.ServerConfig;\n    const request = yield* HttpServerRequest.HttpServerRequest;\n    const nonce = new URL(request.url, \"http://127.0.0.1\").searchParams.get(\"nonce\");\n    if (!config.desktopBootstrapSecret || config.host !== \"127.0.0.1\" ||\n        !Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {\n      return HttpServerResponse.empty({ status: 404 });\n    }\n    if (nonce === null || !/^[a-f0-9]{64}$/.test(nonce)) {\n      return HttpServerResponse.empty({ status: 400 });\n    }\n    const descriptor = yield* (yield* ServerEnvironment.ServerEnvironment).getDescriptor;\n    const origin = `http://127.0.0.1:${config.port}/`;\n    const fields = [\"blackcrab-managed-host-proof-v1\", nonce, descriptor.environmentId,\n      origin, descriptor.serverVersion, descriptor.orchestrationProtocolVersion];\n    const proof = createHmac(\"sha256\", config.desktopBootstrapSecret)\n      .update(JSON.stringify(fields)).digest(\"hex\");\n    return HttpServerResponse.jsonUnsafe({ version: 1, nonce,\n      environmentId: descriptor.environmentId, origin,\n      serverVersion: descriptor.serverVersion,\n      orchestrationProtocolVersion: descriptor.orchestrationProtocolVersion, proof },\n      { headers: { \"Cache-Control\": \"no-store\" } });\n  }),\n);\n\nconst layerEnvironmentMetadata = HttpApiBuilder.group("
+        },
+        {
+          "before": "class DecodeOtlpTraceRecordsError extends",
+          "after": "export const layerServerEnvironmentHttpApi = Layer.merge(layerEnvironmentMetadata, layerManagedHostProof);\n\nclass DecodeOtlpTraceRecordsError extends"
+        }
+      ]
+    }
+  ],
+  "http": {
+    "beforeSha256": "38c953bc26d3f6a02a048676ed612de8d7f9523bea71af4c4690110b933f1752",
+    "afterSha256": "83505ce50c3e803115663e5987fc4217065cfd6928bf729e0e83921e9cd7742d",
+    "patchSha256": "60ec0a81091f07f8262ad6fc07394bd054b8307984b3a25d019ab6b3a5b2f9ba"
+  },
+  "nativeAuditSnapshots": [
+    {
+      "path": "src-tauri/src/managed_host.rs",
+      "sha256": "1f71701be5d69111a0d02b150a777295f4184a6264aae95cc6f6f83a2c654a07",
+      "bytes": 73016
+    },
+    {
+      "path": "src-tauri/src/managed_desktop.rs",
+      "sha256": "4c77aa4e9bf55f99fd8d05bf6360d75d466003987c8bed6e76ebb24e5446be04",
+      "bytes": 39951
+    }
+  ],
+  "nativeVerifierCandidate": {
+    "target": "src-tauri/src/managed_host.rs",
+    "beforeSha256": "1f71701be5d69111a0d02b150a777295f4184a6264aae95cc6f6f83a2c654a07",
+    "afterSha256": "1ed5e8cb32c61529399001b53ed79c40b41ebacc9f58123491d0856f94f17fb1",
+    "patchSha256": "882ab529f4b71d8a783be971f4fc030365c731ffe63810017b73d67e703aa0fe",
+    "activeCallSitesAdded": false
+  }
+}

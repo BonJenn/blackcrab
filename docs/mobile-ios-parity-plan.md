@@ -6,6 +6,13 @@ This is part of the main [T3 parity plan](t3-parity-plan.md), not a reduced
 conversation companion milestone. Reference: BonJenn/t3code commit
 `7f02de2eb8e253e0ec23f005b3cfff8e2c963be8`.
 
+The accepted [hosted-service model](hosted-service-plan.md) adds server-enforced
+beta/subscription access and shared quotas to M5, and paid-launch gates to M7.
+Keep self-hosted configuration usable and the current TestFlight owner trial
+independent of live checkout. Before public release, verify entitlement changes
+across devices and the applicable iOS purchase/restore requirements. These are
+planned obligations, not completed billing features.
+
 ## Located implementation
 
 The Programming-folder search found Blackcrab Remote inside this repository:

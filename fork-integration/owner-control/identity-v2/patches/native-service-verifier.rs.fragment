@@ -1,0 +1,37 @@
+// Candidate private verifier only. No service attach/issuer call site is enabled.
+fn verify_service_host_proof(
+    value: &Value,
+    nonce: &str,
+    environment: &str,
+    origin: &str,
+    secret: &str,
+    selected_manifest_sha256: &str,
+    selected_server_version: &str,
+) -> Result<(), String> {
+    let fail = || HOST_PROOF_ERROR.to_owned();
+    let hex = |s: &str| s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+    // The selected digest comes from verified native state, never proof JSON.
+    if !hex(nonce) || !hex(secret) || !hex(selected_manifest_sha256)
+        || selected_server_version.is_empty() || selected_server_version.len() > 128
+        || selected_server_version.bytes().any(|b| b == 0 || b == 10 || b == 13)
+        || value.as_object().map(|v| v.len()) != Some(10)
+        || value["version"] != 2 || value["nonce"] != nonce
+        || value["environmentId"] != environment || value["origin"] != origin
+        || value["serverVersion"] != selected_server_version || value["orchestrationProtocolVersion"] != 2
+        || value["manifestSha256"] != selected_manifest_sha256
+        || value["layoutProfile"] != "blackcrab-local-service-layout-v1"
+        || value["serviceProtocol"] != 4
+    { return Err(fail()); }
+    let tag = value["proof"].as_str().ok_or_else(fail)?;
+    if !hex(tag) { return Err(fail()); }
+    let bytes: Vec<u8> = (0..64).step_by(2)
+        .map(|i| u8::from_str_radix(&tag[i..i + 2], 16).unwrap()).collect();
+    let message = serde_json::to_vec(&json!([
+        "blackcrab-managed-host-proof-v2", nonce, environment, origin, selected_server_version, 2,
+        selected_manifest_sha256, "blackcrab-local-service-layout-v1", 4
+    ])).map_err(|_| HOST_PROOF_ERROR)?;
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).map_err(|_| fail())?;
+    mac.update(&message);
+    mac.verify_slice(&bytes).map_err(|_| fail())
+}
+

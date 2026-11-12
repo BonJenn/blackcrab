@@ -18,6 +18,14 @@ Run the original account/link/relay tests affected by a patch.
 
 ## Current operational context
 
+The user accepted the open-source plus paid hosted-service direction on
+2026-11-12; follow ../docs/hosted-service-plan.md. Default source builds remain
+local/self-hosted with explicit configuration. Official endpoints are public;
+server-side beta/subscription entitlements and account-wide quotas must protect
+hosted resources even from modified clients. Invite-only beta precedes public
+paid signup. Do not mistake this plan for implemented billing or silently enable
+live charges before prices, provider and launch acceptance are settled.
+
 Account/project setup exists for Clerk, Cloudflare, Axiom, PlanetScale and Vercel.
 That is not evidence the database/relay/hosted app are deployed or usable.
 Cloudflare R2 and expanded Secrets Store scopes were authorized. Nameserver

@@ -15,6 +15,18 @@ Mark a row complete only with a merged PR and relevant validation evidence.
 Split a row into smaller PRs when necessary; do not merge a provider selector or
 client action before its backend works.
 
+## Open source and hosted-service rollout
+
+The user approved the [open-source and paid hosted-service plan](hosted-service-plan.md)
+on 2026-11-12: free local/self-hosted software, explicitly configured official
+releases, invite-only hosted testing, then paid remote access with server-side
+entitlements, quotas and cost controls. URLs are public configuration, not payment
+or access credentials. Prices and billing implementation remain undecided.
+
+Finish the current Mac/TestFlight owner delivery while preparing this work.
+HS01–HS06 add public-launch gates; they do not replace native acceptance or imply
+that subscriptions, restricted signup or a hard spending ceiling already exist.
+
 | Order | Deliverable | Acceptance / evidence | State |
 |---|---|---|---|
 | 01 | Pin target, plan, staging CI | Stage exists; PR and stage pushes run CI; baseline is traceable | Merged [#171](https://github.com/BonJenn/blackcrab/pull/171), all 3 CI checks passed |

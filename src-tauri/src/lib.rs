@@ -8,8 +8,12 @@ mod managed_artifact;
 mod managed_bridge;
 #[cfg(feature = "managed-bridge-qa")]
 mod managed_bridge_qa;
+mod managed_browser;
 mod managed_desktop;
 mod managed_host;
+mod managed_native_entry;
+mod managed_payload;
+mod managed_service_install;
 mod pairing;
 mod provider;
 mod relay_client;
@@ -49,12 +53,46 @@ fn require_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 #[tauri::command]
+async fn managed_native_desktop_status(
+    window: tauri::WebviewWindow,
+    entry: State<'_, managed_native_entry::ManagedNativeEntry>,
+) -> Result<managed_native_entry::NativeDesktopStatus, String> {
+    require_main_window(&window)?;
+    Ok(entry.status().await)
+}
+#[tauri::command]
+async fn managed_native_desktop_open(
+    window: tauri::WebviewWindow,
+    entry: State<'_, managed_native_entry::ManagedNativeEntry>,
+    host: State<'_, managed_host::ManagedHost>,
+) -> Result<managed_native_entry::NativeDesktopStatus, String> {
+    require_main_window(&window)?;
+    Ok(entry.open(host.inner().clone()).await)
+}
+#[tauri::command]
 async fn managed_host_status(
     window: tauri::WebviewWindow,
     host: State<'_, managed_host::ManagedHost>,
 ) -> Result<managed_host::HostStatus, String> {
     require_main_window(&window)?;
     Ok(host.status().await)
+}
+#[tauri::command]
+async fn managed_service_control(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+    action: managed_host::ServiceAction,
+) -> Result<managed_host::ServiceStatus, String> {
+    require_main_window(&window)?;
+    host.control_service(action).await
+}
+#[tauri::command]
+async fn managed_service_initialize(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+) -> Result<managed_host::HostStatus, String> {
+    require_main_window(&window)?;
+    host.initialize_service().await
 }
 #[tauri::command]
 async fn managed_host_start(
@@ -5140,8 +5178,12 @@ pub fn run() {
         .manage(AppState::default())
         .manage(codex_services::Service::default())
         .invoke_handler(tauri::generate_handler![
+            managed_native_desktop_status,
+            managed_native_desktop_open,
             managed_host_status,
             managed_host_start,
+            managed_service_initialize,
+            managed_service_control,
             managed_workspace_open,
             managed_bridge::managed_native_pick_folder,
             managed_bridge::managed_native_pick_project_favicon,
@@ -5204,9 +5246,16 @@ pub fn run() {
             pairing_revoke
         ])
         .setup(|app| {
-            app.manage(managed_host::ManagedHost::new(
-                app.path().app_data_dir()?.join("managed-host/v1"),
-            ));
+            let app_data = app.path().app_data_dir()?;
+            let native_entry = managed_native_entry::ManagedNativeEntry::from_bundled_paths(
+                &app.path().resource_dir()?, &app_data,
+            );
+            let mut managed_host = managed_host::ManagedHost::new(app_data.join("managed-host/v1"));
+            if let Some(payload) = native_entry.bundled_host() {
+                managed_host = managed_host.with_bundled_payload(payload);
+            }
+            app.manage(managed_host);
+            app.manage(native_entry);
             #[cfg(feature = "managed-bridge-qa")]
             managed_bridge_qa::start(app.handle().clone()).map_err(std::io::Error::other)?;
             // The QA app starts only its owned managed host and fixture servers.
@@ -5286,4 +5335,20 @@ fn blackcrab_menu(app_handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     }
 
     Ok(menu)
+}
+
+/// Fixed private native helper entry; dispatch before any Tauri/legacy initialization.
+/// No caller paths, secrets or runtime selection are accepted here.
+pub fn dispatch_private_service_issuer(arguments: Vec<std::ffi::OsString>) -> Option<i32> {
+    let selected = arguments.first()
+        .is_some_and(|value| value.as_encoded_bytes().starts_with(b"__blackcrab-service-issuer"));
+    if !selected { return None; }
+    if arguments.len() != 1 || arguments[0] != "__blackcrab-service-issuer-v1" {
+        eprintln!("Background service issuer arguments are invalid");
+        return Some(64);
+    }
+    match managed_host::run_private_service_issuer() {
+        Ok(()) => Some(0),
+        Err(_) => { eprintln!("Background service issuer is unavailable"); Some(1) }
+    }
 }

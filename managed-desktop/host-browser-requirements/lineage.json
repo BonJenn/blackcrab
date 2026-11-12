@@ -1,0 +1,64 @@
+{
+  "candidateInventorySha256": "968c5f50c43b57d56191681edc7d05c22e1b05910a9302ec69b78826e816e005",
+  "files": [
+    {
+      "target": "packages/contracts/src/desktopBootstrap.ts",
+      "candidateAfterSha256": "a7c32502af66bb17032e04cbe9a20ce0cfaaf531d15c0ec6c0810e64d82e8cf1",
+      "productionAfterSha256": "187d832737115a84199de071fe346ac318e02cc0e04d9bce0b44632cca60dacb"
+    },
+    {
+      "target": "apps/server/src/cli/config.ts",
+      "candidateAfterSha256": "b91c02c7fe7e3453b7ca10a47e40549fb37a4ce13706669e50a4f1bec1bfa1d0",
+      "productionAfterSha256": "b91c02c7fe7e3453b7ca10a47e40549fb37a4ce13706669e50a4f1bec1bfa1d0"
+    },
+    {
+      "target": "apps/server/src/config.ts",
+      "candidateAfterSha256": "7bf3a0dc6ad477c677c118658d65b6e025d1e42dfdf283e06724c06815fabb5b",
+      "productionAfterSha256": "01993c0303ef683f07ea44db3cd2191cfc56f634436cdfca86ef8a1b39a77046"
+    },
+    {
+      "target": "packages/shared/package.json",
+      "candidateAfterSha256": "d3130ae5c1004a549734dfab7400d13fa6a79279608d90cb793e58d59bb71916",
+      "productionAfterSha256": "d3130ae5c1004a549734dfab7400d13fa6a79279608d90cb793e58d59bb71916"
+    },
+    {
+      "target": "packages/shared/src/leasedDesktopBrowser.ts",
+      "candidateAfterSha256": "190a0126a929560b6ce40dd1980e1d2aac48731c0ca477ed16d92c3c737a7c48",
+      "productionAfterSha256": "42bb4eeab32b7b5bdafdebcfbca9901dfea78c1677366c12c6639bdc7c4eea63"
+    },
+    {
+      "target": "apps/server/src/preview/DesktopBrowserChannel.ts",
+      "candidateAfterSha256": "5a34c2eaa77c6c3223b1fb5979c75bddbd1875a696bbd3e6577dd5ba65fe33e3",
+      "productionAfterSha256": "e9c493d29c90e3f6d86adb5733fe46b38c1791300f84d253d479f3ee4e8c7b16"
+    },
+    {
+      "target": "apps/server/src/preview/SocketDesktopBrowserChannel.ts",
+      "candidateAfterSha256": "1dc098a548f2b959ab68df4bcd21308da21bf528eb546dd016a6e591ee74f02e",
+      "productionAfterSha256": "1c958f1a178b4e3df5a453e1b8bac670e6241aecf3fd8ccc3dc24a6eabf5854a"
+    },
+    {
+      "target": "apps/server/src/preview/ServerBrowser.ts",
+      "candidateAfterSha256": "dc66734362d78eb106a9678a7bee9806f18cddf6656b2070397abfc2b57ebc00",
+      "productionAfterSha256": "3bc752dcbbd9b695cde3665756ab652e5c8efef2fe60966a0dba7c565cd16b5a"
+    },
+    {
+      "target": "apps/server/src/preview/SocketDesktopBrowserChannel.test.ts",
+      "candidateAfterSha256": "5ed6d38f0299581681ce42a003e0ce4d94501516eca1f5a0ea01e1283ebf2f89",
+      "productionAfterSha256": "b56ede98dd061ce467727ecf2b543e88b4b438879337992a3d578801bfd90d28"
+    },
+    {
+      "target": "apps/server/src/preview/ServerBrowser.test.ts",
+      "candidateAfterSha256": "73453afbf79d05f5d9c26faad3416e5cc045c96a5c73a10dbaba6684c936e6a2",
+      "productionAfterSha256": "c0e047efca901ecb8219e7fe46a98c5c46f392bb4b2f647a632ad65e3cf2eb93"
+    }
+  ],
+  "productionChanges": [
+    "version2 mutual fresh nonces + explicit environment/generation binding",
+    "directional HMAC + strictly increasing sequence on every event/command",
+    "strict controls + 64MiB frames in both directions",
+    "canonical Unix0700 directory/owned0600 socket + refuse existing listener path",
+    "legacy FD/UDS mutually exclusive; no FD fallback when UDS configured",
+    "Acquire CDP reader before writer; close rejected/retired actual WebSockets to settle pending setup across lease changes",
+    "Retain captured attachment on published desktop context; retired wrapper close preserves durable metadata and signals viewer reconnect"
+  ]
+}

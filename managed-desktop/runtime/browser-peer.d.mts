@@ -1,0 +1,2 @@
+import type {SocketConfig,Payload,PeerHooks,connectBrowser} from '@t3tools/shared/leasedDesktopBrowser';
+export function createBrowserPeer(options:{config:SocketConfig;connect:typeof connectBrowser;validateCommand:PeerHooks['validateCommand'];begin:(epoch:string)=>void;end:(epoch:string)=>void;subscribe:(send:(event:Payload)=>Promise<boolean>)=>(()=>void);dispatch:(command:Payload,epoch:string,current:()=>boolean)=>void|{done:Promise<unknown>;cancel:()=>void};schedule?:(fn:()=>void,delay:number)=>(()=>void)}):Readonly<{start:()=>void;stop:()=>void}>;

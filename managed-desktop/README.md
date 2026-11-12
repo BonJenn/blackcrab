@@ -40,7 +40,7 @@ Authorization is an **independent one-time pairing credential**, not the owner's
 FD4 request (one outstanding request, NDJSON, bounded response, 10-second deadline):
 
 ```json
-{"version":1,"kind":"native-client-credential","requestId":"uuid","generation":1,"environmentId":"uuid"}
+{"version":1,"kind":"native-client-credential","requestId":"uuid","generation":1,"environmentId":"legacy-env"}
 ```
 
 The owner returns exactly `version`, `kind: paired-credential`, matching `requestId`, `generation`, `environmentId`, fresh `credential`, and `expiresAt` (future Unix milliseconds, at most 24 hours). The grant is exchanged once. Stale/wrong replies, EOF, timeout and unavailable renewal fail closed; owner channel loss closes this client, not the host. Root must authorize each mint against the captured child/generation and actual grants, and must close old client channels when replacing ownership. No arbitrary owner commands are exposed through this protocol.
@@ -53,8 +53,7 @@ Ordinary client quit only detaches. Delayed readiness is fenced against stop; wi
 
 Fork cloud public configuration is empty and ambient repository `.env` files are not loaded. Clerk account transport/default-handler registration and cloud token persistence are unavailable until fork-owned configuration exists. Hosted pairing and prompt sharing require an explicit hosted endpoint; direct endpoint pairing and internal thread references remain available. Unconfigured download controls are hidden. Updates have no configured feed and an explicit disabled policy. CLI installation/distribution and owner exposure changes are gated. SSH discovery/resolution remain available; remote bootstrap refuses to install an upstream runtime until fork distribution is configured. These are product ownership/configuration gates, **not global network restrictions**: original preview browsing, user-requested external links, SSH implementations and provider endpoints are retained.
 
-Private acceptance policy belongs only in `qa/` and must never be passed off as production functionality. It denies OS/keychain/capture/account ports and non-fixture outbound traffic for disposable tests. Interactive keyboard/click entry is not certified by the API-level probes. Existing external A/B evidence established trusted rendering, real windows and app-owned preference persistence; this producer's own artifact/auth/CORS acceptance is recorded separately. Native browser CDP reconnect patches will be integrated as a separate exact registry increment after Gate C passes.
-
+Private acceptance policy belongs only in `qa/` and must never be passed off as production functionality. It denies OS/keychain/capture/account ports and non-fixture outbound traffic for disposable tests. Interactive keyboard/click entry is not certified by the API-level probes. Existing external A/B evidence established trusted rendering, real windows and app-owned preference persistence; this producer's own artifact/auth/CORS acceptance is recorded separately. The separate [optional native browser contract](browser-contract.md) integrates clean Gate C client semantics through exact registry records; compatible host/bootstrap integration and fresh native end-to-end validation remain pending.
 
 ## Actual Root entry and restart acceptance
 

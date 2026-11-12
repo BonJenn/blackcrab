@@ -1,76 +1,59 @@
 # Copyable continuation prompt
 
-Continue the authorized Blackcrab/T3 parity and delivery task; do not restart.
-Read AGENTS.md, docs/agent-handoff.md (current checkpoint first), parity plans and
-ledger, and nearest paired guides. Keep this prompt and the handoff current.
-Finish line: full validated parity, current normal Mac app installed, and remote
-iOS available in TestFlight. Green CI/imported source alone do not finish it.
-
-The owner prioritizes a signed update for their Apple-silicon work Mac and Mac
-background-service integration. They are away from the build Mac; do not ask
-again to inspect/unlock it now. Use existing cloud credentials privately within
-the authorized $30/month base plus metered budget; no repeated rotation hold.
+Continue the authorized Blackcrab/T3 parity task, prioritizing publication of Mac
+0.4.0 and its website/blog/release notes. Read AGENTS.md and the latest checkpoint
+in docs/agent-handoff.md first; it supersedes the historical native-capture hold.
+The owner explicitly ordered publication and will test the Mac app afterward.
+Do not ask for that approval again, do not wait for window capture, and do not
+claim manual lifecycle/upgrade acceptance or full parity. Preserve required CI,
+Developer ID/notary, payload and updater cryptographic verification.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-M=P/mobile-shared-product-copy-lymbt5zd; active checkout M/source, branch
-parity/mobile-shared-product-copy, from stage a52826650a0c080421e8c1c6db5ab29cddba0c13.
-Read M/branding-pr.json for current head/PR/check/watch state after publication.
-This implements 24 recorded shared-runtime product-copy patches, composing after
-owned cloud patches while retaining earliest original source. It removes the
-inherited paid T3 upsell without changing quota enforcement. Real T3 Chat/GitHub
-App references and protocol/schema identifiers remain. Consumer is generated,
-not hand-edited: 23 packages / 3,170 files; generated native UI 3,237 files.
-All 87 scoped experience/activation tests pass after correct physical compiler
-dependency selection; mobile tsc passes. Source audit finds no unexpected shared
-T3 Code/Connect/Account literals. See M's validation logs and consumer-generation-
-result.json. Main index remains eea7b021ea64188388c96b9e68693e9bbfbe10ecc682f9717c98ec7450c3155a.
-No owned build/app/host/simulator is active. No shared dependency cache changed.
+R=P/desktop-delivery-m6ki1jlt; active desktop checkout R/source, branch
+parity/desktop-delivery-integration, PR #265 targeting stage. Read
+R/integration-pr.json for exact latest head/CI/watch state; old head4547958 had
+nine passed checks. Release 0.4.0 changes are prepared on this branch. Link any
+PR immediately after push/create. When waiting on required PR checks, watch and
+end the turn; do not poll. Merge only the validated final revision to stage.
 
-Immediate mobile action: check current PR pointer; finish final review/commit/PR
-if absent, otherwise act on CI/reviews and merge when ready. Next generate actual
-Hermes export from the combined source, compare build-4 native fingerprint, and
-validate installed update, retention/reconnect/rollback before production OTA.
-The previous exported bundle from #264 still has shared T3 messages; it is not
-current acceptance. No new OTA or binary has been published. Do not reupload
-TestFlight build 4, which is already VALID / IN_BETA_TESTING for the owner.
+REL=P/mac-release-040-v2llrqsa. Website checkout REL/website, repository
+BonJenn/blackcrab-landing, branch release/0.4.0-website targeting main. Read
+REL/plan.json for live PR/build/publication state and validation logs. Keep the
+website announcement unmerged until the actual Mac v0.4.0 download is public.
+Vercel project blackcrab-landing, team bonjenns-projects, www.blackcrab.app. This
+is not the hosted agent app at app.blackcrab.app.
 
-DESKTOP: R=P/desktop-delivery-m6ki1jlt, checkout R/source, branch
-parity/desktop-delivery-integration, head 4a635c7f73ef8945b395f227bf0a9905be36a745.
-PR #265 is draft, all nine checks passed, clean/mergeable, no reviews/comments.
-Actual Root lifecycle acceptance still gates merge. Read R/integration-pr.json.
-All 17 stack tips are integrated; combined Root QA compile/typechecks/tests pass.
-Both production inner payloads are Developer ID signed (20 desktop/17 host) for
-Jonathan Benn, team YF28W3NGG6. Apple accepted notarization
-2958751f-0bbd-4d03-bc20-e805a52acfc2, no issues; all CDHashes match. Stapling,
-Gatekeeper and real native resource archive roundtrip pass. Final payloads:
+After final stage merge, create the source-bound OWNER_TESTING_AUTHORIZED record
+using scripts/macos-release/release-inputs.mjs exports, no checks object. Pack
+existing notarized payloads at
 /private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/{desktop,service-host}.
+Both production payloads are signed/notarized (20 desktop +17 service Mach-Os),
+Developer ID Jonathan Benn / YF28W3NGG6. Evidence R/notary-ticket-audit.json and
+R/notarized-resource-roundtrip.json. No source change requires rebuilding them.
 
-CUA returns -10005 cgWindowNotFound for Root and Finder. Root diagnostics alone
-are not visual acceptance. Controller 60816 stopped cooperatively; all cleanup
-passed with zero service initializations/actions/native children/provider commands.
-R/root-qa/native-ui-acceptance.json DOES NOT EXIST: never fabricate it. The used
-Root journal cannot be erased/reused; retry with a fresh reviewed identity/package
-when native capture works. Check first launch/enable/ready, desktop open/reuse,
-normal quit with host survival, reopen with identity/catalog retention, service
-restart/stop/start/reconnect and cleanup. No provider prompt is required here.
+Create draft v0.4.0 at exact merged stage SHA, upload fixed asset
+blackcrab-managed-payloads.zip, dispatch release.yml managed-apple-silicon with
+independent payload SHA. Keep draft until actual app/DMG, embedded archives and
+updater cryptography pass. Then publish stable/latest; owner performs manual
+installation/UI/upgrade tests. Existing signing secrets belong only in intended
+workflow jobs; never export the updater private key. Release text is
+R/source/docs/releases/v0.4.0.md; blog mirror docs/blog/2026-11-12-blackcrab-0.4.0.md.
 
-Read scripts/macos-release guides in R/source. Release tooling and manual managed
-Apple-silicon workflow are prepared; default root-only tag build was removed.
-After actual lifecycle acceptance/review/CI/merge, commit a version newer than 0.3.0,
-prepare source-bound release inputs, build signed outer app/DMG/updater, verify
-embedded resources/updater signatures, install and test upgrade retention, then
-publish. No current normal app is installed; /Applications/Blackcrab.app has not
-been updated by this work. No public release produced by this workflow yet.
+Website changes include homepage/version, blog/changelog, release/download labels
+and stable Windows/Linux fallback for Mac-only latest. Three download tests pass;
+Next production build and scoped lint passed. Final TypeScript import issue was
+fixed using a .mjs Node test. See REL validation reports, complete required preview
+checks, merge/deploy only after Mac publication and verify the actual public links.
 
-Cloud accounts/DNS/billing/permissions are completed for authorized scope. Relay/
-database health and unauthenticated rejection passed; signed-in/off-LAN/provider/
-APNs still unproven. Legal pages remain 404. Hosted-service model: free local and
-self-hosted open source, invite-only beta, then server-enforced paid access/quotas.
-HS01–06 remain planned in R/source/docs/hosted-service-plan.md; no prices chosen.
+No normal outer app/DMG/updater is published or installed yet. No owned native
+app/host/simulator is running. Preserve original child handles; never PID-adopt.
+Preserve all main checkout changes/index and shared caches. The earlier blocked
+CUA QA remains genuine unaccepted evidence, not a release gate for 0.4.0.
 
-Preserve the dirty main checkout and all unrelated work. No new unasked agents,
-threads or replacement goals. Never adopt PIDs, kill unrelated apps or restart T3.
-Link every created/pushed/taken-over PR as next tool call; watch and end the turn
-when waiting for required CI/reviews, never poll. Unwatch before owner handback.
-Keep paired AGENTS.md/CLAUDE.md identical. Exact artifacts, user answers and prior
-failure evidence are in docs/agent-handoff.md and referenced private reports.
+Mobile #266 merged stage49bedbd and is unwatched. TestFlight 1.0.0(4) is already
+VALID/IN_BETA_TESTING; do not reupload. Current branded Hermes export is at
+/private/tmp/blackcrab-ios-4AS02K/artifacts/shared-copy-export, runtime
+2cbb84d9fbdb180f1af5bfe3e049108c47d628cb, SHA256
+937094df9fef008f0cebf2ae66d6d1fe6a9f44eb25b70e8c7f51eb6d08bb9d44, NOT published.
+Remaining mobile retention/reconnect/OTA/remote/APNs acceptance is separate.
+Keep handoffs and each changed AGENTS.md/CLAUDE.md pair current and identical.

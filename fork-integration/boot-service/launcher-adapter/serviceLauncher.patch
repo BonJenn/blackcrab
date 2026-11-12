@@ -1,0 +1,144 @@
+--- a/apps/server/src/serviceLauncher.ts
++++ b/apps/server/src/serviceLauncher.ts
+@@ -1,6 +1,7 @@
+ // @effect-diagnostics nodeBuiltinImport:off
+ // @effect-diagnostics globalTimers:off
+ // The launcher must survive unloadable server versions; use Node built-ins without Effect.
++import { OwnedLauncherBootstrap, OwnedBootstrapError } from "./OwnedLauncherBootstrap.ts";
+ import * as NodeChildProcess from "node:child_process";
+ import * as NodeCrypto from "node:crypto";
+ import * as NodeFS from "node:fs";
+@@ -483,6 +484,7 @@
+   readonly #statePath: string;
+   #state: ServiceState;
+   #child: ManagedChild | null = null;
++  #bootstrap: OwnedLauncherBootstrap | undefined;
+   #timer: NodeJS.Timeout | undefined;
+   #transitions: Promise<void> = Promise.resolve();
+   #stopRequested = false;
+@@ -513,11 +515,13 @@
+     process.once("SIGTERM", onSigterm);
+     process.once("SIGINT", onSigint);
+     try {
++      this.#bootstrap = await OwnedLauncherBootstrap.open(this.#baseDir, error => this.#enqueue(() => Promise.reject(error)));
+       this.#enqueue(() => this.#recover());
+       await this.#completion.promise;
+     } finally {
+       process.off("SIGTERM", onSigterm);
+       process.off("SIGINT", onSigint);
++      await this.#bootstrap?.close().catch(() => undefined);
+     }
+   }
+ 
+@@ -536,8 +540,17 @@
+     this.#clearTimer();
+     const child = this.#child?.process;
+     this.#child = null;
+-    if (child !== undefined) await terminateChild(child);
+-    this.#completion.reject(error);
++    let failure = error;
++    try {
++      if (child !== undefined) await terminateChild(child);
++      await this.#bootstrap?.retire();
++    } catch {
++      // Captured-child cleanup uncertainty must never authorize journal retirement.
++      failure = new OwnedBootstrapError();
++    } finally {
++      await this.#bootstrap?.close().catch(() => undefined);
++      this.#completion.reject(failure);
++    }
+   }
+ 
+   async stop(signal: NodeJS.Signals): Promise<void> {
+@@ -558,9 +571,18 @@
+       this.#clearTimer();
+       const child = this.#child?.process;
+       this.#child = null;
+-      if (child !== undefined) await terminateChild(child, signal);
+-      this.#done = true;
+-      this.#completion.resolve();
++      let failure: Error | undefined;
++      try {
++        if (child !== undefined) await terminateChild(child, signal);
++        await this.#bootstrap?.retire();
++      } catch {
++        failure = new OwnedBootstrapError();
++      } finally {
++        try { await this.#bootstrap?.close(); } catch { failure = new OwnedBootstrapError(); }
++        this.#done = true;
++        if (failure === undefined) this.#completion.resolve();
++        else this.#completion.reject(failure);
++      }
+     });
+     await this.#completion.promise.catch(() => undefined);
+   }
+@@ -606,7 +628,8 @@
+     }
+     try {
+       await this.#startChild(pending.targetVersion, "trial", pending);
+-    } catch {
++    } catch (error) {
++      if (error instanceof OwnedBootstrapError) throw error;
+       await this.#returnToPrevious(pending, "failed", "candidate-start-failed");
+     }
+   }
+@@ -618,7 +641,11 @@
+     }
+     if (this.#stopping) return;
+     const paths = runtimePaths(this.#baseDir, version);
++    const bootstrap = this.#bootstrap;
++    if (bootstrap === undefined) throw new OwnedBootstrapError();
++    const prepared = await bootstrap.prepare(version);
+     const context: ServiceLauncherContext = {
++      ownedAuth: prepared.binding,
+       protocol: SERVICE_LAUNCHER_PROTOCOL,
+       childVersion: version,
+       ...(update === undefined ? {} : { update }),
+@@ -626,7 +653,7 @@
+     const spawnArguments = runtimeSpawnArguments(paths);
+     const child = NodeChildProcess.spawn(spawnArguments.command, spawnArguments.args, {
+       env: { ...this.#environment, [SERVICE_LAUNCHER_CONTEXT_ENV]: JSON.stringify(context) },
+-      stdio: ["inherit", "inherit", "inherit", "ipc"],
++      stdio: ["pipe", "inherit", "inherit", "ipc"],
+     });
+     await new Promise<void>((resolve, reject) => {
+       const onError = (error: Error) => reject(error);
+@@ -656,6 +683,14 @@
+       this.#enqueue(() => this.#handleExit(managed, code, signal)),
+     );
+ 
++    try {
++      await bootstrap.deliver(child);
++    } catch {
++      if (this.#child === managed) this.#child = null;
++      await terminateChild(child);
++      await bootstrap.close().catch(() => undefined);
++      throw new OwnedBootstrapError();
++    }
+     if (role === "trial") {
+       this.#timer = setTimeout(
+         () => this.#enqueue(() => this.#handlePreparedTimeout(managed)),
+@@ -744,6 +779,7 @@
+     this.#timer = undefined;
+     this.#child = null;
+     await terminateChild(child.process);
++    await this.#bootstrap?.retire();
+     await this.#startTrial(pending);
+   }
+ 
+@@ -791,6 +827,7 @@
+   ): Promise<void> {
+     if (this.#child !== child || this.#stopping) return;
+     this.#child = null;
++    await this.#bootstrap?.retire();
+     if (code === STATE_DIR_OWNED_EXIT_CODE) {
+       await this.#idleWhileStateDirOwned();
+       return;
+@@ -848,6 +885,7 @@
+     if (child !== undefined) {
+       this.#child = null;
+       await terminateChild(child.process);
++      await this.#bootstrap?.retire();
+     }
+     await restoreDatabaseBackup(this.#baseDir, pending);
+     const outcome = terminalUpdate({ pending, status, reason });

@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "pinnedCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "records": [
+    {
+      "source": "pinned",
+      "path": "apps/server/src/bootstrap.ts",
+      "bytes": 6631,
+      "sha256": "dfc241732cf1aedf8d9795f0cbb63e7302243ec31be046e20dbb5dddd2c67640"
+    },
+    {
+      "source": "pinned",
+      "path": "apps/server/src/cli/config.ts",
+      "bytes": 23306,
+      "sha256": "816886a76ef86880ec551d6806bedde10fee423ace0817527c03204ab1e27bf0"
+    },
+    {
+      "source": "pinned",
+      "path": "apps/server/src/cli/server.ts",
+      "bytes": 4056,
+      "sha256": "ace8a36b8019e89a42e011e9a043768f214c0e981a1c8d6f8fb79ad0dea249f6"
+    },
+    {
+      "source": "pinned",
+      "path": "apps/server/src/launcherWatch.ts",
+      "bytes": 1514,
+      "sha256": "170a02f9ea747c0c5071976d912703028910a9fccd74bfb8bad15df7b5449f2b"
+    },
+    {
+      "source": "pinned",
+      "path": "apps/server/src/cloud/serviceLauncherClient.ts",
+      "bytes": 8374,
+      "sha256": "e4b376634f6168a04e49c26b59be914735f8128e4c59247fe74ff73e08859dda"
+    },
+    {
+      "source": "pinned",
+      "path": "apps/server/src/serverRuntimeStartup.ts",
+      "bytes": 26775,
+      "sha256": "a0b2df646e06ce9b9d3bf0d08e14cd10d3477e34c1f2f74c592dbcd373222b66"
+    },
+    {
+      "source": "pinned",
+      "path": "packages/shared/src/desktopBootstrapToken.ts",
+      "bytes": 1415,
+      "sha256": "4e59298d02422de72e1de5ff88c9979e41b36fdf09b285bf96728984aeb32b1b"
+    },
+    {
+      "source": "pinned",
+      "path": "packages/contracts/src/desktopBootstrap.ts",
+      "bytes": 1850,
+      "sha256": "fdcd82e7f39b296ad6e4661ee00b15b6711acb8cdcdad95e4c7021a41ee13903"
+    },
+    {
+      "source": "pinned",
+      "path": "apps/server/src/bin.ts",
+      "bytes": 1817,
+      "sha256": "bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598"
+    },
+    {
+      "source": "candidate",
+      "path": "fork-integration/boot-service/fixtures/003-launcher-payload-layout.after.ts",
+      "bytes": 32816,
+      "sha256": "14652fabb08682c449991ef6049b98da0684b4b7899245b875f8176e535c26f1"
+    },
+    {
+      "source": "candidate",
+      "path": "fork-integration/boot-service/fixtures/001-owned-service-and-local-installer.after.ts",
+      "bytes": 41084,
+      "sha256": "d423e0eec6ad54547888a32115c10b541476cacfafc0981d5cd8c7b008680a23"
+    },
+    {
+      "source": "candidate",
+      "path": "fork-integration/boot-service/fixtures/004-owned-layout-protocol.after.ts",
+      "bytes": 9073,
+      "sha256": "8a0df5f6c2d2438666bc944bd1b4b9be1e7d176c4c86a6023d495fc696e3d9ef"
+    },
+    {
+      "source": "candidate",
+      "path": "fork-integration/owner-control/ExposureRuntime.ts",
+      "bytes": 3754,
+      "sha256": "d9f1df41b93a65c9c949b011e1be9c5ba1c60db7c5d9e0857364a304722e6a91"
+    },
+    {
+      "source": "native-working-source",
+      "path": "src-tauri/src/managed_host.rs",
+      "bytes": 68987,
+      "sha256": "f11d858dd013552366fdff4e2d559cb41622ac0acd2474321cb0f34e7a6934f4"
+    },
+    {
+      "source": "candidate",
+      "path": "fork-integration/boot-service/LocalInstaller.ts",
+      "bytes": 2121,
+      "sha256": "129f96889c99d3709ec7fb55b0248c7638c70eee9c42727efe340e63ea7995ff"
+    }
+  ]
+}

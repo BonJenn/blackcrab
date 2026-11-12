@@ -1,11 +1,20 @@
 name: release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
+      kind:
+        description: "Managed Apple-silicon release, or the historical root-only recipe"
+        required: true
+        default: managed-apple-silicon
+        type: choice
+        options:
+          - managed-apple-silicon
+          - legacy-root-only
+      payload_sha256:
+        description: "SHA-256 of blackcrab-managed-payloads.zip on the draft release (managed mode)"
+        required: false
+        type: string
       tag:
         description: "Release tag to create or update, for example v0.1.0"
         required: true
@@ -14,6 +23,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -21,23 +34,16 @@ jobs:
   publish:
     name: Build and publish (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: macos-latest
-            args: "--target universal-apple-darwin"
-            rust-targets: "aarch64-apple-darwin x86_64-apple-darwin"
-          - platform: ubuntu-22.04
-            args: ""
-            rust-targets: ""
-          - platform: windows-latest
-            args: ""
-            rust-targets: ""
+        include: ${{ fromJSON(inputs.kind == 'managed-apple-silicon' && '[{"platform":"macos-15","args":"--target aarch64-apple-darwin","rust-targets":"aarch64-apple-darwin","managed":true}]' || '[{"platform":"macos-latest","args":"--target universal-apple-darwin","rust-targets":"aarch64-apple-darwin x86_64-apple-darwin","managed":false},{"platform":"ubuntu-22.04","args":"","rust-targets":"","managed":false},{"platform":"windows-latest","args":"","rust-targets":"","managed":false}]') }}
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Validate updater signing key
         shell: bash
@@ -51,11 +57,12 @@ jobs:
           fi
 
       - name: Validate Apple signing and notarization secrets
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -76,6 +83,8 @@ jobs:
 
           require_secret "APPLE_CERTIFICATE" "$APPLE_CERTIFICATE"
           require_secret "APPLE_CERTIFICATE_PASSWORD" "$APPLE_CERTIFICATE_PASSWORD"
+          require_secret "APPLE_SIGNING_IDENTITY" "$APPLE_SIGNING_IDENTITY"
+          require_secret "APPLE_TEAM_ID" "$APPLE_TEAM_ID"
 
           has_apple_id_auth=0
           if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
@@ -97,7 +106,7 @@ jobs:
           fi
 
       - name: Write App Store Connect API key
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -113,7 +122,7 @@ jobs:
           echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
 
       - name: Validate App Store Connect API key
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -145,6 +154,31 @@ jobs:
           node-version: "26.12.1"
           cache: npm
 
+      - name: Download and verify accepted managed payloads
+        if: matrix.managed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PAYLOAD_SHA256: ${{ inputs.payload_sha256 }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$PAYLOAD_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$(uname -m)" == arm64 ]]
+          [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]
+          input_dir="$RUNNER_TEMP/blackcrab-release-inputs"
+          mkdir "$input_dir"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern blackcrab-managed-payloads.zip --dir "$input_dir"
+          node scripts/macos-release/release-inputs.mjs --mode unpack \
+            --archive "$input_dir/blackcrab-managed-payloads.zip" --sha "$PAYLOAD_SHA256" \
+            --output "$input_dir/payloads" --tag "$RELEASE_TAG"
+          payloads="$(cd "$input_dir/payloads" && pwd -P)"
+          echo "BLACKCRAB_RELEASE_PAYLOADS_DIR=$payloads" >> "$GITHUB_ENV"
+
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Add Rust targets
@@ -161,7 +195,7 @@ jobs:
       - run: npm ci
 
       - name: Prepare macOS signing keychain
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -215,23 +249,42 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          releaseName: "Blackcrab ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          tagName: ${{ inputs.tag }}
+          releaseName: "Blackcrab ${{ inputs.tag }}"
           releaseBody: "See the attached installers and updater artifacts."
           releaseDraft: true
           prerelease: false
           generateReleaseNotes: true
           args: ${{ matrix.args }}
+          tauriScript: ${{ matrix.managed && 'node scripts/macos-release/tauri-cli.mjs' || '' }}
+
+      - name: Check Apple-silicon updater metadata
+        if: matrix.managed
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          metadata_dir="$RUNNER_TEMP/blackcrab-updater-metadata"
+          mkdir "$metadata_dir"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern latest.json --dir "$metadata_dir"
+          node scripts/macos-release/verify-update-manifest.mjs "$metadata_dir/latest.json" \
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Blackcrab.app.tar.gz.sig "$RELEASE_TAG"
 
       - name: Notarize and re-upload macOS DMGs
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

@@ -1,0 +1,71 @@
+--- a/apps/server/src/environment/ServerEnvironment.ts
++++ b/apps/server/src/environment/ServerEnvironment.ts
+@@ -11,7 +11,6 @@
+ import * as FileSystem from "effect/FileSystem";
+ import * as Layer from "effect/Layer";
+ import * as Path from "effect/Path";
+-import * as Schema from "effect/Schema";
+ 
+ import packageJson from "../../package.json" with { type: "json" };
+ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+@@ -26,21 +25,8 @@
+ import { resolveServerEnvironmentLabel } from "./ServerEnvironmentLabel.ts";
+ import { detectServerEnvironmentMachineKind } from "./ServerEnvironmentMachine.ts";
+ 
+-export class ServerEnvironmentIdPersistenceError extends Schema.TaggedError<ServerEnvironmentIdPersistenceError>()(
+-  "ServerEnvironmentIdPersistenceError",
+-  {
+-    operation: Schema.Literals(["check", "read", "write", "initialize"]),
+-    environmentIdPath: Schema.String,
+-    cause: Schema.optional(Schema.Defect()),
+-  },
+-) {
+-  override get message(): string {
+-    if (this.operation === "initialize") {
+-      return `Server environment ID file is missing or empty after initialization at '${this.environmentIdPath}'.`;
+-    }
+-    return `Server environment ID ${this.operation} failed at '${this.environmentIdPath}'.`;
+-  }
+-}
++import { readExistingEnvironmentId, ServerEnvironmentIdPersistenceError } from "./ServerEnvironmentIdentityRead.ts";
++export { ServerEnvironmentIdPersistenceError } from "./ServerEnvironmentIdentityRead.ts";
+ 
+ export class ServerEnvironment extends Context.Service<
+   ServerEnvironment,
+@@ -88,35 +74,7 @@
+   const serverConfig = yield* ServerConfig.ServerConfig;
+   const random = yield* SecureRandom.SecureRandom;
+ 
+-  const readPersistedEnvironmentId = Effect.gen(function* () {
+-    const exists = yield* fileSystem.exists(serverConfig.environmentIdPath).pipe(
+-      Effect.mapError(
+-        (cause) =>
+-          new ServerEnvironmentIdPersistenceError({
+-            operation: "check",
+-            environmentIdPath: serverConfig.environmentIdPath,
+-            cause,
+-          }),
+-      ),
+-    );
+-    if (!exists) {
+-      return null;
+-    }
+-
+-    const raw = yield* fileSystem.readFileString(serverConfig.environmentIdPath).pipe(
+-      Effect.map((value) => value.trim()),
+-      Effect.mapError(
+-        (cause) =>
+-          new ServerEnvironmentIdPersistenceError({
+-            operation: "read",
+-            environmentIdPath: serverConfig.environmentIdPath,
+-            cause,
+-          }),
+-      ),
+-    );
+-
+-    return raw.length > 0 ? raw : null;
+-  });
++  const readPersistedEnvironmentId = readExistingEnvironmentId(serverConfig.environmentIdPath);
+ 
+   const persistEnvironmentId = Effect.fn("ServerEnvironmentIdentity.persistEnvironmentId")(
+     function* (value: string, mode: "create" | "recover") {

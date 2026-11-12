@@ -13,9 +13,31 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+#[cfg(unix)]
+#[path = "managed_service_issuer.rs"]
+mod service_issuer;
+
+#[path = "managed_service_identity.rs"]
+mod service_identity;
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[path = "managed_service_initialization.rs"]
+mod service_initialization;
+
+#[cfg(target_os = "macos")]
+#[path = "managed_service_control.rs"]
+mod service_control;
+
 #[path = "managed_desktop_policy.rs"]
 pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};
+
+pub(crate) fn run_private_service_issuer() -> Result<(), String> {
+    #[cfg(unix)]
+    { service_issuer::run_private_stdio() }
+    #[cfg(not(unix))]
+    { Err("Background service issuer is unavailable on this platform".into()) }
+}
 
 const MARKER: &str = "blackcrab-managed-host-v1\n";
 const MAX_JSON: u64 = 1024 * 1024;
@@ -31,14 +53,48 @@ pub(crate) struct HostStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all="camelCase")]
+pub(crate) enum ServiceAction {Status,Install,Start,Stop,Restart,Uninstall}
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub(crate) struct ServiceStatus {
+    state:&'static str,can_initialize:bool,installed:bool,loaded:bool,
+    #[serde(skip_serializing_if="Option::is_none")]
+    error:Option<String>,
+}
+// A stored service marker restricts startup; it is not proof of service identity.
+// Fresh native setup may select Service; existing Direct configurations are never migrated.
+#[derive(Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+enum OwnershipMode {
+    #[default]
+    Direct,
+    Service,
+}
+impl OwnershipMode {
+    fn is_direct(&self) -> bool {
+        *self == Self::Direct
+    }
+    fn require_direct(&self) -> Result<(), String> {
+        match self {
+            Self::Direct => Ok(()),
+            Self::Service => Err("This workspace is managed by a background service. Service connection is unavailable; direct startup is disabled.".into()),
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Configuration {
     schema: u32,
+    #[serde(default, skip_serializing_if = "OwnershipMode::is_direct")]
+    ownership: OwnershipMode,
     artifact_path: PathBuf,
     manifest_digest: String,
     bootstrap_secret: String,
     environment_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    browser: Option<crate::managed_browser::Capability>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +134,7 @@ pub(super) struct DesktopHostBinding {
     pub(super) generation: u64,
     pub(super) environment_id: String,
     pub(super) origin: String,
+    pub(super) browser: Option<crate::managed_browser::Capability>,
 }
 #[allow(dead_code)]
 pub(super) struct DesktopPairGrant {
@@ -107,6 +164,8 @@ impl DesktopEpoch {
 #[derive(Clone)]
 pub(crate) struct ManagedHost {
     root: PathBuf,
+    bundled_payload: Option<crate::managed_payload::EmbeddedPayload>,
+    bundled_service_profile: bool,
     operation: Arc<Mutex<()>>,
     desktop: Arc<StdMutex<DesktopEpoch>>,
     navigation: Arc<StdMutex<Option<url::Origin>>>,
@@ -116,11 +175,21 @@ impl ManagedHost {
     pub(crate) fn new(root: PathBuf) -> Self {
         Self {
             root,
+            bundled_payload: None,
+            bundled_service_profile: option_env!("BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE").is_some(),
             operation: Arc::new(Mutex::new(())),
             desktop: Arc::new(StdMutex::new(DesktopEpoch::default())),
             navigation: Arc::new(StdMutex::new(None)),
             bridge: Arc::new(StdMutex::new(None)),
         }
+    }
+
+    pub(crate) fn with_bundled_payload(
+        mut self,
+        payload: crate::managed_payload::EmbeddedPayload,
+    ) -> Self {
+        self.bundled_payload = Some(payload);
+        self
     }
 
     pub(crate) async fn status(&self) -> HostStatus {
@@ -141,13 +210,34 @@ impl ManagedHost {
         let _lease = self.lease().await?;
         self.initialize_locked()?;
         let Some(config) = self.read_config()? else {
-            return Ok(status("notConfigured", None));
+            return Ok(match &self.bundled_payload {
+                Some(payload) => HostStatus {
+                    state: "stopped",
+                    artifact_path: Some(payload.target_directory().to_string_lossy().into_owned()),
+                    environment_id: None,
+                    error: None,
+                },
+                None => status("notConfigured", None),
+            });
         };
         self.verify_configured(&config).await?;
         match self.probe(&config).await? {
             Probe::Stopped => Ok(status("stopped", Some(&config))),
             Probe::Attached(_) => Ok(status("running", Some(&config))),
         }
+    }
+    pub(crate) async fn control_service(&self,action:ServiceAction)->Result<ServiceStatus,String>{
+        #[cfg(target_os="macos")]
+        {service_control::control(self,action).await}
+        #[cfg(not(target_os="macos"))]
+        {if action==ServiceAction::Status{Ok(ServiceStatus{state:"notAvailable",can_initialize:false,installed:false,loaded:false,error:None})}else{Err("Background-service controls are unavailable on this platform".into())}}
+    }
+    /// Explicit fresh service setup. No migration, process spawn or OS activation.
+    pub(crate) async fn initialize_service(&self) -> Result<HostStatus, String> {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        { service_initialization::initialize(self).await }
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        { Err("Background service setup is unavailable on this platform".into()) }
     }
     pub(crate) async fn start(&self, artifact: Option<PathBuf>) -> Result<HostStatus, String> {
         let _operation = self.operation.lock().await;
@@ -223,24 +313,47 @@ impl ManagedHost {
     pub(super) async fn desktop_binding(&self) -> Result<DesktopHostBinding, String> {
         let _operation = self.operation.lock().await;
         let attached = self.ensure_started(None).await?;
-        if attached.origin.port().is_none() || !desktop_policy::uuid(&attached.environment_id) {
+        if attached.origin.port().is_none() || !desktop_policy::environment_id(&attached.environment_id) {
             return Err("Native host needs an explicit loopback port".into());
+        }
+        let browser = self
+            .read_config()?
+            .ok_or("Managed host unavailable")?
+            .browser;
+        #[cfg(unix)]
+        if let Some(capability) = &browser {
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
+            loop {
+                capability.validate(&self.root)?;
+                if fs::symlink_metadata(&capability.path).is_ok() {
+                    break;
+                }
+                if tokio::time::Instant::now() >= deadline {
+                    return Err(
+                        "The managed host's private native browser listener is not ready".into(),
+                    );
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
         }
         let mut epoch = self
             .desktop
             .lock()
             .map_err(|_| "Native owner unavailable")?;
         let origin = attached.origin.as_str().to_owned();
-        if !epoch
-            .binding
-            .as_ref()
-            .is_some_and(|b| b.origin == origin && b.environment_id == attached.environment_id)
-        {
+        if !epoch.binding.as_ref().is_some_and(|b| {
+            b.origin == origin
+                && b.environment_id == attached.environment_id
+                && b.browser == browser
+        }) {
             epoch.invalidate()?;
             epoch.binding = Some(DesktopHostBinding {
-                generation: epoch.generation,
+                generation: browser
+                    .as_ref()
+                    .map_or(epoch.generation, |cap| cap.generation),
                 environment_id: attached.environment_id,
                 origin,
+                browser,
             });
         }
         epoch
@@ -490,7 +603,7 @@ impl ManagedHost {
         }
         let config: Configuration = serde_json::from_slice(&read_small(&file)?)
             .map_err(|_| "Managed host configuration is invalid")?;
-        if config.schema != 1
+        if ![1, 2].contains(&config.schema)
             || config.bootstrap_secret.len() != 64
             || !config
                 .bootstrap_secret
@@ -499,6 +612,23 @@ impl ManagedHost {
             || config.manifest_digest.len() != 64
         {
             return Err("Managed host configuration is incompatible".into());
+        }
+        if let Some(capability) = &config.browser {
+            if config.schema != 2 {
+                return Err("Incompatible native browser configuration".into());
+            }
+            #[cfg(unix)]
+            {
+                if !native_browser_supported() {
+                    return Err(
+                        "The verified managed runtime does not support the native browser channel"
+                            .into(),
+                    );
+                }
+                capability.validate(&self.root)?;
+            }
+            #[cfg(not(unix))]
+            return Err("Private native browser transport is unavailable on this platform".into());
         }
         Ok(Some(config))
     }
@@ -528,7 +658,27 @@ impl ManagedHost {
         let _lease = self.lease().await?;
         self.initialize_locked()?;
         let mut config = self.read_config()?;
+        // A service payload must not become a direct-owned workspace merely
+        // because the user opens a window before choosing service setup.
+        if config.is_none()
+            && selected.is_none()
+            && self.bundled_payload.is_some()
+            && self.bundled_service_profile
+        {
+            return Err("Enable the background service in Settings before opening a new workspace.".into());
+        }
         if let Some(existing) = &mut config {
+            if existing.ownership == OwnershipMode::Service {
+                if selected.is_some() {
+                    return Err("A background service runtime cannot be replaced by desktop attachment".into());
+                }
+                self.verify_configured(existing).await?;
+                return match self.probe(existing).await? {
+                    Probe::Attached(attached) => Ok(attached),
+                    Probe::Stopped => Err("The background service is stopped; start it through its service controls".into()),
+                };
+            }
+            existing.ownership.require_direct()?;
             match self.probe(existing).await? {
                 Probe::Attached(attached) => {
                     self.verify_configured(existing).await?;
@@ -553,13 +703,17 @@ impl ManagedHost {
             tokio::task::spawn_blocking(move || managed_artifact::verify(&path))
                 .await
                 .map_err(io_error)??
+        } else if let Some(existing) = config.as_ref() {
+            self.verify_configured(existing).await?
+        } else if let Some(payload) = self.bundled_payload.clone() {
+            tokio::task::spawn_blocking(move || {
+                let root = payload.ensure_verified()?;
+                managed_artifact::verify(&root)
+            })
+            .await
+            .map_err(io_error)??
         } else {
-            self.verify_configured(
-                config
-                    .as_ref()
-                    .ok_or("Choose a managed runtime package first")?,
-            )
-            .await?
+            return Err("Choose a managed runtime package first".into());
         };
         if let Some(existing) = &mut config {
             existing.artifact_path = artifact.root.clone();
@@ -567,13 +721,20 @@ impl ManagedHost {
         } else {
             config = Some(Configuration {
                 schema: 1,
+                ownership: OwnershipMode::Direct,
                 artifact_path: artifact.root.clone(),
                 manifest_digest: artifact.manifest_digest.clone(),
                 bootstrap_secret: random_secret()?,
                 environment_id: None,
+                browser: None,
             });
         }
         let mut config = config.unwrap();
+        #[cfg(unix)]
+        if native_browser_supported() {
+            config.browser = Some(crate::managed_browser::Capability::allocate(&self.root)?);
+            config.schema = 2;
+        }
         self.save_config(&config)?;
         let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(io_error)?;
         let port = listener.local_addr().map_err(io_error)?.port();
@@ -617,12 +778,68 @@ impl ManagedHost {
         drop(child);
         result
     }
+    /// Test-only original read-only auth-access observer. No renderer command or product route.
+    #[cfg(all(test, target_os = "macos"))]
+    pub(super) async fn native_acceptance_observer(&self) -> Result<(String, String), String> {
+        if !crate::managed_native_entry::acceptance::scope_registered(&self.root) {
+            return Err("Native acceptance scope is not registered".into());
+        }
+        let _operation = self.operation.lock().await;
+        let config = self.read_config()?.ok_or("Fixture host unavailable")?;
+        let attached = match self.probe(&config).await? {
+            Probe::Attached(value) => value,
+            Probe::Stopped => return Err("Fixture host is stopped".into()),
+        };
+        let http = crate::managed_native_entry::acceptance::http_client()?;
+        let form = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair(
+                "grant_type",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            )
+            .append_pair(
+                "subject_token",
+                &bootstrap_token(&config.bootstrap_secret, now_ms()?)?,
+            )
+            .append_pair(
+                "subject_token_type",
+                "urn:t3:params:oauth:token-type:environment-bootstrap",
+            )
+            .append_pair(
+                "requested_token_type",
+                "urn:ietf:params:oauth:token-type:access_token",
+            )
+            .append_pair("scope", "access:read")
+            .append_pair("client_label", "Blackcrab private Rust acceptance observer")
+            .finish();
+        let response = http
+            .post(
+                attached
+                    .origin
+                    .join("oauth/token")
+                    .map_err(|_| "Fixture URL invalid")?,
+            )
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(form)
+            .send()
+            .await
+            .map_err(|_| "Fixture observer grant refused")?;
+        let result = bounded_json(response)
+            .await
+            .map_err(|_| "Fixture observer grant invalid")?;
+        let bearer = result
+            .get("access_token")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or("Fixture observer credential missing")?;
+        Ok((attached.origin.to_string(), bearer.to_owned()))
+    }
     fn spawn(
         &self,
         artifact: &VerifiedArtifact,
         config: &Configuration,
         port: u16,
     ) -> Result<std::process::Child, String> {
+        config.ownership.require_direct()?;
         if artifact.version != "0.1.7" {
             return Err("Managed runtime version is incompatible".into());
         }
@@ -670,9 +887,19 @@ impl ManagedHost {
         let mut child = command
             .spawn()
             .map_err(|_| "Could not launch the verified managed runtime".to_string())?;
-        #[cfg(test)]
+        #[cfg(all(test, target_os = "macos"))]
+        crate::managed_native_entry::acceptance::record_host_spawn(
+            &mut child,
+            &self.root,
+            &artifact.entry,
+        )?;
+        #[cfg(any(test, feature = "managed-entry-qa"))]
         eprintln!("BLACKCRAB_TEST_CHILD_PID={}", child.id());
-        let bootstrap = json!({"mode":"desktop","noBrowser":true,"port":port,"t3Home":self.root.join("host"),"host":"127.0.0.1","desktopBootstrapToken":bootstrap_token(&config.bootstrap_secret, now_ms()?)?,"desktopBootstrapSecret":config.bootstrap_secret,"shellEnvironmentPrepared":false,"tailscaleServeEnabled":false,"tailscaleServePort":443});
+        let mut bootstrap = json!({"mode":"desktop","noBrowser":true,"port":port,"t3Home":self.root.join("host"),"host":"127.0.0.1","desktopBootstrapToken":bootstrap_token(&config.bootstrap_secret, now_ms()?)?,"desktopBootstrapSecret":config.bootstrap_secret,"shellEnvironmentPrepared":false,"tailscaleServeEnabled":false,"tailscaleServePort":443});
+        if let Some(capability) = &config.browser {
+            bootstrap["desktopBrowserSocket"] =
+                serde_json::to_value(capability).map_err(io_error)?;
+        }
         if let Some(mut input) = child.stdin.take() {
             let mut bytes = serde_json::to_vec(&bootstrap).map_err(io_error)?;
             bytes.push(b'\n');
@@ -686,6 +913,12 @@ impl ManagedHost {
         Ok(child)
     }
     async fn probe(&self, config: &Configuration) -> Result<Probe, String> {
+        if config.ownership == OwnershipMode::Service {
+            #[cfg(unix)]
+            service_issuer::attachment_selection(self, config)?;
+            #[cfg(not(unix))]
+            return Err("Background service attachment is unavailable on this platform".into());
+        }
         let file = self.root.join("host/userdata/server-runtime.json");
         if !file.exists() {
             return Ok(Probe::Stopped);
@@ -707,6 +940,15 @@ impl ManagedHost {
         origin: url::Url,
         starting: bool,
     ) -> Result<Option<Attached>, String> {
+        let service_selection: Option<(String, String)> = if config.ownership == OwnershipMode::Service {
+            #[cfg(unix)]
+            { Some(service_issuer::attachment_selection(self, config)?) }
+            #[cfg(not(unix))]
+            { return Err("Background service attachment is unavailable on this platform".into()); }
+        } else { None };
+        if starting && service_selection.is_some() {
+            return Err("Desktop attachment cannot start a background service".into());
+        }
         // Use reqwest's explicitly selected provider-free rustls backend.
         // Configure this client explicitly, without changing the app's global provider.
         // Its URLs are validated HTTP loopback endpoints; no TLS roots are needed.
@@ -753,19 +995,25 @@ impl ManagedHost {
             .join(".well-known/blackcrab/managed-host-proof")
             .map_err(io_error)?;
         challenge.query_pairs_mut().append_pair("nonce", &nonce);
+        if service_selection.is_some() {
+            challenge.query_pairs_mut().append_pair("version", "2");
+        }
         let proof = http
             .get(challenge)
             .send()
             .await
             .map_err(|_| HOST_PROOF_ERROR)?;
         let proof = bounded_json(proof).await.map_err(|_| HOST_PROOF_ERROR)?;
-        verify_host_proof(
-            &proof,
-            &nonce,
-            &environment_id,
-            origin.as_str(),
-            &config.bootstrap_secret,
-        )?;
+        if let Some((manifest, version)) = &service_selection {
+            service_identity::verify_service_host_proof(
+                &proof, &nonce, &environment_id, origin.as_str(),
+                &config.bootstrap_secret, manifest, version,
+            )?;
+        } else {
+            verify_host_proof(
+                &proof, &nonce, &environment_id, origin.as_str(), &config.bootstrap_secret,
+            )?;
+        }
         let credential = bootstrap_token(&config.bootstrap_secret, now_ms()?)?;
         let body = url::form_urlencoded::Serializer::new(String::new())
             .append_pair(
@@ -813,6 +1061,21 @@ impl ManagedHost {
             environment_id,
         }))
     }
+}
+#[cfg(unix)]
+fn native_browser_supported() -> bool {
+    // Only a fully verified artifact with every reviewed host delta may receive
+    // the private capability. A proof9-only host never advertises this transport.
+    let Ok(records) = serde_json::from_str::<Vec<Value>>(include_str!(
+        "../../managed-host/patches/registry.json"
+    )) else {
+        return false;
+    };
+    (1..=10).all(|index| {
+        records
+            .iter()
+            .any(|record| record["id"] == format!("native-browser-host-{index}"))
+    })
 }
 fn status(state: &'static str, config: Option<&Configuration>) -> HostStatus {
     HostStatus {
@@ -1089,6 +1352,8 @@ mod tests {
                         Err(e) => panic!("fixture: {e}"),
                     }
                 };
+                // BSD accepts can inherit the listener's nonblocking flag.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
@@ -1148,11 +1413,62 @@ mod tests {
     fn config() -> Configuration {
         Configuration {
             schema: 1,
+            ownership: OwnershipMode::Direct,
             artifact_path: PathBuf::from("/fixture"),
             manifest_digest: "a".repeat(64),
             bootstrap_secret: "b".repeat(64),
             environment_id: Some("env_fixture".into()),
+            browser: None,
         }
+    }
+    #[test]
+    fn legacy_configuration_roundtrip_defaults_to_direct() {
+        for schema in [1, 2] {
+            let mut original = serde_json::to_value(config()).unwrap();
+            original["schema"] = json!(schema);
+            assert!(original.get("ownership").is_none());
+            let decoded: Configuration = serde_json::from_value(original.clone()).unwrap();
+            assert_eq!(decoded.ownership, OwnershipMode::Direct);
+            assert_eq!(serde_json::to_value(decoded).unwrap(), original);
+        }
+        let mut explicit = serde_json::to_value(config()).unwrap();
+        explicit["ownership"] = json!("direct");
+        assert_eq!(
+            serde_json::from_value::<Configuration>(explicit)
+                .unwrap()
+                .ownership,
+            OwnershipMode::Direct
+        );
+        let mut unknown = serde_json::to_value(config()).unwrap();
+        unknown["ownership"] = json!("external");
+        assert!(serde_json::from_value::<Configuration>(unknown).is_err());
+    }
+    #[tokio::test]
+    async fn unverified_service_selection_never_spawns_or_sends_attachment_credentials() {
+        let base = fixture();
+        let host = ManagedHost::new(base.join("v1"));
+        host.prepare().unwrap();
+        host.initialize_locked().unwrap();
+        let mut selected = config();
+        selected.ownership = OwnershipMode::Service;
+        host.save_config(&selected).unwrap();
+        let original = fs::read(host.root.join("configuration.json")).unwrap();
+        for path in [None, Some(base.join("nonexistent-explicit-runtime"))] {
+            assert!(host.start(path).await.is_err());
+        }
+        assert_eq!(host.status().await.state, "unavailable");
+        assert!(host.window_url().await.is_err());
+        // A listener must receive no request from an unverified native selection.
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let origin = loopback_origin(listener.local_addr().unwrap().port()).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        assert!(host.probe_at(&selected, origin, false).await.is_err());
+        assert!(matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock));
+        assert_eq!(fs::read(host.root.join("configuration.json")).unwrap(), original);
+        assert_eq!(host.read_config().unwrap().unwrap().ownership, OwnershipMode::Service);
+        assert!(!host.root.join("logs/host.log").exists());
+        assert!(!host.root.join("host/userdata/server-runtime.json").exists());
+        fs::remove_dir_all(base).unwrap();
     }
     fn descriptor() -> Value {
         json!({"environmentId":"env_fixture","serverVersion":"0.1.7","orchestrationProtocolVersion":2,"capabilities":{}})
@@ -1408,6 +1724,7 @@ mod tests {
             generation: 1,
             environment_id: env.clone(),
             origin,
+            browser: None,
         };
         host.desktop.lock().unwrap().binding = Some(binding.clone());
         host.desktop.lock().unwrap().generation = 1;
@@ -1556,6 +1873,88 @@ mod tests {
         host.desktop.lock().unwrap().invalidate().unwrap();
         assert!(clone.desktop_binding_current(&binding).is_err());
         assert!(host.desktop_pair_grant(&binding).await.is_err());
+        fs::remove_dir_all(base).unwrap();
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn fresh_service_window_open_preserves_unconfigured_ownership_and_explicit_choices() {
+        let base = fixture().canonicalize().unwrap();
+        let archive = base.join("bundled.tar.gz");
+        fs::write(&archive, b"service setup must precede archive extraction").unwrap();
+        let payload = crate::managed_payload::EmbeddedPayload::new(
+            crate::managed_payload::PayloadRole::Host,
+            archive,
+            "a".repeat(64),
+            "b".repeat(64),
+            base.join("payload-cache"),
+        ).unwrap();
+        let target = payload.target_directory();
+        let mut host = ManagedHost::new(base.join("managed-host/v1")).with_bundled_payload(payload);
+        // Model the compile-time service bundle selection without changing
+        // process environment or exposing an IPC-configurable ownership flag.
+        host.bundled_service_profile = true;
+        let message = "Enable the background service in Settings before opening a new workspace.";
+        assert_eq!(host.start(None).await.err().unwrap(), message);
+        assert_eq!(host.window_url().await.unwrap_err(), message);
+        assert!(!target.exists());
+        assert!(host.read_config().unwrap().is_none());
+        assert!(!host.root.join("logs/host.log").exists());
+        assert!(!host.root.join("host/userdata/server-runtime.json").exists());
+
+        let error = host.start(Some(base.join("explicit-invalid-runtime"))).await.err().unwrap();
+        assert_ne!(error, message);
+        assert!(host.read_config().unwrap().is_none());
+        let stored = config();
+        host.save_config(&stored).unwrap();
+        let original = fs::read(host.root.join("configuration.json")).unwrap();
+        assert_ne!(host.start(None).await.err().unwrap(), message);
+        assert_eq!(fs::read(host.root.join("configuration.json")).unwrap(), original);
+        assert!(!target.exists());
+        fs::remove_dir_all(base).unwrap();
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn bundled_default_is_lazy_and_never_replaces_stored_or_explicit_selection() {
+        let base = fixture().canonicalize().unwrap();
+        let archive = base.join("bundled.tar.gz");
+        fs::write(
+            &archive,
+            b"must not be parsed during metadata or explicit selection",
+        )
+        .unwrap();
+        let payload = crate::managed_payload::EmbeddedPayload::new(
+            crate::managed_payload::PayloadRole::Host,
+            archive,
+            "a".repeat(64),
+            "b".repeat(64),
+            base.join("payload-cache"),
+        )
+        .unwrap();
+        let target = payload.target_directory();
+        let host = ManagedHost::new(base.join("managed-host/v1")).with_bundled_payload(payload);
+        let initial = host.status().await;
+        assert_eq!(initial.state, "stopped");
+        assert_eq!(
+            initial.artifact_path,
+            Some(target.to_string_lossy().into_owned())
+        );
+        assert!(!target.exists());
+        assert!(!host.root.join("configuration.json").exists());
+        assert!(host
+            .start(Some(base.join("explicit-invalid-selection")))
+            .await
+            .is_err());
+        assert!(!target.exists());
+        assert!(!host.root.join("configuration.json").exists());
+        let stored = config();
+        host.save_config(&stored).unwrap();
+        let bytes = fs::read(host.root.join("configuration.json")).unwrap();
+        assert!(host.start(None).await.is_err());
+        assert_eq!(
+            fs::read(host.root.join("configuration.json")).unwrap(),
+            bytes
+        );
+        assert!(!target.exists());
         fs::remove_dir_all(base).unwrap();
     }
 }

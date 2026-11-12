@@ -20,10 +20,13 @@ current validity, API role, personal-team ownership or iOS distribution access.
 Do not export GitHub secrets into artifacts/chat or attempt to retrieve their
 plaintext through a diagnostic workflow. Use them only in their intended jobs.
 
-The current workflow builds Tauri release installers and creates a draft GitHub
-release. Audit whether it includes the reviewed managed host/full desktop
-payloads before calling it a parity build. The remote iOS app still needs its
-own device archive/signing/submission and processed TestFlight availability.
+The release workflow is explicitly dispatched. Managed Apple-silicon is the
+default and consumes a separately pinned, accepted payload archive from a draft
+release; the historical root-only matrix requires an explicit selection. Tag
+creation alone no longer launches the historical build. Keep the release a draft
+until the installer and updater have passed their delivery checks. Never use the
+legacy mode as a parity release. See scripts/macos-release/README.md. The remote
+iOS app has its own device archive/signing/submission and TestFlight gates.
 
 User intent now includes installing the Mac app and publishing to their
 TestFlight. Complete build/review/validation work and use that authorization;
@@ -31,3 +34,14 @@ do not add a redundant approval stop for routine release steps. Escalate only
 an actual missing account action, legal agreement or new spending decision.
 The user explicitly authorized existing cloud credentials on 2026-11-12;
 the earlier Clerk rotation hold no longer blocks deployment.
+
+## Explicit v0.4.0 publication instruction — 2026-11-12
+
+The owner said: "publish the mac release and ill test it myself. this will be
+version 0.4" and requested the website, blog and release notes workflow too.
+This supersedes the earlier requirement to wait for native window capture before
+merging/publishing v0.4.0. Record OWNER_TESTING_AUTHORIZED for that exact release
+and source, never PASSED. The owner will perform UI/lifecycle and upgrade testing
+after publication. Keep signing, notarization, payload integrity and updater
+signature checks. Publish the verified Apple-silicon release and then update the
+website to its real downloads. No additional publication confirmation is needed.

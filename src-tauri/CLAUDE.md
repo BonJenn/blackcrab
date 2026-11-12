@@ -30,8 +30,9 @@ as explicit native scenarios. Track the precise source and payload versions.
 
 Use isolated QA identities/data and captured child handles; never infer process
 ownership from a PID search. Cleanup must settle owned tasks and children.
-The latest recorded UI blocker is `cgWindowNotFound`, including Finder. Recheck
-the tool when appropriate; do not certify UI behavior via hidden eval shortcuts.
+Native CUA captured Finder on 2026-11-12, clearing the earlier universal
+`cgWindowNotFound` failure. Verify the current Blackcrab window separately;
+do not certify UI behavior via hidden eval shortcuts.
 Do not ask the user to test an old QA bundle as if it were the current build.
 
 ## Delivery

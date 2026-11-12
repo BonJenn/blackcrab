@@ -1,0 +1,11 @@
+import fs from 'node:fs'; import path from 'node:path'; import * as Electron from 'electron';
+import { readDescriptor, inspectProfile, NAMESPACE } from './managed-desktop/descriptor.mjs';
+export const descriptor = readDescriptor(3);
+const root = inspectProfile(descriptor);
+for (const key of Object.keys(process.env)) if (/^(T3CODE_|VITE_|OTEL_)/.test(key)) delete process.env[key];
+Object.assign(process.env, { T3CODE_HOME: root, T3CODE_DISABLE_AUTO_UPDATE: 'true', T3CODE_DESKTOP_APP_USER_MODEL_ID: NAMESPACE.appId, OTEL_SDK_DISABLED: 'true' });
+for (const directory of ['electron','app-data','logs']) fs.mkdirSync(path.join(root,directory),{recursive:true,mode:0o700});
+Electron.app.name = NAMESPACE.name;
+Electron.app.setPath('appData',path.join(root,'app-data'));
+Electron.app.setPath('userData',path.join(root,'electron'));
+Electron.app.setAppLogsPath(path.join(root,'logs'));

@@ -1,0 +1,24 @@
+{
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "archiveSha256": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
+  "candidateSources": {
+    "EffectiveConfigCli.ts": "662a02f9ef9646b81c699919a1bd751a4b0dc219b127ec3e05b4f6d00eb0fd9d",
+    "EffectiveConfigRuntime.ts": "4a2cbdf8e640f988473fac3584cc2ade138eb534b8cb236d91d2514e42728faa",
+    "LICENSE.upstream": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43",
+    "README.md": "130c0b82eb804943319b0c02612a1897450f1874cc68a69dc0a44549f7b88aa1",
+    "SERVICE-PURPOSE-AUDIT.md": "d7a7373027c2a93176db957f662d053daad9955cb0650a236bbf6186b59d81c9",
+    "ServerEnvironmentIdentityRead.ts": "e5a1489f2fd72e0a20f14a34ce9c31b0d6696f4d17b1094eee54c7537d490554",
+    "fixtures/ServerEnvironment.after.ts": "ca31e81a48df782eeb0bb0781914eff8f32e5d41160d4bf335612e897da75502",
+    "fixtures/ServerEnvironment.before.ts": "a559c90d66f7790bbced32f85d7032bffd3e742e4b1580a292dffe732ea5637a",
+    "fixtures/bin.after.ts": "e9803798fd7d407a51911859ae38be3ad8f8e9312ec408dc4d987b401dae369b",
+    "fixtures/bin.before.ts": "bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598",
+    "index.mjs": "b1c80da03f8389ee84d1ba4db8a98e06430dc1bc438cb5b9b94f5fc4a95746a2",
+    "integration.test.mjs": "7d64a53d045d2e908b5163a6f3d46792590c5e094bd99014c2985253b7b0c539",
+    "patches/001-existing-identity-reader.patch": "c479259f076b2277e69e889042ab8844798ca037efb532b84d439cb28fbc764a",
+    "patches/002-private-config-dispatch.patch": "03f4a7cba8f0617df0671ab2a59e169d3d2ed851b384d688c5f9056a7ced75bc",
+    "prepare-probe.mjs": "9f642dea1fdea9898dc00d7f7de16caed4d696f50bff6b11d25aacd053006311",
+    "provenance.test.mjs": "9e931c9643368ccf63cd0144fb6ed803801645cca357de563938b38b678739de",
+    "registry.json": "f40c6dae9a1f347cb1354ba3dbf3cb918d28d3b1f3fdac08c62b3c761e2eb20a",
+    "validation.json": "fcf67518e320f550b02febe88983d92d7b207191a0291cad9a3e6e90973d9b65"
+  }
+}

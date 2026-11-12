@@ -4,12 +4,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import {controlledCommand} from './controlled-process.mjs';
 import { UPSTREAM } from './artifact.mjs';
 const patchesRoot = fileURLToPath(new URL('./patches/', import.meta.url));
 const hash = text => createHash('sha256').update(text).digest('hex');
-export async function archiveDigest(file) {
+export async function archiveDigest(file, processControl) {
   const digest = createHash('sha256');
-  for await (const bytes of createReadStream(file)) digest.update(bytes);
+  for await (const bytes of createReadStream(file)) { processControl?.assertRunning(); digest.update(bytes); }
   return digest.digest('hex');
 }
 const validHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -36,7 +37,7 @@ export async function applySourcePatchRecords(root, { records, patchDirectory = 
   if (!Array.isArray(records) || records.length > 1024) throw new Error('Invalid managed source patch registry');
   const sourceRoot = await directory(root), patchRoot = await directory(patchDirectory), states = new Map(), ids = new Set();
   for (const patch of records) {
-    if (!patch || typeof patch.id !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(patch.id) || ids.has(patch.id) || !validHash(patch.sha256) || !validHash(patch.afterSha256) || (patch.kind !== undefined && patch.kind !== 'payload')) throw new Error('Invalid managed source patch record');
+    if (!patch || typeof patch.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(patch.id) || ids.has(patch.id) || !validHash(patch.sha256) || !validHash(patch.afterSha256) || (patch.kind !== undefined && patch.kind !== 'payload')) throw new Error('Invalid managed source patch record');
     ids.add(patch.id);
     const name = relative(patch.target), target = await targetWithin(sourceRoot, name, patch.kind === 'payload' || states.has(name));
     const patchFile = await targetWithin(patchRoot, patch.file, false), patchStat = await fs.lstat(patchFile);
@@ -79,11 +80,12 @@ export async function applySourcePatches(root) {
   return applySourcePatchRecords(root, { records });
 }
 /** Only the exact archived target is extracted; callers never build a mutable user checkout. */
-export async function extractPinnedSourceArchive(archive, cacheDir) {
-  if (await archiveDigest(archive) !== UPSTREAM.archiveSha256) throw new Error('Source archive does not match the pinned T3 target');
+export async function extractPinnedSourceArchive(archive, cacheDir, {processControl} = {}) {
+  if (await archiveDigest(archive, processControl) !== UPSTREAM.archiveSha256) throw new Error('Source archive does not match the pinned T3 target');
   await fs.mkdir(cacheDir, { recursive: true });
   const root = await fs.mkdtemp(path.join(cacheDir, 'blackcrab-managed-source-'));
-  await new Promise((resolve, reject) => {
+  if (processControl) await controlledCommand('tar', ['-xzf', path.resolve(archive), '--strip-components=1', '-C', root], {env:process.env,label:'source-extraction',maxBuffer:2048,timeoutMs:30*60*1000}, processControl);
+  else await new Promise((resolve, reject) => {
     const child = spawn('tar', ['-xzf', path.resolve(archive), '--strip-components=1', '-C', root], { stdio: ['ignore', 'ignore', 'pipe'] });
     let error = ''; child.stderr.on('data', bytes => { error = (error + bytes.toString()).slice(-2048); });
     child.once('error', reject); child.once('close', code => code === 0 ? resolve() : reject(new Error(`Pinned source extraction failed (${code}): ${error}`)));
@@ -92,8 +94,8 @@ export async function extractPinnedSourceArchive(archive, cacheDir) {
 }
 
 /** Native runtime builds apply their recorded build-only patches after extraction. */
-export async function prepareSourceArchive(archive, cacheDir) {
-  const { root } = await extractPinnedSourceArchive(archive, cacheDir);
+export async function prepareSourceArchive(archive, cacheDir, options) {
+  const { root } = await extractPinnedSourceArchive(archive, cacheDir, options);
   const sourcePatches = await applySourcePatches(root);
   return { root, sourcePatches };
 }

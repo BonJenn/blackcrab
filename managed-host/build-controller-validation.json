@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "state": "BUILT_UNSELECTED_REQUIRES_REVIEW",
+  "target": "darwin-arm64",
+  "profile": "blackcrab-local-service-layout-v1",
+  "protocol": 4,
+  "version": "0.1.7",
+  "sourceDescriptors": 44,
+  "physicalSourceRecords": 42,
+  "independentlyProvenAliases": 2,
+  "tools": {
+    "node": "26.12.1",
+    "pnpm": "12.14.0"
+  },
+  "focusedTests": {
+    "passed": 57,
+    "failed": 0,
+    "skipped": 0
+  },
+  "install": {
+    "packagesAdded": 995,
+    "packagesReused": 995,
+    "packagesDownloaded": 0,
+    "policyLockEntries": 2063,
+    "originalSupplyChainPoliciesPassed": true
+  },
+  "compiledSteps": [
+    "browser-channel-regression",
+    "web",
+    "executable",
+    "resource-monitor",
+    "archive"
+  ],
+  "quarantinedArtifact": {
+    "manifestSha256": "866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64",
+    "files": 3778,
+    "unselected": true,
+    "bytes": 358049483
+  },
+  "finalAudit": "passed",
+  "terminalBuildSuccess": true,
+  "activationPerformed": false,
+  "providerRuns": 0,
+  "nativeIssuerRuntimeAcceptance": false,
+  "serviceRuntimeAcceptance": false,
+  "terminalReportSha256": "eb06600f4517693cfba2de6a1d9af1b6b1b595590be6f1c6d0b22f670d14704e",
+  "capturedBuildProcesses": {
+    "count": 18,
+    "allSettledAndQuiescent": true,
+    "cancelled": false
+  },
+  "protectedInputs": {
+    "pnpmStore": {
+      "sha256": "acdd9b8f9e9bcfa43597dd931b38ef4dadfee2aa7b469a8a37b64c41db3fde36",
+      "files": 67373,
+      "bytes": 1301858289,
+      "unchanged": true
+    },
+    "originalReference": {
+      "sha256": "3380aa8397054374261968c334c85dbcd2ff39021f7e6d8b87e0b79c5ab2741e",
+      "files": 31742,
+      "bytes": 364848484,
+      "unchanged": true
+    },
+    "registryMetadata": {
+      "sha256": "15a03a66cf0281ac0141896351fc6e1e9d244c14e0882a640d92e0570fe8c591",
+      "files": 3647,
+      "bytes": 1981631990,
+      "unchanged": true
+    }
+  },
+  "committedRegistryRepresentation": {
+    "previousSha256": "d689ea6de4a6ae5a81a5d7e490b71bdfc6bd01d28383523936b853d14b5a18cd",
+    "builtAndCommittedSha256": "fb2c156d9fd6f25aa5d744fbcd1ecbcf4231f728034b89259c2d7be31652e7b4",
+    "parsedValuesUnchanged": true,
+    "artifactMatchesOriginalFrozenBuildPlan": true,
+    "artifactRepacked": false,
+    "integrityVerificationRelaxed": false,
+    "correction": "Preserve the original reviewed producer input bytes instead of reserializing the registry when committing."
+  }
+}

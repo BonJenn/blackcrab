@@ -8,15 +8,16 @@ const exact = (value, keys) => record(value) && Object.keys(value).length === ke
 export function parseDescriptor(bytes) {
   if (!(typeof bytes === 'string' || Buffer.isBuffer(bytes)) || Buffer.byteLength(bytes) > MAX_DESCRIPTOR_BYTES) throw Error('Invalid managed desktop descriptor size');
   let value; try { value = JSON.parse(String(bytes)); } catch { throw Error('Invalid managed desktop descriptor JSON'); }
-  if (!exact(value, ['version', 'owner', 'profile', 'control','authorization']) || value.version !== 1) throw Error('Unsupported managed desktop descriptor');
+  if (!(exact(value, ['version', 'owner', 'profile', 'control','authorization'])||exact(value, ['version', 'owner', 'profile', 'control','authorization','browser'])) || value.version !== 1) throw Error('Unsupported managed desktop descriptor');
   const { owner, profile, control, authorization } = value;
-  if (!exact(owner, ['kind', 'generation', 'environmentId', 'origin', 'serverVersion', 'orchestrationProtocolVersion']) || owner.kind !== 'blackcrab-managed-host' || !Number.isSafeInteger(owner.generation) || owner.generation < 1 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(owner.environmentId) || owner.serverVersion !== '0.1.7' || owner.orchestrationProtocolVersion !== 2) throw Error('Invalid managed desktop owner identity');
+  if (!exact(owner, ['kind', 'generation', 'environmentId', 'origin', 'serverVersion', 'orchestrationProtocolVersion']) || owner.kind !== 'blackcrab-managed-host' || !Number.isSafeInteger(owner.generation) || owner.generation < 1 || (typeof owner.environmentId !== 'string' || owner.environmentId.length === 0 || owner.environmentId.trim() !== owner.environmentId) || owner.serverVersion !== '0.1.7' || owner.orchestrationProtocolVersion !== 2) throw Error('Invalid managed desktop owner identity');
   if(!exact(authorization,['kind','credential','expiresAt','renewal'])||authorization.kind!=='paired-credential'||!/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}$/.test(authorization.credential)||!Number.isSafeInteger(authorization.expiresAt)||authorization.expiresAt<=Date.now()||authorization.expiresAt>Date.now()+86400000||!exact(authorization.renewal,['kind','fd'])||authorization.renewal.kind!=='owner-credential-fd-v1'||authorization.renewal.fd!==4)throw Error('Independent native pairing/renewal authorization is required');
   let origin; try { origin = new URL(owner.origin); } catch { throw Error('Invalid managed desktop origin'); }
   if (origin.protocol !== 'http:' || origin.hostname !== '127.0.0.1' || !origin.port || origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/' || origin.href !== owner.origin) throw Error('Managed desktop requires an exact loopback origin');
   if (!exact(profile, ['root', 'namespace', 'appId']) || profile.namespace !== NAMESPACE.profile || profile.appId !== NAMESPACE.appId || typeof profile.root !== 'string' || !path.isAbsolute(profile.root) || path.resolve(profile.root) !== profile.root || profile.root === path.parse(profile.root).root || profile.root.includes('\0')) throw Error('Invalid managed desktop profile namespace');
   if (!exact(control, ['kind']) || control.kind !== 'unavailable') throw Error('Unsupported managed desktop owner-control contract');
-  return Object.freeze({ version: 1, owner: Object.freeze({ ...owner }), profile: Object.freeze({ ...profile }), control: Object.freeze({ ...control }),authorization:Object.freeze({...authorization,renewal:Object.freeze({...authorization.renewal})}) });
+  if(Object.hasOwn(value,'browser')){const b=value.browser;if(!exact(b,['kind','path','key','generation','environmentId'])||b.kind!=='leased-uds-v2'||b.generation!==owner.generation||b.environmentId!==owner.environmentId||typeof b.key!=='string'||!/^[a-f0-9]{64}$/.test(b.key)||typeof b.path!=='string'||!path.isAbsolute(b.path)||path.resolve(b.path)!==b.path||b.path.includes('\0')||Buffer.byteLength(b.path)>100)throw Error('Invalid native browser capability');}
+  return Object.freeze({ version: 1,...(value.browser?{browser:Object.freeze({...value.browser})}:{}), owner: Object.freeze({ ...owner }), profile: Object.freeze({ ...profile }), control: Object.freeze({ ...control }),authorization:Object.freeze({...authorization,renewal:Object.freeze({...authorization.renewal})}) });
 }
 export function inspectProfile(descriptor) {
   const root = descriptor.profile.root, stat = fs.lstatSync(root);
@@ -29,3 +30,9 @@ export function readDescriptor(fd = 3) {
   return parseDescriptor(Buffer.concat(chunks));
 }
 export function publicIdentity(descriptor) { return { version: descriptor.version, generation: descriptor.owner.generation, environmentId: descriptor.owner.environmentId, origin: descriptor.owner.origin, namespace: descriptor.profile.namespace, control: descriptor.control.kind }; }
+
+export function inspectBrowserCapability(descriptor){
+ const b=descriptor.browser;if(!b)return;if(process.platform==='win32')throw Error('Native browser Unix transport is unavailable on Windows');
+ try{const dir=path.dirname(b.path),parent=fs.lstatSync(dir);if(!parent.isDirectory()||parent.isSymbolicLink()||fs.realpathSync(dir)!==dir||parent.uid!==process.getuid()||(parent.mode&0o777)!==0o700)throw Error('unsafe directory');try{const socket=fs.lstatSync(b.path);if(!socket.isSocket()||socket.uid!==process.getuid()||(socket.mode&0o777)!==0o600)throw Error('unsafe socket');}catch(error){if(error.code!=='ENOENT')throw error;}}
+ catch{throw Error('Native browser capability unavailable or unsafe');}
+}

@@ -1,0 +1,8 @@
+--- a/apps/server/src/ManagedOwnerProofIssuer.ts
++++ b/apps/server/src/ManagedOwnerProofIssuer.ts
+@@ -16,4 +16,4 @@
+ export class ManagedOwnerProofIssuer extends Context.Service<ManagedOwnerProofIssuer, {
+   // Captures verified native issuance, not caller-selected identity. No JSON constructor.
+   readonly prove: (nonce: string) => Effect.Effect<ManagedOwnerProofV2>;
+-}>()("blackcrab/ManagedOwnerProofIssuer") {}
++}>()("t3/ManagedOwnerProofIssuer") {}

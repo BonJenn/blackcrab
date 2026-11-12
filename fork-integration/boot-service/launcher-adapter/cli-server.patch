@@ -1,0 +1,23 @@
+--- a/apps/server/src/cli/server.ts
++++ b/apps/server/src/cli/server.ts
+@@ -7,6 +7,8 @@
+ import * as CliError from "effect/cli/CliError";
+ 
+ import * as ServerConfig from "../config.ts";
++import { isOwnedServiceConfig } from "../OwnedServiceProof.ts";
++import { withOwnedServiceLauncherLifetime } from "../OwnedServiceLauncherLoss.ts";
+ import { awaitLauncherLoss } from "../launcherWatch.ts";
+ import * as ProcessRunner from "../processRunner.ts";
+ import * as AutomaticPort from "./automaticPort.ts";
+@@ -34,7 +36,10 @@
+   const logLevel = yield* GlobalFlag.LogLevel;
+   const selectAutomaticPort = yield* AutomaticPort.make.pipe(Effect.provide(ProcessRunner.layer));
+   const config = yield* resolveServerConfig(flags, logLevel, { ...options, selectAutomaticPort });
+-  const run = runServer.pipe(Effect.provideService(ServerConfig.ServerConfig, config));
++  const configuredRun = runServer.pipe(Effect.provideService(ServerConfig.ServerConfig, config));
++  const run = isOwnedServiceConfig(config)
++    ? withOwnedServiceLauncherLifetime(configuredRun)
++    : configuredRun;
+   if (config.mode !== "desktop" || config.desktopBootstrapToken === undefined) return yield* run;
+   yield* Effect.sync(() => {
+     process.stdout.on("error", ignoreClosedLauncherPipe);

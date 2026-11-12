@@ -1,0 +1,10 @@
+--- a/packages/contracts/src/desktopBootstrap.ts
++++ b/packages/contracts/src/desktopBootstrap.ts
+@@ -26,6 +26,7 @@
+   otlpLogsUrl: Schema.optional(Schema.String),
+   desktopTelemetryFd: Schema.optionalKey(PositiveInt),
+   desktopTelemetryControlFd: Schema.optionalKey(PositiveInt),
++  desktopBrowserSocket: Schema.optionalKey(Schema.Struct({ path: TrimmedNonEmptyString, key: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)), generation: PositiveInt })),
+   desktopBrowserFd: Schema.optionalKey(PositiveInt),
+   desktopBrowserControlFd: Schema.optionalKey(PositiveInt),
+   resourceMonitorPath: Schema.optionalKey(TrimmedNonEmptyString),

@@ -39,11 +39,28 @@ jobs:
 
       - run: npm run test:managed-host
 
-      - run: node --test fork-integration/identity/*.test.mjs fork-integration/owner-control/*.test.mjs fork-integration/boot-service/*.test.mjs
+      - run: node --test fork-integration/identity/*.test.mjs fork-integration/owner-control/*.test.mjs fork-integration/boot-service/*.test.mjs fork-integration/native-os-home/environment.test.mjs fork-integration/native-keychain-qa/recipe.test.mjs
+
+      - run: node --test fork-integration/owner-control/identity-v2/*.test.mjs
+
+      - run: node fork-integration/owner-control/identity-v2/typecheck.mjs
 
       - run: node --test managed-desktop/*.test.mjs managed-cloud/*.test.mjs
 
       - run: node --test src-tauri/src/managed_desktop.contract.test.mjs
+
+      - name: verify owned service bootstrap boundaries
+        run: >-
+          node --test
+          fork-integration/boot-service/owned-auth/provenance.test.mjs
+          fork-integration/boot-service/owned-auth/source-mirror.test.mjs
+          fork-integration/boot-service/backend-identity/*.test.mjs
+          fork-integration/boot-service/launcher-adapter/*.test.mjs
+          fork-integration/boot-service/browser-channel/*.test.mjs
+          fork-integration/boot-service/typecheck/*.test.mjs
+
+      - run: node --test scripts/managed-native-resources.test.mjs
+      - run: node --test scripts/macos-release/*.test.mjs
 
       - run: npm run typecheck:managed-acceptance
 

@@ -276,15 +276,17 @@ dependencies = [
 
 [[package]]
 name = "blackcrab"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64 0.22.1",
  "blackcrab-relay",
  "crypto_secretbox",
+ "flate2",
  "futures-util",
  "getrandom 0.2.17",
  "hmac",
  "libc",
+ "plist",
  "portable-pty",
  "reqwest",
  "rusqlite",
@@ -292,6 +294,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

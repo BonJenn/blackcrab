@@ -1,0 +1,85 @@
+--- a/apps/desktop/src/preview/Manager.ts
++++ b/apps/desktop/src/preview/Manager.ts
+@@ -991,16 +991,17 @@
+     );
+   });
+ 
++  const physicalControlOwners=new Map<number,BrowserControlSession>();
+   const detachControlSession = Effect.fn("PreviewManager.detachControlSession")(function* (
+     webContentsId: number,
+     closedServerTab?: PreviewTabState["serverTab"],
+-  ) {
+-    const control = yield* SynchronizedRef.modify(controlSessionsRef, (sessions) => [
+-      sessions.get(webContentsId),
+-      replaceMap(sessions, (copy) => {
+-        copy.delete(webContentsId);
+-      }),
+-    ]);
++    expected?: BrowserControlSession,
++  ) {
++    const control = yield* SynchronizedRef.modify(controlSessionsRef, (sessions) => {
++      const current=sessions.get(webContentsId);
++      if(expected && current!==expected)return [undefined,sessions] as const;
++      return [current,replaceMap(sessions,copy=>{copy.delete(webContentsId);})] as const;
++    });
+     if (control) yield* releaseControlSession(control, closedServerTab);
+   });
+ 
+@@ -1010,10 +1011,10 @@
+     control: BrowserControlSession,
+     closedServerTab?: PreviewTabState["serverTab"],
+   ) {
+-    if (closedServerTab) browserHost.detach(closedServerTab);
++    if (closedServerTab) browserHost.detach(closedServerTab,control);
+     for (const tab of (yield* SynchronizedRef.get(tabsRef)).values()) {
+       if (tab.webContentsId === control.webContentsId && tab.serverTab) {
+-        browserHost.detach(tab.serverTab);
++        browserHost.detach(tab.serverTab,control);
+       }
+     }
+     yield* Scope.close(control.scope, Exit.void).pipe(Effect.ignore);
+@@ -1110,6 +1111,7 @@
+           // is replaced.
+           let dropped = false;
+           const onDetach = () => {
++            if(physicalControlOwners.get(wc.id)!==control)return;
+             dropped = true;
+             runFork(recoverDetachedControlSession(wc, control));
+           };
+@@ -1121,7 +1123,10 @@
+             attempt({ operation: "detachControlSession", webContentsId: wc.id }, () => {
+               wcDebugger.off("message", onMessage);
+               wcDebugger.off("detach", onDetach);
+-              if (!dropped && wcDebugger.isAttached()) wcDebugger.detach();
++              if (physicalControlOwners.get(wc.id)===control) {
++                physicalControlOwners.delete(wc.id);
++                if (!dropped && wcDebugger.isAttached()) wcDebugger.detach();
++              }
+             }).pipe(Effect.ignore),
+           );
+           const initialize = Effect.fn("PreviewManager.initializeControlSession")(function* () {
+@@ -1129,6 +1134,7 @@
+               wcDebugger.on("message", onMessage);
+               wcDebugger.on("detach", onDetach);
+               wcDebugger.attach("1.3");
++              physicalControlOwners.set(wc.id,control);
+             });
+             // Set an opaque base before first paint or background-less dark pages retain white-on-white text.
+             yield* attemptPromise(
+@@ -2339,13 +2345,13 @@
+       if (beforeAttach?.webContentsId !== wc.id) return;
+       const control = yield* ensureControlSession(wc);
+       const afterAttach = (yield* SynchronizedRef.get(tabsRef)).get(tabId);
+-      if (afterAttach?.webContentsId !== wc.id) {
+-        yield* detachControlSession(wc.id);
++      if (afterAttach?.webContentsId !== wc.id || (yield* SynchronizedRef.get(controlSessionsRef)).get(wc.id)!==control || physicalControlOwners.get(wc.id)!==control) {
++        yield* detachControlSession(wc.id,undefined,control);
+         return;
+       }
+       if (afterAttach.serverTab) {
+         yield* listenToBrowserHost;
+-        browserHost.attach(afterAttach.serverTab, { webContents: wc, debugger: control.debugger });
++        browserHost.attach(afterAttach.serverTab, { webContents: wc, debugger: control.debugger, owner:control });
+       }
+       if (afterAttach.colorScheme !== "system") {
+         yield* attemptPromise({ operation: "applyColorScheme", tabId, webContentsId: wc.id }, () =>

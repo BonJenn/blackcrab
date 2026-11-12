@@ -1,0 +1,91 @@
+{
+  "identity": {
+    "nonce": "44a10b1c0fee1234",
+    "appVersion": "0.1.7",
+    "stage": "Beta",
+    "baseName": "Blackcrab Native QA 44a10b1c0fee1234",
+    "appName": "Blackcrab Native QA 44a10b1c0fee1234 Beta",
+    "service": "Blackcrab Native QA 44a10b1c0fee1234 Beta Safe Storage",
+    "account": "Blackcrab Native QA 44a10b1c0fee1234 Beta",
+    "namespace": {
+      "appId": "com.blackcrab.desktop.managed.nativekeychainqa.n44a10b1c0fee1234",
+      "name": "Blackcrab Native QA 44a10b1c0fee1234 Beta",
+      "scheme": "blackcrab",
+      "profile": "blackcrab-managed-v1"
+    }
+  },
+  "records": [
+    {
+      "target": "apps/desktop/src/app/DesktopEnvironment.ts",
+      "phase": "source",
+      "beforeSha256": "bc6c3cc38247e58fc322b85ae4d003d1eb683cc2377e60cba4efcd5538cb660f",
+      "afterSha256": "27320e75ea55046a6c2ea0e3a2dba1b551775b633daa58219a778d24d25343bc",
+      "changed": true,
+      "afterFixture": "fixtures/sample-after/environment.after.ts"
+    },
+    {
+      "target": "apps/desktop/src/app/ManagedBootstrap.mjs",
+      "phase": "preserved-source",
+      "beforeSha256": "20c35c4e3909c4ea18188fb15dfcc499ef8839021334e514514bb439cb2eadef",
+      "afterSha256": "20c35c4e3909c4ea18188fb15dfcc499ef8839021334e514514bb439cb2eadef",
+      "changed": false,
+      "afterFixture": "fixtures/sample-after/bootstrap.after.mjs"
+    },
+    {
+      "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
+      "phase": "source",
+      "beforeSha256": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2",
+      "afterSha256": "8dd322cee56da9c80a6511401e1c299415b390857ba29538c92c281ba1af4300",
+      "changed": true,
+      "afterFixture": "fixtures/sample-after/descriptor.after.mjs"
+    },
+    {
+      "target": "apps/desktop/src/app/DesktopAppIdentity.ts",
+      "phase": "preserved-source",
+      "beforeSha256": "89063852cf93ca9d303e0182c63b0c85e594d50634a3161d912f48b379b34dba",
+      "afterSha256": "89063852cf93ca9d303e0182c63b0c85e594d50634a3161d912f48b379b34dba",
+      "changed": false,
+      "afterFixture": "fixtures/sample-after/identity.after.ts"
+    },
+    {
+      "target": "apps/desktop/src/electron/ElectronSafeStorage.ts",
+      "phase": "preserved-source",
+      "beforeSha256": "ac7e34845e98b1c8302c757cd968c3d10478a0ecc9c2e4061bd8684c07f2f6e2",
+      "afterSha256": "ac7e34845e98b1c8302c757cd968c3d10478a0ecc9c2e4061bd8684c07f2f6e2",
+      "changed": false,
+      "afterFixture": "fixtures/sample-after/safe-storage.after.ts"
+    },
+    {
+      "target": "apps/desktop/src/main.ts",
+      "phase": "preserved-source",
+      "beforeSha256": "a2dd1d5402d1a811c9682859c3d6a888ec43ba15553654ae74074483cbf75b5c",
+      "afterSha256": "a2dd1d5402d1a811c9682859c3d6a888ec43ba15553654ae74074483cbf75b5c",
+      "changed": false,
+      "afterFixture": "fixtures/sample-after/main.after.ts"
+    },
+    {
+      "target": "Blackcrab.app/Contents/Resources/app/package.json",
+      "phase": "package",
+      "beforeSha256": "367f6d3865f8910d0732f53c1696e67f649a625932eac597909a2dc25c1f947e",
+      "afterSha256": "0fd9e7d420f50224b94cb98bf2bf80c03f8a3c46f2ea97cbbb21b4a43a290d6b",
+      "changed": true,
+      "afterFixture": "fixtures/sample-after/package.after.json"
+    },
+    {
+      "target": "Blackcrab.app/Contents/Info.plist",
+      "phase": "package",
+      "beforeSha256": "ce112236aaa06049b28bb12a567e1dc9fff0f190a46fdc9e9952912b2d1f6f68",
+      "afterSha256": "a6f9c0bcf7439917898037ec46d057deab5bb3167335f4a342dcf7bba45f0aad",
+      "changed": true,
+      "afterFixture": "fixtures/sample-after/Info.after.plist"
+    },
+    {
+      "target": "apps/desktop/src/app/managed-desktop/environment.mjs",
+      "phase": "preserved-source",
+      "beforeSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
+      "afterSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
+      "changed": false,
+      "afterFixture": "fixtures/sample-after/managed-environment.after.mjs"
+    }
+  ]
+}

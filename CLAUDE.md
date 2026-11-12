@@ -34,6 +34,14 @@ supersedes them only for the exact source, artifact, platform and scenario teste
   registry, preserving hashes, original behavior, attribution and verification.
   Do not hand-edit vendor inventories or generated output to conceal a mismatch.
 
+## Hosted-service model
+
+The accepted commercial direction is documented in docs/hosted-service-plan.md:
+free local/self-hosted software and paid Blackcrab-hosted remote access, starting
+with an invite-only beta. Enforce access/quotas on the server; public endpoint URLs
+are not secrets or proof of payment. Billing and public signup remain planned
+release gates. Preserve the current owner Mac/TestFlight delivery priority.
+
 ## Repository and Git
 
 The main Mac checkout is `/Volumes/G-DRIVE PRO/Programming/blackcrab`.
@@ -94,3 +102,14 @@ resumed. A cancelled background command will not finish by itself.
 Update both members of every changed AGENTS.md/CLAUDE.md pair identically.
 Do not claim completion while native acceptance, cloud operation, installation
 or TestFlight availability remains unverified.
+
+## Explicit v0.4.0 publication instruction — 2026-11-12
+
+The owner said: "publish the mac release and ill test it myself. this will be
+version 0.4" and requested the website, blog and release notes workflow too.
+This supersedes the earlier requirement to wait for native window capture before
+merging/publishing v0.4.0. Record OWNER_TESTING_AUTHORIZED for that exact release
+and source, never PASSED. The owner will perform UI/lifecycle and upgrade testing
+after publication. Keep signing, notarization, payload integrity and updater
+signature checks. Publish the verified Apple-silicon release and then update the
+website to its real downloads. No additional publication confirmation is needed.

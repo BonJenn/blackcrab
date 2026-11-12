@@ -1,0 +1,348 @@
+--- a/apps/server/src/preview/ServerBrowser.ts
++++ b/apps/server/src/preview/ServerBrowser.ts
+@@ -1,3 +1,4 @@
++import {sameAttachment,deleteIfSame,publishIfSame,resourceDirectoryName,type Attachment} from "@t3tools/shared/leasedDesktopBrowser";
+ // @effect-diagnostics nodeBuiltinImport:off globalDate:off globalTimers:off - Playwright callbacks run outside the Effect runtime.
+ // Screencasts ignore emulated device scale; real 2x keeps captures sharp.
+ // --disable-gpu uses cheaper software compositing while preserving SwiftShader WebGL.
+@@ -289,6 +290,7 @@
+ }
+ 
+ interface ServerTab {
++  readonly contextId: string;
+   readonly threadId: ThreadId;
+   readonly tabId: string;
+   readonly page: Page;
+@@ -307,7 +309,7 @@
+ 
+   readonly isolatedContext: boolean;
+ 
+-  readonly desktop: { readonly close: () => Promise<void> } | null;
++  readonly desktop: { readonly attachment?: Attachment; readonly close: () => Promise<void> } | null;
+   readonly profileId: string | undefined;
+   readonly openerTabId: string | undefined;
+ 
+@@ -474,7 +476,8 @@
+   const environment = yield* ServerEnvironment.ServerEnvironment;
+   const previewBrowser = yield* PreviewBrowser.PreviewBrowser;
+   const desktopChannel = yield* DesktopBrowserChannel.DesktopBrowserChannel;
+-  const agentTurns = yield* (yield* PreviewAgentActivity.PreviewAgentActivity).changes;
++  const agentActivity = yield* PreviewAgentActivity.PreviewAgentActivity;
++  const agentTurns = yield* agentActivity.changes;
+   const runFork = Effect.runForkWith(yield* Effect.context<never>());
+   const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
+   const runSyncExit = Effect.runSyncExitWith(yield* Effect.context<never>());
+@@ -490,10 +493,10 @@
+   const tabs = new Map<string, ServerTab>();
+   const pendingTabs = new Map<
+     string,
+-    { readonly agentId: string | null; promise?: Promise<ServerTab> }
++    { readonly agentId: string | null; readonly token: object; attachment?: Attachment; promise?: Promise<ServerTab> }
+   >();
+ 
+-  const closedPendingTabs = new Set<string>();
++  const closedPendingTabs = new Map<string,object>();
+   const adoptedPages = new Map<string, { readonly page: Page; readonly openerTabId: string }>();
+   const closedSessions = new Set<string>();
+   let hostConnectionId: string | null = null;
+@@ -550,7 +553,9 @@
+     else tab.page.off("filechooser", tab.onFileChooser);
+   };
+ 
++  const contextCurrent = (tab: ServerTab) => !tab.closing && tabs.get(tabKey(tab.threadId,tab.tabId))===tab && (!tab.desktop?.attachment || desktopChannel.isCurrent?.(tab.desktop.attachment)===true);
+   const broadcastControl = (tab: ServerTab) => {
++    if (!contextCurrent(tab)) return;
+     updateFileChooserInterception(tab);
+     for (const viewer of tab.viewers)
+       viewer.push({
+@@ -580,10 +585,12 @@
+   };
+ 
+   const report = (tab: ServerTab, navStatus: PreviewNavStatus) => {
++    if (!contextCurrent(tab)) return;
+     void tab.cdp
+       .send("Page.getNavigationHistory")
+       .catch(() => null)
+       .then((history) => {
++        if (!contextCurrent(tab)) return;
+         const index = history?.currentIndex ?? 0;
+         const count = history?.entries.length ?? 0;
+         runFork(
+@@ -602,13 +609,14 @@
+   };
+ 
+   const reportLoaded = async (tab: ServerTab) => {
++    if (!contextCurrent(tab)) return;
+     const url = tab.page.url();
+     // Chromium's error page loads after `requestfailed` and must not clear LoadFailed.
+     if (url === "about:blank" || url.startsWith("chrome-error://")) return;
+     // A navigation that starts and fails during the title read leaves the URL unchanged.
+     const generation = tab.navigationGeneration;
+     const title = (await tab.page.title().catch(() => "")).slice(0, 512);
+-    if (tab.navigationGeneration !== generation || tab.loading || tab.page.url() !== url) return;
++    if (!contextCurrent(tab) || tab.navigationGeneration !== generation || tab.loading || tab.page.url() !== url) return;
+     report(tab, {
+       _tag: "Success",
+       url: ServerBrowserPage.withoutDataPayload(url).slice(0, 2048),
+@@ -744,6 +752,8 @@
+   const dropTab = (tab: ServerTab, closeSession: boolean) => {
+     const key = tabKey(tab.threadId, tab.tabId);
+     if (tabs.get(key) !== tab) return;
++    // A retired CDP wrapper closing is not the physical desktop page closing.
++    if (tab.desktop?.attachment && !desktopChannel.isCurrent?.(tab.desktop.attachment)) closeSession = false;
+     tabs.delete(key);
+     tab.closing = true;
+     clearAbortedNavigation(tab);
+@@ -758,7 +768,7 @@
+     void NodeFSP.rm(downloadDir(tab), { recursive: true, force: true }).catch(constVoid);
+     reportLiveTabs();
+     if (closeSession) {
+-      runFork(manager.close({ threadId: tab.threadId, tabId: tab.tabId }).pipe(Effect.ignore));
++      runFork(Effect.suspend(()=>tabs.has(key) || (tab.desktop?.attachment && !desktopChannel.isCurrent?.(tab.desktop.attachment)) ? Effect.void : manager.close({ threadId: tab.threadId, tabId: tab.tabId })).pipe(Effect.ignore));
+     }
+   };
+ 
+@@ -772,17 +782,19 @@
+         )
+       : Promise.resolve(false);
+ 
+-  const connectDesktop = async (snapshot: PreviewSessionSnapshot) => {
++  const connectDesktop = async (snapshot: PreviewSessionSnapshot, attachment?: Attachment) => {
++    const captured = attachment ?? desktopChannel.identity?.({threadId:snapshot.threadId,tabId:snapshot.tabId});
+     const scope = await runPromise(Scope.make());
+     try {
+       const endpoint = await runPromise(
+         desktopChannel
+-          .endpoint({ threadId: snapshot.threadId, tabId: snapshot.tabId })
++          .endpoint({ threadId: snapshot.threadId, tabId: snapshot.tabId, ...(captured ? {attachment:captured} : {}) })
+           .pipe(Scope.provide(scope)),
+       );
+       const connected = await contexts.connectDesktopPage(endpoint);
+       return {
+         page: connected.page,
++        ...(captured ? {attachment:captured} : {}),
+         close: async () => {
+           await connected.browser.close().catch(constVoid);
+           await runPromise(Scope.close(scope, Exit.void));
+@@ -794,10 +806,10 @@
+     }
+   };
+ 
+-  const createTab = async (snapshot: PreviewSessionSnapshot): Promise<ServerTab> => {
++  const createTab = async (snapshot: PreviewSessionSnapshot, opening: object, attachment?: Attachment): Promise<ServerTab> => {
+     const opened: Array<() => Promise<void>> = [];
+     try {
+-      return await setUpTab(snapshot, opened);
++      return await setUpTab(snapshot, opened, opening, attachment);
+     } catch (cause) {
+       // An unpublished tab is in no list, so nothing else would ever close it.
+       for (const close of opened.reverse()) await close().catch(constVoid);
+@@ -808,13 +820,19 @@
+   const setUpTab = async (
+     snapshot: PreviewSessionSnapshot,
+     opened: Array<() => Promise<void>>,
++    opening: object,
++    attachment?: Attachment,
+   ): Promise<ServerTab> => {
+     const adopted = adoptedPages.get(tabKey(snapshot.threadId, snapshot.tabId));
+     adoptedPages.delete(tabKey(snapshot.threadId, snapshot.tabId));
+-    const desktop =
+-      adopted === undefined && (await desktopRenders(snapshot))
+-        ? await connectDesktop(snapshot)
+-        : null;
++    const rendered=adopted === undefined && (await desktopRenders(snapshot));
++    const pendingOwner=pendingTabs.get(tabKey(snapshot.threadId,snapshot.tabId));
++    if(!pendingOwner || pendingOwner.token!==opening)throw new ServerBrowserTabNotFoundError({threadId:snapshot.threadId,tabId:snapshot.tabId});
++    if(rendered && !attachment){
++      attachment=desktopChannel.identity?.({threadId:snapshot.threadId,tabId:snapshot.tabId});
++      if(attachment)pendingOwner.attachment=attachment;
++    }
++    const desktop=rendered ? await connectDesktop(snapshot,attachment) : null;
+     if (desktop) opened.push(desktop.close);
+     // Otherwise a desktop that attaches late shows its own page, and the agent drives another.
+     if (!desktop && desktopChannel.available) {
+@@ -854,6 +872,7 @@
+     );
+     let pendingFileChooserOffer = Promise.resolve();
+     const tab: ServerTab = {
++      contextId: NodeCrypto.randomUUID(),
+       threadId: ThreadId.make(snapshot.threadId),
+       tabId: snapshot.tabId,
+       page,
+@@ -874,7 +893,7 @@
+           .catch(constVoid);
+       },
+       isolatedContext,
+-      desktop: desktop === null ? null : { close: desktop.close },
++      desktop: desktop === null ? null : { close: desktop.close, ...(desktop.attachment ? { attachment: desktop.attachment } : {}) },
+       profileId: snapshot.profileId,
+       openerTabId: adopted?.openerTabId,
+       downloads: [],
+@@ -1012,13 +1031,22 @@
+     page.on("popup", (popup) => void adoptPopup(tab, popup));
+     // Playwright cannot reload a crashed page, so it must leave the tab list.
+     const key = tabKey(tab.threadId, tab.tabId);
+-    if (closedPendingTabs.delete(key)) {
++    if (closedPendingTabs.get(key)===opening) {
++      closedPendingTabs.delete(key);
+       await control.close().catch(constVoid);
+       throw new ServerBrowserTabNotFoundError({ threadId: tab.threadId, tabId: tab.tabId });
+     }
+     page.on("close", () => dropTab(tab, true));
+     page.on("crash", () => dropTab(tab, true));
+-    tabs.set(key, tab);
++    const pending=pendingTabs.get(key);
++    if (!pending || pending.token!==opening || (attachment && !desktopChannel.isCurrent?.(attachment))) {
++      await control.close().catch(constVoid);
++      throw new ServerBrowserTabNotFoundError({threadId:tab.threadId,tabId:tab.tabId});
++    }
++    if (!publishIfSame(pendingTabs,key,pending,()=>!attachment || desktopChannel.isCurrent?.(attachment)===true,()=>tabs.set(key,tab))) {
++      await control.close().catch(constVoid);
++      throw new ServerBrowserTabNotFoundError({threadId:tab.threadId,tabId:tab.tabId});
++    }
+     reportLiveTabs();
+     // A desktop page navigates on its own and can finish loading before these listeners attach.
+     if (desktop) void page.waitForLoadState("load").then(() => reportLoaded(tab), constVoid);
+@@ -1056,7 +1084,7 @@
+   const downloadDir = (tab: ServerTab) =>
+     NodePath.join(
+       downloadsRoot,
+-      NodeCrypto.createHash("sha256").update(tabKey(tab.threadId, tab.tabId)).digest("hex"),
++      resourceDirectoryName(tabKey(tab.threadId, tab.tabId),tab.contextId),
+     );
+ 
+   const clearAbortedNavigation = (tab: ServerTab) => {
+@@ -1087,6 +1115,7 @@
+   };
+ 
+   const saveDownload = async (tab: ServerTab, download: Download) => {
++    if (!contextCurrent(tab)) return;
+     const id = NodeCrypto.randomUUID();
+     const path = NodePath.join(downloadDir(tab), id);
+     const navigation =
+@@ -1336,6 +1365,7 @@
+   };
+ 
+   const adoptPopup = async (opener: ServerTab, popup: Page) => {
++    if (!contextCurrent(opener)) { await popup.close().catch(constVoid); return; }
+     if (opener.closing) {
+       await popup.close().catch(constVoid);
+       return;
+@@ -1370,28 +1400,20 @@
+     );
+   };
+ 
+-  const ensureTab = (snapshot: PreviewSessionSnapshot): Promise<ServerTab> => {
+-    const key = tabKey(snapshot.threadId, snapshot.tabId);
+-    const pending = pendingTabs.get(key);
+-    if (pending?.promise) return pending.promise;
+-    const existing = tabs.get(key);
+-    if (existing) return Promise.resolve(existing);
+-    const opening = createTab(snapshot)
+-      .catch((cause: unknown) => {
+-        runFork(
+-          Effect.logWarning(
+-            isHostSetupError(cause) ? cause.message : "server preview tab failed to start",
+-            { cause },
+-          ),
+-        );
+-        throw cause;
+-      })
+-      .finally(() => {
+-        pendingTabs.delete(key);
+-        closedPendingTabs.delete(key);
+-      });
+-    pendingTabs.set(key, { agentId: snapshot.automationOwner ?? null, promise: opening });
+-    return opening;
++  const ensureTab = (snapshot: PreviewSessionSnapshot, expected?: Attachment): Promise<ServerTab> => {
++    const key=tabKey(snapshot.threadId,snapshot.tabId);
++    const attachment=expected??desktopChannel.identity?.({threadId:snapshot.threadId,tabId:snapshot.tabId});
++    const pending=pendingTabs.get(key);
++    if(pending?.promise && (!attachment || sameAttachment(pending.attachment,attachment)))return pending.promise;
++    const existing=tabs.get(key);
++    if(existing && (!attachment || sameAttachment(existing.desktop?.attachment,attachment)))return Promise.resolve(existing);
++    if(existing)dropTab(existing,false);
++    const record={agentId:snapshot.automationOwner??null,token:{},attachment,promise:undefined as Promise<ServerTab>|undefined};
++    pendingTabs.set(key,record);
++    const opening=createTab(snapshot,record.token,attachment).catch((cause:unknown)=>{
++      runFork(Effect.logWarning("server preview tab failed to start",{cause}));throw cause;
++    }).finally(()=>{deleteIfSame(pendingTabs,key,record);deleteIfSame(closedPendingTabs,key,record.token);});
++    record.promise=opening;return opening;
+   };
+ 
+   const findTab = Effect.fn("ServerBrowser.findTab")(function* (threadId: string, tabId: string) {
+@@ -1452,7 +1474,7 @@
+     options: { readonly reclaimIdleSlot?: boolean } = {},
+   ) {
+     let key: string = NodeCrypto.randomUUID();
+-    const reservation = { agentId: input.automationOwner ?? null };
++    const reservation = { agentId: input.automationOwner ?? null,token:{} };
+     return yield* Effect.acquireUseRelease(
+       Effect.try({
+         try: () => {
+@@ -1469,7 +1491,7 @@
+           .open({
+             ...input,
+             beforePublish: (snapshot) => {
+-              pendingTabs.delete(key);
++              deleteIfSame(pendingTabs,key,reservation);
+               key = tabKey(snapshot.threadId, snapshot.tabId);
+               pendingTabs.set(key, reservation);
+               input.beforePublish?.(snapshot);
+@@ -1482,16 +1504,14 @@
+                 catch: ServerBrowserPage.toOperationError,
+               }).pipe(
+                 Effect.onError(() =>
+-                  manager
+-                    .close({ threadId: ThreadId.make(snapshot.threadId), tabId: snapshot.tabId })
+-                    .pipe(Effect.ignore),
++                  Effect.suspend(()=>tabs.has(tabKey(snapshot.threadId,snapshot.tabId)) || pendingTabs.has(tabKey(snapshot.threadId,snapshot.tabId)) ? Effect.void : manager.close({ threadId: ThreadId.make(snapshot.threadId), tabId: snapshot.tabId })).pipe(Effect.ignore),
+                 ),
+               ),
+             ),
+           ),
+       () =>
+         Effect.sync(() => {
+-          pendingTabs.delete(key);
++          deleteIfSame(pendingTabs,key,reservation);
+         }),
+     );
+   }, Effect.uninterruptible);
+@@ -2334,7 +2354,7 @@
+       }
+       const key = tabKey(event.threadId, event.tabId);
+       const tab = tabs.get(key);
+-      if (event.type === "closed" && !tab && pendingTabs.has(key)) closedPendingTabs.add(key);
++      if (event.type === "closed" && !tab && pendingTabs.has(key)) closedPendingTabs.set(key,pendingTabs.get(key)!.token);
+       if (!tab) return;
+       if (event.type === "closed") {
+         closedSessions.add(key);
+@@ -2765,7 +2785,7 @@
+     Stream.runForEach((key) =>
+       Effect.sync(() => {
+         const tab = tabs.get(tabKey(key.threadId, key.tabId));
+-        if (tab?.desktop) dropTab(tab, false);
++        if (tab?.desktop && (!key.attachment || sameAttachment(tab.desktop.attachment,key.attachment))) dropTab(tab, false);
+       }),
+     ),
+     Effect.forkScoped,
+@@ -2779,12 +2799,17 @@
+   yield* desktopChannel.attached.pipe(
+     Stream.runForEach((key) =>
+       Effect.gen(function* () {
+-        if (tabs.has(tabKey(key.threadId, key.tabId))) return;
++        const existing=tabs.get(tabKey(key.threadId,key.tabId));
++        if(existing && (!key.attachment || sameAttachment(existing.desktop?.attachment,key.attachment))) return;
++        if(key.attachment && !desktopChannel.isCurrent?.(key.attachment)) return;
++        const active=yield* agentActivity.active(ThreadId.make(key.threadId));
++        if(key.attachment && !desktopChannel.isCurrent?.(key.attachment)) return;
++        yield* desktopChannel.turn(key.threadId,active);
+         const { sessions } = yield* manager.list({ threadId: ThreadId.make(key.threadId) });
+         const snapshot = sessions.find(
+           (session) => session.tabId === key.tabId && session.runtime === "server",
+         );
+-        if (snapshot) yield* Effect.promise(() => ensureTab(snapshot).catch(constVoid));
++        if (snapshot) yield* Effect.promise(() => ensureTab(snapshot,key.attachment).catch(constVoid));
+       }).pipe(Effect.ignore),
+     ),
+     Effect.forkScoped,

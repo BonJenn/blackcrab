@@ -1,0 +1,13 @@
+--- a/packages/shared/package.json
++++ b/packages/shared/package.json
+@@ -542,6 +542,10 @@
+     "./speech": {
+       "types": "./src/speech.ts",
+       "import": "./src/speech.ts"
++    },
++    "./leasedDesktopBrowser": {
++      "types": "./src/leasedDesktopBrowser.ts",
++      "import": "./src/leasedDesktopBrowser.ts"
+     }
+   },
+   "scripts": {

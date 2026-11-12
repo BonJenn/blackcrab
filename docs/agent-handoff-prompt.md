@@ -1,109 +1,155 @@
 # Copyable continuation prompt
 
-Paste the following into the replacement agent. Keep the handoff document
-alongside it; local evidence paths may not survive on another machine.
+Paste the block below into the replacement agent. Read the linked handoff for
+supporting evidence. Temporary paths may be absent on another machine.
 
 ---
 
-Continue the Blackcrab/T3 parity and delivery task; do not restart the project.
-First read AGENTS.md (CLAUDE.md is identical), docs/agent-handoff.md,
-docs/t3-parity-plan.md, docs/t3-parity-ledger.md, and the guides in the
-directories you edit. Recheck mutable state; the handoff is a dated checkpoint.
+Continue Blackcrab/T3 parity and delivery; do not restart the project. First read
+AGENTS.md, docs/agent-handoff.md (current checkpoint first), docs/t3-parity-plan.md,
+docs/t3-parity-ledger.md and the nearest directory guides. The historical parts
+of the handoff preserve evidence, but their old live-state claims are superseded.
+Keep this prompt and that handoff current as work moves. AGENTS.md and CLAUDE.md
+must be identical within each edited directory.
 
-The user wants Blackcrab to have all applicable functionality of their
-BonJenn/t3code fork at commit 7f02de2eb8e253e0ec23f005b3cfff8e2c963be8,
-including full remote iOS agent control. The finish line is validated parity,
-a current normal Mac app installed on their computer, and an app available to
-them in TestFlight. They authorized coherent PRs merged into stage and asked
-to continue until done. Passing CI or importing source is not completion.
+The user wants all applicable functionality of BonJenn/t3code pinned at
+7f02de2eb8e253e0ec23f005b3cfff8e2c963be8, including remote iOS agent control.
+Finish line: validated parity, a normal current Mac app installed for the owner,
+and an accessible TestFlight app. PRs/imported source/green CI alone do not finish
+it. The latest focus is Mac background-service integration and removing mobile
+T3 product copy (for example “T3 Account”). Coherent PRs and merges to stage,
+installation and TestFlight delivery are already authorized.
 
-Primary checkout: /Volumes/G-DRIVE PRO/Programming/blackcrab. It has extensive
-pre-existing dirty work. Preserve all of it and its index; use an owned separate
-worktree. Evidence root:
-/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Read combined-parity-_s49gx2k/integration-plan.json for local evidence, but older
-keys can be stale; prefer the dated handoff, latest specific result and GitHub.
-Do not adopt PIDs, kill unrelated apps, touch live user databases, or overwrite
-accepted artifacts. No native compile/export is running. The device archive,
-corrected signed export and Apple's validation passed. Upload was received by
-Apple, processing is VALID, and captured shell session 92016 exited successfully.
-Version 1.0.0 (4) is IN_BETA_TESTING and available to the owner's existing tester.
-Read ios-device-release-102m5jw4/apple-submission-result.json and
-testflight-delivery-verification.json before any retry. Upload alone is not
-TestFlight availability; the separate distribution verification now passes.
-Do not submit build 4 again.
+Current checkpoint: 2026-11-12 19:03 UTC. Recheck mutable facts.
+P = /Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Main checkout = /Volumes/G-DRIVE PRO/Programming/blackcrab; it is extensively
+dirty. Never reset, clean, switch or stage everything there. Its last verified
+index SHA-256 is eea7b021ea64188388c96b9e68693e9bbfbe10ecc682f9717c98ec7450c3155a.
+Recheck rather than assuming an unchanged value. Stage explicit reviewed paths
+in the isolated worktrees. No AI co-author trailers. No new unasked agents,
+threads or replacement goal. Preserve existing captures; never adopt a PID or
+kill unrelated apps. Do not point probes at existing user databases.
 
-Known source state: stage 0165cdd541ed480075aa26d3d74b5fc4dc13fc36.
-Current release worktree: evidence root/ios-device-release-102m5jw4/source,
-branch parity/ios-device-release, with the release helper/configuration changes.
-Its parent directory's release-pr.json records publication when available;
-PR #262 had all nine checks pass on 12236e32f03395a39b3e113c81368ce2556f7cf3;
-recheck the final documentation head/checks. Native signing acceptance now passes.
-PR #215 head b4edea278ee710a3de6bdb9fd9778cd722cb8a8a has all nine CI checks
-passing and no conflicts/reviews, but is draft awaiting current bundled Root
-launch/reuse/quit/reattach acceptance. Its watch was stopped. See the handoff
-for the desktop #223–251 and service #217–237 dependency chains; do not merge
-all parents just because a child is green. Preserve the Effect callback fix,
-strict owned links, composer fix and #260 queued-stop timer cleanup.
+MAC WORK:
+Worktree P/desktop-delivery-m6ki1jlt/source, branch
+parity/desktop-delivery-integration, local merged HEAD
+1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c plus reviewed uncommitted fixes.
+All 17 desktop/service stack tips are ancestors (stack-ancestry-review.json).
+No integration PR yet. This combines the desktop #215/#223–251 chain, service
+#217–237 chain and #234 resources, preserving #260's queued-stop timer fix.
+The normal Electron payload and isolated QA archive are verified. The combined
+Root QA compile/UI acceptance, final Tauri bundle and installation remain undone.
+Do not tell the owner the Finder app is updated yet.
 
-Many mobile/cloud increments through #260 are merged. Exact simulator/native
-evidence covers bounded metadata, recovery, revocation and populated legacy
-upgrade cases without provider runs. It does not prove all current-stage
-provider/workspace/off-LAN/physical-device flows. Complete the remaining ledger.
+Service attempt 3 is RUNNING via original captured shell session 28186:
+/private/tmp/blackcrab-service-delivery-wJ2lcU/service-profile-controller-bDE8cZ/plan.json.
+Final result will be sibling result.json; output is
+P/service-profile-build-7XbKuE/quarantine/artifact.
+Canonical pointer/history are in desktop-delivery-m6ki1jlt. Keep 17 producer
+modules/71 patch records frozen, including owned-cloud-config.cjs. Final source,
+store/reference/metadata/Cargo audits and captured-child settlement are required.
+Do not restart casually or reuse a started plan. Attempt 2 failed only the 4 GiB
+resource floor before compile; original handle 10664 settled, audited inputs
+unchanged. The user approved deleting one local Nov 12 09:43 Time Machine
+snapshot. tmutil failed, diskutil later reported no snapshots and space rose to
+9.5 GiB (latest about 8.9 GiB). External backups were untouched. Do not repeat
+snapshot cleanup or delete user data without authorization.
 
-Native UI automation still returned cgWindowNotFound for Finder and the recent
-Root QA app. Recheck access, but do not falsely substitute API calls for original
-UI acceptance. Old QA apps in the repo are not the latest installed build.
+After actual service success, use the reviewed helpers in desktop-delivery-m6ki1jlt:
+record-service-freeze.py -> focused freeze test -> prepare-root-pins.mjs ->
+root-qa/compile/run.mjs --run -> root-qa/package-root.py -> generated
+root-controller.py --run in a captured TTY. Preserve original handles.
+Use actual original Root UI to check pre-enable first launch, service enable and
+ready status, open/reuse Electron, normal quit with host surviving, reopen with
+catalog/identity retained, service restart/stop/start and reconnection. No provider
+prompt is needed for this bounded lifecycle test. Then stop-owned through the
+controller and verify all captured processes/service cleanup. Record
+root-qa/native-ui-acceptance.json only on real proof. Review/commit/PR/CI/merge
+integration before build-normal-root.py and install-normal-root.py. Target
+/Applications/Blackcrab.app (com.bonjenn.blackcrab, 0.3.0). Verify ordinary launch.
+The prepared local signing path is ad-hoc, not public Developer ID notarization.
 
-Cloud: blackcrab.app is owned; public delegation now uses Cloudflare's beau and
-khloe nameservers. Vercel/Clerk/Cloudflare/R2/Axiom authorizations were completed.
-Do not ask for those again blindly. Budget: at most $30/month base plus metered;
-reviewed small database/Workers quote approximately $20/month. On 2026-11-12
-the user explicitly instructed using the existing credentials, superseding the
-earlier Clerk rotation hold. Continue deployment with the private stored keys.
-Never log environments/secrets or publish credentials. Existing intended Apple
-team push credentials were also linked/configured privately; no APNs delivery
-proof or new key creation is asserted.
+MOBILE COPY:
+Worktree P/mobile-owned-branding-4pdd465l/source, branch
+parity/mobile-owned-product-copy, from stage 25bc6985ca95c443ad6a6a812289f831763d5755
+(#262 merged). PR https://github.com/BonJenn/blackcrab/pull/264 is open against
+stage and linked. Implementation commit 10420f6a1f3b04610bd25ff078e2d623249c55ff;
+this prompt is a documentation follow-up. Check the parent's branding-pr.json
+for the latest pushed head, checks and watch state. No merge or phone update yet.
+Changed: activation/build-registry.py and registry.json under mobile-experience,
+paired mobile-experience guides, and both handoffs. There are 57 pinned adapters
+covering Blackcrab Account/Connect, settings/onboarding, accessibility, widgets,
+notifications, update text and diagnostics. Vendor/native/protocol names and
+licenses remain intact. Legal URLs point to blackcrab.app. Do not edit generated
+output or immutable vendor source to conceal drift.
 
-Release: Node 26.12.1, npm 12.2.2; upstream producers pnpm 12.14.0. Mobile is
-Expo58/RN0.88/React19.3 with iOS18 minimum; root React is19.1. Existing iOS
-helper now adds explicit iphoneos archive/export; 19 helper tests pass.
-Existing Apple team YF28W3NGG6, distribution certificate and submission API key
-were verified through the user's EAS account. App Store app 6780360079 and Expo
-project @bonjenn/blackcrab-remote already exist. Build 4 compiled successfully.
-The first unsigned-archive export silently stripped capabilities: DO NOT upload
-that IPA. The corrected helper preserves generated entitlements before automatic
-signing and verifies every capability afterward. The owner confirmed the App
-Group association on all three bundle IDs; the next automatic export succeeded.
-Accepted IPA is export-candidate-tHj97G/export/BlackcrabRemote.ipa under the
-archive workspace recorded in the handoff. Build 4 has verified App Groups on
-all targets, production push, Apple sign-in and app.blackcrab.app associated
-domain. Apple validation, processing and internal distribution passed. The old
-automatic Team (Expo) group did not expose the build and rejected manual
-assignment. Blackcrab Internal Release is now a manually distributed internal
-group containing build 4 and the existing account-holder tester; no new tester
-was created. API readback confirms the build is IN_BETA_TESTING and accessible.
-Installation of build 4 on the owner's phone is not yet observed. Read the
-handoff for private signing paths; never print their contents.
+Validation complete: all 46 activation tests; 23 packages/3,147 consumer files;
+AST audit of 1,041 effective app source files with no T3 product literals; full
+UI generation of 3,214 files; diff whitespace check. Evidence is in the parent:
+validation-summary.json, branding-audit.json, activation-final-tests.log,
+consumer-verification.log, generated-ui.log and dependency-links.json.
+Old dependency-link failures were fixed only in this isolated checkout. Its
+private node_modules overlay uses a lock-matching Expo 58 cache but current
+workspace @t3tools packages. Shared caches were not mutated. Do not flatten
+root React 19.1 / mobile React 19.3 or replace installed native modules with stubs.
+No mobile test/build/upload process is live; completed logs are retained.
 
-Cloud source typecheck and 324 tests pass; hosted app is staged READY on Vercel
-with no aliases promoted. The owner completed PlanetScale billing and approved
-Cloudflare account_api_tokens:create. PR #263 fixed Hyperdrive's connection
-limit to the supported 20 and merged. The database and full relay are deployed;
-https://relay.blackcrab.app/health executes a database query and returns 200.
-OAuth metadata and unauthenticated-access rejection checks pass. See
-cloud-release-latest.json. Sign-in, off-LAN operation and actual push delivery
-remain unverified. Existing keys are authorized; rotation is not a prerequisite.
+Next mobile action: inspect PR #264's required checks/reviews and merge when ready.
+Follow current PR linking/watch tool instructions;
+when waiting on CI, watch then end the turn instead of polling. Record exact
+URL/head/checks in both handoffs and a local receipt. Then choose a compatible
+Expo update or a new signed iOS build only after comparing the accepted build4
+native runtime fingerprint to the proposed update; read docs/mobile-updates.md.
+The source change has NOT reached the phone. The legal /legal,/privacy-policy,
+/terms-of-service,/security-policy routes are 404; Blackcrab policy publication
+is separate unfinished public-release work. Do not reuse T3 policies as ours.
 
-PR #261 and #263 are merged. TestFlight 1.0.0 (4) is available to the owner.
-Immediate work: finish PR #262, reconcile and validate
-the current desktop/service stack, finish real workflows and owned cloud access
-using the authorized existing keys, install the Mac build and verify actual
-physical-device remote flows. Follow current tool instructions for PR linking,
-watching and handoff. No unasked new top-level threads or replacement goals.
+DELIVERED IOS:
+TestFlight 1.0.0 (4) is VALID / IN_BETA_TESTING and available to the owner's existing
+tester through Blackcrab Internal Release. Do not upload 4 again. Evidence:
+P/ios-device-release-102m5jw4/testflight-delivery-verification.json.
+Bundle dev.blackcrab.remote, team YF28W3NGG6, app 6780360079,
+build UUID 0003ebb6-c832-452d-92f9-d3ff9bb0d867.
+Accepted archive:/private/tmp/blackcrab-ios-bDCQj6/artifacts/device-attempt-3/BlackcrabRemote.xcarchive.
+IPA:/private/tmp/blackcrab-ios-bDCQj6/artifacts/export-candidate-tHj97G/export/BlackcrabRemote.ipa.
+IPA SHA256:cc350063805b35ab55b78d5225b72b648ca417bf4868a06ca9d3b0be0770d2df.
+The old failed export stripped capabilities; never upload it. All 3 targets in the
+accepted export preserve AppGroup, production push, Apple sign-in and owned
+association. The owner linked group.dev.blackcrab.remote to all 3 IDs. Build 4's
+private node_modules was retired for space; archive/IPA/source/reports remain.
+Expo project 33fb14fd-4b87-4e85-920c-b6d4204e4567, owner bonjenn, channel production.
+No new branding update is published and no owner's phone installation is asserted.
 
-Keep AGENTS.md and CLAUDE.md byte-identical within every important directory.
-Before context/token exhaustion, update docs/agent-handoff.md and this prompt
-with current PR/head/checks, worktree, artifact evidence, live handles, blockers
-and the exact next action. Continue concrete work rather than responding with
-only a plan or an offer to continue.
+CLOUD / PRODUCT:
+blackcrab.app DNS delegation uses Cloudflare beau/khloe. Vercel,Clerk,Cloudflare,
+R2,Axiom and provisioning scopes are authorized. PlanetScale billing was fixed.
+The database/relay are deployed; /health executes a database query successfully;
+OAuth metadata and unauthenticated rejection pass. app.blackcrab.app is promoted
+(root/deep link/JS/AASA 200). Actual signed-in, off-LAN, provider and APNs delivery
+still require acceptance. Do not infer them from HTTP health.
+The user explicitly authorized existing keys, superseding the Clerk rotation
+hold. Never print credentials/environments or put them in Git/chat. Private public
+client file is /private/tmp/blackcrab-clerk-setup-gjrvqjqi/blackcrab-client.env
+(five public values only); other files there may contain secrets.
+Budget: up to $30/month base plus metered, smaller setup approved. Do not re-ask
+completed authorizations blindly. No additional paid services are authorized.
+
+User accepted free local/self-hosted open source plus official hosted service:
+public endpoints are not payment/security secrets. Start invite-only beta, then
+server-enforced subscription entitlement, quotas and cost controls before public
+paid signup. HS01–HS06 remain planned/unverified. The current plan is in the Mac
+worktree's docs/hosted-service-plan.md with parity/mobile/ledger references and
+paired root/cloud guides. It is not merged yet. No price/payment provider picked
+or live billing/signup policy changed. Finish Mac/TestFlight owner trial first.
+
+Toolchain: pinned Node 26.12.1 at P/toolchain/node_modules/node/bin/node;
+npm 12.2.2, pnpm 12.14.0; Expo 58.0.14/RN0.88/React19.3, iOS18 floor.
+Complete appropriate focused checks and required CI; don't repeat heavy builds
+without new source/failure/acceptance need. Use actual CUA for native UI; do not
+falsely substitute a backend call for a window interaction. If capture fails,
+record the precise limitation and continue independent work.
+
+Keep implementation, integration, runtime evidence and delivery distinct. The
+144 ledger groups and PR count do not give a meaningful completion percentage.
+Read newest scoped evidence, complete outstanding workflows, and keep these
+handoffs synchronized before compaction or handback.

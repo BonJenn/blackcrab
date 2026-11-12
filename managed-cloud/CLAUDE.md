@@ -30,9 +30,9 @@ base. Reverify live pricing before provisioning; do not deploy the inherited
 larger database tier. Do not treat account creation as approval of new charges.
 
 A prior diagnostic exposed credentials. Axiom and PlanetScale replacements
-were verified and old values revoked. Clerk rotation remains unresolved and
-the user explicitly deferred it. Keep cloud deployment blocked until the
-replacement is privately supplied and old access revoked/verified.
+were verified and old values revoked. On 2026-11-12 the user explicitly
+authorized using the existing Clerk key and continuing deployment, superseding
+the earlier rotation hold. This authorization does not permit logging keys.
 Never print environment objects or secret-bearing assertion diffs.
 
 Live sign-in, relay pairing, cross-network remote agent control, revocation,

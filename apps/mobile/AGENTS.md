@@ -35,12 +35,15 @@ between baseline and upgrade invalidates retention acceptance.
 
 Owned bundle ID: `dev.blackcrab.remote`; share and widget extensions have their
 own suffixes and use `group.dev.blackcrab.remote`. Verify all targets' profiles.
+Register and link that group to all three identifiers; enabling the App Groups
+capability alone is insufficient. Reject exports that drop generated entitlements.
 Public cloud inputs use BLACKCRAB_* configuration; secret keys never belong
 in the JS bundle. Owned Expo project/channel configuration is explicit.
-The existing iOS preparation helper produces an arm64 simulator Release.
-That product cannot be submitted to TestFlight. A device archive, distribution
-signing, export/upload, Apple processing and tester availability are separate.
-`eas.json` production submission currently needs its account/app setup verified.
+The iOS helper supports simulator Release builds and explicit device archive /
+App Store IPA export with private signing inputs. Simulator products cannot be
+submitted to TestFlight. Upload, Apple processing and tester availability are
+separate from archive/export success. The existing Expo project and App Store
+Connect app were verified on 2026-11-12; production EAS submission targets them.
 
 ## Verification
 

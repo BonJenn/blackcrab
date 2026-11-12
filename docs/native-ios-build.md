@@ -43,8 +43,8 @@ Public registry and CocoaPods network access is required. The default app
 configuration is used unless the validated public `BLACKCRAB_CLERK_PUBLISHABLE_KEY`,
 `BLACKCRAB_CLERK_JWT_TEMPLATE` and `BLACKCRAB_RELAY_URL` are supplied together.
 The optional `BLACKCRAB_HOSTED_APP_URL` then configures shared links and native
-domain association. Signing credentials and private environment-specific
-configuration are deliberately unsupported here.
+domain association. Preparation and simulator builds do not inherit signing credentials. Device
+archives require explicit private signing inputs outside the source repository.
 
 The Expo config plugin `apps/mobile/plugins/with-ios-pod-floor.cjs` sets an
 application minimum of iOS 18.0 and adds an idempotent generated Podfile hook.
@@ -97,3 +97,61 @@ These checks exercise source isolation, credential exclusions, dirty snapshot
 rules, dependency escape rejection, argument handling, and the installed Expo
 SDK's actual Podfile mod pipeline and Ruby deployment-floor behavior. A successful
 native simulator build remains a separate, explicit check.
+
+## Device archive and TestFlight export
+
+Use `--mode archive` to build the `iphoneos` Release archive and export an App
+Store distribution IPA. Compilation produces an unsigned archive. The helper
+then ad-hoc signs its frameworks, extensions and app, preserving each target's
+generated entitlements before Xcode applies automatic distribution signing.
+Directly exporting the unsigned archive can silently strip capabilities.
+The helper verifies the exported app and both extensions against the expected
+certificate, team, bundle IDs, build number and all generated entitlements,
+including app groups, production push, Sign in with Apple and hosted links.
+No development certificate needs to be replaced to compile a distribution build.
+This uses the same isolated source, dependency checks,
+native patches and resource generation as the simulator helper. Choose a new
+build number from App Store Connect; it is applied to the staged Expo config
+before native generation so the app and extensions share that number.
+
+```sh
+node scripts/prepare-mobile-ios.mjs --mode archive \
+  --build-number 4 --team-id YF28W3NGG6 \
+  --signing-certificate YOUR_DISTRIBUTION_CERTIFICATE_SHA1 \
+  --apple-api-key-path /private/tmp/blackcrab-signing/AuthKey.p8 \
+  --apple-api-key-id YOUR_KEY_ID --apple-api-issuer-id YOUR_ISSUER_UUID
+```
+
+Replace the example number and signing paths/identifiers with the current
+release inputs. `--signing-certificate` is the expected SHA-1 checked after
+export, not a selection control: Xcode ignores certificate selection with
+automatic signing and may use an existing cloud-managed distribution identity.
+Verify that certificate's ownership and validity before accepting its digest.
+The API key must belong to the intended Apple team and permit provisioning;
+its file must be owner-only, physical, outside the repo and in a path without
+spaces. The helper does not import credentials into a keychain.
+
+Register `group.dev.blackcrab.remote` and associate it with the main, sharing
+and widgets identifiers in the Apple Developer account. Their provisioning
+profiles must include that group; the main profile also needs Push Notifications,
+Associated Domains and Sign in with Apple. Enabling the App Groups capability
+alone does not associate the group. The currently available App Store Connect
+API key could enable capabilities but could not create/link App Groups; Xcode's
+App Groups lookup returned 401 until the owner completed the association.
+After that account step, automatic export succeeded and the verifier confirmed
+all required capabilities on the main app and both extensions. Recheck generated
+profiles after changing capabilities rather than accepting a stripped export.
+
+Only after successful export verification does the report record `archived`,
+the explicit build number/team, the embedded
+Hermes bundle digest and exported IPA digest. It verifies the exported IPA's signatures
+and Blackcrab bundle identifiers. Export keeps the chosen build number and does
+not upload: `signing.uploaded` remains false. Submit the reviewed IPA separately,
+then verify Apple processing and tester access before reporting TestFlight ready.
+
+The existing owned Expo project is `@bonjenn/blackcrab-remote`
+(`33fb14fd-4b87-4e85-920c-b6d4204e4567`); App Store Connect app ID is
+`6780360079`. The production EAS profile names that project/channel, and its
+submission profile names the verified app and Apple team. Public cloud inputs
+still come from the validated `BLACKCRAB_*` group. No private key belongs in
+`eas.json`, app config, source snapshots or the compiled JavaScript bundle.

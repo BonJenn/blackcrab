@@ -249,3 +249,48 @@ test('isolated native builds retain only validated public Expo update inputs', (
   assert.throws(() => isolatedBuildEnvironment('/owned', { ...original, BLACKCRAB_UPDATE_CHANNEL: 'preview' }), /must match/);
   assert.throws(() => isolatedBuildEnvironment('/owned', { ...original, BLACKCRAB_EAS_PROJECT_ID: 'invalid' }), /must be the UUID/);
 });
+
+test('device archive defers signing to export and requires an explicit distribution certificate', async () => {
+  const { deviceArchiveArguments, deviceSigningArguments, deviceExportOptions } = await import('./prepare-mobile-ios.mjs');
+  const signing = { certificateSha1: 'A'.repeat(40), teamId: 'YF28W3NGG6', appleApiKeyPath: '/private/tmp/signing/AuthKey.p8', appleApiKeyId: 'ABCDEFGHIJ', appleApiIssuerId: '12345678-1234-1234-1234-123456789abc' };
+  const args = deviceArchiveArguments({ workspace: '/private/tmp/mobile app/App.xcworkspace', scheme: 'BlackcrabRemote', derivedData: '/private/tmp/device-derived', archivePath: '/private/tmp/App.xcarchive', signing });
+  assert.equal(args[args.indexOf('-sdk') + 1], 'iphoneos');
+  assert.equal(args[args.indexOf('-destination') + 1], 'generic/platform=iOS');
+  assert.equal(args[args.indexOf('-workspace') + 1], '/private/tmp/mobile app/App.xcworkspace');
+  assert.equal(args.at(-1), 'archive');
+  assert(args.includes('CODE_SIGNING_ALLOWED=NO'));
+  assert(!args.some(value => value.startsWith('CODE_SIGN_IDENTITY=')));
+  assert(args.includes('DEVELOPMENT_TEAM=YF28W3NGG6'));
+  assert(!args.some(value => /iphonesimulator|CODE_SIGN_IDENTITY=-/.test(value)));
+  assert.match(deviceExportOptions(signing.teamId), /<string>app-store-connect<\/string>/);
+  // Xcode ignores signingCertificate for automatic exports; check the actual
+  // exported certificate instead of presenting this as a selection control.
+  assert.doesNotMatch(deviceExportOptions(signing.teamId), /signingCertificate/);
+  assert.match(deviceExportOptions(signing.teamId), /<key>destination<\/key><string>export<\/string>/);
+  assert.match(deviceExportOptions(signing.teamId), /<key>manageAppVersionAndBuildNumber<\/key><false\/>/);
+  for (const delta of [{ certificateSha1: '' }, { teamId: '' }, { appleApiKeyId: '' }, { appleApiIssuerId: '-'.repeat(36) }, { appleApiKeyPath: 'relative.p8' }, { appleApiKeyPath: '/tmp/with spaces/key.p8' }]) {
+    assert.throws(() => deviceSigningArguments({ ...signing, ...delta }));
+  }
+  assert.throws(() => deviceExportOptions('<untrusted>'));
+});
+
+test('rejects the real unsigned-export regression and lost push, sign-in or hosted-link capabilities', async () => {
+  const { verifyDistributionEntitlements } = await import('./prepare-mobile-ios.mjs');
+  const configured = {
+    'com.apple.security.application-groups': ['group.dev.blackcrab.remote'],
+    'aps-environment': 'production',
+    'com.apple.developer.applesignin': ['Default'],
+    'com.apple.developer.associated-domains': ['applinks:app.blackcrab.app'],
+  };
+  const identity = { 'application-identifier': 'YF28W3NGG6.dev.blackcrab.remote', 'get-task-allow': false };
+  const options = { teamId: 'YF28W3NGG6', bundleId: 'dev.blackcrab.remote', configured };
+  // Actual Xcode unsigned export retained identity but dropped every capability.
+  assert.throws(() => verifyDistributionEntitlements(identity, options), /entitlements differ/);
+  assert.doesNotThrow(() => verifyDistributionEntitlements({ ...identity, ...configured }, options));
+  for (const key of Object.keys(configured)) {
+    const incomplete = { ...identity, ...configured }; delete incomplete[key];
+    assert.throws(() => verifyDistributionEntitlements(incomplete, options), /entitlement/);
+  }
+  assert.throws(() => verifyDistributionEntitlements({ ...identity, ...configured, 'aps-environment': 'development' }, options), /aps-environment/);
+  assert.throws(() => verifyDistributionEntitlements({ ...identity, ...configured, 'get-task-allow': true }, options), /entitlements differ/);
+});

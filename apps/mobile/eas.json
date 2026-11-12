@@ -43,10 +43,19 @@
       "node": "26.12.1",
       "ios": {
         "image": "macos-tahoe-26.6-xcode-27.1"
+      },
+      "env": {
+        "BLACKCRAB_EAS_PROJECT_ID": "33fb14fd-4b87-4e85-920c-b6d4204e4567",
+        "BLACKCRAB_UPDATE_CHANNEL": "production"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6780360079",
+        "appleTeamId": "YF28W3NGG6"
+      }
+    }
   }
 }

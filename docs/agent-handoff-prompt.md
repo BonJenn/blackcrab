@@ -24,9 +24,21 @@ worktree. Evidence root:
 Read combined-parity-_s49gx2k/integration-plan.json for local evidence, but older
 keys can be stale; prefer the dated handoff, latest specific result and GitHub.
 Do not adopt PIDs, kill unrelated apps, touch live user databases, or overwrite
-accepted artifacts. No heavy build/native fixture was active at the checkpoint.
+accepted artifacts. No native compile/export is running. The device archive,
+corrected signed export and Apple's validation passed. Upload was received by
+Apple, processing is VALID, and captured shell session 92016 exited successfully.
+Version 1.0.0 (4) is IN_BETA_TESTING and available to the owner's existing tester.
+Read ios-device-release-102m5jw4/apple-submission-result.json and
+testflight-delivery-verification.json before any retry. Upload alone is not
+TestFlight availability; the separate distribution verification now passes.
+Do not submit build 4 again.
 
-Known source state: stage f69c62951e868d69a13ed0712f2e4fb448538638.
+Known source state: stage 0165cdd541ed480075aa26d3d74b5fc4dc13fc36.
+Current release worktree: evidence root/ios-device-release-102m5jw4/source,
+branch parity/ios-device-release, with the release helper/configuration changes.
+Its parent directory's release-pr.json records publication when available;
+PR #262 had all nine checks pass on 12236e32f03395a39b3e113c81368ce2556f7cf3;
+recheck the final documentation head/checks. Native signing acceptance now passes.
 PR #215 head b4edea278ee710a3de6bdb9fd9778cd722cb8a8a has all nine CI checks
 passing and no conflicts/reviews, but is draft awaiting current bundled Root
 launch/reuse/quit/reattach acceptance. Its watch was stopped. See the handoff
@@ -46,26 +58,48 @@ UI acceptance. Old QA apps in the repo are not the latest installed build.
 Cloud: blackcrab.app is owned; public delegation now uses Cloudflare's beau and
 khloe nameservers. Vercel/Clerk/Cloudflare/R2/Axiom authorizations were completed.
 Do not ask for those again blindly. Budget: at most $30/month base plus metered;
-reviewed small database/Workers quote approximately $20/month. Deployment is
-blocked by rotation/revocation of the previously exposed production Clerk key.
-The user most recently said they will do that later. Respect that deferral;
-continue independent work and request the replacement only through private input
-when they are ready. Never log environments/secrets or publish credentials.
+reviewed small database/Workers quote approximately $20/month. On 2026-11-12
+the user explicitly instructed using the existing credentials, superseding the
+earlier Clerk rotation hold. Continue deployment with the private stored keys.
+Never log environments/secrets or publish credentials. Existing intended Apple
+team push credentials were also linked/configured privately; no APNs delivery
+proof or new key creation is asserted.
 
 Release: Node 26.12.1, npm 12.2.2; upstream producers pnpm 12.14.0. Mobile is
 Expo58/RN0.88/React19.3 with iOS18 minimum; root React is19.1. Existing iOS
-helper builds an arm64 simulator Release, not a TestFlight device archive.
-Personal Apple team YF28W3NGG6 has a local Developer ID identity; no Blackcrab
-iOS distribution profile was found. Do not use an unrelated organization's
-distribution identity. Expo state is signed in as bonjenn. GitHub already has
-Apple API/signing and Tauri updater secret names configured. Check available
-access before asking for credentials; never export secret values for diagnosis.
+helper now adds explicit iphoneos archive/export; 19 helper tests pass.
+Existing Apple team YF28W3NGG6, distribution certificate and submission API key
+were verified through the user's EAS account. App Store app 6780360079 and Expo
+project @bonjenn/blackcrab-remote already exist. Build 4 compiled successfully.
+The first unsigned-archive export silently stripped capabilities: DO NOT upload
+that IPA. The corrected helper preserves generated entitlements before automatic
+signing and verifies every capability afterward. The owner confirmed the App
+Group association on all three bundle IDs; the next automatic export succeeded.
+Accepted IPA is export-candidate-tHj97G/export/BlackcrabRemote.ipa under the
+archive workspace recorded in the handoff. Build 4 has verified App Groups on
+all targets, production push, Apple sign-in and app.blackcrab.app associated
+domain. Apple validation, processing and internal distribution passed. The old
+automatic Team (Expo) group did not expose the build and rejected manual
+assignment. Blackcrab Internal Release is now a manually distributed internal
+group containing build 4 and the existing account-holder tester; no new tester
+was created. API readback confirms the build is IN_BETA_TESTING and accessible.
+Installation of build 4 on the owner's phone is not yet observed. Read the
+handoff for private signing paths; never print their contents.
 
-Immediate work: finish paired guidance PR #261/checkpoint if pending, implement
-and validate device archive/export/TestFlight delivery, reconcile and validate
+Cloud source typecheck and 324 tests pass; hosted app is staged READY on Vercel
+with no aliases promoted. The owner completed PlanetScale billing and approved
+Cloudflare account_api_tokens:create. PR #263 fixed Hyperdrive's connection
+limit to the supported 20 and merged. The database and full relay are deployed;
+https://relay.blackcrab.app/health executes a database query and returns 200.
+OAuth metadata and unauthenticated-access rejection checks pass. See
+cloud-release-latest.json. Sign-in, off-LAN operation and actual push delivery
+remain unverified. Existing keys are authorized; rotation is not a prerequisite.
+
+PR #261 and #263 are merged. TestFlight 1.0.0 (4) is available to the owner.
+Immediate work: finish PR #262, reconcile and validate
 the current desktop/service stack, finish real workflows and owned cloud access
-once the Clerk blocker clears, then install the Mac build and confirm processed
-TestFlight tester availability. Follow current tool instructions for PR linking,
+using the authorized existing keys, install the Mac build and verify actual
+physical-device remote flows. Follow current tool instructions for PR linking,
 watching and handoff. No unasked new top-level threads or replacement goals.
 
 Keep AGENTS.md and CLAUDE.md byte-identical within every important directory.

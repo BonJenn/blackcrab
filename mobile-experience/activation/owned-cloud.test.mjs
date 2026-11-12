@@ -89,6 +89,41 @@ test('actual generated public config reads only the owned namespace and maps the
   }
   assert.throws(() => publicConfig({}).resolveRelayClerkTokenOptions(), /BLACKCRAB_CLERK_JWT_TEMPLATE/);
 });
+test('cloud configuration enables native Live Activity push and preserves Blackcrab widget identity', () => {
+  const input = JSON.parse(fs.readFileSync(path.join(here, '../../apps/mobile/app.json'))).expo;
+  const original = JSON.stringify(input);
+  const widgetOptions = config => config.plugins.find(entry => Array.isArray(entry) && entry[0] === 'expo-widgets')[1];
+  const configured = cloud.configureOwnedCloud(input, env);
+  assert.equal(widgetOptions(configured).enablePushNotifications, true);
+  assert.equal(widgetOptions(configured).bundleIdentifier, 'dev.blackcrab.remote.widgets');
+  assert.equal(widgetOptions(configured).groupIdentifier, widgetOptions(input).groupIdentifier);
+  assert.deepEqual(widgetOptions(configured).widgets, widgetOptions(input).widgets);
+  assert.equal(configured.ios.bundleIdentifier, 'dev.blackcrab.remote');
+  assert.equal(widgetOptions(cloud.configureOwnedCloud(configured, {})).enablePushNotifications, false);
+  assert.equal(JSON.stringify(input), original);
+});
+test('the installed native widgets plugin emits the push flag and preserves the selected APNs environment', async () => {
+  const mobileRequire = createRequire(path.join(here, '../../apps/mobile/package.json'));
+  const widgetRoot = path.dirname(mobileRequire.resolve('expo-widgets/package.json'));
+  const withPushNotifications = mobileRequire(path.join(widgetRoot, 'plugin/build/ios/withPushNotifications.js')).default;
+  const input = JSON.parse(fs.readFileSync(path.join(here, '../../apps/mobile/app.json'))).expo;
+  for (const [environment, enabled] of [[{}, false], [env, true]]) {
+    const configured = cloud.configureOwnedCloud(input, environment);
+    const options = configured.plugins.find(entry => Array.isArray(entry) && entry[0] === 'expo-widgets')[1];
+    const native = withPushNotifications({ name: configured.name, slug: configured.slug }, options);
+    const info = await native.mods.ios.infoPlist({ ...native, modRequest: {}, modResults: {} });
+    assert.equal(info.modResults.ExpoWidgets_EnablePushNotifications, enabled);
+    if (enabled) {
+      const entitlement = native.mods.ios.entitlements;
+      const fresh = await entitlement({ ...native, modRequest: {}, modResults: {} });
+      assert.equal(fresh.modResults['aps-environment'], 'development');
+      const signed = await entitlement({ ...native, modRequest: {}, modResults: { 'aps-environment': 'production' } });
+      assert.equal(signed.modResults['aps-environment'], 'production');
+    } else {
+      assert.equal(native.mods.ios.entitlements, undefined);
+    }
+  }
+});
 test('configured native provider attaches the original account service once and renders Clerk with its cache', () => {
   const f = provider(publicConfig({ blackcrabCloud: valid }));
   assert.equal(f.calls.length, 2); assert.equal(f.calls[0][1], env.BLACKCRAB_CLERK_PUBLISHABLE_KEY); assert.equal(f.calls[1][1], f.instance);

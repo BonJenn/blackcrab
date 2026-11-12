@@ -30,6 +30,12 @@ relay discovery, onboarding and agent-awareness registration remain in the pinne
 implementation. Re-rendering the provider does not create a second account owner.
 An unconfigured build does not clear existing catalogs or cloud account storage.
 
+Cloud-configured builds also enable the Expo widgets native push capability for
+Live Activity updates. The widget bundle and app-group identifiers remain owned
+by Blackcrab. Builds without cloud configuration leave that capability disabled.
+Apple signing/provisioning and the relay's Blackcrab APNs credentials are still
+required for delivery; this build setting alone does not prove push delivery.
+
 ## Deployment and acceptance still required
 
 The relay must implement the pinned managed-relay API. The older legacy WebSocket

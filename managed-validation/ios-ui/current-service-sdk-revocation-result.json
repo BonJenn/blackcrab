@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-11",
+  "evidenceSha256": {
+    "nativeResult": "d46c97603262ae7de122ba108b5ef3053950f915d6daf828c593355b938233fb",
+    "sdkLog": "1f733cf547d7c9ce291137a54c7421bfd6ce4b1bf26e80903d55316215a66b74",
+    "sdkResult": "867b934c1678240285def188fdfa3d503699dfb007bd05902cdc56dc1869c9d2"
+  },
+  "format": 1,
+  "hostAdapterSha256": "72e34c1fbc0a3a37b6ef46fa48c0b52a453e2bcf154f7d78510cc28e74391e49",
+  "hostManifestSha256": "9eac410b7393b18f510fe2d59a756880575bfcfe8fa8c171046f36abd1fa7937",
+  "nativeUiCompanionResult": "current-service-revocation-result.json",
+  "nativeUiTested": false,
+  "remaining": [
+    "Live cloud/off-LAN access",
+    "Provider execution, physical-device and remaining permission workflows"
+  ],
+  "results": {
+    "authorizedRepairRestoredControl": true,
+    "capturedHostClosed": true,
+    "initialRemoteReadAndControl": true,
+    "liveSessionBlocked": true,
+    "passed": true,
+    "providerTurnsRequested": 0,
+    "readOnlyMutationRejectedByHost": true,
+    "readOnlyRepairCanRead": true,
+    "repairPreservedEnvironmentAndCatalog": true,
+    "restartRetainedAuthorizedSessionAndMetadata": true,
+    "revocationSurvivedServiceRestart": true,
+    "revokedHttpAuthenticationRejected": true,
+    "revokedMutationAbsent": true,
+    "revokedRpcTicketRejected": true,
+    "sdkOnly": true,
+    "zeroProviderSessions": true,
+    "zeroRuns": true
+  },
+  "scenarioSource": "scenarios/service-revocation-sdk.test.ts.template",
+  "scenarioSourceSha256": "5773ed46bcf8da4b901ec4202d54230c8d177236b59c79d208ea1255207e9a31",
+  "source": {
+    "commit": "d1d4d2741a9ffece4b1cf79a5255f667f535fd1e",
+    "kind": "local-combined-integration",
+    "mergedStageSha": null
+  },
+  "status": "sdk-service-revocation-recovery-passed"
+}

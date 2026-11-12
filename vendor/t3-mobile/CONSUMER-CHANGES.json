@@ -7,6 +7,102 @@
       "beforeSha256": "c71fc43eb268e757194ff06b82ae36dcdda8a176581da7a6566877e55650483c",
       "afterSha256": "cc9f18c16c434b27813c477b95862b687821ad5c24421091b5b3e052ae86a0be",
       "emittedJavaScriptSha256": "eb62e887f23fb75f4700fa8fe1c113dd3accf179e972bcbfb0ef65848d3c4800"
+    },
+    {
+      "id": "owned-client-01",
+      "target": "packages/shared/src/connectAuth.ts",
+      "sha256": "f406fd03cfabf6b1f14c10f9ae2a01928b889a93753975386a91662e5ea29305",
+      "beforeSha256": "287baca5ab6ca54e9dac18fb357e66a41d5031f795d925fa0033a35f4be985a6",
+      "afterSha256": "f29404840d41206cce93b13760343bd09c5b28308f14309881cd7da3f333b274",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-10",
+      "target": "packages/shared/src/connectAuth.test.ts",
+      "sha256": "948e8a47315ebdf5ea3fe53d2afb3f56d4ffac51f274ea1d415cab56453b23cf",
+      "beforeSha256": "c6a7ff0168a695a3a6a2012a107b4371ee03e728ab0e665322151525190c0638",
+      "afterSha256": "1449c9f5d2456cf61133bf84dc1553ede6c49eea2d2797a2e6e207899768d967",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-02",
+      "target": "packages/shared/src/providerAuthReturnUrl.ts",
+      "sha256": "1d2909d8456ab937bd5e958c0fc465791d37b8103b6f7c97606bdfa4134631a3",
+      "beforeSha256": "47406f4bd6c4aba9e395844432e0ed5fd2e1d932ad103a0740f1e5be551d5629",
+      "afterSha256": "489ca68c697f915668be9ab992de6340bdfbfb348247e85076dcc67e2ced29c8",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-11",
+      "target": "packages/shared/src/providerAuthReturnUrl.test.ts",
+      "sha256": "ef22cb3615674899c10a9f12726ade4e12999b4e66704f0427af693161a9a5f9",
+      "beforeSha256": "9a4fff8e3dd9a99d005155143341a427acb8ba96e984db3595e0aec81a5b494c",
+      "afterSha256": "d203a8b3dda33e358400b98a5b869e9b9889af2131232eed2ad63512d112cc6c",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-03",
+      "target": "packages/shared/src/threadLinks.ts",
+      "sha256": "4703f6436a3f93fe2665f8b1ea64fa60d4a550a4d5981e2c5fa2e9694587d0f4",
+      "beforeSha256": "df6f710445a0f09515ee60e9c679b670de07e756f7784218262a80513997d237",
+      "afterSha256": "4e58c871567ea8ee5190b47938437b4e3e6cbfa60cda5fc7d0eca8d67d0dea5f",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-12",
+      "target": "packages/shared/src/threadLinks.test.ts",
+      "sha256": "2072382f08860fec4525c35ea901af9c4eb6d57985590cae38893daa74c0c62b",
+      "beforeSha256": "3c7d31490c4fbd244427d191f913478b9ee2e260ad30a47ce17d319862300eb6",
+      "afterSha256": "d8cca4b7ced21d4b1161d6387a224b96271b2a36423107da7dc8e545b8f70294",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-04",
+      "target": "packages/shared/src/promptLinks.ts",
+      "sha256": "25f84bcb95907e7fb147cf982f55389ef590e19d9b8132845d049460721d7877",
+      "beforeSha256": "429c76e919c56353b620a2b91e5fe5d7be8e8084a61fc8a9ed3246718d5ea922",
+      "afterSha256": "e8effa152f7821f6c7e19a7db6d938abd561494315b4326d8d06f8a026a6d732",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-13",
+      "target": "packages/shared/src/promptLinks.test.ts",
+      "sha256": "2cecdc9e5fea331d27d0541db38db9becae6844f7ee8b296de84cbb4376e8f49",
+      "beforeSha256": "3ea1ebe2366cc77d57cc517c1c78a435bf81b33b12266fb5d360650272d2b758",
+      "afterSha256": "ec0b81ad48d8fa36c98153415415ec858833d74263cb346b7363b75d86a8dbe3",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-05",
+      "target": "packages/shared/src/remote.ts",
+      "sha256": "bf79902109ca6de9f8d81c72a4f95e69e2201ec431e6a070c787cee5173e9c04",
+      "beforeSha256": "de815ac7f3e17e217d4ca6345d9d0715892d669a660a3707dcd1b99c75f4fdfb",
+      "afterSha256": "91effae188940289772167361cb692e482877c54a8fe9b435796a08d3c05c05a",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-14",
+      "target": "packages/shared/src/remote.test.ts",
+      "sha256": "18701a2119a9e43b86bc80663cce6d925ac92550ecb0d5f986aafe533d79768a",
+      "beforeSha256": "55cf3442f60783b9ea983eb4a483dbae46321efca3ff1540a41de3c3f672b106",
+      "afterSha256": "6011b99cdcbbf05082d2982a32f239f276b28ded9525f75e19133e9119abbc1d",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-06",
+      "target": "packages/shared/src/codexAuthHandoff.ts",
+      "sha256": "eeb0ec917d5f8d6b55220a762f703619107a065085b2e44a946822f880893002",
+      "beforeSha256": "7fe3de4cfa70ff6496a48bac05c1c3c4b6d24f31702d9ec53cff11bf47da5916",
+      "afterSha256": "8aaae4d9b8793068e0b7c1dc35e8ccbad31c5fa25cc1b07718b08f482a73df28",
+      "kind": "owned-cloud-runtime"
+    },
+    {
+      "id": "owned-client-15",
+      "target": "packages/shared/src/codexAuthHandoff.test.ts",
+      "sha256": "01ec2d5cfdd568d7d7993c547c962af8fe45663213649282b38258fa20b73763",
+      "beforeSha256": "9539f36e14203d7f52bd852beaf9184274cc83f3cf8189c76c832625466069af",
+      "afterSha256": "238b267cb5148388a5e50270bd8e54176f829d7e3c84d9eb0db9867b670ed627",
+      "kind": "owned-cloud-runtime"
     }
   ],
   "packageManifests": [

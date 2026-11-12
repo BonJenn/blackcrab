@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "date": "2026-11-11",
+  "status": "named-native-workflows-passed",
+  "source": {
+    "kind": "local-combined-integration",
+    "commit": "d1d4d2741a9ffece4b1cf79a5255f667f535fd1e",
+    "baseIntegration": "96f2cf4a9dceceb077fbc6f4f4c21b8f440408f7",
+    "mergedStageSha": null,
+    "nativeBuildFixPRs": [
+      249,
+      252
+    ]
+  },
+  "artifact": {
+    "bundleId": "dev.blackcrab.remote",
+    "inventorySha256": "61699f23c4724890050a952dfe0c665ef7c53de2338ed44d36f2c4185b8faad9",
+    "hermesSha256": "6bd3736683388be8f47f30d4c1754d9e8b2cdd3d2e0b4bc9e916e6fa842ca0fe",
+    "buildReportSha256": "e425a3f8958291a60b52940b71ee1047d14397c72fc1d041e51680e56a40f6d7",
+    "sourceManifestSha256": "c2cdd42025fc6d01855008a70d37707a46e5ccdefec434f393d39ae9d2dc82e3",
+    "release": true,
+    "embeddedBundle": true,
+    "strictSimulatorSignatureVerified": true,
+    "sourceWorktreeClean": true,
+    "unchangedAfterAcceptance": true
+  },
+  "host": {
+    "profile": "prior proof9 packaged direct host",
+    "manifestSha256": "afdbaf815be9d676657939f1235290de5765b81ac008f11f3836b7cb80a9041e",
+    "latestManagedServiceProfileTested": false
+  },
+  "os": "26.2",
+  "baselineSource": "2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab",
+  "canary": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "officialExportsReviewed": true
+  },
+  "baselineUi": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "upgradedUi": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "catalogRetainedAcrossInstallWithoutUninstall": true,
+  "independentSdkRenameArchiveVerified": true,
+  "zeroProviderSessions": true,
+  "zeroRuns": true,
+  "legacyDigestsUnchanged": true,
+  "legacyQueueInitiallyEmpty": true,
+  "capturedHostClosed": true,
+  "ownedSimulatorsShutdown": true,
+  "portableGuardTestsPassed": 30,
+  "runnerSourceSha256": "8a1903ae9bdbfef913d1925050b6e6da48c7ac861819eb30acd008a595a5af45",
+  "runnerExecutableSha256": "b7da440882dd06157a1e2d76470236670b58d37157c7b7c4560ec25b034b6d2b",
+  "controllerSourceSha256": "3dbeacfcfd34815459978d829871622c22ec1377c8f4ffd6fa8069cc054ce1bc",
+  "observerSourceSha256": "eccb16aa34da0c99b26e972e2d83552912edfb0ea593b76502ae7624279870fa",
+  "officialEvidenceSha256": {
+    "seed-baseline": "58fdb46f6968a0cd3990796c7c364ceb33f997f4de0bb8f807be5fd93a926aa0",
+    "control-upgraded": "f0fa8362bc631fa413bbc502645a80bdfec3166c148f6d1bb3f0e9373e506eab"
+  },
+  "remaining": [
+    "latest managed service profile and off-LAN/cloud acceptance",
+    "broader native agent, queue, attachment and recovery workflows",
+    "populated legacy queue migration",
+    "physical device, APNs/background/Live Activity and distribution signing",
+    "all remaining parity ledger scenarios"
+  ]
+}

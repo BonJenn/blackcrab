@@ -1,4 +1,6 @@
 const path = require('node:path');
+const { createHash } = require('node:crypto');
+const { cloudConfigFromEnvironment } = require('../../mobile-experience/activation/adapters/owned-cloud-config.cjs');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const { getDefaultConfig } = require('expo/metro-config');
@@ -7,6 +9,9 @@ const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
 const appRequire = createRequire(path.join(projectRoot, 'package.json'));
 const config = getDefaultConfig(projectRoot);
+// Metro may reuse transforms without invoking Babel. Separate those caches too.
+const hostedAppUrl = cloudConfigFromEnvironment(process.env)?.hostedAppUrl ?? '';
+config.cacheVersion = (config.cacheVersion ?? '') + ':blackcrab-hosted:' + createHash('sha256').update(hostedAppUrl).digest('hex');
 config.watchFolders = [...new Set([...(config.watchFolders || []), workspaceRoot])];
 config.resolver.nodeModulesPaths = [path.join(projectRoot, 'node_modules'), path.join(workspaceRoot, 'node_modules')];
 config.resolver.resolveRequest = require('./metro-resolution.cjs').createMobileResolveRequest(appRequire);

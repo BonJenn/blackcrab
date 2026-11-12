@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { clientCloudConfigFromEnvironment, clientCloudBuildEnvironment } from '../managed-cloud/client-config.mjs';
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -38,7 +39,8 @@ async function rustNotices(source, output, env) {
   await stageRustNotices(JSON.parse(stdout).packages, output);
 }
 /** Build in fresh pinned source and publish a complete, verified directory only. */
-export async function buildManagedHost({ archive, cacheDir, output, node, pnpm, nodeLicense }) {
+export async function buildManagedHost({ archive, cacheDir, output, node, pnpm, nodeLicense, cloudEnvironment = process.env }) {
+  const cloud = clientCloudConfigFromEnvironment(cloudEnvironment);
   if (!platformName[process.platform] || !['arm64', 'x64'].includes(process.arch)) throw new Error('Unsupported managed-host build target');
   archive = path.resolve(archive); cacheDir = path.resolve(cacheDir); output = path.resolve(output);
   node = path.resolve(node); pnpm = path.resolve(pnpm);
@@ -48,13 +50,14 @@ export async function buildManagedHost({ archive, cacheDir, output, node, pnpm, 
   const prepared = await prepareSourceArchive(archive, cacheDir), source = prepared.root;
   const work = await fs.mkdtemp(path.join(cacheDir, 'blackcrab-managed-build-'));
   await fs.mkdir(path.join(work, 'tmp'));
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(T3CODE_|VITE_|OTEL_|APPLE_API_|NODE_OPTIONS$|NODE_PATH$)/.test(key)));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(T3CODE_|VITE_|VERCEL_|EXPO_PUBLIC_|OTEL_|APPLE_API_|NODE_OPTIONS$|NODE_PATH$)/.test(key)));
   Object.assign(env, {
     PATH: [path.dirname(node), path.join(source, 'node_modules/.bin'), env.PATH ?? ''].join(path.delimiter),
     TMPDIR: path.join(work, 'tmp'), TMP: path.join(work, 'tmp'), TEMP: path.join(work, 'tmp'),
     npm_config_store_dir: path.join(cacheDir, 'pnpm-store'),
     T3CODE_CLI_MAC_SIGN_IDENTITY: '-', T3CODE_DEV_SEED: '0', OTEL_SDK_DISABLED: 'true',
   });
+  Object.assign(env, clientCloudBuildEnvironment(cloud));
   let active = null;
   const terminate = () => {
     if (!active || active.exitCode !== null) return;
@@ -100,7 +103,7 @@ export async function buildManagedHost({ archive, cacheDir, output, node, pnpm, 
     await fs.writeFile(path.join(staging, 'LICENSE.node'), nodeLicenseText);
     await rustNotices(source, staging, env);
     await fs.cp(patchRoot, path.join(staging, 'source-patches'), { recursive: true });
-    await fs.writeFile(path.join(staging, 'BUILD-PROVENANCE.json'), JSON.stringify({ upstream: UPSTREAM, node: NODE_VERSION, pnpm: PNPM_VERSION, sourcePatches: prepared.sourcePatches, signing: 'local-only', target: `${process.platform}-${process.arch}` }, null, 2));
+    await fs.writeFile(path.join(staging, 'BUILD-PROVENANCE.json'), JSON.stringify({ upstream: UPSTREAM, node: NODE_VERSION, pnpm: PNPM_VERSION, sourcePatches: prepared.sourcePatches, cloud, signing: 'local-only', target: `${process.platform}-${process.arch}` }, null, 2));
     const manifest = await writeArtifactManifest(staging, { platform: process.platform, arch: process.arch, sourcePatches: prepared.sourcePatches });
     await verifyArtifact(staging);
     await absent(output); await fs.rename(staging, output);

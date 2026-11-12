@@ -1,0 +1,199 @@
+[
+  {
+    "id": "hosted-owned-channel",
+    "file": "hosted-owned-channel.patch",
+    "target": "apps/web/src/hostedPairing.ts",
+    "sha256": "24b291bb1c031f98194b605260b9dfa159e13f7a49ddf3054c1535a92862f30d",
+    "beforeSha256": "8936a4d42b851521c9aa85ac364890a99118a60ff888b3aaec3a93d26d29fe1e",
+    "afterSha256": "333b5360514bf063a9c8be40c02695533bd03a517791277566b582e7825c7868",
+    "replacements": [
+      {
+        "before": "\"/__t3code/channel\"",
+        "after": "\"/__blackcrab/channel\""
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-download",
+    "file": "hosted-owned-download.patch",
+    "target": "apps/web/src/branding.ts",
+    "sha256": "a9db423481c5d2c10bee0ea55433bb8b5685fbc876c9599e578d41ffc30f6717",
+    "beforeSha256": "c54d9fa6397f61fc4c07a5fda32b664f59dcc58a1c1226a34f0fca9ceb06790d",
+    "afterSha256": "0addb80876c8fe8e965d12befba95926cd477e6e51ac0b2dbe5b158ab70a0125",
+    "replacements": [
+      {
+        "before": "export const DESKTOP_DOWNLOAD_URL = \"\";",
+        "after": "declare const __BLACKCRAB_DESKTOP_DOWNLOAD_URL__: string | undefined;\nexport const DESKTOP_DOWNLOAD_URL =\n  typeof __BLACKCRAB_DESKTOP_DOWNLOAD_URL__ === \"undefined\" ? \"\" : (__BLACKCRAB_DESKTOP_DOWNLOAD_URL__ ?? \"\");"
+      }
+    ]
+  },
+  {
+    "id": "hosted-download-build",
+    "file": "hosted-download-build.patch",
+    "target": "apps/web/vite.config.ts",
+    "sha256": "1c5b7bbaa10f09ef30981fb4f2e21aa64e9cda6cc69c0bad2a8e80f48c2278e0",
+    "beforeSha256": "72d3ed8e624e2144395a82540196fe5ac0db42803b9393c3c41ceeec7e523d7b",
+    "afterSha256": "f80e59a18ccaf282101e4d9c0b92d9d1c90d8a664ee107997553e6486b0617d5",
+    "replacements": [
+      {
+        "before": "    define: {",
+        "after": "    define: {\n      __BLACKCRAB_DESKTOP_DOWNLOAD_URL__: JSON.stringify(process.env.BLACKCRAB_DESKTOP_DOWNLOAD_URL ?? \"\"),\n      __BLACKCRAB_PRIVACY_POLICY_URL__: JSON.stringify(process.env.BLACKCRAB_PRIVACY_POLICY_URL ?? \"\"),"
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-privacy",
+    "file": "hosted-owned-privacy.patch",
+    "target": "apps/web/src/legalLinks.ts",
+    "sha256": "5ba44b664217b16a76bb8d3f45cd487d0654aa8f2e96ea354525f82ad9665696",
+    "beforeSha256": "4bd71cb329fe21e77e42153d421d249fe7dfdede21d37b37196b4b8930433404",
+    "afterSha256": "2acce8d1851a37b657b23c845df5b8cd4ee85eca9d976896fdc209a129bd75bb",
+    "replacements": [
+      {
+        "before": "export const PRIVACY_POLICY_URL = \"https://t3.codes/privacy-policy\";",
+        "after": "declare const __BLACKCRAB_PRIVACY_POLICY_URL__: string | undefined;\nexport const PRIVACY_POLICY_URL =\n  typeof __BLACKCRAB_PRIVACY_POLICY_URL__ === \"undefined\" ? \"\" : (__BLACKCRAB_PRIVACY_POLICY_URL__ ?? \"\");"
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-computer-setup",
+    "file": "hosted-owned-computer-setup.patch",
+    "target": "apps/web/src/components/HostedEmptyState.tsx",
+    "sha256": "9ac4cd6aeeeea1c0d99ca36a2aaf0a3d3bf92e6d9a3426bb78af1b159296655d",
+    "beforeSha256": "17c5314e150e62ec7d7ff2545d38ebe6c12883cb8c1fb8665696c73502311722",
+    "afterSha256": "f3164307241ad62be566b0dd8b6d415b61776d5a3361b0c0d21e5568a380453c",
+    "replacements": [
+      {
+        "before": "import { CommandBlock } from \"./CommandBlock\";\n",
+        "after": ""
+      },
+      {
+        "before": "Your agents run on your computer. Start T3 Code there first.",
+        "after": "Your agents run on your computer. Start Blackcrab there first."
+      },
+      {
+        "before": "<RunOnComputer command=\"npx t3 connect\" />",
+        "after": "<DesktopInstructions mode=\"connect\" />"
+      },
+      {
+        "before": "<RunOnComputer command=\"npx t3 pair\" />",
+        "after": "<DesktopInstructions mode=\"pair\" />"
+      },
+      {
+        "before": "function RunOnComputer({ command }: { readonly command: string }) {",
+        "after": "function DesktopInstructions({ mode }: { readonly mode: \"connect\" | \"pair\" }) {"
+      },
+      {
+        "before": "      <p>Run on your computer:</p>\n      <CommandBlock command={command} className=\"mt-2\" />",
+        "after": "      <p>{mode === \"connect\"\n        ? \"Open Blackcrab on your computer and sign in with the same account.\"\n        : \"Open Blackcrab on your computer and create a pairing link.\"}</p>"
+      },
+      {
+        "before": "Or download the desktop app",
+        "after": "Download Blackcrab"
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-favicon",
+    "file": "hosted-owned-favicon.patch",
+    "target": "apps/web/index.html",
+    "sha256": "e9771c62c17dd36c9b68e6dd8caa5bb17aafb22fa1068f1aece8c3e91b0f7049",
+    "beforeSha256": "c7c4eb170ebbeddee93ab8ed63fe6a5d2e3dfe14619986a0d5d317806d178a3c",
+    "afterSha256": "64cb45c630954d908d7345cde1cdc58afd6e14ce49eeb2c694c4bd055c7f0ebf",
+    "replacements": [
+      {
+        "before": "<link rel=\"icon\" href=\"/favicon.ico\" sizes=\"48x48\" />",
+        "after": "<link rel=\"icon\" href=\"/blackcrab.png\" type=\"image/png\" />"
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-welcome",
+    "file": "hosted-owned-welcome.patch",
+    "target": "apps/web/src/components/onboarding/WelcomeWizard.tsx",
+    "sha256": "f6ec14dde5b5cedf35cdae7a60ed1bc4937252b6a4d7fb3060478bffef72988e",
+    "beforeSha256": "e414af33b536284fb658a015edde4f61f88c47337a255d806ade7d4560635194",
+    "afterSha256": "1e32c4e4c0a6b37e45435d3671e9ae2e8f35bf87891a3de7a80ac4ce855a1d8b",
+    "replacements": [
+      {
+        "before": "import { CommandBlock } from \"../CommandBlock\";\n",
+        "after": ""
+      },
+      {
+        "before": "import { T3Wordmark } from \"../T3Wordmark\";\n",
+        "after": ""
+      },
+      {
+        "before": "title=\"Set up T3 Code\"",
+        "after": "title=\"Set up Blackcrab\""
+      },
+      {
+        "before": "aria-label=\"T3 Code\"",
+        "after": "aria-label=\"Blackcrab\""
+      },
+      {
+        "before": "              <T3Wordmark className=\"h-4 w-auto shrink-0\" aria-hidden />\n",
+        "after": ""
+      },
+      {
+        "before": "                Code\n",
+        "after": "                Blackcrab\n"
+      },
+      {
+        "before": "<span className=\"flex-1 text-left\">T3 Connect</span>",
+        "after": "<span className=\"flex-1 text-left\">Blackcrab Connect</span>"
+      },
+      {
+        "before": "              Run this on each computer you want to connect.",
+        "after": "              Open Blackcrab on each computer you want to connect and sign in with the same account."
+      },
+      {
+        "before": "            <CommandBlock command=\"npx t3 connect\" className=\"mt-3\" />\n",
+        "after": ""
+      },
+      {
+        "before": "Keep T3 Code running. Select the computers you want to set up above.",
+        "after": "Keep Blackcrab running. Select the computers you want to set up above."
+      },
+      {
+        "before": "              On the computer with your code, start T3 Code or run{\" \"}\n              <code className=\"font-mono\">npx t3 serve</code>, then run:",
+        "after": "              Open Blackcrab on the computer with your code. In Settings \u2192 Connections, create a pairing link and paste it here."
+      },
+      {
+        "before": "            <CommandBlock command=\"npx t3 pair\" className=\"mt-2\" />\n",
+        "after": ""
+      },
+      {
+        "before": "              On a tailnet, run <code className=\"font-mono\">npx t3 pair --tailscale</code> instead.",
+        "after": "              For a tailnet connection, select Tailscale HTTPS in the computer\u2019s connection settings before creating the link."
+      },
+      {
+        "before": "          {telemetryOff ?? \"T3 Code collects anonymous usage data to help us improve it.\"} To read\n          more about how your data is used{telemetryOff === undefined ? \" and how to opt out\" : \"\"},\n          see our{\" \"}",
+        "after": "          {telemetryOff ? <>{telemetryOff} </> : null}For details about how Blackcrab handles your data, see our{\" \"}"
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-vercel-project",
+    "file": "hosted-owned-vercel-project.patch",
+    "target": "apps/web/vercel.ts",
+    "sha256": "8116884fddb7569bc0903f03f4022a49a034b8737dca70a11bc4cd10d7c40433",
+    "beforeSha256": "61bbfed0ee398a7eefc63eb6a68ba7da3e7c243b45491bd4e8119a574ead884e",
+    "afterSha256": "2a27117947a631b32c45312c9c6da91b38eab71bb5a43458f288c8dff97c2fee",
+    "replacements": [
+      {
+        "before": "import { matchers, routes, type Transform, type VercelConfig } from \"@vercel/config/v1\";\n\nconst ROUTER_HOST = \"app.t3.codes\";\nconst HOSTED_WEB_CHANNEL_COOKIE = \"t3code_web_channel\";\nconst LATEST_ORIGIN = \"https://latest.app.t3.codes\";\nconst NIGHTLY_ORIGIN = \"https://nightly.app.t3.codes\";\nconst CLEAN_CHANNEL_QUERY_TRANSFORMS = [\n  {\n    type: \"request.query\",\n    op: \"delete\",\n    target: { key: \"channel\" },\n  },\n] satisfies Transform[];\n\nfunction channelCookie(channel: \"latest\" | \"nightly\"): string {\n  return [\n    `${HOSTED_WEB_CHANNEL_COOKIE}=${channel}`,\n    \"Path=/\",\n    \"Max-Age=31536000\",\n    \"HttpOnly\",\n    \"Secure\",\n    \"SameSite=Lax\",\n  ].join(\"; \");\n}\n\nexport const config: VercelConfig = {\n  buildCommand:\n    'vp run --filter @t3tools/web build && node ../../scripts/apply-web-brand-assets.ts --channel \"${VITE_HOSTED_APP_CHANNEL:-latest}\"',\n  git: {\n    deploymentEnabled: false,\n  },\n  installCommand:\n    \"npm install -g vite-plus && vp install --ignore-scripts --filter '@t3tools/scripts...' --filter '@t3tools/web...'\",\n  routes: [\n    {\n      src: \"/__t3code/channel\",\n      has: [matchers.query(\"channel\", \"nightly\")],\n      transforms: CLEAN_CHANNEL_QUERY_TRANSFORMS,\n      headers: {\n        Location: \"/\",\n        \"Set-Cookie\": channelCookie(\"nightly\"),\n      },\n      status: 302,\n    },\n    {\n      src: \"/__t3code/channel\",\n      transforms: CLEAN_CHANNEL_QUERY_TRANSFORMS,\n      headers: {\n        Location: \"/\",\n        \"Set-Cookie\": channelCookie(\"latest\"),\n      },\n      status: 302,\n    },\n    {\n      src: \"/(.*)\",\n      has: [matchers.host(ROUTER_HOST), matchers.cookie(HOSTED_WEB_CHANNEL_COOKIE, \"nightly\")],\n      dest: `${NIGHTLY_ORIGIN}/$1`,\n    },\n    {\n      src: \"/(.*)\",\n      has: [matchers.host(ROUTER_HOST)],\n      dest: `${LATEST_ORIGIN}/$1`,\n    },\n  ],\n  rewrites: [\n    // Apple fetches it without an extension; the .json file is served as application/json.\n    routes.rewrite(\n      \"/.well-known/apple-app-site-association\",\n      \"/.well-known/apple-app-site-association.json\",\n    ),\n    routes.rewrite(\"/(.*)\", \"/index.html\"),\n  ],\n};\n",
+        "after": "import type { VercelConfig } from \"@vercel/config/v1\";\nimport project from \"./blackcrab-hosted-project.json\" with { type: \"json\" };\n\n// Generated alongside the prebuilt hosted artifact; deploy only after its build succeeds.\nexport const config: VercelConfig = project as VercelConfig;\n"
+      }
+    ]
+  },
+  {
+    "id": "hosted-owned-behavior-tests",
+    "kind": "payload",
+    "file": "BlackcrabHosted.test.ts",
+    "target": "apps/web/src/BlackcrabHosted.test.ts",
+    "sha256": "7bc86ce25025793ecb614339e291b5e458bde3c08f67e6d656a08878de055a45",
+    "beforeSha256": null,
+    "afterSha256": "7bc86ce25025793ecb614339e291b5e458bde3c08f67e6d656a08878de055a45"
+  }
+]

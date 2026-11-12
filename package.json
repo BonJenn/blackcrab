@@ -89,7 +89,8 @@
     "verify:mobile:consumers": "node mobile-experience/verify-consumers-cli.mjs vendor/t3-mobile",
     "prepare:mobile:resources": "node mobile-experience/resources-cli.mjs",
     "test:mobile:resolution": "node --test apps/mobile/metro-resolution.test.cjs",
-    "test:mobile:catalog": "node mobile-experience/resources-cli.mjs --ui-only && vitest run --config managed-validation/native-mobile-policy.vitest.config.ts"
+    "test:mobile:catalog": "node mobile-experience/resources-cli.mjs --ui-only && vitest run --config managed-validation/native-mobile-policy.vitest.config.ts",
+    "test:mobile:updates": "node mobile-experience/resources-cli.mjs --ui-only && vitest run --config managed-validation/mobile-updates.vitest.config.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
@@ -122,7 +123,9 @@
     "yaml": "2.9.0",
     "tailwindcss": "4.3.3",
     "@blackcrab/mobile-stream-builder": "npm:@voidzero-dev/vite-plus-core@1.4.0",
-    "micromark-util-types": "2.0.2"
+    "micromark-util-types": "2.0.2",
+    "@types/ws": "8.18.2",
+    "ws": "8.22.1"
   },
   "packageManager": "npm@12.2.2",
   "engines": {

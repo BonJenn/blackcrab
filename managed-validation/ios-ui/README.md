@@ -1,5 +1,15 @@
 # User-approved Apple native acceptance controller
 
+The root controller files below preserve the earlier upgrade-acceptance harness.
+Later scenarios and their exact source/artifact digests are recorded separately:
+[current service foreground recovery](current-service-foreground-result.json),
+[service/SDK revocation and scoped recovery](current-service-sdk-revocation-result.json),
+[native revocation and pairing recovery](current-service-revocation-result.json), and
+[native connection summary accessibility](current-service-accessibility-result.json).
+The [scenario sources](scenarios/README.md) are review copies, not CI entry points.
+Each result states its own source revision and limits; no combined candidate is
+presented as an already merged stage build.
+
 The full compiler-enabled Release at source `47b65a55da249591e387cf0beca31a7b55ce44c5`
 passed baseline pairing/catalog seeding and upgraded catalog retention, rename
 and archive on a fresh owned iOS 26.2 simulator. Each phase passed exactly one
@@ -69,12 +79,12 @@ is passed in argv, printed, committed, or put in the sanitized summary. The
 paired host is disposable and stopped before report publication. Node/Xcode use
 isolated HOME/TMPDIR/module caches and do not inherit provider credentials.
 
-Exact native context-menu Rename, prompt and archive swipe accessibility have
-not yet been observed. The logging canary validated runner identity and native
-secure-field input on the baseline app only. The scoped keychain and populated
-legacy-state checks remain separate acceptance gates. Fresh-device legacy digests may be empty;
-that result does not certify populated legacy queue recovery. iOS26.2 acceptance
-would not certify the failed iOS27.1 migration or physical-device distribution.
+The accepted results above verify native context-menu rename and archive, with
+independent SDK confirmation. Fresh-device legacy digests were unchanged but the
+legacy queue was empty; that does not certify populated legacy queue recovery.
+iOS 26.2 acceptance does not certify iOS 27.1 migration or physical-device
+distribution. The linked accessibility result verifies the corrected environment
+summary values; spoken VoiceOver and physical-device coverage remain separate.
 
 ## Proposed budget and invocation boundary
 
@@ -142,14 +152,12 @@ payload, and duplicate completions are rejected. Raw tool errors remain private.
 The fixture records its controlled phase and bounded private error detail, so a
 future prerequisite failure is diagnosed before another device run.
 
-## Latest paired attempt
+## Earlier controller corrections
 
-The baseline pairing UI passed one official test without skips or failures. The
-controller then stopped before upgrade because it redundantly asked simctl to
-terminate an app that Swift had already terminated. That redundant command is
-removed. Upgrade, retained full-interface catalog, rename and archive remain
-unverified. Framework interruption also bypassed the fixture's cleanup; the
-controller now requests cooperative abort from the still-live owner first. A
-real subprocess/socket regression verifies owner cleanup before interruption,
-including when the resource low-water flag is set. Missing actual host closure
-still fails acceptance and retains evidence.
+An early attempt stopped before upgrade because simctl redundantly terminated an
+app that Swift had already terminated. Removing that command allowed the accepted
+upgrade/catalog/rename/archive cases recorded above to finish. The controller also
+requests cooperative abort from the live owner before interrupting its captured
+fixture process. A subprocess/socket regression verifies that cleanup ordering,
+including under the resource low-water guard. Missing host closure remains a
+failed acceptance, and earlier failed attempts are not passing evidence.

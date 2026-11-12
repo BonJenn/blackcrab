@@ -1,0 +1,108 @@
+{
+  "artifact": {
+    "bundleId": "dev.blackcrab.remote",
+    "hermesSha256": "6bd3736683388be8f47f30d4c1754d9e8b2cdd3d2e0b4bc9e916e6fa842ca0fe",
+    "inventorySha256": "61699f23c4724890050a952dfe0c665ef7c53de2338ed44d36f2c4185b8faad9",
+    "unchangedAfterAcceptance": true
+  },
+  "baselineSource": "2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab",
+  "canary": {
+    "failed": 0,
+    "officialExportsReviewed": true,
+    "phasesPassed": 2,
+    "rawLoggerRedactionClaimed": false,
+    "rawPrivateSinksVerified": true,
+    "skipped": 0
+  },
+  "capturedHostClosed": true,
+  "catalogRetainedAcrossUpgradeWithoutUninstall": true,
+  "controllerSourceSha256": "0b6bdbbb18bc2ca6eee7178a14c8cbbd0719509f90d52c5083183af2741c646a",
+  "date": "2026-11-11",
+  "evidenceSha256": {
+    "canaryReceipt": "b44cf7fae8293be4d9b23bdd3b469ca249777c875c5edb4d8f6bb4ed5d7f316f",
+    "nativeMobileLifecycle": "d438b7016c3af27f4937819fb6c6ff8770238c629cef985a9ff399dbe4a08334",
+    "sdkObserver": "51c340f58a06a6739565007cb53e65b596ad7c5178d94a7350c497b1da467e61"
+  },
+  "format": 1,
+  "host": {
+    "capturedLauncherClosed": true,
+    "configurationUnchanged": true,
+    "finalNativeEpoch": 2,
+    "freshServiceOwnerInitialized": true,
+    "manifestSha256": "9eac410b7393b18f510fe2d59a756880575bfcfe8fa8c171046f36abd1fa7937"
+  },
+  "legacyDigestsUnchanged": true,
+  "legacyQueueInitiallyEmpty": true,
+  "nativeObservedRemoteMetadataAfterRepair": true,
+  "nativePairingRepairCreatedNewSession": true,
+  "nativePermissionsChangeNoticeAcknowledged": true,
+  "nativeRenameArchiveAfterRepairVerifiedByIndependentSdk": true,
+  "nativeRepairedGrantScopes": [
+    "orchestration:read",
+    "orchestration:operate"
+  ],
+  "nativeRevocationDisplayedWhileAppRemainedRunning": true,
+  "nativeSingleEnvironmentAfterRepair": true,
+  "observerSourceSha256": "9e5ee041e2fe6032e62fb4b9e125d0bc9631e6ba4ef729538cc5ba520bc3641c",
+  "os": "26.2",
+  "ownedSimulatorsShutdown": true,
+  "portableGuardTestsPassed": 30,
+  "remaining": [
+    "Desktop service Settings and OS manager controls",
+    "Live owned cloud/off-LAN access",
+    "Real provider execution and remaining permissions/workflows",
+    "Physical devices, locked/suspended/network transitions, push/Live Activity, signing and populated legacy migration",
+    "Owned live mobile update delivery and remaining parity ledger gates"
+  ],
+  "runnerExecutableSha256": "19a0a5769102c6303e83de9ab13d1226af838ca197122d751e3bb2078c88dcfd",
+  "runnerSource": "scenarios/service-revocation.swift",
+  "runnerSourceSha256": "8198edb448167b4293a279e79c4fc3cf2be10d2b404de2695342909852f57b38",
+  "sameThreadAndEnvironmentPreservedAcrossAllPhases": true,
+  "sdkCompanionResult": "current-service-sdk-revocation-result.json",
+  "source": {
+    "commit": "d1d4d2741a9ffece4b1cf79a5255f667f535fd1e",
+    "kind": "local-combined-integration",
+    "mergedStageSha": null
+  },
+  "status": "native-service-revocation-recovery-passed",
+  "uiPhases": {
+    "control-repaired": {
+      "evidenceSha256": "9f2070ede13f23e871bc8b3e4ecba3814c2bac8eff0df74238f3870e1aef7b0e",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "control-upgraded": {
+      "evidenceSha256": "e0d44935323d8d849932bf61c453319bdb9043a3f73d3651c4b6a7de00f033fb",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "hold-native": {
+      "evidenceSha256": "4d8e43c8f3c5d0f96269e8b6965e59db25742c9a6177241c0e1dab7abeda9e3e",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "repair-native": {
+      "evidenceSha256": "0ced36a486eb220d3430e1dace5e17cc55dd900b193e956c61b9b40a9c558388",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "revoked-native": {
+      "evidenceSha256": "78edbe17b226ef662e5908b96df51fad3de0865e2e36775f08b43aeec6a56416",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "seed-baseline": {
+      "evidenceSha256": "482e6bc438b78df3693866bf754814ff428343072df77cdb64369bd2d9cdcab2",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    }
+  },
+  "zeroProviderSessions": true,
+  "zeroRuns": true
+}

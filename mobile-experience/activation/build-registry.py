@@ -20,8 +20,13 @@ add('src/connection/storage.test.ts',template='adapters/storage.test.ts')
 add('src/features/cloud/CloudAuthProvider.tsx',template='adapters/CloudAuthProvider.tsx')
 add('src/components/T3Wordmark.tsx',template='adapters/T3Wordmark.tsx')
 add('src/components/BrandMark.tsx',template='adapters/BrandMark.tsx')
-s=(src/'src/features/cloud/publicConfig.ts').read_text();a=s.index('  return {',s.index('export function resolveCloudPublicConfig('));b=s.index('\n}\n',a)
-add('src/features/cloud/publicConfig.ts',[(s[a:b],'  return {clerk:{publishableKey:null,jwtTemplate:null},relay:{url:null},observability:{tracesUrl:null,tracesDataset:null,tracesToken:null}} satisfies CloudPublicConfig;',1)])
+s=(src/'src/features/cloud/publicConfig.ts').read_text();a=s.index('type UntrustedSection<T>');b=s.index('\nexport function hasCloudPublicConfig',a)
+cloud='export function resolveCloudPublicConfig(extra: unknown = Constants.expoConfig?.extra) {\n  const cloud = resolveOwnedCloudConfig(extra);\n  return {\n    clerk: { publishableKey: cloud?.publishableKey ?? null, jwtTemplate: cloud?.jwtTemplate ?? null },\n    relay: { url: cloud?.relayUrl ?? null },\n    observability: { tracesUrl: null, tracesDataset: null, tracesToken: null },\n  } satisfies CloudPublicConfig;\n}\n'
+add('src/features/cloud/publicConfig.ts',[
+ ('import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";', 'import { resolveOwnedCloudConfig } from "../../../../../owned-cloud-config.cjs";', 1),
+ (s[a:b],cloud,1),
+ ('T3CODE_CLERK_JWT_TEMPLATE','BLACKCRAB_CLERK_JWT_TEMPLATE',2),
+])
 add('src/App.tsx',[
  ('import { installPermissionUpdateNotice } from "./features/connection/permissionUpdateNotice";', 'import { managedRootLifecycle } from "../../../owned-root-lifecycle.mjs";\nimport { installPermissionUpdateNotice } from "./features/connection/permissionUpdateNotice";',1),
  ('function getAppStateFromPath(path: string, options: Parameters<typeof getStateFromPath>[1]) {', 'function getAppStateFromPath(path: string, options: Parameters<typeof getStateFromPath>[1]) {\n  managedRootLifecycle.managedNavigation();',1),
@@ -30,13 +35,10 @@ add('src/App.tsx',[
  ('setAgentNotificationPathname(workspaceLocationFromState(state).pathname);', 'setAgentNotificationPathname(managedRootLifecycle.isManagedVisible() ? workspaceLocationFromState(state).pathname : "");',1),
  ('const appServiceDisposers = [', 'const appServiceDisposers = [\n  managedRootLifecycle.subscribeVisibility((visible) => {\n    const state = visible && rootNavigationRef.isReady() ? rootNavigationRef.getRootState() : undefined;\n    setAgentNotificationPathname(state ? workspaceLocationFromState(state).pathname : "");\n  }),',1),
  ('import "../global.css";\n','',1),
- ('import { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";\n','',1),
- ('const appLinking = {', 'const ownedAppLinkPrefixes = [Linking.createURL("/"), "blackcrab-remote://"];\n\nconst appLinking = {',1),
+ ('const appLinking = {', 'const ownedAppLinkPrefixes = [Linking.createURL("/"), "blackcrab-remote://", "blackcrab://", ...(DEFAULT_HOSTED_APP_URL ? [DEFAULT_HOSTED_APP_URL] : [])];\n\nconst appLinking = {',1),
  ('  prefixes: [\n    Linking.createURL("/"),\n    "t3code://",\n    "t3code-dev://",\n    "t3code-preview://",\n    DEFAULT_HOSTED_APP_URL,\n  ],','  prefixes: ownedAppLinkPrefixes,',1),
  ('filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),', 'filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig(), ownedAppLinkPrefixes),',1),
  ('import { installShowcaseCapture } from "./features/showcase/ShowcaseCaptureCoordinator";\n','',1),
- ('import { installAppUpdateChecks } from "./features/updates/app-updates";\n','',1),
- ('  installAppUpdateChecks(),','  () => undefined, // Own OTA/update activation requires a separate reviewed adapter.',1),
  ('  installShowcaseCapture(rootPathnameFromState),','  () => undefined, // Upstream showcase capture is not activated.',1),
  ('if (process.env.EXPO_PUBLIC_SHOWCASE === "1") {','if (false) { // Never activate upstream showcase from inherited build flags.',1),
 ])
@@ -51,7 +53,7 @@ add('src/features/sharing/IncomingShareProvider.tsx',[
  ('  if (!transition.shareIdToPresent) return;', '  if (!transition.shareIdToPresent) return;\n  managedRootLifecycle.managedNavigation();',1),
 ])
 add('src/lib/appLinking.ts',[
- (r'^t3code(-dev|-preview)?:',r'^blackcrab-remote:',1),
+ (r'^t3code(-dev|-preview)?:',r'^blackcrab(?:-remote)?:',1),
  ('export function shouldHandleAppLink(url: string, cloudConfigured: boolean): boolean {', '''function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {
   let url: URL;
   try { url = new URL(value); } catch { return false; }
@@ -60,17 +62,25 @@ add('src/lib/appLinking.ts',[
     let base: URL;
     try { base = new URL(prefix); } catch { return false; }
     if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;
-    if (url.protocol === "blackcrab-remote:" && prefix === "blackcrab-remote://") return value.startsWith(prefix);
+    if (["blackcrab-remote:", "blackcrab:"].includes(url.protocol) && prefix === url.protocol + "//") return value.startsWith(prefix);
     if (!["exp:", "exps:", "http:", "https:"].includes(url.protocol) || url.host !== base.host) return false;
     const path = base.pathname.replace(/\\/+$/, "");
     return url.pathname === path || url.pathname.startsWith(path + "/");
   });
 }
 
-export function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = ["blackcrab-remote://"]): boolean {''',1),
+export function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = ["blackcrab-remote://", "blackcrab://"]): boolean {''',1),
  ('  return (\n    !route.includes("expo-development-client")', '  return (\n    hasOwnedAppPrefix(url, ownedPrefixes) &&\n    !route.includes("expo-development-client")',1),
 ])
-add('src/features/connection/pairing.ts',[( 'url.protocol === "t3code:"', 'url.protocol === "blackcrab-remote:"',1)])
+# Preserve the action label while exposing the visible connection status to VoiceOver.
+add('src/features/connection/ConnectionEnvironmentRow.tsx',[
+ ('          className="min-w-0 flex-1 gap-0.5 active:opacity-70"', '          className="min-w-0 flex-1 gap-0.5 active:opacity-70"\n          accessibilityValue={{ text: diagnosis?.headline ?? statusLabel ?? "" }}',1),
+])
+add('src/features/connection/pairing.ts',[( 'url.protocol === "t3code:"', '(url.protocol === "blackcrab-remote:" || url.protocol === "blackcrab:")',1)])
+add('src/features/prompt-links/prompt-link-actions.ts',[
+ ('import { buildNewThreadLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";', 'import { buildNewThreadLink, promptLinkDeepLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";\nimport { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";',1),
+ ('buildNewThreadLink({ prompt }), { target: "prompt link" }', '(DEFAULT_HOSTED_APP_URL ? buildNewThreadLink({ prompt }) : promptLinkDeepLink("/new?" + new URLSearchParams({ prompt }).toString())), { target: "prompt link" }',1),
+])
 add('src/lib/authClientMetadata.ts',[( 'label: "T3 Code Mobile"','label: "Blackcrab Remote"',1)])
 add('src/components/CompactBrandTitle.tsx',[( '"T3 Code, Threads"','"Blackcrab, Threads"',1)])
 add('src/widgets/AgentActivity.tsx',[( '`t3code://${','`blackcrab-remote://${',1),('<Image assetName="T3Mark" modifiers={[resizable()]} />','<Text modifiers={[font({ size: height, weight: "bold" })]}>BC</Text>',1)])
@@ -94,5 +104,5 @@ export function activateFullNativeUI(verifyExclusiveOwnership:()=>void|Promise<v
 '''
 (root/'adapters/OwnedActivation.ts').write_text(entry)
 additions=[{'path':'src/connection/owned-catalog-state.ts','template':'catalog-state.ts','sha256':sha((root/'catalog-state.ts').read_bytes())}]
-(root/'registry.json').write_text(json.dumps({'schema':1,'kind':'blackcrab-full-mobile-ui-owned-adapters','generatorSha256':sha((root/'generator.mjs').read_bytes()),'upstreamCommit':'7f02de2eb8e253e0ec23f005b3cfff8e2c963be8','adapters':records,'additions':additions,'rootAdditions':[{'path':'owned-root-lifecycle.mjs','template':'adapters/owned-root-lifecycle.mjs','sha256':sha((root/'adapters/owned-root-lifecycle.mjs').read_bytes())},{'path':'owned-root-lifecycle.d.mts','template':'adapters/owned-root-lifecycle.d.mts','sha256':sha((root/'adapters/owned-root-lifecycle.d.mts').read_bytes())},{'path':'OwnedActivation.ts','template':'adapters/OwnedActivation.ts','sha256':sha((root/'adapters/OwnedActivation.ts').read_bytes())},{'path':'owned-activation-owner.mjs','template':'owner.mjs','sha256':sha((root/'owner.mjs').read_bytes())},{'path':'owned-activation-owner.d.mts','template':'owner.d.mts','sha256':sha((root/'owner.d.mts').read_bytes())}], 'handoff':{'readyForMount':False,'sourceIntegrated':True,'nativeValidationPending':True,'owner':'process-lifetime; one original foundation/connection registry','requiredBeforeImport':['Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.','On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.','Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.','Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.','Restart process after foundation changes; no retry after partial module-install failure.'],'identity':{'name':'Blackcrab Remote','scheme':'blackcrab-remote','iosBundleIdentifier':'dev.blackcrab.remote','upstreamCloudEnabled':False,'upstreamOTAEnabled':False},'serviceLifetime':{'moduleAppInitializers':['SplashScreen.preventAutoHideAsync','hydrateWorkspaceSelections','installUiRuntimeMemoryWarningGc','subscribeComposerDraftModelReconciliation','installAppearanceRuntime','installSubscriptionUsageRefresh','installPermissionUpdateNotice','installThreadOutboxDelivery','installComposerAttachmentUploads','startIncomingShareInbox','installAgentNotificationNavigation','installAppShortcuts','installAppUpdateChecks (owned disabled)','installShowcaseCapture (owned disabled)'],'foundations':['lib/runtime.runtime','connection/runtime.connectionAtomRuntime','state/atom-registry.appAtomRegistry','derived Atom runtimes sharing Runtime.layer']}}},indent=2)+'\n')
+(root/'registry.json').write_text(json.dumps({'schema':1,'kind':'blackcrab-full-mobile-ui-owned-adapters','generatorSha256':sha((root/'generator.mjs').read_bytes()),'upstreamCommit':'7f02de2eb8e253e0ec23f005b3cfff8e2c963be8','adapters':records,'additions':additions,'rootAdditions':[{'path':'owned-cloud-config.cjs','template':'adapters/owned-cloud-config.cjs','sha256':sha((root/'adapters/owned-cloud-config.cjs').read_bytes())},{'path':'owned-cloud-config.d.cts','template':'adapters/owned-cloud-config.d.cts','sha256':sha((root/'adapters/owned-cloud-config.d.cts').read_bytes())},{'path':'owned-root-lifecycle.mjs','template':'adapters/owned-root-lifecycle.mjs','sha256':sha((root/'adapters/owned-root-lifecycle.mjs').read_bytes())},{'path':'owned-root-lifecycle.d.mts','template':'adapters/owned-root-lifecycle.d.mts','sha256':sha((root/'adapters/owned-root-lifecycle.d.mts').read_bytes())},{'path':'OwnedActivation.ts','template':'adapters/OwnedActivation.ts','sha256':sha((root/'adapters/OwnedActivation.ts').read_bytes())},{'path':'owned-activation-owner.mjs','template':'owner.mjs','sha256':sha((root/'owner.mjs').read_bytes())},{'path':'owned-activation-owner.d.mts','template':'owner.d.mts','sha256':sha((root/'owner.d.mts').read_bytes())}], 'handoff':{'readyForMount':False,'sourceIntegrated':True,'nativeValidationPending':True,'owner':'process-lifetime; one original foundation/connection registry','requiredBeforeImport':['Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.','On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.','Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.','Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.','Restart process after foundation changes; no retry after partial module-install failure.'],'identity':{'name':'Blackcrab Remote','scheme':'blackcrab-remote','iosBundleIdentifier':'dev.blackcrab.remote','upstreamCloudEnabled':False,'ownedCloudConfiguration':'explicit BLACKCRAB public build variables; no inherited upstream account or relay','upstreamOTAEnabled':False,'ownedOTAConfiguration':'explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration'},'serviceLifetime':{'moduleAppInitializers':['SplashScreen.preventAutoHideAsync','hydrateWorkspaceSelections','installUiRuntimeMemoryWarningGc','subscribeComposerDraftModelReconciliation','installAppearanceRuntime','installSubscriptionUsageRefresh','installPermissionUpdateNotice','installThreadOutboxDelivery','installComposerAttachmentUploads','startIncomingShareInbox','installAgentNotificationNavigation','installAppShortcuts','installAppUpdateChecks (owned native configuration)','installShowcaseCapture (owned disabled)'],'foundations':['lib/runtime.runtime','connection/runtime.connectionAtomRuntime','state/atom-registry.appAtomRegistry','derived Atom runtimes sharing Runtime.layer']}}},indent=2)+'\n')
 print('Pinned adapters',len(records))

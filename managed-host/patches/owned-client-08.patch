@@ -1,0 +1,24 @@
+--- a/apps/web/vite.config.ts
++++ b/apps/web/vite.config.ts
+@@ -299,6 +299,7 @@
+       ],
+     },
+     define: {
++      __BLACKCRAB_HOSTED_APP_URL__: JSON.stringify(configuredHostedAppUrl ?? ""),
+       "import.meta.env.VITE_WS_URL": JSON.stringify(configuredWsUrl ?? ""),
+       // Override .env URLs with empty values in single-origin dev so clients use window.location.origin.
+       "import.meta.env.VITE_HTTP_URL": JSON.stringify(configuredHttpUrl ?? ""),
+@@ -325,10 +326,9 @@
+     resolve: {
+       tsconfigPaths: true,
+       alias: {
+-        "@betteroffice/fonts-cjk": NodeURL.fileURLToPath(new URL(
+-          "./src/components/files/office/fonts-cjk.ts",
+-          import.meta.url,
+-        )),
++        "@betteroffice/fonts-cjk": NodeURL.fileURLToPath(
++          new URL("./src/components/files/office/fonts-cjk.ts", import.meta.url),
++        ),
+       },
+       dedupe: ["react", "react-dom"],
+     },

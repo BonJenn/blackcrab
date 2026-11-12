@@ -91,6 +91,11 @@ const DEFAULT_WS_FACTORY = (url: string): MinimalWebSocket =>
 const HEARTBEAT_INTERVAL_MS = 15_000;
 const BACKOFF_SCHEDULE_MS = [1_000, 2_000, 5_000, 15_000, 30_000];
 
+export function lanWebSocketUrl(hostname: string, port: number): string {
+  const host = hostname.includes(":") && !hostname.startsWith("[") ? `[${hostname}]` : hostname;
+  return `ws://${host}:${port}`;
+}
+
 export class LanWebSocketTransport implements Transport {
   private readonly config: LanWebSocketTransportConfig;
   private readonly timers: TimerProvider;
@@ -262,6 +267,9 @@ export class LanWebSocketTransport implements Transport {
         return;
       case "connection_status":
         return;
+      case "providers_result":
+      case "queue_snapshot":
+      case "queue_result":
       case "sessions":
       case "transcript_tail":
       case "approval_requested":
@@ -285,6 +293,11 @@ export class LanWebSocketTransport implements Transport {
 
   private handlePairingResponse(msg: PairingResponse): void {
     if (msg.status === "accepted" && msg.remoteToken && msg.hostId) {
+      const expectedHost = this.config.hostId ?? this.statusValue.hostId;
+      if (msg.code !== this.config.pairingCode || (expectedHost && msg.hostId !== expectedHost)) {
+        this.rejectHandshake("Desktop identity or pairing code did not match.");
+        return;
+      }
       this.remoteToken = msg.remoteToken;
       this.config.onPaired?.({
         remoteToken: msg.remoteToken,
@@ -299,21 +312,27 @@ export class LanWebSocketTransport implements Transport {
       msg.status === "expired"
         ? "pairing code expired"
         : msg.rejectedReason ?? "pairing rejected";
-    this.transition({ state: "error", detail });
-    this.config.onFatalReject?.(detail);
-    this.stopped = true;
-    this.close();
+    this.rejectHandshake(detail);
   }
 
   private handleAuthResponse(msg: AuthResponse): void {
     if (msg.status === "accepted" && msg.hostId) {
+      const expectedHost = this.config.hostId ?? this.statusValue.hostId;
+      if (expectedHost && msg.hostId !== expectedHost) {
+        this.rejectHandshake("Desktop identity did not match the paired host.");
+        return;
+      }
       this.onAuthenticated(msg.hostId);
       return;
     }
     const detail = msg.rejectedReason ?? "token rejected";
+    this.rejectHandshake(detail);
+  }
+
+  private rejectHandshake(detail: string): void {
+    this.stopped = true;
     this.transition({ state: "error", detail });
     this.config.onFatalReject?.(detail);
-    this.stopped = true;
     this.close();
   }
 

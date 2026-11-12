@@ -33,8 +33,8 @@
       "beforeSha256": "47e86ee029d43dc6c77d1e5e4c0a1cb8416bba76fdab3d1378db80035a4b8b2a",
       "kind": "template",
       "template": "adapters/CloudAuthProvider.tsx",
-      "templateSha256": "68dac5bc06437c2009c9a2db7e0c2fe5cb2391381afb0c5662e61f9acf803669",
-      "afterSha256": "68dac5bc06437c2009c9a2db7e0c2fe5cb2391381afb0c5662e61f9acf803669"
+      "templateSha256": "8827efacf58981ae7ec0ccc1cb96ce7a7d7075b633d630b97c9a5e51e7651bdd",
+      "afterSha256": "8827efacf58981ae7ec0ccc1cb96ce7a7d7075b633d630b97c9a5e51e7651bdd"
     },
     {
       "path": "src/components/T3Wordmark.tsx",
@@ -58,12 +58,22 @@
       "kind": "replace",
       "replacements": [
         {
-          "before": "  return {\n    clerk: {\n      publishableKey: trimNonEmpty(extra?.clerk?.publishableKey),\n      jwtTemplate: trimNonEmpty(extra?.clerk?.jwtTemplate),\n    },\n    relay: {\n      url: normalizeSecureRelayUrl(trimNonEmpty(extra?.relay?.url) ?? \"\"),\n    },\n    observability: {\n      tracesUrl: normalizeSecureUrl(extra?.observability?.tracesUrl),\n      tracesDataset: trimNonEmpty(extra?.observability?.tracesDataset),\n      tracesToken: trimNonEmpty(extra?.observability?.tracesToken),\n    },\n  } satisfies CloudPublicConfig;",
-          "after": "  return {clerk:{publishableKey:null,jwtTemplate:null},relay:{url:null},observability:{tracesUrl:null,tracesDataset:null,tracesToken:null}} satisfies CloudPublicConfig;",
+          "before": "import { normalizeSecureRelayUrl } from \"@t3tools/shared/relayUrl\";",
+          "after": "import { resolveOwnedCloudConfig } from \"../../../../../owned-cloud-config.cjs\";",
           "count": 1
+        },
+        {
+          "before": "type UntrustedSection<T> = {\n  readonly [Key in keyof T]?: unknown;\n};\n\ntype ExpoExtra =\n  | {\n      readonly [Section in keyof CloudPublicConfig]?: UntrustedSection<CloudPublicConfig[Section]>;\n    }\n  | undefined;\n\nfunction trimNonEmpty(value: unknown): string | null {\n  return typeof value === \"string\" && value.trim() ? value.trim() : null;\n}\n\nfunction normalizeSecureUrl(value: unknown): string | null {\n  const raw = trimNonEmpty(value);\n  if (raw === null) {\n    return null;\n  }\n  try {\n    const url = new URL(raw);\n    return url.protocol === \"https:\" ? url.toString() : null;\n  } catch {\n    return null;\n  }\n}\n\nexport function resolveCloudPublicConfig(extra: ExpoExtra = Constants.expoConfig?.extra) {\n  return {\n    clerk: {\n      publishableKey: trimNonEmpty(extra?.clerk?.publishableKey),\n      jwtTemplate: trimNonEmpty(extra?.clerk?.jwtTemplate),\n    },\n    relay: {\n      url: normalizeSecureRelayUrl(trimNonEmpty(extra?.relay?.url) ?? \"\"),\n    },\n    observability: {\n      tracesUrl: normalizeSecureUrl(extra?.observability?.tracesUrl),\n      tracesDataset: trimNonEmpty(extra?.observability?.tracesDataset),\n      tracesToken: trimNonEmpty(extra?.observability?.tracesToken),\n    },\n  } satisfies CloudPublicConfig;\n}\n",
+          "after": "export function resolveCloudPublicConfig(extra: unknown = Constants.expoConfig?.extra) {\n  const cloud = resolveOwnedCloudConfig(extra);\n  return {\n    clerk: { publishableKey: cloud?.publishableKey ?? null, jwtTemplate: cloud?.jwtTemplate ?? null },\n    relay: { url: cloud?.relayUrl ?? null },\n    observability: { tracesUrl: null, tracesDataset: null, tracesToken: null },\n  } satisfies CloudPublicConfig;\n}\n",
+          "count": 1
+        },
+        {
+          "before": "T3CODE_CLERK_JWT_TEMPLATE",
+          "after": "BLACKCRAB_CLERK_JWT_TEMPLATE",
+          "count": 2
         }
       ],
-      "afterSha256": "d4ec9fbfd590b409ebc272b438adc9a4f90b6aa3c0e1000c13d3a7c2713d0c68"
+      "afterSha256": "42b8b4149bb5d9ff66f9ddf2b8763a53faf8695f24448f07734e59918afb07e9"
     },
     {
       "path": "src/App.tsx",
@@ -106,13 +116,8 @@
           "count": 1
         },
         {
-          "before": "import { DEFAULT_HOSTED_APP_URL } from \"@t3tools/shared/connectAuth\";\n",
-          "after": "",
-          "count": 1
-        },
-        {
           "before": "const appLinking = {",
-          "after": "const ownedAppLinkPrefixes = [Linking.createURL(\"/\"), \"blackcrab-remote://\"];\n\nconst appLinking = {",
+          "after": "const ownedAppLinkPrefixes = [Linking.createURL(\"/\"), \"blackcrab-remote://\", \"blackcrab://\", ...(DEFAULT_HOSTED_APP_URL ? [DEFAULT_HOSTED_APP_URL] : [])];\n\nconst appLinking = {",
           "count": 1
         },
         {
@@ -131,16 +136,6 @@
           "count": 1
         },
         {
-          "before": "import { installAppUpdateChecks } from \"./features/updates/app-updates\";\n",
-          "after": "",
-          "count": 1
-        },
-        {
-          "before": "  installAppUpdateChecks(),",
-          "after": "  () => undefined, // Own OTA/update activation requires a separate reviewed adapter.",
-          "count": 1
-        },
-        {
           "before": "  installShowcaseCapture(rootPathnameFromState),",
           "after": "  () => undefined, // Upstream showcase capture is not activated.",
           "count": 1
@@ -151,7 +146,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "13393ad175f8e71943e20d8f85116079ea9eb25c2ad80e820076c80a6260def4"
+      "afterSha256": "a7335ecf9b0a2320d5808a40d0015d0ee1a28cd88764d2b421013ba6cbffce02"
     },
     {
       "path": "src/features/voice-input/GlobalVoiceInputControl.tsx",
@@ -206,12 +201,12 @@
       "replacements": [
         {
           "before": "^t3code(-dev|-preview)?:",
-          "after": "^blackcrab-remote:",
+          "after": "^blackcrab(?:-remote)?:",
           "count": 1
         },
         {
           "before": "export function shouldHandleAppLink(url: string, cloudConfigured: boolean): boolean {",
-          "after": "function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {\n  let url: URL;\n  try { url = new URL(value); } catch { return false; }\n  if (url.username || url.password) return false;\n  return prefixes.some((prefix) => {\n    let base: URL;\n    try { base = new URL(prefix); } catch { return false; }\n    if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;\n    if (url.protocol === \"blackcrab-remote:\" && prefix === \"blackcrab-remote://\") return value.startsWith(prefix);\n    if (![\"exp:\", \"exps:\", \"http:\", \"https:\"].includes(url.protocol) || url.host !== base.host) return false;\n    const path = base.pathname.replace(/\\/+$/, \"\");\n    return url.pathname === path || url.pathname.startsWith(path + \"/\");\n  });\n}\n\nexport function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = [\"blackcrab-remote://\"]): boolean {",
+          "after": "function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {\n  let url: URL;\n  try { url = new URL(value); } catch { return false; }\n  if (url.username || url.password) return false;\n  return prefixes.some((prefix) => {\n    let base: URL;\n    try { base = new URL(prefix); } catch { return false; }\n    if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;\n    if ([\"blackcrab-remote:\", \"blackcrab:\"].includes(url.protocol) && prefix === url.protocol + \"//\") return value.startsWith(prefix);\n    if (![\"exp:\", \"exps:\", \"http:\", \"https:\"].includes(url.protocol) || url.host !== base.host) return false;\n    const path = base.pathname.replace(/\\/+$/, \"\");\n    return url.pathname === path || url.pathname.startsWith(path + \"/\");\n  });\n}\n\nexport function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = [\"blackcrab-remote://\", \"blackcrab://\"]): boolean {",
           "count": 1
         },
         {
@@ -220,7 +215,20 @@
           "count": 1
         }
       ],
-      "afterSha256": "040537e41a6e274fa3fd25c3525ff8113ac3b518de61a67e0f6da98134e9a4c4"
+      "afterSha256": "2180b914b90940380e602e1ec4620c1414538302314129b375672df7d7b15fb9"
+    },
+    {
+      "path": "src/features/connection/ConnectionEnvironmentRow.tsx",
+      "beforeSha256": "5f30e7802c429b207089bc9e9c5013934460e33ba6a5b3c1e9b21bda9f0c29cd",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"",
+          "after": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"\n          accessibilityValue={{ text: diagnosis?.headline ?? statusLabel ?? \"\" }}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "9eb252181a099d2bc2c40fb1253951c78b84f54aba3a692bf023ea5bad630642"
     },
     {
       "path": "src/features/connection/pairing.ts",
@@ -229,11 +237,29 @@
       "replacements": [
         {
           "before": "url.protocol === \"t3code:\"",
-          "after": "url.protocol === \"blackcrab-remote:\"",
+          "after": "(url.protocol === \"blackcrab-remote:\" || url.protocol === \"blackcrab:\")",
           "count": 1
         }
       ],
-      "afterSha256": "8e411febfc2093bcb8685758b28d346ac7e190b35f0a37c4cc6714b0c8627a03"
+      "afterSha256": "95893c880975ddb1fd36e0aa760be5eea7c71a721710b77d3a8dc4aad80847ff"
+    },
+    {
+      "path": "src/features/prompt-links/prompt-link-actions.ts",
+      "beforeSha256": "5459c286362dbe32bc58781fc2baedca083ffd90d3285a64dce4cc9977c3f8e3",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { buildNewThreadLink, type LinkedPrompt } from \"@t3tools/shared/promptLinks\";",
+          "after": "import { buildNewThreadLink, promptLinkDeepLink, type LinkedPrompt } from \"@t3tools/shared/promptLinks\";\nimport { DEFAULT_HOSTED_APP_URL } from \"@t3tools/shared/connectAuth\";",
+          "count": 1
+        },
+        {
+          "before": "buildNewThreadLink({ prompt }), { target: \"prompt link\" }",
+          "after": "(DEFAULT_HOSTED_APP_URL ? buildNewThreadLink({ prompt }) : promptLinkDeepLink(\"/new?\" + new URLSearchParams({ prompt }).toString())), { target: \"prompt link\" }",
+          "count": 1
+        }
+      ],
+      "afterSha256": "0abe96ad8a933e2c0e13f8b67559e6c6f356253d1e6d5c687d95fdcea9dcca5a"
     },
     {
       "path": "src/lib/authClientMetadata.ts",
@@ -379,6 +405,16 @@
   ],
   "rootAdditions": [
     {
+      "path": "owned-cloud-config.cjs",
+      "template": "adapters/owned-cloud-config.cjs",
+      "sha256": "f3ec7ac587f5907c08661a6fb59c671a100b460bcd585bb19d4283a2fa9cc0b5"
+    },
+    {
+      "path": "owned-cloud-config.d.cts",
+      "template": "adapters/owned-cloud-config.d.cts",
+      "sha256": "0dc77fe362709417fad80680fbaa4ee3c556990d8d0e395fae9297129e9a221f"
+    },
+    {
       "path": "owned-root-lifecycle.mjs",
       "template": "adapters/owned-root-lifecycle.mjs",
       "sha256": "04afdea099a62c5b4f80563c3fffd8a5ea785a806393c3f8d0da2cc6243b22e1"
@@ -421,7 +457,9 @@
       "scheme": "blackcrab-remote",
       "iosBundleIdentifier": "dev.blackcrab.remote",
       "upstreamCloudEnabled": false,
-      "upstreamOTAEnabled": false
+      "ownedCloudConfiguration": "explicit BLACKCRAB public build variables; no inherited upstream account or relay",
+      "upstreamOTAEnabled": false,
+      "ownedOTAConfiguration": "explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration"
     },
     "serviceLifetime": {
       "moduleAppInitializers": [
@@ -437,7 +475,7 @@
         "startIncomingShareInbox",
         "installAgentNotificationNavigation",
         "installAppShortcuts",
-        "installAppUpdateChecks (owned disabled)",
+        "installAppUpdateChecks (owned native configuration)",
         "installShowcaseCapture (owned disabled)"
       ],
       "foundations": [

@@ -8,6 +8,8 @@ import { createRequire } from 'node:module';
 import { execFile, spawn } from 'node:child_process';
 import { promisify, parseArgs } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cloudConfigFromEnvironment } from '../mobile-experience/activation/adapters/owned-cloud-config.cjs';
+import { updateConfigFromEnvironment } from '../mobile-experience/activation/adapters/owned-update-config.cjs';
 const execute = promisify(execFile);
 const defaultRepo = fileURLToPath(new URL('../', import.meta.url));
 const OWN_NEW_FILES = new Set([
@@ -15,8 +17,9 @@ const OWN_NEW_FILES = new Set([
   'apps/mobile/plugins/with-ios-pod-floor.cjs', 'apps/mobile/plugins/with-ios-pod-floor.test.cjs',
   'docs/native-ios-build.md',
 ]);
-const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', 'managed-host/artifact.mjs', 'managed-host/source.mjs', ...OWN_NEW_FILES]);
-const PREFIXES = ['apps/', 'packages/', 'vendor/t3-mobile/', 'mobile-experience/', 'shared-runtime/'];
+const ROOT_FILES = new Set(['package.json', 'package-lock.json', 'LICENSE', 'LICENSE.md', 'tsconfig.json', 'managed-host/artifact.mjs', 'managed-host/source.mjs', 'managed-host/controlled-process.mjs', ...OWN_NEW_FILES]);
+// Mobile resource generation reuses the host's authenticated cloud patches.
+const PREFIXES = ['apps/', 'packages/', 'vendor/t3-mobile/', 'mobile-experience/', 'shared-runtime/', 'managed-host/patches/'];
 const EXPECTED_WORKSPACES = ['apps/*', 'packages/*', 'vendor/t3-mobile/packages/*'];
 export const NATIVE_INSTALL_INPUT = Object.freeze({
   archive: 'vendor/t3-mobile/apps/mobile/deps/react-native-enriched-markdown-1.2.0-t3.16-29ddd424.tgz',
@@ -186,6 +189,19 @@ export async function verifyGeneratedPodFloor(repo) {
 
 export function isolatedBuildEnvironment(root, original = process.env) {
   const env = { PATH: path.dirname(process.execPath) + path.delimiter + original.PATH, HOME: path.join(root, 'home'), TMPDIR: path.join(root, 'tmp'), LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8', CI: '1', EXTRA_PACKAGER_ARGS: '--max-workers 2', EXPO_NO_TELEMETRY: '1', EXPO_NO_GIT_STATUS: '1', COCOAPODS_DISABLE_STATS: 'true', NPM_CONFIG_USERCONFIG: path.join(root, 'npm-userconfig'), NPM_CONFIG_GLOBALCONFIG: path.join(root, 'npm-globalconfig'), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/usr/bin/false' };
+  const cloud = cloudConfigFromEnvironment(original);
+  if (cloud) Object.assign(env, {
+    BLACKCRAB_CLERK_PUBLISHABLE_KEY: cloud.publishableKey,
+    BLACKCRAB_CLERK_JWT_TEMPLATE: cloud.jwtTemplate,
+    BLACKCRAB_RELAY_URL: cloud.relayUrl,
+    ...(cloud.hostedAppUrl ? { BLACKCRAB_HOSTED_APP_URL: cloud.hostedAppUrl } : {}),
+  });
+  const updates = updateConfigFromEnvironment(original);
+  if (updates) Object.assign(env, {
+    BLACKCRAB_EAS_PROJECT_ID: updates.projectId,
+    BLACKCRAB_UPDATE_CHANNEL: updates.channel,
+    BLACKCRAB_MOBILE_UPDATES_ENABLED: updates.enabled ? '1' : '0',
+  });
   if (original.DEVELOPER_DIR) env.DEVELOPER_DIR = original.DEVELOPER_DIR;
   return env;
 }

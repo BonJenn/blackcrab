@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blackcrab Remote",
     "slug": "blackcrab-remote",
-    "scheme": "blackcrab-remote",
+    "scheme": ["blackcrab-remote", "blackcrab"],
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",

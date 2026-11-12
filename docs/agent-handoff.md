@@ -1,6 +1,6 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — 2026-11-12 20:44 UTC
+## Current continuation checkpoint — 2026-11-12 20:41 UTC
 
 This section supersedes historical live-state claims below. The owner prioritizes
 background-service integration and a signed update for an existing Blackcrab app
@@ -39,8 +39,10 @@ R = `P/desktop-delivery-m6ki1jlt`; W = `R/source`.
 Branch: `parity/desktop-delivery-integration`. Last base before the reviewed local
 fixes: `1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c`; fixes are now committed as
 `4d88e5f`. Stage a528266 is merged, preserving its 57 mobile branding adapters and
-these newer handoffs. Resolve current HEAD/status before continuing. All 17 desktop/service stack tips are ancestors (stack-ancestry-review.json).
-Integration PR is not yet created at this checkpoint; open it as a draft for CI. Native acceptance still gates final merge/delivery.
+these newer handoffs (merge a3035e9). Resolve current HEAD/status before continuing. All 17 desktop/service stack tips are ancestors (stack-ancestry-review.json).
+The draft integration PR URL, head and latest check state are recorded in
+`R/integration-pr.json`; verify that local pointer and GitHub before acting.
+Native acceptance still gates final merge/delivery.
 Latest verified origin/stage: `a52826650a0c080421e8c1c6db5ab29cddba0c13` (#264).
 
 Do not change/reset/clean/switch/stage-all the main dirty checkout at
@@ -94,7 +96,8 @@ GitHub updater secret only in the intended Tauri job. Its updater metadata check
 rejects stale non-arm64 entries or wrong signatures/URLs. The final release stays
 DRAFT. This workflow has not yet produced a release; never claim otherwise.
 
-Next: open the reviewed integration as a draft PR for CI. Actionlint 1.7.12 passes
+Next: inspect R/integration-pr.json; create the draft only if still absent,
+otherwise act on its current CI results. Actionlint 1.7.12 passes
 both workflows; 24 launcher/QA/freeze tests pass after the integration fixes. While capture is unavailable, independent release review
 can continue. When native UI is available, verify first launch, service enable,
 ready state, Electron open/reuse, normal quit with host survival, reopen retaining
@@ -151,7 +154,7 @@ agents/threads/goals. Control only original captured children, never recovered P
 Use CUA for actual UI; do not substitute backend calls for window acceptance.
 Link a created/pushed/taken-over PR as the next tool call. Watch and end the turn
 when the authorized merge waits on checks/review; do not poll. Unwatch before
-handing the work back to the owner. No active watches at this checkpoint.
+handing the work back to the owner. Read `R/integration-pr.json` for the current integration watch/check state.
 
 ## Historical checkpoints and supporting evidence
 

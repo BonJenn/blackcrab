@@ -15,11 +15,13 @@ W=P/desktop-delivery-m6ki1jlt/source, branch parity/desktop-delivery-integration
 Resolve HEAD/status: the 17-branch local integration base was 1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c,
 with integration/release fixes now committed as 4d88e5f. Stage
 a52826650a0c080421e8c1c6db5ab29cddba0c13 (#264) is merged, preserving its branding
-adapters and these newer handoffs. No integration PR yet at the
-2026-11-12 20:44 UTC checkpoint. Preserve the extensively dirty main checkout
+adapters and these newer handoffs (merge a3035e9). Read
+P/desktop-delivery-m6ki1jlt/integration-pr.json for the draft PR URL/head/check
+state and verify GitHub. Checkpoint: 2026-11-12 20:41 UTC. Preserve the extensively dirty main checkout
 /Volumes/G-DRIVE PRO/Programming/blackcrab and its index. Stage explicit files only.
 
-Immediate action: open the reviewed integration as a DRAFT PR and run CI.
+Immediate action: inspect R/integration-pr.json; create the DRAFT only if absent,
+otherwise act on its current CI results.
 Actionlint 1.7.12 passes both workflows; 24 launcher/QA/freeze tests pass.
 Native UI acceptance remains a final merge/delivery gate. All old build handles
 are settled; no owned app/host/simulator is running. Do not restart builds blindly.
@@ -78,4 +80,5 @@ No new unasked agents, threads or replacement goals. Do not kill unrelated apps,
 adopt PIDs or restart T3. Preserve original captures, shared caches and user data.
 Link every created/pushed/taken-over PR immediately as next tool call; watch then
 end when waiting on required checks, never poll. Unwatch before owner handback.
-No current active watch at this checkpoint. Keep handoffs and paired guides current.
+Read R/integration-pr.json for the current watch/check state. Keep handoffs and
+paired guides current.

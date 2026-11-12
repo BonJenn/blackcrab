@@ -38,6 +38,12 @@ compute keeps the original database schema, authentication, and remote features.
 stages reference the production stack's database and DNS zones and create their
 own database branch.
 
+Hyperdrive's origin connection pool is capped at 20, which is accepted by the
+entry-level account limit. The upstream value of 40 can fail provisioning with
+an allowed range of 5–20. Query caching remains disabled; the runtime database
+role and schema are unchanged. A higher pool limit requires checking both the
+Cloudflare allowance and the database's capacity.
+
 Configure `infra/relay/.env` using the prepared `.env.example`. Set
 `BLACKCRAB_RELAY_CLIENT_CONFIG_ENV` to an explicit private output file. The stack
 no longer defaults to writing the checkout's root `.env`. The output includes

@@ -1,0 +1,56 @@
+--- a/infra/relay/src/deploymentConfig.test.ts
++++ b/infra/relay/src/deploymentConfig.test.ts
+@@ -1,10 +1,53 @@
+ import { describe, expect, it } from "vite-plus/test";
++import * as ConfigProvider from "effect/ConfigProvider";
++import * as Effect from "effect/Effect";
++
++import { relayDatabaseClusterSize, relayDatabaseMode } from "./dbConfig.ts";
+ 
+ import {
+   managedEndpointHostname,
+   isManagedEndpointHostname,
+   relayOwnsManagedEndpointZone,
+ } from "./deploymentConfig.ts";
++
++describe("database capacity", () => {
++  const load = (values: Record<string, string>) =>
++    Effect.runPromise(
++      relayDatabaseClusterSize.parse(ConfigProvider.fromUnknown(values)),
++    );
++
++  it("requires a deliberate capacity selection before provisioning", async () => {
++    await expect(load({})).rejects.toThrow();
++  });
++
++  it.each([
++    "PS_5",
++    "PS_10",
++    "PS_20",
++    "PS_40",
++    "PS_80",
++    "PS_160",
++    "PS_320",
++    "PS_640",
++    "PS_1280",
++    "PS_2560",
++  ])("accepts the selected Postgres capacity %s", async (size) => {
++    expect(await load({ BLACKCRAB_RELAY_DATABASE_SIZE: size })).toBe(size);
++  });
++
++  it.each(["", "PS_0", "PS-5", "PS_DEV", "PS_5\n", "PS_5;other"])(
++    "rejects an invalid size %j instead of silently selecting a paid default",
++    async (size) => {
++      await expect(load({ BLACKCRAB_RELAY_DATABASE_SIZE: size })).rejects.toThrow();
++    },
++  );
++
++  it("keeps personal and preview stages on branches of the production database", () => {
++    expect(relayDatabaseMode("prod")).toBe("shared-database");
++    expect(relayDatabaseMode("dev_blackcrab")).toBe("stage-branch");
++    expect(relayDatabaseMode("pr-1")).toBe("stage-branch");
++  });
++});
+ 
+ describe("relayOwnsManagedEndpointZone", () => {
+   it("keeps the shared Cloudflare zone owned by production", () => {

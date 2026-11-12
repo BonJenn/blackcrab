@@ -54,6 +54,12 @@ const noopTimers: TimerProvider = {
 };
 
 describe("reconnect", () => {
+  it("reconnects an authenticated manual pairing with an IPv6 endpoint", () => {
+    const factory = (url: string) => { expect(url).toBe("ws://[::1]:8124"); return new FakeWebSocket(); };
+    const transport = connectStoredHost(host({ pairingSource: "manual_code", lanHost: "::1" }), { webSocketFactory: factory, timers: noopTimers });
+    expect(transport).not.toBeNull();
+    transport?.close();
+  });
   it("treats hosts with a token and LAN endpoint as reconnectable", () => {
     expect(canReconnect(host())).toBe(true);
     expect(canReconnect(host({ remoteToken: undefined }))).toBe(false);

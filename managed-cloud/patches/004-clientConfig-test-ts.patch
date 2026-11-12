@@ -1,0 +1,79 @@
+--- a/infra/relay/src/clientConfig.test.ts
++++ b/infra/relay/src/clientConfig.test.ts
+@@ -65,6 +65,20 @@
+ });
+ 
+ describe("PublishClientConfig", () => {
++  test.provider("requires an explicit nonempty client configuration destination", (stack) =>
++    Effect.gen(function* () {
++      for (const values of [{}, { BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: "" }]) {
++        const exit = yield* stack
++          .deploy(PublishClientConfig(clientConfig("v1")))
++          .pipe(
++            Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values))),
++            Effect.exit,
++          );
++        expect(exit._tag).toBe("Failure");
++        expect(String(exit)).toContain("BLACKCRAB_RELAY_CLIENT_CONFIG_ENV");
++      }
++    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
++  );
+   test.provider("writes the env file on deploy and skips an unchanged redeploy", (stack) =>
+     Effect.gen(function* () {
+       const fs = yield* FileSystem.FileSystem;
+@@ -74,13 +88,14 @@
+       yield* fs.writeFileString(target, "KEEP=yes\n");
+       const configured = Effect.provide(
+         ConfigProvider.layer(
+-          ConfigProvider.fromUnknown({ T3CODE_RELAY_CLIENT_CONFIG_ENV: target }),
++          ConfigProvider.fromUnknown({ BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: target }),
+         ),
+       );
+ 
+       yield* stack.deploy(PublishClientConfig(clientConfig("v1"))).pipe(configured);
+       const first = yield* fs.readFileString(target);
+       expect(first).toContain("KEEP=yes\n");
++      expect(first).toContain("BLACKCRAB_RELAY_URL=https://relay.example.com\n");
+       expect(first).toContain("T3CODE_RELAY_URL=https://relay.example.com\n");
+       expect(first).toContain("T3CODE_RELAY_CLIENT_OTLP_TRACES_TOKEN=client-v1\n");
+       expect(first).toContain("T3CODE_MOBILE_OTLP_TRACES_TOKEN=mobile-v1\n");
+@@ -94,6 +109,21 @@
+       expect(third).toContain("T3CODE_RELAY_CLIENT_OTLP_TRACES_TOKEN=client-v2\n");
+       expect(third).not.toContain("client-v1");
+       expect(third).toContain("KEEP=yes\n");
++
++      const moved = path.join(dir, "moved.env");
++      yield* stack.deploy(PublishClientConfig(clientConfig("v2"))).pipe(
++        Effect.provide(
++          ConfigProvider.layer(
++            ConfigProvider.fromUnknown({
++              BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: moved,
++            }),
++          ),
++        ),
++      );
++      expect(yield* fs.readFileString(moved)).toContain(
++        "BLACKCRAB_RELAY_URL=https://relay.example.com\n",
++      );
++      expect(yield* fs.readFileString(target)).toBe(third);
+     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+   );
+ 
+@@ -108,7 +138,7 @@
+         .pipe(
+           Effect.provide(
+             ConfigProvider.layer(
+-              ConfigProvider.fromUnknown({ T3CODE_RELAY_CLIENT_CONFIG_ENV: target }),
++              ConfigProvider.fromUnknown({ BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: target }),
+             ),
+           ),
+           Effect.exit,
+@@ -135,7 +165,7 @@
+         .pipe(
+           Effect.provide(
+             ConfigProvider.layer(
+-              ConfigProvider.fromUnknown({ T3CODE_RELAY_CLIENT_CONFIG_ENV: target }),
++              ConfigProvider.fromUnknown({ BLACKCRAB_RELAY_CLIENT_CONFIG_ENV: target }),
+             ),
+           ),
+           Effect.exit,

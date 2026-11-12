@@ -1,5 +1,135 @@
 # Blackcrab parity and release handoff
 
+## Current continuation checkpoint — 2026-11-12 18:58 UTC
+
+This section is authoritative over the historical checkpoints below. Recheck
+mutable state before acting. The user asks to complete Mac background-service
+integration, remove mobile product copy such as “T3 Account”, and keep these
+handoffs current. The finish line remains validated parity, a normal Mac app
+installed for the owner, and an iOS app available in their TestFlight.
+
+### Exact current state
+
+- **Mac:** normal Electron payload and isolated QA archive are built and verified.
+  The service producer is running; combined Root native acceptance, the normal
+  Tauri bundle, installation and ordinary launch are pending. No current normal
+  app has been installed by this work.
+- **iOS:** TestFlight 1.0.0 (4) is VALID / IN_BETA_TESTING and available to the owner.
+  It still has the previous product labels. The new branding source is validated
+  locally but has no PR, merge, OTA update or new binary yet.
+- **Cloud:** relay/database health and access rejection checks passed; the hosted
+  app was promoted. Signed-in/off-LAN/provider/APNs acceptance remains separate.
+  Existing credentials and the approved small deployment budget remain authorized.
+- **Product model:** free open-source local/self-hosted use; official public
+  endpoints; invite-only hosted beta, followed by server-enforced paid access,
+  quotas and cost controls. The plan is in the desktop worktree's
+  `docs/hosted-service-plan.md`. Prices/provider and public paid launch are not set.
+
+### Active worktrees and process ownership
+
+P = `/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes`.
+
+Mac: `P/desktop-delivery-m6ki1jlt/source`, branch
+`parity/desktop-delivery-integration`, local integration head
+`1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c` plus uncommitted reviewed fixes.
+All 17 reviewed desktop/service stack tips are ancestors. No integration PR yet.
+Do not overwrite its uncommitted source or change frozen producer inputs.
+
+**Service attempt 3 is running through original shell handle 28186.**
+Plan: `/private/tmp/blackcrab-service-delivery-wJ2lcU/service-profile-controller-bDE8cZ/plan.json`.
+Result will be the sibling `result.json`.
+Output: `P/service-profile-build-7XbKuE/quarantine/artifact`.
+`desktop-delivery-m6ki1jlt/service-build-plan-pointer.json` and
+`service-build-attempts.json` identify the current attempt. The final input,
+protected-store, reference, metadata and Cargo audits must succeed. Never reuse a
+started plan or adopt a discovered process PID. The build has not activated a host.
+
+Attempt 2 exited 1 through original handle 10664 at the 4 GiB resource floor,
+before compilation. All captured children settled; its failure audit verified
+protected inputs/caches unchanged. The owner approved deleting only the local
+Time Machine snapshot dated November 12 at 09:43. tmutil returned an error, then
+diskutil reported no snapshots; free space rose to about 9.5 GiB. Do not claim
+which operation removed it. External backups were untouched. Latest free space
+was about 8.9 GiB. Do not repeat backup cleanup or delete user data.
+
+Mobile: `P/mobile-owned-branding-4pdd465l/source`, branch
+`parity/mobile-owned-product-copy`, based on verified stage
+`25bc6985ca95c443ad6a6a812289f831763d5755` (#262 merged).
+The generator and registry use 57 pinned adapters. Product copy includes account,
+Connect, settings, onboarding, navigation/accessibility, notifications, widgets,
+update text and diagnostics. Vendor source, internal native modules/protocols
+and original attribution remain intact.
+
+### Mobile validation and next publication
+
+- All **46 activation tests pass**; effective TS/TSX parses with the compiler.
+- Consumer verification passes: **23 packages / 3,147 files**.
+- AST audit of **1,041 effective mobile source files** finds no remaining T3
+  product literals. This is a scoped source audit, not proof of every server string.
+- Full native UI generation succeeds: **3,214 generated files**. The generator
+  still reports native validation pending; no live app acceptance is inferred.
+- `git diff --check` passes. Evidence is under the mobile worktree's parent:
+  `validation-summary.json`, `branding-audit.json`, `activation-final-tests.log`,
+  `consumer-verification.log`, `generated-ui.log` and `dependency-links.json`.
+- Initial failures came from old/missing dependency links. The isolated checkout
+  now links the existing lock-matching Expo 58 graph, while @t3tools resolves its
+  current verified workspace packages. Shared dependency caches were not changed.
+  Root React 19.1 and mobile React 19.3 remain separate.
+
+Next: commit the explicit mobile files and these handoffs, push the branch,
+create/link one PR to stage, inspect required checks/reviews, then merge. Record
+its actual URL/head in both handoffs and a local receipt. If waiting on CI, watch
+and end the turn. After merge, compare the build-4 native runtime fingerprint
+with the proposed update before selecting an Expo update or a new signed binary.
+Follow `docs/mobile-updates.md`; source tests do not prove phone delivery.
+
+Legal URLs now use blackcrab.app. Its /legal, /privacy-policy,
+/terms-of-service and /security-policy routes currently return 404. Owned policy
+publication is an outstanding public-release requirement; do not substitute T3's
+policies, invent binding terms, or claim the documents are already published.
+
+### Mac next actions after the current build
+
+Use the reviewed helpers in `P/desktop-delivery-m6ki1jlt` in order:
+
+1. Consume the current controller's final result and original handle. On a real
+   successful build with final audits, run `record-service-freeze.py`, then the
+   source-freeze test. A partial artifact is not eligible.
+2. Run `prepare-root-pins.mjs`, then `root-qa/compile/run.mjs --run` with pinned
+   Node, retaining the original handle. Do not launch before positive compile.
+3. Run `root-qa/package-root.py`, then its generated `root-controller.py --run`
+   with a captured TTY. Use actual original Root UI for service enable/status,
+   desktop open/reuse/normal quit/reopen and service restart/stop/start. Preserve
+   identity/catalog. No provider run is required for this bounded acceptance.
+4. Stop through that controller's `stop-owned`, verify all captured cleanup and
+   record `root-qa/native-ui-acceptance.json` only from actual positive evidence.
+5. Commit/review the coherent desktop integration; PR to stage, required CI and
+   merge. Then `build-normal-root.py` and `install-normal-root.py` with their
+   evidence prerequisites, followed by actual launch verification.
+
+Normal Electron artifact: `desktop-delivery-m6ki1jlt/desktop-production-artifact`;
+its result is `desktop-production-result.json`. QA artifact/result use
+`desktop-qa-attempt-3-artifact` / `desktop-qa-attempt-3-result.json`.
+QA archive evidence: `root-qa/desktop-resource-preparation.json`.
+These are not the final installed Root application. Target installation is
+`/Applications/Blackcrab.app`, bundle `com.bonjenn.blackcrab`, version 0.3.0.
+Local ad-hoc signing is separate from public notarized distribution.
+
+### Continuity rules
+
+Keep both handoffs synchronized whenever a build, check, PR or delivery changes.
+Keep each edited AGENTS.md/CLAUDE.md pair byte-identical. Preserve the dirty main
+checkout and its index; use the two isolated worktrees above. Do not create
+replacement goals or assume an old cancelled background process will finish.
+Completed test/generator logs above are retained; no mobile build/upload is live.
+Only service handle 28186 is known to be active at this checkpoint.
+
+
+## Historical checkpoints and supporting evidence
+
+The following dated material preserves provenance. Its old live-process, stage,
+PR and next-action claims are superseded by the current checkpoint above.
+
 Snapshot: 2026-11-12 16:16 UTC, after TestFlight delivery. This is a continuation checkpoint,
 not a completion report. Recheck mutable GitHub/account/filesystem facts before
 acting. Root and directory AGENTS.md/CLAUDE.md files are paired guidance.

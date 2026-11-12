@@ -226,9 +226,14 @@
           "before": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"",
           "after": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"\n          accessibilityValue={{ text: diagnosis?.headline ?? statusLabel ?? \"\" }}",
           "count": 1
+        },
+        {
+          "before": "Managed by T3 Connect.",
+          "after": "Managed by Blackcrab Connect.",
+          "count": 1
         }
       ],
-      "afterSha256": "9eb252181a099d2bc2c40fb1253951c78b84f54aba3a692bf023ea5bad630642"
+      "afterSha256": "20fe9041848ccabe38345a5a4abcd3e1cbeb8bec4e6590a9dd0f71e3e326656b"
     },
     {
       "path": "src/features/connection/pairing.ts",
@@ -394,6 +399,476 @@
         }
       ],
       "afterSha256": "6f32ff267b3b87756b91964c95b28aa7b45b19173f12249a9b27df5e6afe9c0a"
+    },
+    {
+      "path": "src/Stack.tsx",
+      "beforeSha256": "7de23d8416c85a68b6619b63fa600bf77157097b2c9dc7d703d2668c9dbaac1c",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 1
+        }
+      ],
+      "afterSha256": "f724f6afcc4e5acd99c2c7d245133aca998e684f26aad8cc089c4f903f44fd04"
+    },
+    {
+      "path": "src/connection/platform.ts",
+      "beforeSha256": "a6a7a58cd293d975f2182fac7d973966d8dd48f5b0c01d10f5a087cec6449a6b",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 2
+        }
+      ],
+      "afterSha256": "33582c99975fe082bc312a4cb44d1f314e592c5dfb0783c88fa5fd01444d7a3b"
+    },
+    {
+      "path": "src/lib/mobileTheme.ts",
+      "beforeSha256": "5f0bc4fd723be6e5ae83191c5edc6e1e6ce35daae277f3490bd03670944b2003",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "efbbb9d44d4af8150efcaa509d58d4325b9b3bce85080a0aa1f5fcb97d713103"
+    },
+    {
+      "path": "src/state/use-thread-composer-state.ts",
+      "beforeSha256": "6d1854745399dc69de75df8a6debb0cbeb334220cdc4b17c35237da5bbb569ce",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "d50c1ce31a40e7122bdd84ff189123c7d783ade527d5e585dcdfdf29973a4159"
+    },
+    {
+      "path": "src/state/use-remote-environment-registry.ts",
+      "beforeSha256": "536dc5306dc4f816db2dfac10c96ac723fcef59b2309277aa748e338a685b00e",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 5
+        },
+        {
+          "before": "T3 Account",
+          "after": "Blackcrab Account",
+          "count": 3
+        }
+      ],
+      "afterSha256": "366d555dc1a44cf45ed084e6442e01dd1dd2b7f514767a1f75f5bf7538ad58ef"
+    },
+    {
+      "path": "src/features/voice-input/voiceDestination.ts",
+      "beforeSha256": "fde281690239f5e808355464d827e3e1cc279895c2bf2cd0827c7c9140f2da9a",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "c339c208529f373b3385d9fd8ea72fd6d448173d5aa3caf0b1de9bfa2f61829d"
+    },
+    {
+      "path": "src/features/connection/PullRequestRoutingSettings.tsx",
+      "beforeSha256": "4c05348feb98a9b89c8d60eb6ab2d2d8db92c8f7eac16a213513ef33ab4a59e6",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 1
+        }
+      ],
+      "afterSha256": "105327038492d71c4c73eaa4a7098a6ce4b49eb0a1cd5b99141889c9df576a39"
+    },
+    {
+      "path": "src/features/connection/ConnectionsNewRouteScreen.tsx",
+      "beforeSha256": "4b865d8497280c6a8cf3dad0fad4fc8f891a3bf2a90a69f6b2159f6ad9d804be",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 1
+        }
+      ],
+      "afterSha256": "3f2520c5c5d32b6ba22498199035e9f0067538fbdf09e79dbb36757c75848538"
+    },
+    {
+      "path": "src/features/connection/CloudEnvironmentRows.tsx",
+      "beforeSha256": "12272498496c6f50867b50ae39b771ef2d7d2bfd195a16ab3bef821ae3b222e8",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 2
+        }
+      ],
+      "afterSha256": "6717ad0189b3e3eda56289ad71c856da56e720152e7e7912b924f00b0e1ca776"
+    },
+    {
+      "path": "src/features/cloud/T3ConnectProfilePage.tsx",
+      "beforeSha256": "f4b28b940864ef5b44b75bc21eb5eacee04145feea623124d5fa7d26f97ab14f",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 3
+        }
+      ],
+      "afterSha256": "ff4698ec4bd64b1fa0c3029ee8688840c019a283eb028adecf9b529b703b6bb0"
+    },
+    {
+      "path": "src/features/cloud/ConnectOnboardingRouteScreen.tsx",
+      "beforeSha256": "5a8e3bbd1058a4f2bc4946e8a580ed5aff2150f16a96e04d6761f126f47b96d7",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 3
+        },
+        {
+          "before": "T3 account",
+          "after": "Blackcrab account",
+          "count": 1
+        }
+      ],
+      "afterSha256": "ed97cfcc137514abe05de8da85324f1938e8a2023c19687e48a0214555559364"
+    },
+    {
+      "path": "src/features/settings/SettingsRouteScreen.tsx",
+      "beforeSha256": "a77893c35e1147df791aad8a939aabe2b19b0b7cd69340cc3dd0e14744148733",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Account",
+          "after": "Blackcrab Account",
+          "count": 1
+        }
+      ],
+      "afterSha256": "faa3791459ad312f0ae3f4198e4d4a334aabc405b0410758866f23bb33d8813b"
+    },
+    {
+      "path": "src/features/settings/SettingsAuthRouteScreen.tsx",
+      "beforeSha256": "0ac7b7525a7efc73f29b9571432c7d5042cbbf9da55d638fd8130ee80d01d7ac",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 2
+        }
+      ],
+      "afterSha256": "d86e482296028713e6cab2deeed961640fe32795ce35f992f75e35071aa42fc6"
+    },
+    {
+      "path": "src/features/settings/VoiceModelSection.tsx",
+      "beforeSha256": "e0ec3ac563871af1f6001e66afa3ebbdf8b53eeb176aa1da1ac6b980d1ab27ec",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "47d892721d87e1063538bec62c2172d3a8e4a6ec7b71c9ad743fcc94284662fd"
+    },
+    {
+      "path": "src/features/settings/SettingsVoiceRouteScreen.tsx",
+      "beforeSha256": "f9ea00c718abc3647acf1fb8bec6d35cf01968cf7c91facf6fdefe23a0e48832",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab Remote",
+          "count": 1
+        }
+      ],
+      "afterSha256": "17483996ab1488927c7ea4644ca5711b099f040440a4816f805cb4c45e67005a"
+    },
+    {
+      "path": "src/features/settings/SettingsNotificationsRouteScreen.tsx",
+      "beforeSha256": "5edf3bba108de5c0ce37abc2a4d37ca7390235444454512d77f0ac197a0f41aa",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 5
+        },
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab Remote",
+          "count": 2
+        }
+      ],
+      "afterSha256": "36422f73754cc30d8ddae2b7d87b0b1fd812c36a89b30fae7254ef2810756d9c"
+    },
+    {
+      "path": "src/features/settings/SettingsScheduledTasksRouteScreen.tsx",
+      "beforeSha256": "6100a495885115365f788caf038b2e77c0168874558b0469a316477d3148ac98",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "6070f8b52798616662bdaa4b4c9f87eb00bba0ff4eac9422168b895f75fa1c6e"
+    },
+    {
+      "path": "src/features/settings/OutdatedServerUpdateSection.tsx",
+      "beforeSha256": "43e894a37af0ca9eeb99258e937f1ada5342975c472eb293a84ad6d31e963507",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 4
+        }
+      ],
+      "afterSha256": "47a77118736bc15c324d1b6d4d615b72e013d86a8c1748800095706cdd6d8330"
+    },
+    {
+      "path": "src/features/settings/SettingsEnvironmentDetailRouteScreen.tsx",
+      "beforeSha256": "1cfdc57000bc1357dc6d0dd89724f363c9475fd58da2eb21f118acf446304a5c",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 3
+        }
+      ],
+      "afterSha256": "27687e64f971e8eb2285c56f157040a9b5f61a80dcd71ff82b1c46a6392acf30"
+    },
+    {
+      "path": "src/features/diagnostics/SettingsDiagnosticsRouteScreen.tsx",
+      "beforeSha256": "5782cbba6e7c02ca9e3d808b191143c5f6b2b0e4ce0d791dbc3f674fa6ee819f",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "4d3ed34f89bc8162706dc2762bafef1b892ec5752d4f18837cfdabd4d7bfebf2"
+    },
+    {
+      "path": "src/features/diagnostics/crash-log-model.ts",
+      "beforeSha256": "7f794cc9570769124c1085a69c8c60869b8324d323ba7449a4de4464407c3224",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab Remote",
+          "count": 1
+        }
+      ],
+      "afterSha256": "76d9c93f1d6c466e325a1b92097b8a2a3e830e45896df4076349376a88784249"
+    },
+    {
+      "path": "src/features/layout/workspace/PullRequestToolbar.android.tsx",
+      "beforeSha256": "a35ed1fb7c0186b6bd817dda77e7cde4de9aa2770c9bc121ce5ad70c7f7dc9cf",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 2
+        }
+      ],
+      "afterSha256": "7457bde678cfe8afd2f61e0beee6ef1ea05588cb792ea8ad4568e4dee533ce92"
+    },
+    {
+      "path": "src/features/layout/workspace/WorkspaceRootScreen.tsx",
+      "beforeSha256": "ba66aa4d82dcf49be4b433093eca0d8571f44977ed0f3ba2c4abd286d79b00f2",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "f2f2561d68c8bad35b07837776335a961aefdf1a45b19babc79f06605d58e46a"
+    },
+    {
+      "path": "src/features/layout/workspace/WorkspaceListHeader.android.tsx",
+      "beforeSha256": "2f2a3e4b4ac49bac1528c4ab4361162f0a1c0dd515e766709fa3ae278057373a",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "8383d609c994682c74da16bb9dc00fb50effe6b29dfea84919117803c778c65b"
+    },
+    {
+      "path": "src/features/home/HomeRouteScreen.tsx",
+      "beforeSha256": "f1440df31ff0119062028ff2c95eeaffb67b4f86c4205411e547e55d5474f968",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "e45d2b7abe0c7d721cfc200a9f71115a3e4b4f4f235324933a613490733894f0"
+    },
+    {
+      "path": "src/features/agent-awareness/remoteRegistration.ts",
+      "beforeSha256": "d6475cda1c0ceb49cf18f3525a865ad984d4a59dbce1e2f321ea87f6193f7b65",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab Remote",
+          "count": 1
+        }
+      ],
+      "afterSha256": "7682f5438c9d64e6ce1ebe49902511cd9177b44f6316dadab6d6eee54cd1f0c4"
+    },
+    {
+      "path": "src/features/showcase/showcaseAgentActivity.ts",
+      "beforeSha256": "3afff3e5b8c010a24e9c709efe660c2a8bf502988cd789e28f20f02188261f4e",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "db084f720136f51b77d9c085412a2da15610f3d34b44fb1b8a0a8b42d89da3d7"
+    },
+    {
+      "path": "src/features/threads/ThreadQueueControl.tsx",
+      "beforeSha256": "92827e0eb9a30ba0a7017ca989017a1dfab3188e95f9cf9365c439a7dc69af83",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "89fa8ec24f2c1afa92b1bc598c090a74d3e4a3aa506c64ee3f56234be76823a9"
+    },
+    {
+      "path": "src/features/threads/ThreadFeed.tsx",
+      "beforeSha256": "7d4770348b23b1f95dd30e69c883836153b27101b0548393f1faa4fd9e3a6590",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 2
+        }
+      ],
+      "afterSha256": "e98fce6aa11e90963384289fda7d05d836c5dcb46845060854465714c9f54d62"
+    },
+    {
+      "path": "src/features/threads/ThreadComposer.tsx",
+      "beforeSha256": "4d4843e007852ee8edad5ffba1f4c73716696c811c0f2c4649235c8896233f85",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "b8ba852ce032774bf6371e444f9236f95b714c76c9bc689200199592ffc380e6"
+    },
+    {
+      "path": "src/features/threads/ThreadNavigationSidebar.tsx",
+      "beforeSha256": "61752848c370648108934803847ec5558f7e7de9ef8a31a5fd9fc4e4dc9f803b",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Code",
+          "after": "Blackcrab",
+          "count": 1
+        }
+      ],
+      "afterSha256": "cfd3204c042ba40a91f59444db28088acd946dd363284ad0f836e5732bf99599"
+    },
+    {
+      "path": "src/features/threads/LinkRequestCard.tsx",
+      "beforeSha256": "8194e8a67eb06f49df86761e59e47f407ce1af152436faed4b08b28b522d3f6b",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3 Connect",
+          "after": "Blackcrab Connect",
+          "count": 1
+        }
+      ],
+      "afterSha256": "9ec6ddc8c51c15ade45acac58b5c36052d540d6cc5d97f63a6be69d3e93b4c71"
+    },
+    {
+      "path": "src/features/pull-requests/pullRequestAgentTasks.ts",
+      "beforeSha256": "1fdf61304ec93e35ea6dc73f927bcab599165161e67d102552a7e1b7e5d48cac",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "T3's",
+          "after": "Blackcrab's",
+          "count": 1
+        }
+      ],
+      "afterSha256": "3b997a98aba12c9a92a6fd9e3a6c24c8e7da100e5d787785cb656879b733999f"
+    },
+    {
+      "path": "src/widgets/subscriptionUsageSnapshot.ts",
+      "beforeSha256": "9f660c73b61ce7098a92331001b601e74dc1c41f4e8593c902740c81c8423731",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "Open T3",
+          "after": "Open Blackcrab",
+          "count": 2
+        }
+      ],
+      "afterSha256": "c08207c48a8bbcb9ee7076010185f420228d314f645cf7271728e9fb53c15246"
+    },
+    {
+      "path": "src/features/settings/lib/legal-document-url.ts",
+      "beforeSha256": "7c5e2dfabffd98d32672ae2c451a832d1afaa1d6886afc8217a6c6f24ab9c995",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "https://t3.codes",
+          "after": "https://blackcrab.app",
+          "count": 1
+        }
+      ],
+      "afterSha256": "d18caa59bad05805834dbd15baf89684db9054c67e08f71c771a0884b91d79ff"
     }
   ],
   "additions": [

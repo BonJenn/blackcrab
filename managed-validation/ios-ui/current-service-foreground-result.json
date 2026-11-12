@@ -1,0 +1,95 @@
+{
+  "artifact": {
+    "bundleId": "dev.blackcrab.remote",
+    "hermesSha256": "6bd3736683388be8f47f30d4c1754d9e8b2cdd3d2e0b4bc9e916e6fa842ca0fe",
+    "inventorySha256": "61699f23c4724890050a952dfe0c665ef7c53de2338ed44d36f2c4185b8faad9",
+    "unchangedAfterAcceptance": true
+  },
+  "backgroundElapsedSeconds": 25.508324000000016,
+  "baselineSource": "2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab",
+  "canary": {
+    "failed": 0,
+    "officialExportsReviewed": true,
+    "passed": 1,
+    "skipped": 0
+  },
+  "capturedHostClosed": true,
+  "catalogRetainedAcrossUpgradeWithoutUninstall": true,
+  "controllerSourceSha256": "23f3c87a22afbf57d2f2ffcb81b209464591bd73621eb46031da27398cf16a13",
+  "date": "2026-11-11",
+  "evidenceSha256": {
+    "canaryReceipt": "709184b4cf9509547c2c21a1f6454cbed711d2a56f62ef11e68160f7be983f08",
+    "nativeMobileLifecycle": "d46c97603262ae7de122ba108b5ef3053950f915d6daf828c593355b938233fb",
+    "sdkObserver": "da22cb9a270567129c2ef0e291d7a2eb95f449a1d5127a62204bd7f31fdde7b5"
+  },
+  "foregroundUsesActivateWithoutTerminateOrLaunch": true,
+  "format": 1,
+  "host": {
+    "archiveSha256": "f8a5593d44d7c1559bccbc7979631ddfd53376338a3821903c6edd17aca8866f",
+    "capturedLauncherClosed": true,
+    "configurationUnchanged": true,
+    "finalNativeEpoch": 3,
+    "freshServiceOwnerInitialized": true,
+    "manifestSha256": "9eac410b7393b18f510fe2d59a756880575bfcfe8fa8c171046f36abd1fa7937",
+    "nativeBinarySha256": "20ba09ef5768b0984d5d831122cfb072ff6313b6208979718ef4dd05666f8664",
+    "originalInitializationIssuerPairingAndLauncherUnchanged": true
+  },
+  "inputMethod": "Native triple-tap paragraph selection; assert empty before typing and exact replacement before saving.",
+  "legacyDigestsUnchanged": true,
+  "legacyQueueInitiallyEmpty": true,
+  "nativeAppBackgroundStateVerifiedBeforeServiceRestart": true,
+  "nativeAppStillBackgroundedBeforeActivation": true,
+  "nativeForegroundObservedRemoteRenameWithoutPairingAgain": true,
+  "nativeRenameArchiveAfterForegroundVerifiedByIndependentSdk": true,
+  "observerSourceSha256": "cdff44978360524846cd9538299c12b2cbf15988c80c2d06a107c9e7d955a8d5",
+  "os": "26.2",
+  "ownedSimulatorsShutdown": true,
+  "portableGuardTestsPassed": 30,
+  "previousResult": "current-service-reconnect-result.json",
+  "remaining": [
+    "actual desktop service Settings and OS manager controls",
+    "cloud/off-LAN provisioning and live access",
+    "real provider execution and broader agent workflows",
+    "populated legacy migration, physical devices, locked/suspended/network-change/push/Live Activity and signing",
+    "all remaining parity ledger scenarios"
+  ],
+  "runnerExecutableSha256": "a3e58e1762be8a6717130411dd127a6e0a5561e6389d28f965c02fb01f8bb473",
+  "runnerSource": "scenarios/service-foreground.swift",
+  "runnerSourceSha256": "121b7f33c1a0e55da0e116397c4a1725522c4c4e640bcaf8cacb743c29befc95",
+  "sameThreadPreservedAcrossAllPhases": true,
+  "serviceRestartAndSdkRenameWhileNativeAppBackgrounded": true,
+  "source": {
+    "commit": "d1d4d2741a9ffece4b1cf79a5255f667f535fd1e",
+    "kind": "local-combined-integration",
+    "mergedStageSha": null
+  },
+  "status": "native-foreground-service-recovery-passed",
+  "uiPhases": {
+    "background-idle": {
+      "evidenceSha256": "50277d5e9b35dbd83d1ebe873b3096724556fae9ab42a277d15894596c5e5127",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "control-upgraded": {
+      "evidenceSha256": "bf85aba6b3a9d15ffd1008cf36573f431360affbc6e84fe0b0c3299758127ba9",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "foreground-control": {
+      "evidenceSha256": "a4fab96c24088f82f2baa883a775becf7421ca9067bd7586d0d133517fa8d5e4",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "seed-baseline": {
+      "evidenceSha256": "15506aa94314be9ad5deb03720103e549340a620ad5b41f95dd8977f93a78c08",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    }
+  },
+  "zeroProviderSessions": true,
+  "zeroRuns": true
+}

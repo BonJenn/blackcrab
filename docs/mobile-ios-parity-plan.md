@@ -353,6 +353,33 @@ does not close foreground/background recovery, revoked credentials, live cloud o
 off-LAN access, real provider runs, populated migration, physical-device testing,
 push/Live Activity, signing, or the actual desktop service Settings/OS controls.
 
+### Native iOS foreground recovery after service restart (2026-11-11)
+
+The same combined Release app and current managed service passed a separate
+background-to-foreground workflow. After pairing and upgrade/rename/archive, the
+SDK unarchived the thread. The native app displayed it in the catalog and moved to the background via
+the Home button. While it remained backgrounded, the service restarted and the SDK
+changed the thread title. The app then activated without terminate/launch, displayed
+the changed title without pairing again, and renamed and archived that same thread.
+The independent SDK confirmed the exact final title and archive state.
+
+All four UI phases passed one test each with zero failures/skips. The runner checked
+background state both before the host restart and before activation; at least 25.5
+seconds elapsed between the completed background phase and foreground phase. The
+source-bound redaction canary and 30 controller checks passed. Product/configuration
+remained unchanged, all three native service epochs closed, both owned simulators
+shut down, and runs/provider sessions remained zero. See the
+[structured result](../managed-validation/ios-ui/current-service-foreground-result.json)
+and [executed XCTest source](../managed-validation/ios-ui/scenarios/service-foreground.swift).
+
+This evidence remains tied to the local combined candidate, without a merged stage
+revision. It covers a backgrounded app and service restart; it does not establish
+OS suspension, locked-phone behavior, Wi-Fi/cellular transitions, off-LAN access,
+physical-device delivery, push/Live Activity, signing, populated legacy migration,
+or complete background behavior. Desktop service UI and the remaining ledger gates
+remain open. Owned mobile automatic updates are also still disabled and require
+Blackcrab Expo project/channel configuration and native-compatible update delivery.
+
 ### Authenticated manual pairing
 
 Legacy manual pairing now accepts a desktop address and code, performs the LAN

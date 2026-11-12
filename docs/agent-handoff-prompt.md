@@ -20,7 +20,7 @@ it. The latest focus is Mac background-service integration and removing mobile
 T3 product copy (for example “T3 Account”). Coherent PRs and merges to stage,
 installation and TestFlight delivery are already authorized.
 
-Current checkpoint: 2026-11-12 18:58 UTC. Recheck mutable facts.
+Current checkpoint: 2026-11-12 19:03 UTC. Recheck mutable facts.
 P = /Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
 Main checkout = /Volumes/G-DRIVE PRO/Programming/blackcrab; it is extensively
 dirty. Never reset, clean, switch or stage everything there. Its last verified
@@ -72,7 +72,10 @@ The prepared local signing path is ad-hoc, not public Developer ID notarization.
 MOBILE COPY:
 Worktree P/mobile-owned-branding-4pdd465l/source, branch
 parity/mobile-owned-product-copy, from stage 25bc6985ca95c443ad6a6a812289f831763d5755
-(#262 merged). This work has no commit/PR/publication yet at this checkpoint.
+(#262 merged). PR https://github.com/BonJenn/blackcrab/pull/264 is open against
+stage and linked. Implementation commit 10420f6a1f3b04610bd25ff078e2d623249c55ff;
+this prompt is a documentation follow-up. Check the parent's branding-pr.json
+for the latest pushed head, checks and watch state. No merge or phone update yet.
 Changed: activation/build-registry.py and registry.json under mobile-experience,
 paired mobile-experience guides, and both handoffs. There are 57 pinned adapters
 covering Blackcrab Account/Connect, settings/onboarding, accessibility, widgets,
@@ -91,8 +94,8 @@ workspace @t3tools packages. Shared caches were not mutated. Do not flatten
 root React 19.1 / mobile React 19.3 or replace installed native modules with stubs.
 No mobile test/build/upload process is live; completed logs are retained.
 
-Next mobile action: commit explicit paths, push, create/link one PR to stage,
-inspect checks/reviews, merge. Follow current PR linking/watch tool instructions;
+Next mobile action: inspect PR #264's required checks/reviews and merge when ready.
+Follow current PR linking/watch tool instructions;
 when waiting on CI, watch then end the turn instead of polling. Record exact
 URL/head/checks in both handoffs and a local receipt. Then choose a compatible
 Expo update or a new signed iOS build only after comparing the accepted build4

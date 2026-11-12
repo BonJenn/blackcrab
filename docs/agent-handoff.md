@@ -1,6 +1,6 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — 2026-11-12 18:58 UTC
+## Current continuation checkpoint — 2026-11-12 19:03 UTC
 
 This section is authoritative over the historical checkpoints below. Recheck
 mutable state before acting. The user asks to complete Mac background-service
@@ -16,7 +16,7 @@ installed for the owner, and an iOS app available in their TestFlight.
   app has been installed by this work.
 - **iOS:** TestFlight 1.0.0 (4) is VALID / IN_BETA_TESTING and available to the owner.
   It still has the previous product labels. The new branding source is validated
-  locally but has no PR, merge, OTA update or new binary yet.
+  locally and published in PR #264; merge, OTA update or a new binary are pending.
 - **Cloud:** relay/database health and access rejection checks passed; the hosted
   app was promoted. Signed-in/off-LAN/provider/APNs acceptance remains separate.
   Existing credentials and the approved small deployment budget remain authorized.
@@ -76,10 +76,12 @@ and original attribution remain intact.
   current verified workspace packages. Shared dependency caches were not changed.
   Root React 19.1 and mobile React 19.3 remain separate.
 
-Next: commit the explicit mobile files and these handoffs, push the branch,
-create/link one PR to stage, inspect required checks/reviews, then merge. Record
-its actual URL/head in both handoffs and a local receipt. If waiting on CI, watch
-and end the turn. After merge, compare the build-4 native runtime fingerprint
+PR https://github.com/BonJenn/blackcrab/pull/264 is open against stage and linked.
+Implementation commit: `10420f6a1f3b04610bd25ff078e2d623249c55ff`; this checkpoint
+is a documentation follow-up. The latest pushed head/check state is recorded in
+`P/mobile-owned-branding-4pdd465l/branding-pr.json`. Next inspect required
+checks/reviews and merge when ready. If waiting on CI, watch and end the turn.
+After merge, compare the build-4 native runtime fingerprint
 with the proposed update before selecting an Expo update or a new signed binary.
 Follow `docs/mobile-updates.md`; source tests do not prove phone delivery.
 

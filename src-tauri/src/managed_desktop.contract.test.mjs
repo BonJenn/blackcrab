@@ -9,3 +9,12 @@ test('renewal reply rejects wrong generation/environment/request, extra fields a
 test('all40 captured production symlinks also satisfy authoritative JS closure contract',async()=>{const lines=(await fs.readFile(new URL('./managed_desktop_links.fixture.tsv',import.meta.url),'utf8')).split('\n').filter(s=>s&&!s.startsWith('#'));const entries=lines.map(line=>{const[kind,path,target]=line.split('\t');return kind==='L'?{path,type:'symlink',target}:{path,type:'directory'}});assert.equal(entries.filter(e=>e.type==='symlink').length,40);assert.doesNotThrow(()=>validateLinks(entries));});
 
 test('owner fixed delegation exactly matches pinned standard-client scopes, without a client scope parameter',async()=>{const rust=await fs.readFile(new URL('./managed_host.rs',import.meta.url),'utf8');const contract=await fs.readFile(new URL('../../vendor/t3/packages/contracts/src/auth.ts',import.meta.url),'utf8');const values=new Map([...contract.matchAll(/export const (Auth\w+Scope) = "([^"]+)" as const;/g)].map(m=>[m[1],m[2]]));const names=contract.match(/export const AuthStandardClientScopes = \[([\s\S]*?)\] as const;/)[1].match(/Auth\w+Scope/g);const actual=[...rust.match(/let scopes = \[([\s\S]*?)\];/)[1].matchAll(/"([^"]+)"/g)].map(m=>m[1]);assert.deepEqual(actual,names.map(n=>values.get(n)));assert.equal(actual.length,16);assert.equal(new Set(actual).size,16);});
+
+test('Rust optional browser fixture preserves private v2 identity and is absent from public identity', async () => {
+ const browser=JSON.parse(await fs.readFile(new URL('./managed_desktop_browser.fixture.json',import.meta.url),'utf8'));
+ const descriptor=structuredClone(fixture.descriptor);descriptor.authorization.expiresAt=Date.now()+60000;descriptor.browser=browser;
+ const parsed=parseDescriptor(JSON.stringify(descriptor));assert.deepEqual(parsed.browser,browser);
+ const {publicIdentity}=await import('../../managed-desktop/descriptor.mjs');
+ assert.equal(JSON.stringify(publicIdentity(parsed)).includes(browser.key),false);
+ for(const change of [{kind:'leased-uds-v1'},{generation:2},{environmentId:'other'},{key:'A'.repeat(64)}]) assert.throws(()=>parseDescriptor(JSON.stringify({...descriptor,browser:{...browser,...change}})));
+});

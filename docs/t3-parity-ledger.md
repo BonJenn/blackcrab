@@ -25,6 +25,8 @@ For every applicable scenario record: owner; implementation PR and merged stage 
 
 ## Existing Blackcrab evidence, bounded to current plan statements
 
+Entries describe evidence at their original increment. Later entries supersede earlier open-item statements only within the later entry’s stated scope.
+
 - E1: Plans record #172 provider boundary and #173 durable execution; #174–177 queues/controller/backend/desktop/mobile source. Native mobile queue QA remains open.
 - E2: Plans record #178 installed Codex CLI 0.166 initialize/close, #179 fixtures, #180 routing, #181 reads, #182 history, #183 guarded controls, #184 live-client recovery, #185 preview and #187 setup entry. General Codex readiness and an actual authenticated turn remain unproven.
 - E3: Plans record #188 native fixture, #189 panes, #190 switching, #193 disjoint ownership/focus, #195 retained pane recovery and #198 resizing/native four-pane/narrow/restore. Mixed-provider grids, real turns and multi-window behavior remain open.
@@ -598,6 +600,6 @@ The mobile interface also contains nested filter, microphone, favorite and works
 - 47/47 pinned user documents read; 144 numbered document scenario groups (three per document plus three extra composer groups), each containing several atomic behaviors; ten additional contract-domain groups.
 - 190 general + 21 orchestration WS method declarations; 71 MCP toolkit declarations; 49 HTTP declarations; 56 public orchestration discriminants.
 - 77 server setting keys, 27 project-scoped keys, 82 client-setting keys and 37 mobile-preference keys; 11 provider drivers/eight usage readers; six source-control drivers/seven host brands.
-- Zero scenario groups certified complete by this independent audit. Partial historical evidence is bounded in E1–E5 and must be linked to actual scenario-specific runtime proof before promotion.
+- Zero scenario groups certified complete by this independent audit. Partial historical evidence is bounded in E1–E17 and must be linked to actual scenario-specific runtime proof before promotion.
 
 Acceptance order: integrate independent authoritative host and migration; close command/auth/event invariants; implement client surfaces/provider/source-control adapters in reviewable PRs; run each scenario on its supported surfaces and real accounts; complete signed distribution and independent cloud/device gates; audit every remaining U/P row and intentional target limitation against the pinned reference. Merge-to-stage is implementation progress, not the final parity certificate.

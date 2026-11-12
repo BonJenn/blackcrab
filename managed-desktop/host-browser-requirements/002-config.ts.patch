@@ -1,0 +1,18 @@
+--- a/apps/server/src/cli/config.ts
++++ b/apps/server/src/cli/config.ts
+@@ -383,6 +383,7 @@
+   const shellEnvironmentPrepared = bootstrap?.shellEnvironmentPrepared;
+   const desktopTelemetryFd = bootstrap?.desktopTelemetryFd;
+   const desktopTelemetryControlFd = bootstrap?.desktopTelemetryControlFd;
++  const desktopBrowserSocket = bootstrap?.desktopBrowserSocket;
+   const desktopBrowserFd = bootstrap?.desktopBrowserFd;
+   const desktopBrowserControlFd = bootstrap?.desktopBrowserControlFd;
+   const resourceMonitorPath = bootstrap?.resourceMonitorPath;
+@@ -516,6 +517,7 @@
+     ...(shellEnvironmentPrepared === undefined ? {} : { shellEnvironmentPrepared }),
+     desktopTelemetryFd,
+     desktopTelemetryControlFd,
++    desktopBrowserSocket,
+     desktopBrowserFd,
+     desktopBrowserControlFd,
+     resourceMonitorPath,

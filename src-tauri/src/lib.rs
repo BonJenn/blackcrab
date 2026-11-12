@@ -8,8 +8,11 @@ mod managed_artifact;
 mod managed_bridge;
 #[cfg(feature = "managed-bridge-qa")]
 mod managed_bridge_qa;
+mod managed_browser;
 mod managed_desktop;
 mod managed_host;
+mod managed_native_entry;
+mod managed_payload;
 mod pairing;
 mod provider;
 mod relay_client;
@@ -47,6 +50,23 @@ fn require_main_window(window: &tauri::WebviewWindow) -> Result<(), String> {
         return Err("This command is available only in the main Blackcrab window".into());
     }
     Ok(())
+}
+#[tauri::command]
+async fn managed_native_desktop_status(
+    window: tauri::WebviewWindow,
+    entry: State<'_, managed_native_entry::ManagedNativeEntry>,
+) -> Result<managed_native_entry::NativeDesktopStatus, String> {
+    require_main_window(&window)?;
+    Ok(entry.status().await)
+}
+#[tauri::command]
+async fn managed_native_desktop_open(
+    window: tauri::WebviewWindow,
+    entry: State<'_, managed_native_entry::ManagedNativeEntry>,
+    host: State<'_, managed_host::ManagedHost>,
+) -> Result<managed_native_entry::NativeDesktopStatus, String> {
+    require_main_window(&window)?;
+    Ok(entry.open(host.inner().clone()).await)
 }
 #[tauri::command]
 async fn managed_host_status(
@@ -5140,6 +5160,8 @@ pub fn run() {
         .manage(AppState::default())
         .manage(codex_services::Service::default())
         .invoke_handler(tauri::generate_handler![
+            managed_native_desktop_status,
+            managed_native_desktop_open,
             managed_host_status,
             managed_host_start,
             managed_workspace_open,
@@ -5204,9 +5226,16 @@ pub fn run() {
             pairing_revoke
         ])
         .setup(|app| {
-            app.manage(managed_host::ManagedHost::new(
-                app.path().app_data_dir()?.join("managed-host/v1"),
-            ));
+            let app_data = app.path().app_data_dir()?;
+            let native_entry = managed_native_entry::ManagedNativeEntry::from_bundled_paths(
+                &app.path().resource_dir()?, &app_data,
+            );
+            let mut managed_host = managed_host::ManagedHost::new(app_data.join("managed-host/v1"));
+            if let Some(payload) = native_entry.bundled_host() {
+                managed_host = managed_host.with_bundled_payload(payload);
+            }
+            app.manage(managed_host);
+            app.manage(native_entry);
             #[cfg(feature = "managed-bridge-qa")]
             managed_bridge_qa::start(app.handle().clone()).map_err(std::io::Error::other)?;
             // The QA app starts only its owned managed host and fixture servers.

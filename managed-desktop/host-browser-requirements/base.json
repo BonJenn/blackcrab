@@ -1,0 +1,27 @@
+{
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "managedHostRegistrySha256": "6590e60d65e91f25117fa9693b98fda3517fba8bd0c44bfe1c6c8479dfcab8ba",
+  "requiredBaseIds": [
+    "office-font-file-url-path",
+    "managed-native-local-api",
+    "managed-native-folder-picker-entry",
+    "managed-native-project-icon-api",
+    "managed-native-project-icon-picker",
+    "managed-native-project-icon-entry",
+    "blackcrab-renderer-origin",
+    "blackcrab-packaged-cors",
+    "managed-host-identity-proof"
+  ],
+  "preconditions": [
+    {
+      "target": "apps/server/src/http.ts",
+      "sha256": "38c953bc26d3f6a02a048676ed612de8d7f9523bea71af4c4690110b933f1752",
+      "fixture": "base-http.ts.txt"
+    },
+    {
+      "target": "apps/server/src/httpCors.ts",
+      "sha256": "60bfd1c632b30a2f5dbdaff47775396749eaaea4c7d0bddcb59eb4565d3fef3b",
+      "fixture": "base-httpCors.ts.txt"
+    }
+  ]
+}

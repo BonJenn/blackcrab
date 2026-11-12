@@ -1,0 +1,10 @@
+--- a/apps/server/src/config.ts
++++ b/apps/server/src/config.ts
+@@ -99,6 +99,7 @@
+     readonly shellEnvironmentPrepared?: boolean | undefined;
+     readonly desktopTelemetryFd?: number | undefined;
+     readonly desktopTelemetryControlFd?: number | undefined;
++    readonly desktopBrowserSocket?: { readonly path: string; readonly key: string; readonly generation: number } | undefined;
+     readonly desktopBrowserFd?: number | undefined;
+     readonly desktopBrowserControlFd?: number | undefined;
+     readonly resourceMonitorPath?: string | undefined;

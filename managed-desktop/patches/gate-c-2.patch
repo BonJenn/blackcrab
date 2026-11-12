@@ -1,0 +1,66 @@
+--- a/apps/desktop/src/preview/DesktopBrowserHost.test.ts
++++ b/apps/desktop/src/preview/DesktopBrowserHost.test.ts
+@@ -87,6 +87,7 @@
+     nextSend: () => new Promise<void>((resolve) => sendWaiters.push(resolve)),
+     release: () => pending.splice(0).forEach((resolve) => resolve()),
+     releaseFirst: () => pending.shift()?.(),
++    releaseLast: () => pending.pop()?.(),
+     settleFocus: () => focusChanges.splice(0).forEach((resolve) => resolve()),
+   };
+ };
+@@ -1082,4 +1083,55 @@
+       });
+     }).pipe(Effect.scoped),
+   );
++  it.effect("rejects an old accepted lease release after a successor attaches the same native tab", () =>
++    Effect.gen(function* () {
++      const host = yield* DesktopBrowserHost.make;
++      const tab = makeDebuggee();
++      host.attach(key, tab.tab);
++      host.beginTransport!("old");
++      host.endTransport!("old");
++      host.beginTransport!("new");
++      yield* host.handleCommandLine(encodeJson({type:"release",...key}), "old");
++      yield* host.handleCommandLine(encodeJson({type:"cdp",...key,message:encodeJson({id:901,method:"Runtime.evaluate",params:{id:901},sessionId:"t3-preview-page"})}), "new");
++      yield* settle;
++      expect(tab.sent).toContain(901);
++      tab.release();
++    }).pipe(Effect.scoped),
++  );
++  it.effect("an old control finalizer cannot detach its replacement owner", () =>
++    Effect.gen(function* () {
++      const host = yield* DesktopBrowserHost.make;
++      const tab = makeDebuggee();
++      const oldOwner = {}, newOwner = {};
++      host.attach(key, {...tab.tab,owner:oldOwner});
++      host.attach(key, {...tab.tab,owner:newOwner});
++      host.detach(key,oldOwner);
++      expect(yield* takeEvents(host,1)).toEqual([{type:"attached",...key}]);
++    }).pipe(Effect.scoped),
++  );
++
++  it.effect("a delayed old download command cannot overwrite the successor directory", () =>
++    Effect.gen(function* () {
++      const host=yield* DesktopBrowserHost.make;const tab=makeDebuggee();host.attach(key,tab.tab);
++      const set=(id:number,directory:string,epoch:string)=>host.handleCommandLine(encodeJson({type:"cdp",...key,message:encodeJson({id,method:"Browser.setDownloadBehavior",params:{behavior:"allowAndName",downloadPath:directory}})}),epoch);
++      host.beginTransport!("old");yield* set(1,"/old","old");yield* settle;
++      host.endTransport!("old");host.beginTransport!("new");yield* set(2,"/new","new");yield* settle;
++      tab.releaseLast();yield* settle;tab.releaseFirst();yield* settle;
++      tab.emit("Page.downloadWillBegin",{guid:"fresh",suggestedFilename:"fixture.txt"});
++      const paths:string[]=[];
++      expect(host.placeDownload(tab.tab.webContents,{setSavePath:(path:string)=>paths.push(path)} as unknown as Electron.DownloadItem)).toBe(true);
++      expect(paths).toEqual(["/new/fresh"]);
++    }).pipe(Effect.scoped),
++  );
++
++  it.effect("a delayed old debugger reply is not emitted to the successor peer", () =>
++    Effect.gen(function*(){
++      const host=yield* DesktopBrowserHost.make;const tab=makeDebuggee();host.attach(key,tab.tab);const replies=yield* watchReplies(host);
++      const send=(id:number,epoch:string)=>host.handleCommandLine(encodeJson({type:"cdp",...key,message:encodeJson({id,method:"Runtime.evaluate",params:{id},sessionId:"t3-preview-page"})}),epoch);
++      host.beginTransport!("old");yield* send(1,"old");yield* settle;
++      host.endTransport!("old");host.beginTransport!("new");yield* send(2,"new");yield* settle;
++      tab.release();expect(yield* Queue.take(replies)).toBe(2);yield* settle;expect(yield* Queue.size(replies)).toBe(0);
++    }).pipe(Effect.scoped),
++  );
++
+ });

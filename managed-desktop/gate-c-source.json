@@ -1,0 +1,23 @@
+{
+  "candidateInventorySha256": "968c5f50c43b57d56191681edc7d05c22e1b05910a9302ec69b78826e816e005",
+  "candidateFiles": [
+    "apps/desktop/src/preview/DesktopBrowserHost.ts",
+    "apps/desktop/src/preview/Manager.ts",
+    "apps/desktop/src/preview/DesktopBrowserHost.test.ts",
+    "apps/desktop/src/preview/Manager.test.ts",
+    "packages/shared/package.json",
+    "packages/shared/src/leasedDesktopBrowser.ts"
+  ],
+  "excluded": [
+    "GateAAttached.ts",
+    "all fixture deltas",
+    "server/host patches"
+  ],
+  "nativeEndToEnd": "pending; prototype missed pinned10s attach window, unchanged",
+  "hostRequirements": [
+    "SocketDesktopBrowserChannel",
+    "ServerBrowser lease/resource/pending/download fences",
+    "per-generation private UDS bootstrap capability"
+  ],
+  "nativeWire": "original DesktopBrowserCommand/Event schemas; production v2 mutual fresh nonces, explicit generation/environment and directional per-frame HMAC/sequence"
+}

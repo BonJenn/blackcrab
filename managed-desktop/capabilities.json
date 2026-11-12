@@ -12,7 +12,7 @@
   "cliInstallation": "unconfigured-distribution-gate",
   "sshRemoteRuntimeBootstrap": "unconfigured-distribution-gate; discovery/resolution retained",
   "serverExposureChanges": "owner-control-gate",
-  "nativeBrowserAgentTransport": "Gate C pending",
+  "nativeBrowserAgentTransport": "optional production leased-UDS client adapter; compatible host/bootstrap + native end-to-end validation pending",
   "releaseSigningAndNotarization": "pending; local ad-hoc only",
   "fullNativeWorkflowCertification": "pending",
   "rustAdoption": "not integrated"

@@ -3,7 +3,10 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-const rawArgs = process.argv.slice(2);
+import { parseManagedResourceArgs, prepareManagedNativeResources } from "./managed-native-resources.mjs";
+
+const managed = parseManagedResourceArgs(process.argv.slice(2));
+const rawArgs = managed.args;
 let mode = "local";
 const passThrough = [];
 
@@ -15,6 +18,8 @@ function usage() {
 Modes:
   --local    Build local app/installers without updater artifacts. Default.
   --signed   Build release app/installers with updater artifacts and signing.
+  --managed-desktop <directory>  Bundle a verified full desktop package.
+  --managed-host <directory>     Bundle a verified workspace runtime.
 
 Local builds do not require TAURI_SIGNING_PRIVATE_KEY. Signed builds require it.`);
 }
@@ -149,18 +154,36 @@ function createLocalDmg() {
   });
 }
 
+const embedded = await prepareManagedNativeResources({ desktop: managed.desktop, host: managed.host, target: buildTarget });
+if (managed.desktop !== undefined || managed.host !== undefined) {
+  tauriArgs.push("--config", JSON.stringify(embedded.config));
+}
 const bin = process.platform === "win32" ? "npx.cmd" : "npx";
 const child = spawn(bin, tauriArgs, {
   stdio: "inherit",
-  env: process.env,
+  env: embedded.env,
 });
 
-child.on("error", (err) => {
+const forwardSignals = new Map();
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  const forward = () => { child.kill(signal); };
+  forwardSignals.set(signal, forward);
+  process.once(signal, forward);
+}
+function stopForwardingSignals() {
+  for (const [signal, forward] of forwardSignals) process.removeListener(signal, forward);
+}
+
+child.on("error", async (err) => {
+  stopForwardingSignals();
+  await embedded.cleanup();
   console.error(`failed to run ${bin}: ${err.message}`);
   process.exit(1);
 });
 
 child.on("exit", async (code, signal) => {
+  stopForwardingSignals();
+  await embedded.cleanup();
   if (signal) {
     process.kill(process.pid, signal);
     return;

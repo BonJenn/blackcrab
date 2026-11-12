@@ -45,6 +45,8 @@ jobs:
 
       - run: node --test src-tauri/src/managed_desktop.contract.test.mjs
 
+      - run: node --test scripts/managed-native-resources.test.mjs
+
       - run: npm run typecheck:managed-acceptance
 
       - run: npm run test:managed-acceptance

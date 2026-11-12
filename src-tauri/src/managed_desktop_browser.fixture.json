@@ -1,0 +1,7 @@
+{
+  "kind": "leased-uds-v2",
+  "generation": 1,
+  "environmentId": "12345678-1234-1234-1234-123456789abc",
+  "path": "/private/tmp/blackcrab-browser-00000000000000000000000000000000/b.sock",
+  "key": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

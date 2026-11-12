@@ -1,0 +1,21 @@
+--- a/packages/shared/src/remote.ts
++++ b/packages/shared/src/remote.ts
+@@ -187,7 +187,7 @@
+   };
+ };
+ 
+-/** Wraps a pairing URL in the `t3code://pair` link that desktop opens and mobile scans. */
++/** Wraps a pairing URL in the `blackcrab://pair` link that desktop opens and mobile scans. */
+ export const buildPairingAppLink = (pairingUrl: string): string =>
+   `blackcrab://pair?${new URLSearchParams([[PAIRING_APP_LINK_PARAM, pairingUrl]])}`;
+ 
+@@ -197,6 +197,9 @@
+   const url = new URL(value);
+   if (!APP_LINK_PROTOCOL.test(url.protocol) || url.host !== "pair") return null;
+   if (url.pathname !== "" && url.pathname !== "/") return null;
++  if (url.username || url.password || url.hash) return null;
++  if (url.searchParams.getAll(PAIRING_APP_LINK_PARAM).length !== 1 ||
++      Array.from(url.searchParams.keys()).some((key) => key !== PAIRING_APP_LINK_PARAM)) return null;
+   return url.searchParams.get(PAIRING_APP_LINK_PARAM)?.trim() || null;
+ };
+ 

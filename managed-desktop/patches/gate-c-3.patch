@@ -1,0 +1,27 @@
+--- a/apps/desktop/src/preview/Manager.test.ts
++++ b/apps/desktop/src/preview/Manager.test.ts
+@@ -468,6 +468,7 @@
+     executeJavaScriptInIsolatedWorld,
+     fetch,
+     debuggerOff,
++    debuggerOn: webContents.debugger.on,
+     listeners,
+     loadURL,
+     off,
+@@ -901,6 +902,8 @@
+           Effect.flatMap(() => manager.registerWebview("tab_destroyed_replacement_race", 42)),
+           Effect.forkChild({ startImmediately: true }),
+         );
++        const staleDetach=previous.debuggerOn.mock.calls.find(call=>call[0]==="detach")?.[1] as (()=>void)|undefined;
++        expect(staleDetach).toBeTypeOf("function");
+         previous.setDestroyed(true);
+         previous.debuggerOff.mockImplementationOnce(() => {
+           current = replacement.webContents;
+@@ -917,6 +920,7 @@
+         const registrationExit = yield* Fiber.await(replacementRegistration);
+ 
+         expect(Exit.isSuccess(registrationExit)).toBe(true);
++        staleDetach!();yield* Effect.yieldNow;
+         expect(previous.off).toHaveBeenCalled();
+         expect(replacement.off).not.toHaveBeenCalled();
+         expect(states.at(-1)).toMatchObject({

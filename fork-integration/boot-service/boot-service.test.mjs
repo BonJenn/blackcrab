@@ -94,14 +94,14 @@ test('actual launcher refuses old/missing/tampered layout and accepts only owned
  await fs.rename(plan.layoutMarker.file,plan.layoutMarker.file+'.saved');await fs.symlink(plan.layoutMarker.file+'.saved',plan.layoutMarker.file);assert.equal(await module.runtimeExists(plan.baseDir,plan.version),false);
 });
 
-function actualLauncher(){const protocol=execute(source('004-owned-layout-protocol'));return execute(source('003-launcher-payload-layout'),{require:name=>name==='./cloud/serviceProtocol.ts'?protocol:name.startsWith('node:')?require(name):(()=>{throw Error('Unexpected launcher module '+name);})(),process,Buffer,setTimeout,clearTimeout,setInterval,clearInterval,console,Promise});}
+function actualLauncher({fsPromises=fs,timers={}}={}){const protocol=execute(source('004-owned-layout-protocol'));return execute(source('003-launcher-payload-layout'),{require:name=>name==='./cloud/serviceProtocol.ts'?protocol:name==='node:fs/promises'?fsPromises:name.startsWith('node:')?require(name):(()=>{throw Error('Unexpected launcher module '+name);})(),process,Buffer,setTimeout,clearTimeout,setInterval,clearInterval,console,Promise,...timers});}
 const waitFor=async predicate=>{const deadline=Date.now()+15000;for(;;){if(await predicate())return;if(Date.now()>deadline)throw Error('Owned launcher observation timed out');await new Promise(resolve=>setTimeout(resolve,20));}};
-async function launcherFixture(t,mode){
+async function launcherFixture(t,mode,options){
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-original-launcher-'));await fs.chmod(directory,0o700);t.after(()=>fs.rm(directory,{recursive:true,force:true}));
  const db=path.join(directory,'owned.db'),record=path.join(directory,'children.jsonl'),script=path.join(directory,'fixture.cjs');await fs.writeFile(db,'before-trial');
  await fs.writeFile(script,`const fs=require('node:fs');const context=JSON.parse(process.env.T3_SERVICE_LAUNCHER_CONTEXT);fs.appendFileSync(process.env.BLACKCRAB_TEST_RECORD,JSON.stringify({version:context.childVersion,protocol:context.protocol,pid:process.pid})+'\\n');if(context.protocol!==4)process.exit(99);if(context.childVersion==='0.1.8'){fs.writeFileSync(process.env.BLACKCRAB_TEST_DB,'trial-write');if(process.env.BLACKCRAB_TEST_MODE==='exit78')process.exit(78);if(process.env.BLACKCRAB_TEST_MODE==='rollback')process.exit(1);process.send({type:'prepared',updateId:context.update.id});}setInterval(()=>{},1000);`);
  for(const version of ['0.1.7','0.1.8']){const root=path.join(directory,'runtime/versions',version),payload=path.join(root,'payload');await fs.mkdir(payload,{recursive:true});await fs.writeFile(path.join(payload,'t3'),'#!/bin/sh\nexec "$BLACKCRAB_TEST_NODE" "$BLACKCRAB_TEST_SCRIPT" "$@"\n',{mode:0o755});const manifest=JSON.stringify({fixture:'owned captured-child test',version});await fs.writeFile(path.join(payload,MANIFEST_FILE),manifest);await fs.writeFile(path.join(root,'.install-complete'),version+'\n',{mode:0o600});await fs.writeFile(path.join(root,'.blackcrab-service-layout.json'),JSON.stringify({schema:1,profile:'blackcrab-local-service-layout-v1',protocol:4,version,manifestSha256:sha(manifest)}),{mode:0o600});}
- const module=actualLauncher(),state={protocol:4,activeVersion:'0.1.7',update:{id:'owned-update',fromVersion:'0.1.7',targetVersion:'0.1.8',dbPath:db,status:'pending'}},statePath=path.join(directory,'runtime/service-state.json');await module.writeServiceState(statePath,state);
+ const module=actualLauncher(options),state={protocol:4,activeVersion:'0.1.7',update:{id:'owned-update',fromVersion:'0.1.7',targetVersion:'0.1.8',dbPath:db,status:'pending'}},statePath=path.join(directory,'runtime/service-state.json');await module.writeServiceState(statePath,state);
  const launcher=new module.Launcher(directory,state,{environment:{PATH:'/usr/bin:/bin',BLACKCRAB_TEST_NODE:process.execPath,BLACKCRAB_TEST_SCRIPT:script,BLACKCRAB_TEST_RECORD:record,BLACKCRAB_TEST_DB:db,BLACKCRAB_TEST_MODE:mode}});
  const running=launcher.run();running.catch(error=>t.diagnostic('Captured launcher error: '+error.stack));t.after(async()=>{await launcher.stop('SIGTERM');await running;});
  return {directory,db,record,launcher,running,statePath,module};
@@ -121,6 +121,39 @@ test('real original trial failure rolls back database bytes and starts captured 
 test('real original ownership exit78 idles without restoring over another owner or spawning a predecessor',async t=>{
  const f=await launcherFixture(t,'exit78');await waitFor(async()=>{const state=await f.module.readServiceState(f.statePath);return state.update?.reason==='state-dir-owned';});
  assert.equal(await fs.readFile(f.db,'utf8'),'trial-write');assert.equal((await fs.readFile(f.record,'utf8')).trim().split('\n').length,1);assert.equal((await f.module.readServiceState(f.statePath)).update.status,'failed');
+});
+
+test('stop waits for ownership transition and clears its late keepalive timer',async t=>{
+ const intervals=new Set();
+ let paused=false,release;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const f=await launcherFixture(t,'exit78',{
+  fsPromises:{...fs,rm:async(file,options)=>{
+   if(path.basename(file)==='owned-update'&&path.basename(path.dirname(file))==='db-backup'){
+    paused=true;await gate;
+   }
+   return fs.rm(file,options);
+  }},
+  timers:{
+   setInterval:(...args)=>{const timer=setInterval(...args);intervals.add(timer);return timer;},
+   clearTimeout:timer=>{intervals.delete(timer);clearTimeout(timer);},
+  },
+ });
+ try{
+  await waitFor(()=>paused);
+  // The state has been written, but the serialized ownership transition still
+  // has to finish removing its backup before it installs the idle timer.
+  assert.equal((await f.module.readServiceState(f.statePath)).update.reason,'state-dir-owned');
+  const stopping=f.launcher.stop('SIGTERM');
+  release();await stopping;await f.running;
+  assert.equal(intervals.size,0,'completed shutdown must clear timers installed by an earlier transition');
+  assert.equal(await fs.readFile(f.db,'utf8'),'trial-write');
+  assert.equal((await fs.readFile(f.record,'utf8')).trim().split('\n').length,1);
+ }finally{
+  release();await f.launcher.stop('SIGTERM');await f.running;
+  // Keep a failing regression from stranding this test process.
+  for(const timer of intervals)clearInterval(timer);
+ }
 });
 
 test('a self-consistent original3 or C21-style artifact cannot be adopted as the owned service profile',async t=>{

@@ -1,0 +1,19 @@
+--- a/infra/relay/src/previewTunnelSweep.ts
++++ b/infra/relay/src/previewTunnelSweep.ts
+@@ -32,12 +32,14 @@
+ }
+ 
+ export type PreviewTunnelSweep = Resource<
+-  "T3CodeRelay.PreviewTunnelSweep",
++  "BlackcrabConnectRelay.PreviewTunnelSweep",
+   PreviewTunnelSweepProps,
+   PreviewTunnelSweepAttributes
+ >;
+ 
+-export const PreviewTunnelSweep = Resource<PreviewTunnelSweep>("T3CodeRelay.PreviewTunnelSweep");
++export const PreviewTunnelSweep = Resource<PreviewTunnelSweep>(
++  "BlackcrabConnectRelay.PreviewTunnelSweep",
++);
+ 
+ const API = "https://api.cloudflare.com/client/v4";
+ const PAGE_SIZE = 100;

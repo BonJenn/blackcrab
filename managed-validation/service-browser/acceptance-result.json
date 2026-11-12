@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-11-11T01:18:16.376480+00:00",
+  "scope": "macOS arm64 native background-service setup, issuer delivery and private browser transport; no Electron rendering",
+  "upstreamCommit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "integrationTree": "d8f43d35b9355cb165a9507cf8f37ceb9de04374",
+  "nativeInitializationSha256": "788c5e2a40fe854d2e8ba09c4ed2f3dc5749f31ab1c84aa100327562d0941773",
+  "nativeQaBinarySha256": "23fa6ff13188f2a513c6361264d6ab67c9c9ce42739aba64f1fc32873d397fcf",
+  "serviceManifestSha256": "d26a972f6930c914aa178c4ebe92b06b7653cd795af0fb32e816fda4b69a396e",
+  "serviceArchiveSha256": "889fc4f681a2a34397c3683f59b3f57dfe7c70dae1d156225d4f698dcf0d4a4d",
+  "serviceRecordGraphSha256": "b4942ed91e79e9e0ad7d5bbfb938295c8b291976866a313b85c68bfdc7aba208",
+  "serverTypecheckPassed": true,
+  "focusedSourceTests": {
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "initializationTests": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "nativeResourceRoundtripPassed": true,
+  "serviceStartupAndRestartPasses": 2,
+  "browserPhases": [
+    {
+      "schema": 1,
+      "phase": 1,
+      "passed": true,
+      "scope": "real service browser authentication and peer reconnect only; no Electron rendering or provider runs",
+      "authenticatedStarts": 2,
+      "wrongCapabilitiesRejected": 3,
+      "duplicatePeerRejected": true,
+      "oldPeerSendRefused": true,
+      "allCapturedSocketsClosed": true,
+      "providerTurnsRequested": 0
+    },
+    {
+      "schema": 1,
+      "phase": 2,
+      "passed": true,
+      "scope": "real service browser authentication and peer reconnect only; no Electron rendering or provider runs",
+      "authenticatedStarts": 2,
+      "wrongCapabilitiesRejected": 3,
+      "duplicatePeerRejected": true,
+      "oldPeerSendRefused": true,
+      "allCapturedSocketsClosed": true,
+      "providerTurnsRequested": 0
+    }
+  ],
+  "configurationUnchanged": true,
+  "nativeIssuerRetired": true,
+  "nativeCleanupPassed": true,
+  "outerCleanupPassed": true,
+  "capturedProcessesQuiescent": true,
+  "providerRuns": 0,
+  "notValidated": [
+    "Original Root window entry",
+    "Electron browser rendering and interaction",
+    "Provider turns",
+    "Windows and Linux runtime behavior",
+    "Remote iOS cloud and push"
+  ]
+}

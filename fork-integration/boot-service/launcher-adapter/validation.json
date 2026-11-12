@@ -1,0 +1,12 @@
+{
+  "node": "26.12.1",
+  "exitCode": 0,
+  "tests": 11,
+  "passed": 11,
+  "failed": 0,
+  "session": 66951,
+  "durationMilliseconds": 13732.531084,
+  "scope": "9 builtin original launcher/captured fake-native-peer subprocess fixtures;2 actual Effect IPC lifetime subprocess tests",
+  "nativeAuthorityPositiveArtifactTested": false,
+  "nativeLatestCompile": "pending coordinated slot"
+}

@@ -40,7 +40,7 @@ Authorization is an **independent one-time pairing credential**, not the owner's
 FD4 request (one outstanding request, NDJSON, bounded response, 10-second deadline):
 
 ```json
-{"version":1,"kind":"native-client-credential","requestId":"uuid","generation":1,"environmentId":"uuid"}
+{"version":1,"kind":"native-client-credential","requestId":"uuid","generation":1,"environmentId":"legacy-env"}
 ```
 
 The owner returns exactly `version`, `kind: paired-credential`, matching `requestId`, `generation`, `environmentId`, fresh `credential`, and `expiresAt` (future Unix milliseconds, at most 24 hours). The grant is exchanged once. Stale/wrong replies, EOF, timeout and unavailable renewal fail closed; owner channel loss closes this client, not the host. Root must authorize each mint against the captured child/generation and actual grants, and must close old client channels when replacing ownership. No arbitrary owner commands are exposed through this protocol.

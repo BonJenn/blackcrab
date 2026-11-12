@@ -233,8 +233,8 @@
     "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
     "file": "../descriptor.mjs",
     "beforeSha256": null,
-    "afterSha256": "bf0526ba6f5a32d00083771eb8a473dcff22353e1a8598234e2af4e298026576",
-    "sha256": "bf0526ba6f5a32d00083771eb8a473dcff22353e1a8598234e2af4e298026576"
+    "afterSha256": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2",
+    "sha256": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2"
   },
   {
     "id": "payload-attachment.mjs",

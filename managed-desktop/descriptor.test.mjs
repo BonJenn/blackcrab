@@ -8,3 +8,13 @@ test('stop fences delayed verification and never gets owner process authority',a
 test('window creation failure rolls back attachment state',async()=>{const a=createAttachment({verify:async()=>{},onReady:async()=>{throw Error('window failed')}});await assert.rejects(a.start());assert.equal(a.ready,false);});
 test('profile requires canonical owned private directory; bounded FD closes after refusal',()=>{const temp=fs.mkdtempSync(path.join(os.tmpdir(),'blackcrab-descriptor-'));try{const root=fs.realpathSync(temp);fs.chmodSync(root,0o700);assert.equal(inspectProfile({profile:{root}}),root);fs.chmodSync(root,0o755);assert.throws(()=>inspectProfile({profile:{root}}));fs.chmodSync(root,0o700);fs.symlinkSync(root,path.join(root,'alias'));assert.throws(()=>inspectProfile({profile:{root:path.join(root,'alias')}}));const file=path.join(root,'descriptor');fs.writeFileSync(file,'x'.repeat(MAX_DESCRIPTOR_BYTES+1));const fd=fs.openSync(file,'r');assert.throws(()=>readDescriptor(fd),/bound/);assert.throws(()=>fs.fstatSync(fd));}finally{fs.rmSync(temp,{recursive:true,force:true});}});
 test('framework links remain bounded inside artifact',()=>{validateLinks([{path:'F',type:'directory'},{path:'F/Versions',type:'directory'},{path:'F/Versions/A',type:'directory'},{path:'F/Versions/A/binary',type:'file'},{path:'F/Versions/Current',type:'symlink',target:'A'},{path:'F/binary',type:'symlink',target:'Versions/Current/binary'}]);for(const entries of [[{path:'a',type:'symlink',target:'../escape'}],[{path:'a',type:'symlink',target:'/private/key'}],[{path:'a',type:'symlink',target:'b'},{path:'b',type:'symlink',target:'a'}],[{path:'a',type:'symlink',target:'absent'}]])assert.throws(()=>validateLinks(entries));for(const p of ['../x','/x','x/../y','x\\y','x:ads','x//y'])assert.throws(()=>relativePath(p));});
+
+test('environment identity preserves trimmed non-UUID upstream IDs within the private frame bound',()=>{
+ for(const id of ['legacy-env','env_nativeqa_123','環境-🦀','a b','a\nb','\u0085','x'.repeat(1024)]){
+  const d=descriptor();d.owner.environmentId=id;assert.equal(parseDescriptor(JSON.stringify(d)).owner.environmentId,id);
+ }
+ for(const id of ['',null,12,{},' legacy','legacy\ufeff','\u00a0legacy','legacy\u2028']){
+  const d=descriptor();d.owner.environmentId=id;assert.throws(()=>parseDescriptor(JSON.stringify(d)));
+ }
+ const d=descriptor();d.owner.environmentId='x'.repeat(MAX_DESCRIPTOR_BYTES);assert.throws(()=>parseDescriptor(JSON.stringify(d)),/size/);
+});

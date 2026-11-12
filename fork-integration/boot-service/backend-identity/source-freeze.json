@@ -1,0 +1,28 @@
+{
+  "status": "inactive-profile-acceptance-pending",
+  "isolatedNodeTestsPassed": 6,
+  "actualEffectHttpRouteTestsPassed": 4,
+  "httpProviders": "fixture services; exact route expression and real Effect HTTP router/Fetch",
+  "fullPackagedServerTested": false,
+  "nativeIssuerExecuted": false,
+  "files": {
+    "LICENSE.upstream": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43",
+    "OwnedServiceProof.ts": "55f0599172d39690143c8deb5bb0125e787ba51697f0a84f8a17df64d9230859",
+    "README.md": "dea011c41d84d74919e8965efe66c28aafa93e7bc026071e86626ad75a9a8fc1",
+    "fixtures/config.after.ts": "637df027f3c3f8d7fdfa0db1e52d53aa311dee2567d06b2ac90f7fa7b2ce5518",
+    "fixtures/config.before.ts": "ede97db37b80f98b96dab109492eb7ba1ce1c8068bcb87aa5849262edc7a85db",
+    "fixtures/http.after.ts": "264e4ef40c265a252624ed4dfe17d387e54c66dde6d3cf56014558b39cd631f5",
+    "fixtures/http.before.ts": "83505ce50c3e803115663e5987fc4217065cfd6928bf729e0e83921e9cd7742d",
+    "fixtures/serviceLauncherClient.after.ts": "df613a5a9c7b4c4fae3ff1adda0d23f145733f9fb405cbf157e73178cd3d6ab8",
+    "fixtures/serviceLauncherClient.before.ts": "bc560af90a420886f23a3a0d6852d61f778fcc09ef1db5af4a7479d2ccccefb4",
+    "http.test.mjs": "2e505d1f1b44e41fb653c14d69af8d32abc2b1a8f58fa4e8521ebc5393ac98eb",
+    "patches/config.patch": "0051c1eb8bedb5d7965ce4521753f05c00c703b9b739dbf7cb36df134f2d6c24",
+    "patches/http.patch": "895d40f6c5461cc0412afca43bafa5cad6517c53b0f6704f2130baffabdf6fe2",
+    "patches/serviceLauncherClient.patch": "88130ae67e0536096c17a4149182b1225a0334902b839759be764d712070dddc",
+    "proof.test.mjs": "6962e8a026ec9e200cab539a2ecfdf78063890a3ce82c0ae6f473b6baaf7849e",
+    "registry.json": "af846b78bc5503698946b5e0c328dfb380ebcb2a094c2660ec228723526a046c"
+  },
+  "boundedOriginalConfigTestsPassed": 19,
+  "boundedWorkspaceInputsVerified": 273,
+  "fullProductionNamespaceGraphTested": false
+}

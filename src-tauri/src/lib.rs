@@ -13,6 +13,7 @@ mod managed_desktop;
 mod managed_host;
 mod managed_native_entry;
 mod managed_payload;
+mod managed_service_install;
 mod pairing;
 mod provider;
 mod relay_client;
@@ -75,6 +76,23 @@ async fn managed_host_status(
 ) -> Result<managed_host::HostStatus, String> {
     require_main_window(&window)?;
     Ok(host.status().await)
+}
+#[tauri::command]
+async fn managed_service_control(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+    action: managed_host::ServiceAction,
+) -> Result<managed_host::ServiceStatus, String> {
+    require_main_window(&window)?;
+    host.control_service(action).await
+}
+#[tauri::command]
+async fn managed_service_initialize(
+    window: tauri::WebviewWindow,
+    host: State<'_, managed_host::ManagedHost>,
+) -> Result<managed_host::HostStatus, String> {
+    require_main_window(&window)?;
+    host.initialize_service().await
 }
 #[tauri::command]
 async fn managed_host_start(
@@ -5164,6 +5182,8 @@ pub fn run() {
             managed_native_desktop_open,
             managed_host_status,
             managed_host_start,
+            managed_service_initialize,
+            managed_service_control,
             managed_workspace_open,
             managed_bridge::managed_native_pick_folder,
             managed_bridge::managed_native_pick_project_favicon,
@@ -5315,4 +5335,20 @@ fn blackcrab_menu(app_handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     }
 
     Ok(menu)
+}
+
+/// Fixed private native helper entry; dispatch before any Tauri/legacy initialization.
+/// No caller paths, secrets or runtime selection are accepted here.
+pub fn dispatch_private_service_issuer(arguments: Vec<std::ffi::OsString>) -> Option<i32> {
+    let selected = arguments.first()
+        .is_some_and(|value| value.as_encoded_bytes().starts_with(b"__blackcrab-service-issuer"));
+    if !selected { return None; }
+    if arguments.len() != 1 || arguments[0] != "__blackcrab-service-issuer-v1" {
+        eprintln!("Background service issuer arguments are invalid");
+        return Some(64);
+    }
+    match managed_host::run_private_service_issuer() {
+        Ok(()) => Some(0),
+        Err(_) => { eprintln!("Background service issuer is unavailable"); Some(1) }
+    }
 }

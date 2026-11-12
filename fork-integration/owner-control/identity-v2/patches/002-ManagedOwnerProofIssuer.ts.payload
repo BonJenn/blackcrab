@@ -1,0 +1,19 @@
+// Candidate interface only. No layer/issuer is installed by this preparation.
+import * as Context from "effect/Context";
+import type * as Effect from "effect/Effect";
+export interface ManagedOwnerProofV2 {
+  readonly version: 2;
+  readonly nonce: string;
+  readonly environmentId: string;
+  readonly origin: string;
+  readonly serverVersion: string;
+  readonly orchestrationProtocolVersion: number;
+  readonly manifestSha256: string;
+  readonly layoutProfile: "blackcrab-local-service-layout-v1";
+  readonly serviceProtocol: 4;
+  readonly proof: string;
+}
+export class ManagedOwnerProofIssuer extends Context.Service<ManagedOwnerProofIssuer, {
+  // Captures verified native issuance, not caller-selected identity. No JSON constructor.
+  readonly prove: (nonce: string) => Effect.Effect<ManagedOwnerProofV2>;
+}>()("blackcrab/ManagedOwnerProofIssuer") {}

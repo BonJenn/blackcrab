@@ -1,0 +1,33 @@
+{
+  "status": "candidate-only",
+  "originalEffectIntegration": {
+    "tests": 9,
+    "passed": 9,
+    "skipped": 0,
+    "log": "/tmp/blackcrab-effective-config-integration.log"
+  },
+  "provenanceAndStaging": {
+    "tests": 4,
+    "passed": 4,
+    "skipped": 0,
+    "log": "/tmp/blackcrab-effective-config-provenance.log"
+  },
+  "strictTypecheck": {
+    "exitCode": 0,
+    "log": "/tmp/blackcrab-effective-config-typecheck.log"
+  },
+  "probe": {
+    "root": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-iSbKe7",
+    "output": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-iSbKe7/effective-config-runtime.mjs",
+    "entry": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-iSbKe7/private-cli.mjs",
+    "tsconfig": "/private/tmp/blackcrab-c603-owned-2yw0xkm4/Root-QA/blackcrab-effective-config-iSbKe7/tsconfig.json",
+    "typescript": "/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/blackcrab-managed-source-Mjzz2c/node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/bin/tsc"
+  },
+  "limits": [
+    "No active producer or native registration changed",
+    "No packaged artifact acceptance",
+    "No service child, listener, route or model started",
+    "Existing identity required; no initialization",
+    "Exposure snapshot only; active GUI setters remain gated"
+  ]
+}

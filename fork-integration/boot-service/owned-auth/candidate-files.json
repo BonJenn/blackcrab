@@ -1,0 +1,25 @@
+{
+  "files": {
+    "ConfigProbe.ts": "ba9fca72ee8ebb024d8d7025c326fb62006c2beceb5394643dbd08d1c0e11974",
+    "LICENSE.upstream": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43",
+    "OwnedServiceAuthBootstrap.ts": "2545fff1554c35ef54969bb17b52e0ed1ece487eae2a31d252775c502e307a01",
+    "README.md": "664e2388470050d0d261e68920181e29507bc590af6df9ec898c42ac4205a61f",
+    "RECOVERY-AUDIT.md": "6a4af84cb3fe928a62e55f637dc0ad2f86ebaea695f61fe4bdd01f733b9a4f6f",
+    "fixtures/config.after.ts": "ede97db37b80f98b96dab109492eb7ba1ce1c8068bcb87aa5849262edc7a85db",
+    "fixtures/config.before.ts": "b91c02c7fe7e3453b7ca10a47e40549fb37a4ce13706669e50a4f1bec1bfa1d0",
+    "fixtures/serviceLauncherClient.after.ts": "bc560af90a420886f23a3a0d6852d61f778fcc09ef1db5af4a7479d2ccccefb4",
+    "fixtures/serviceLauncherClient.before.ts": "e4b376634f6168a04e49c26b59be914735f8128e4c59247fe74ff73e08859dda",
+    "fixtures/serviceProtocol.after.ts": "5f54ae565a89fdc522950a8848e88a15065d986b44a04616994253dc0bc6d546",
+    "fixtures/serviceProtocol.before.ts": "8a0df5f6c2d2438666bc944bd1b4b9be1e7d176c4c86a6023d495fc696e3d9ef",
+    "integration.test.mjs": "2db092ca9ecb7e4550c7d92e7dc37b32ce6435d497163e27afd2b27544ce78c3",
+    "patches/config.patch": "3b0eb2f295dcfdade50fb171f7772eb5ecf3319306ffac7ee645e444560ab1ce",
+    "patches/serviceLauncherClient.patch": "7bc3a359a8eef0b5bfacfb796099e0dc594a404e49c28bcc2aa643639cba4b57",
+    "patches/serviceProtocol.patch": "b19507b68cbaf7c63cd07cb08eaef92ea540f3b1b9c11e222bd6ff6062e7e2b7",
+    "prepare-probe.mjs": "d1c3ec84b70aa74df64ad0ccc052238c116360ceceaf08a25a0aa268b3c400b1",
+    "provenance.test.mjs": "af5784a2279c7643f38024eece4535f37e019d209035677b50340066098d5057",
+    "registry.json": "bb6f9c1572e4c4c63a71c62e722a802b301f47417a7efbf6cfe44933d2686388",
+    "source-mirror.mjs": "d65098ee8ddb8f54212a005769bdf3ba06b358a571853b6bb9bf33e9735d0df1",
+    "source-mirror.test.mjs": "4907917060522a7f10f3bf2e5467941b05f4c100d58c1ea6019f4463d5184af6",
+    "validation.json": "acf630e735013ff89f115d0e1f9a1b368a64dde4a4c090083e557ba87a34fb9c"
+  }
+}

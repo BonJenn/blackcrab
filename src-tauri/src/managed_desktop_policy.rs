@@ -29,6 +29,14 @@ pub(crate) fn uuid(s: &str) -> bool {
             }
         })
 }
+/// T3 EnvironmentId is a trimmed non-empty string, not a UUID. Match
+/// ECMAScript trim exactly; Rust's Unicode whitespace set also includes NEL.
+pub(crate) fn environment_id(s: &str) -> bool {
+    let trim = |c: char| matches!(c, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}'
+        | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}'
+        | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}');
+    !s.is_empty() && s.trim_matches(trim) == s
+}
 pub(crate) fn valid_native_pair(s: &str) -> bool {
     s.len() == 12
         && s.bytes()
@@ -318,6 +326,23 @@ impl Frames {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    #[test]
+    fn environment_identity_preserves_original_non_uuid_contract() {
+        for value in ["legacy-env", "env_nativeqa_123", "環境-🦀", "a b", "a\nb", "\u{0085}"] {
+            assert!(environment_id(value), "{value:?}");
+        }
+        assert!(environment_id(&"x".repeat(1024)));
+        assert!(!environment_id(""));
+        for c in ['\u{0009}', '\u{000a}', '\u{000b}', '\u{000c}', '\u{000d}', ' ',
+            '\u{00a0}', '\u{1680}', '\u{2000}', '\u{200a}', '\u{2028}', '\u{2029}',
+            '\u{202f}', '\u{205f}', '\u{3000}', '\u{feff}'] {
+            assert!(!environment_id(&format!("{c}legacy")));
+            assert!(!environment_id(&format!("legacy{c}")));
+            assert!(!environment_id(&c.to_string()));
+        }
+        assert!(!uuid("legacy-env"));
+        assert!(uuid("12345678-1234-1234-1234-123456789abc"));
+    }
     #[test]
     fn idle_is_not_a_ten_second_expiry() {
         let t = Instant::now();

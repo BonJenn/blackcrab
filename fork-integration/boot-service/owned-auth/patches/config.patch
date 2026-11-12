@@ -1,0 +1,37 @@
+--- a/apps/server/src/cli/config.ts
++++ b/apps/server/src/cli/config.ts
+@@ -1,3 +1,4 @@
++import { readOwnedServiceAuthBootstrap } from "../OwnedServiceAuthBootstrap.ts";
+ import * as NetService from "@t3tools/shared/Net";
+ import {
+   OtlpHeadersFromString,
+@@ -292,6 +293,10 @@
+     tailscaleServePort: flags.tailscaleServePort ?? Option.none(),
+     lan: flags.lan ?? Option.none(),
+   } satisfies CliServerFlags;
++  const launcherMode = yield* resolveServiceLauncherMode();
++  const authEnvelope = launcherMode.ownedAuth === undefined ? undefined : yield* readOwnedServiceAuthBootstrap(launcherMode.ownedAuth);
++  if (authEnvelope !== undefined && (Option.isSome(normalizedFlags.bootstrapFd) || env.bootstrapFd !== undefined))
++    return yield* Effect.fail(new CliError.UserError({cause: "Owned service auth uses private FD0; desktop bootstrap is unavailable."}));
+   const bootstrapFd = Option.getOrUndefined(normalizedFlags.bootstrapFd) ?? env.bootstrapFd;
+   const bootstrapEnvelope =
+     bootstrapFd !== undefined
+@@ -378,14 +383,14 @@
+     ),
+     () => mode === "desktop",
+   );
+-  const desktopBootstrapToken = bootstrap?.desktopBootstrapToken;
+-  const desktopBootstrapSecret = bootstrap?.desktopBootstrapSecret;
++  const desktopBootstrapToken = authEnvelope?.desktopBootstrapToken ?? bootstrap?.desktopBootstrapToken;
++  const desktopBootstrapSecret = authEnvelope?.desktopBootstrapSecret ?? bootstrap?.desktopBootstrapSecret;
+   const shellEnvironmentPrepared = bootstrap?.shellEnvironmentPrepared;
+   const desktopTelemetryFd = bootstrap?.desktopTelemetryFd;
+   const desktopTelemetryControlFd = bootstrap?.desktopTelemetryControlFd;
+   const desktopBrowserSocket = bootstrap?.desktopBrowserSocket;
+-  const desktopBrowserFd = bootstrap?.desktopBrowserFd;
+-  const desktopBrowserControlFd = bootstrap?.desktopBrowserControlFd;
++  const desktopBrowserFd = authEnvelope?.desktopBrowserFd ?? bootstrap?.desktopBrowserFd;
++  const desktopBrowserControlFd = authEnvelope?.desktopBrowserControlFd ?? bootstrap?.desktopBrowserControlFd;
+   const resourceMonitorPath = bootstrap?.resourceMonitorPath;
+   const autoBootstrapProjectFromCwd = Option.getOrElse(
+     resolveOptionPrecedence(

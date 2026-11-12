@@ -7,6 +7,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {verifyArtifact as verifyDesktop, MANIFEST as DESKTOP_MANIFEST} from '../managed-desktop/artifact.mjs';
 import {verifyArtifact as verifyHost, MANIFEST_FILE as HOST_MANIFEST, NODE_VERSION, PNPM_VERSION} from '../managed-host/artifact.mjs';
+import {verifyServiceProfileArtifact, SERVICE_PROFILE} from '../managed-host/service-profile.mjs';
 const run=promisify(execFile);
 async function fileSha(file){const h=createHash('sha256');for await(const bytes of createReadStream(file))h.update(bytes);return h.digest('hex');}
 async function checkArchiveTree(root){
@@ -29,28 +30,33 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function parseManagedResourceArgs(args) {
  const result={args:[],desktop:undefined,host:undefined};
  for(let i=0;i<args.length;i++) {
-  const key=args[i]==='--managed-desktop'?'desktop':args[i]==='--managed-host'?'host':null;
+  const key=args[i]==='--managed-desktop'?'desktop':args[i]==='--managed-host'?'host':args[i]==='--managed-service-host'?'serviceHost':null;
   if(!key){result.args.push(args[i]);continue;}
   if(result[key]!==undefined||!args[i+1]||args[i+1].startsWith('--'))throw Error(`Expected one directory after ${args[i]}`);
   result[key]=args[++i];
  }
+ if(result.host!==undefined&&result.serviceHost!==undefined)throw Error('Choose either --managed-host or --managed-service-host');
  return result;
 }
 /** Verify producer contracts before supplying Tauri's documented source->destination resource map.
  * Input directories must remain immutable during archive preparation. Returned cleanup owns only private staging.
  */
-export async function prepareManagedNativeResources({desktop,host,env=process.env,platform=process.platform,arch=process.arch,target=""}={}) {
+export async function prepareManagedNativeResources({desktop,host,serviceHost,env=process.env,platform=process.platform,arch=process.arch,target=""}={}) {
+ if(host!==undefined&&serviceHost!==undefined)throw Error('Choose either a direct host or a service host');
+ host=serviceHost??host;
  if ((desktop !== undefined || host !== undefined) && target) {
   const match=/^(aarch64|x86_64)-(apple-darwin|unknown-linux-gnu|pc-windows-msvc)$/.exec(target);
   if(!match)throw Error('Managed resources require a supported single-architecture target');
   arch=match[1]==='aarch64'?'arm64':'x64';platform=match[2]==='apple-darwin'?'darwin':match[2]==='pc-windows-msvc'?'win32':'linux';
  }
  if(desktop!==undefined && (platform!=='darwin'||arch!=='arm64'))throw Error('Managed desktop package requires darwin-arm64 target');
+ if(serviceHost!==undefined&&(platform!=='darwin'||arch!=='arm64'))throw Error('Managed service package requires the verified darwin-arm64 target');
  const nextEnv={...env};
  delete nextEnv.BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_DESKTOP_ARCHIVE_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256;
+ delete nextEnv.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE;
  const resources={};
  let stage;
  const cleanup=async()=>{if(stage)await fs.rm(stage,{recursive:true,force:true});};
@@ -65,12 +71,14 @@ export async function prepareManagedNativeResources({desktop,host,env=process.en
   const verify=async root=>{
   if(role==='desktop')return verifyDesktop(root);
   else {
-   const manifest=await verifyHost(root,{platform,arch});
+   const manifest=serviceHost!==undefined?await verifyServiceProfileArtifact(root,{platform,arch}):await verifyHost(root,{platform,arch});
+   if(serviceHost===undefined){
    const registryBytes=await fs.readFile(new URL('../managed-host/patches/registry.json',import.meta.url));
    const registry=JSON.parse(registryBytes);
    if(JSON.stringify(manifest.sourcePatches)!==JSON.stringify(registry.map(({id,sha256})=>({id,sha256}))))throw Error('Host source patch provenance mismatch');
    if(!registryBytes.equals(await fs.readFile(path.join(root,'source-patches/registry.json'))))throw Error('Host source registry mismatch');
    for(const patch of registry)if(sha(await fs.readFile(path.join(root,'source-patches',patch.file)))!==patch.sha256)throw Error('Host source patch bytes mismatch');
+   }
    const provenance=JSON.parse(await fs.readFile(path.join(root,'BUILD-PROVENANCE.json'),'utf8'));
    if(JSON.stringify(provenance.upstream)!==JSON.stringify(manifest.upstream)||JSON.stringify(provenance.sourcePatches)!==JSON.stringify(manifest.sourcePatches)||provenance.target!==`${platform}-${arch}`||provenance.node!==NODE_VERSION||provenance.pnpm!==PNPM_VERSION||provenance.signing!=='local-only')throw Error('Host build provenance mismatch');
    return manifest;
@@ -94,6 +102,7 @@ export async function prepareManagedNativeResources({desktop,host,env=process.en
   await verify(root);
   await fs.rm(unpack,{recursive:true,force:true});
   nextEnv[variable]=sha(after);
+  if(role==='host'&&serviceHost!==undefined)nextEnv.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE=SERVICE_PROFILE;
   nextEnv[`BLACKCRAB_EMBEDDED_${role.toUpperCase()}_ARCHIVE_SHA256`]=await fileSha(archive);
   resources[archive]=name;
  }

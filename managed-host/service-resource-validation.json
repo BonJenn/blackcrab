@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "state": "REAL_SERVICE_RESOURCE_ROUNDTRIP_PASSED",
+  "base": "6b881c22265e301387184a46d0f2b5e601eef8ac",
+  "files": {
+    "scripts/managed-native-resources.mjs": "56fb516a71206a1a030085cd1f2b71c23d9b297e1e7b34d372cf0d2b1bdc5d17",
+    "scripts/managed-native-resources.test.mjs": "af6e8d47bcb2177b1740c2245d49f16f320fb87f1f57c8842140d1d8cbe35300",
+    "scripts/tauri-build.mjs": "7fa6a5f4d8483d81ad8157565590976c7707b9e5d06f5d53d837254f68a4d8b9",
+    "src-tauri/build.rs": "b94c03f95e246a33af1c3bd6b8d0415cae8695441440693dc3637289a1749b98"
+  },
+  "resourceTestsPassed": 11,
+  "resourceTestsFailed": 0,
+  "optionalTestsSkipped": 2,
+  "realArtifactRoundtripExecutedSeparately": true,
+  "manifestSha256": "866866e127f2b0b6562b325a01e010f288981303774c700901846bc3c79c0a64",
+  "archiveSha256": "b6e68d378771b560910f9967736ad5db13387c26817016a19781b209ce11f445",
+  "profile": "blackcrab-local-service-layout-v1",
+  "sourceVerifiedBeforeAndAfter": true,
+  "roundtripVerified": true,
+  "allCapturedGroupsQuiescent": true,
+  "activationPerformed": false,
+  "providerRuns": 0,
+  "controllerReportSha256": "a6c65920f44c4da8d7e39d427c7ab58846d5467e90907626fb6ce5acdcb1c138",
+  "resourceReportSha256": "237f3902db911cb938399a15c366f95ae288d6e84e66213446bd73fd6149dc8f"
+}

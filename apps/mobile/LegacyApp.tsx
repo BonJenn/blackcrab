@@ -21,9 +21,8 @@ import type {
   TranscriptEntry,
 } from "@blackcrab/remote-protocol";
 
-import { mobileDrafts } from "./src/drafts/useDraft";
-import { MobileQueueClient } from "./src/queue/client";
-import { queueStorage, queueId } from "./src/queue/storage";
+import { mobileQueue } from "./src/queue/owner";
+import { queueId } from "./src/queue/storage";
 
 import { ApprovalScreen } from "./src/screens/ApprovalScreen";
 import { NewSessionScreen } from "./src/screens/NewSessionScreen";
@@ -65,7 +64,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function LegacyApp() {
   const [providersClient] = useState(() => new MobileProvidersClient(queueId));
-  const [queueClient] = useState(() => new MobileQueueClient(queueStorage,queueId,10000,(hostId,sessionId,transfer)=>mobileDrafts.confirmTransfer(hostId,sessionId,transfer)));
+  const queueClient = mobileQueue;
   const [tab, setTab] = useState<TabKey>("hosts");
   const [storedHosts, setStoredHosts] = useState<StoredPairedHost[]>([]);
   const [loadingHosts, setLoadingHosts] = useState(true);

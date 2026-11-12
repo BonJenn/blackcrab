@@ -61,7 +61,7 @@ distribution identity. Expo state is signed in as bonjenn. GitHub already has
 Apple API/signing and Tauri updater secret names configured. Check available
 access before asking for credentials; never export secret values for diagnosis.
 
-Immediate work: finish the paired guidance PR/checkpoint if pending, implement
+Immediate work: finish paired guidance PR #261/checkpoint if pending, implement
 and validate device archive/export/TestFlight delivery, reconcile and validate
 the current desktop/service stack, finish real workflows and owned cloud access
 once the Clerk blocker clears, then install the Mac build and confirm processed

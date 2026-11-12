@@ -61,8 +61,9 @@ Current isolated browser integration worktree:
 Guidance worktree: `P/parity-agent-handoff-pzvormc3/source`, branch
 `parity/agent-handoff-guides`, based on stage
 `f69c62951e868d69a13ed0712f2e4fb448538638`.
-Check `P/parity-agent-handoff-latest.json` and this change's PR for its latest
-commit/merge status. Do not assume the guide branch has already merged.
+Guidance PR: https://github.com/BonJenn/blackcrab/pull/261 (target: stage).
+Check `P/parity-agent-handoff-latest.json`, the PR and `result.json` in its work
+directory for the latest commit/merge state. Do not assume it has already merged.
 
 No heavy build, native test host, app fixture or simulator run is active at
 this checkpoint. No captured process handle is available to resume. Earlier
@@ -263,10 +264,10 @@ Official references consulted:
 
 ## Immediate continuation order
 
-1. Finish/publish the paired guidance change, validate all pairs and links, and
-   update this checkpoint with its PR/head/check state. Leave original dirty
-   source untouched. The user requested copies in their main checkout too;
-   copy only reviewed guide/handoff paths after checking their previous bytes.
+1. Review the paired guidance PR #261 and merge it to stage once its checks pass.
+   Its local result records whether the reviewed guide/handoff files were copied
+   into the user's main checkout. Preserve all unrelated dirty source. Recheck
+   that result before copying again; never overwrite a successor agent's edits.
 2. Inspect existing Expo/Apple/GitHub release access and implement the missing
    reproducible iOS device archive/export/TestFlight path. Verify the app and all
    extension identifiers/team/capabilities. Do not create a duplicate Expo app

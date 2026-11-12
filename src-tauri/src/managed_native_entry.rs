@@ -160,13 +160,24 @@ impl ManagedNativeEntry {
     }
 
     pub(crate) async fn status(&self) -> NativeDesktopStatus {
+        self.status_for_identity(crate::managed_desktop::DesktopIdentity::Production)
+            .await
+    }
+    async fn status_for_identity(
+        &self,
+        identity: crate::managed_desktop::DesktopIdentity,
+    ) -> NativeDesktopStatus {
         let current = self.metadata_status();
         if current.state != "ready" {
             return current;
         }
         #[cfg(target_os = "macos")]
         {
-            match self.owner.running().await {
+            match self
+                .owner
+                .running_for_identity(identity, self.desktop_manifest.as_deref())
+                .await
+            {
                 Ok(true) => return status("running", None),
                 Ok(false) => {}
                 Err(_) => return status("unavailable", Some(unavailable())),
@@ -175,6 +186,14 @@ impl ManagedNativeEntry {
         current
     }
     pub(crate) async fn open(&self, host: ManagedHost) -> NativeDesktopStatus {
+        self.open_for_identity(host, crate::managed_desktop::DesktopIdentity::Production)
+            .await
+    }
+    async fn open_for_identity(
+        &self,
+        host: ManagedHost,
+        identity: crate::managed_desktop::DesktopIdentity,
+    ) -> NativeDesktopStatus {
         let current = self.metadata_status();
         if current.state != "ready" {
             return current;
@@ -183,15 +202,32 @@ impl ManagedNativeEntry {
         {
             let payload = self.desktop.as_ref().unwrap().clone();
             let manifest = self.desktop_manifest.as_ref().unwrap().clone();
-            let verified = tokio::task::spawn_blocking(move || payload.ensure_verified()).await;
+            let verified = tokio::task::spawn_blocking(move || {
+                #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
+                if let crate::managed_desktop::DesktopIdentity::NativeKeychainQa(permit) = identity
+                {
+                    return payload.ensure_reviewed_native_keychain_qa(&permit);
+                }
+                payload.ensure_verified()
+            })
+            .await;
             let root = match verified {
                 Ok(Ok(root)) => root,
                 _ => return status("unavailable", Some(unavailable())),
             };
-            if self.owner.open(host, root, manifest).await.is_err() {
+            #[cfg(all(test, target_os = "macos"))]
+            let diagnostic_profile = host.desktop_profile_root();
+            if let Err(error) = self
+                .owner
+                .open_for_identity(host, root, manifest, identity)
+                .await
+            {
+                #[cfg(all(test, target_os = "macos"))]
+                acceptance::record_open_failure(&diagnostic_profile, &error);
+                let _ = error;
                 return status("unavailable", Some(unavailable()));
             }
-            return self.status().await;
+            return self.status_for_identity(identity).await;
         }
         #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         {
@@ -200,6 +236,10 @@ impl ManagedNativeEntry {
         }
     }
 }
+#[cfg(all(test, target_os = "macos"))]
+#[path = "managed_native_acceptance.rs"]
+pub(crate) mod acceptance;
+
 #[cfg(test)]
 mod tests {
     use super::*;

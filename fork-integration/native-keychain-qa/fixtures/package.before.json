@@ -1,0 +1,8 @@
+{
+  "name": "blackcrab-managed-desktop",
+  "version": "0.1.7",
+  "private": true,
+  "main": "apps/desktop/dist-electron/boot.cjs",
+  "t3codeCommitHash": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "blackcrabManagedClient": "production"
+}

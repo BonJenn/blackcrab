@@ -1,0 +1,13 @@
+{
+  "previousRegistrySha256": "01cb35ca25fd2de477da3c029d6bc858b9e3b4b2ee835020e382e166edbcac9d",
+  "currentRegistrySha256": "69f7ccae10191e8449f826b29d5a7f42f402feabcf78b9c25ba9b9cdba323bb4",
+  "onlyChangedRecordId": "native-os-home-environment-mjs",
+  "onlyChangedFields": [
+    "sha256",
+    "afterSha256"
+  ],
+  "beforePayloadSha256": "d6436ba61241528e2b920191f4b42b8b9d2c9d0a8fe28bd6032b0d0ce2653fa4",
+  "afterPayloadSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
+  "otherRecordsByteEquivalent": true,
+  "reconstructionExactlyMatchesOriginalWholeRegistryPin": true
+}

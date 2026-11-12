@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/connection/routes.ts
++++ b/packages/client-runtime/src/connection/routes.ts
+@@ -163,7 +163,7 @@
+ export function connectionRouteLabel(route: ConnectionRoute): string {
+   switch (connectionRouteKind(route)) {
+     case "relay":
+-      return "T3 Connect";
++      return "Blackcrab Connect";
+     case "loopback":
+       return "This device";
+     case "lan":

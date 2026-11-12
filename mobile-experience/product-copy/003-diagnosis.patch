@@ -1,0 +1,173 @@
+--- a/packages/client-runtime/src/connection/diagnosis.ts
++++ b/packages/client-runtime/src/connection/diagnosis.ts
+@@ -100,26 +100,26 @@
+     case "offline":
+       return "This device is offline";
+     case "session_pending":
+-      return "This device is still loading its T3 Connect sign-in";
++      return "This device is still loading its Blackcrab Connect sign-in";
+     case "outdated":
+-      return `${host} runs an older T3 Code`;
++      return `${host} runs an older Blackcrab`;
+     case "clock_skew":
+       return "This device's clock is off";
+     case "not_linked":
+-      return `${host} is not linked to your T3 Connect account`;
++      return `${host} is not linked to your Blackcrab Connect account`;
+     case "relay_error":
+-      return "T3 Connect returned an error";
++      return "Blackcrab Connect returned an error";
+     case "tunnel_pending":
+       return `${host}'s tunnel is still being set up`;
+     case "tunnel_not_enabled":
+-      return `T3 Connect is not turned on for ${host}`;
++      return `Blackcrab Connect is not turned on for ${host}`;
+     case "released":
+     case "tunnel_down":
+       return `${host}'s tunnel is offline`;
+     case "origin_unreachable":
+-      return `Tunnel works, but T3 Code on ${host} did not answer`;
++      return `Tunnel works, but Blackcrab on ${host} did not answer`;
+     case "invalid_response":
+-      return `T3 Code on ${host} sent an unexpected answer`;
++      return `Blackcrab on ${host} sent an unexpected answer`;
+     case "dns":
+       return `${host}'s tunnel address did not resolve`;
+     case "tls":
+@@ -137,19 +137,19 @@
+       return "This device could not prepare the connection";
+     case "relay":
+       return failure?.reason === "authentication"
+-        ? "T3 Connect did not accept this device's sign-in"
+-        : "This device can't reach T3 Connect";
++        ? "Blackcrab Connect did not accept this device's sign-in"
++        : "This device can't reach Blackcrab Connect";
+     case "tunnel":
+       // The relay already reached the host when this device fails on its own.
+       return failure?.reason === "network" ||
+         failure?.reason === "transport" ||
+         failure?.reason === "timeout"
+         ? `This device can't reach ${host}'s tunnel`
+-        : `T3 Connect could not reach ${host}'s tunnel`;
++        : `Blackcrab Connect could not reach ${host}'s tunnel`;
+     case "server":
+       return failure?.reason === "authentication" || failure?.reason === "permission"
+-        ? `T3 Code on ${host} did not accept this device`
+-        : `T3 Code on ${host} did not answer`;
++        ? `Blackcrab on ${host} did not accept this device`
++        : `Blackcrab on ${host} did not answer`;
+   }
+ }
+ 
+@@ -157,40 +157,40 @@
+   const checkHost = `On ${host}, check Settings > Sharing & access or run \`t3 connect status\`.`;
+   switch (located.cause) {
+     case "offline":
+-      return ["Connect this device to the internet. T3 Code reconnects on its own."];
++      return ["Connect this device to the internet. Blackcrab reconnects on its own."];
+     case "session_pending":
+       return [
+-        "Wait a moment. T3 Code retries on its own.",
+-        "If it keeps waiting, reload or restart T3 Code on this device.",
++        "Wait a moment. Blackcrab retries on its own.",
++        "If it keeps waiting, reload or restart Blackcrab on this device.",
+       ];
+     case "outdated":
+-      return [`Update T3 Code on ${host}.`];
++      return [`Update Blackcrab on ${host}.`];
+     case "clock_skew":
+       return [`Turn on automatic date and time on this device and on ${host}, then retry.`];
+     case "not_linked":
+       return [
+-        "Check that this device is signed in to the same T3 Connect account as the host.",
+-        `On ${host}, open Settings > Sharing & access and turn T3 Connect on.`,
++        "Check that this device is signed in to the same Blackcrab Connect account as the host.",
++        `On ${host}, open Settings > Sharing & access and turn Blackcrab Connect on.`,
+       ];
+     case "tunnel_pending":
+-      return ["Wait a minute. T3 Code retries on its own.", checkHost];
++      return ["Wait a minute. Blackcrab retries on its own.", checkHost];
+     case "relay_error":
+       return [
+-        "Wait a few minutes. T3 Code retries on its own.",
++        "Wait a few minutes. Blackcrab retries on its own.",
+         "If it keeps failing, copy the diagnostics and report it.",
+       ];
+     case "tunnel_not_enabled":
+-      return [`On ${host}, open Settings > Sharing & access and turn T3 Connect on.`];
++      return [`On ${host}, open Settings > Sharing & access and turn Blackcrab Connect on.`];
+     case "released":
+     case "tunnel_down":
+       return [
+-        `Make sure ${host} is awake and T3 Code is running on it.`,
++        `Make sure ${host} is awake and Blackcrab is running on it.`,
+         checkHost,
+         `A VPN or Tailscale exit node on ${host} can block the tunnel (port 7844). Turn it off or allow the tunnel.`,
+       ];
+     case "origin_unreachable":
+     case "invalid_response":
+-      return [`Open or restart T3 Code on ${host}.`, checkHost];
++      return [`Open or restart Blackcrab on ${host}.`, checkHost];
+     // The relay saw these on its way to the host, so the fix is on the host.
+     case "dns":
+     case "tls":
+@@ -204,15 +204,15 @@
+   switch (located.hop) {
+     case "device":
+       return [
+-        "Restart T3 Code on this device.",
++        "Restart Blackcrab on this device.",
+         `If it keeps failing, remove ${host} from this device and add it again.`,
+       ];
+     case "relay":
+       return failure?.reason === "authentication"
+-        ? ["Sign out of T3 Connect and sign in again."]
++        ? ["Sign out of Blackcrab Connect and sign in again."]
+         : [
+             "Check this device's internet connection.",
+-            "A VPN, firewall, or ad blocker on this device can block T3 Connect.",
++            "A VPN, firewall, or ad blocker on this device can block Blackcrab Connect.",
+           ];
+     case "tunnel":
+       return failure?.reason === "network" ||
+@@ -225,7 +225,7 @@
+         : [`Make sure ${host} is awake and online.`, checkHost];
+     case "server":
+       return [
+-        `Make sure T3 Code is running on ${host}.`,
++        `Make sure Blackcrab is running on ${host}.`,
+         "Retry. If it keeps failing, copy the diagnostics.",
+       ];
+   }
+@@ -294,11 +294,11 @@
+     case "device":
+       return "This device";
+     case "relay":
+-      return "T3 Connect";
++      return "Blackcrab Connect";
+     case "tunnel":
+       return `${host} tunnel`;
+     case "server":
+-      return `T3 Code on ${host}`;
++      return `Blackcrab on ${host}`;
+   }
+ }
+ 
+@@ -346,7 +346,7 @@
+       ? null
+       : DateTime.formatIso(DateTime.makeUnsafe(input.state.retryAt)),
+   );
+-  add("Route", relayPath ? "T3 Connect" : "Direct");
++  add("Route", relayPath ? "Blackcrab Connect" : "Direct");
+   add("App version", input.clientVersion);
+   add("Host version", input.serverVersion);
+   add("Error", failure?.detail);
+@@ -369,7 +369,7 @@
+ /** One plain-text block for bug reports. */
+ export function connectionDiagnosisText(hostLabel: string, diagnosis: ConnectionDiagnosis): string {
+   return [
+-    `T3 Code connection to ${hostLabel}: ${diagnosis.headline}`,
++    `Blackcrab connection to ${hostLabel}: ${diagnosis.headline}`,
+     "",
+     ...diagnosis.hops.map((hop) => `${hop.label}: ${HOP_MARK[hop.result]}`),
+     "",

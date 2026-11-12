@@ -3,8 +3,9 @@ import { WebSocketServer } from "ws";
 import { createDesktopPairingPayload, parseEnvelope, serializeEnvelope, type RemoteWireMessage } from "@blackcrab/remote-protocol";
 
 const storage = vi.hoisted(() => new Map<string, string>());
+vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 vi.mock("expo-secure-store", () => ({
-  isAvailableAsync: async () => true,
+  isAvailableAsync: vi.fn(async () => true),
   getItemAsync: async (key: string) => storage.get(key) ?? null,
   setItemAsync: vi.fn(async (key: string, value: string) => { storage.set(key, value); }),
 }));
@@ -90,9 +91,20 @@ it("rejects a payload whose host identity differs from the actual handshake", as
 it("closes the accepted connection when durable credential storage fails", async () => {
   const fixture = await host(() => accepted);
   vi.mocked(SecureStore.setItemAsync).mockRejectedValueOnce(new Error("storage unavailable"));
-  await expect(pairOverLan(manualPairingTarget(fixture.address, "ABCDEFGH"), { deviceName: "Fixture phone" })).rejects.toThrow("storage unavailable");
+  await expect(pairOverLan(manualPairingTarget(fixture.address, "ABCDEFGH"), { deviceName: "Fixture phone" })).rejects.toThrow("Could not save paired hosts");
   await fixture.disconnected;
   expect(await loadStoredHosts()).toEqual([]);
+});
+
+it.each(["unreadable", "unavailable"])("does not overwrite prior credentials when the catalog is %s after pairing", async failure => {
+  const original = "unreadable fixture-only prior catalog";
+  storage.set("blackcrab.mobile.pairedHosts.v1", original);
+  if (failure === "unavailable") vi.mocked(SecureStore.isAvailableAsync).mockResolvedValueOnce(false);
+  const fixture = await host(() => accepted);
+  await expect(pairOverLan(manualPairingTarget(fixture.address, "ABCDEFGH"), { deviceName: "Fixture phone" })).rejects.toThrow();
+  await fixture.disconnected;
+  expect(storage.get("blackcrab.mobile.pairedHosts.v1")).toBe(original);
+  expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
 });
 
 it("times out without manufacturing a paired host", async () => {

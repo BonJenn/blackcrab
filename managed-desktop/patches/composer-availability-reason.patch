@@ -1,0 +1,46 @@
+--- a/apps/web/src/components/chat/ChatComposer.tsx
++++ b/apps/web/src/components/chat/ChatComposer.tsx
+@@ -1879,8 +1879,11 @@
+     },
+   });
+   const { blocksSubmission: voiceInputActive, submitAfterDictation } = speechInput;
+-  const voiceSendDisabledReason =
+-    sendDisabledReason ?? (speechInput.preparing ? "Preparing voice input" : null);
++  const composerSendDisabledReason = projectSelectionRequired
++    ? "Choose a project to start a thread"
++    : noProviderAvailable
++      ? "Enable a provider in Settings to send a message"
++      : (sendDisabledReason ?? (speechInput.preparing ? "Preparing voice input" : null));
+   const dictationShortcutLabel = useDictationShortcut({
+     keybindings,
+     speech: speechInput,
+@@ -3560,12 +3563,8 @@
+                       showPlanFollowUpPrompt={false}
+                       promptHasText={false}
+                       isSendBusy={isSendBusy}
+-                      sendDisabledReason={voiceSendDisabledReason}
+-                      isEnvironmentUnavailable={
+-                        environmentUnavailable !== null ||
+-                        noProviderAvailable ||
+-                        projectSelectionRequired
+-                      }
++                      sendDisabledReason={composerSendDisabledReason}
++                      isEnvironmentUnavailable={environmentUnavailable !== null}
+                       isPreparingWorktree={false}
+                       hasSendableContent={false}
+                       preserveComposerFocusOnPointerDown
+@@ -3654,12 +3653,8 @@
+                     promptHasText={prompt.trim().length > 0 || voiceInputActive}
+                     voiceInputActive={voiceInputActive}
+                     isSendBusy={isSendBusy}
+-                    sendDisabledReason={voiceSendDisabledReason}
+-                    isEnvironmentUnavailable={
+-                      environmentUnavailable !== null ||
+-                      noProviderAvailable ||
+-                      projectSelectionRequired
+-                    }
++                    sendDisabledReason={composerSendDisabledReason}
++                    isEnvironmentUnavailable={environmentUnavailable !== null}
+                     isPreparingWorktree={isPreparingWorktree}
+                     hasSendableContent={composerSendState.hasSendableContent || voiceInputActive}
+                     canResume={showResumeAction}

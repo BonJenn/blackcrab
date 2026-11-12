@@ -54,3 +54,30 @@ Ordinary client quit only detaches. Delayed readiness is fenced against stop; wi
 Fork cloud public configuration is empty and ambient repository `.env` files are not loaded. Clerk account transport/default-handler registration and cloud token persistence are unavailable until fork-owned configuration exists. Hosted pairing and prompt sharing require an explicit hosted endpoint; direct endpoint pairing and internal thread references remain available. Unconfigured download controls are hidden. Updates have no configured feed and an explicit disabled policy. CLI installation/distribution and owner exposure changes are gated. SSH discovery/resolution remain available; remote bootstrap refuses to install an upstream runtime until fork distribution is configured. These are product ownership/configuration gates, **not global network restrictions**: original preview browsing, user-requested external links, SSH implementations and provider endpoints are retained.
 
 Private acceptance policy belongs only in `qa/` and must never be passed off as production functionality. It denies OS/keychain/capture/account ports and non-fixture outbound traffic for disposable tests. Interactive keyboard/click entry is not certified by the API-level probes. Existing external A/B evidence established trusted rendering, real windows and app-owned preference persistence; this producer's own artifact/auth/CORS acceptance is recorded separately. The separate [optional native browser contract](browser-contract.md) integrates clean Gate C client semantics through exact registry records; compatible host/bootstrap integration and fresh native end-to-end validation remain pending.
+
+## Actual Root entry and restart acceptance
+
+The [bounded native UI record](../managed-validation/root-native-ui/acceptance-result.json)
+records four launches through the original Root Settings → Full desktop button on
+macOS arm64. All four native client sessions authenticated. Normal application
+quit and reopen retained the 24-hour preference, unsent composer text, and the
+embedded browser URL and page. The restored browser accepted clicks; navigation,
+Back, and moving the live preview between floating and docked layouts also worked.
+Three clients quit through the native application menu. Root cleanup closed the
+last client through the original SDK, then settled all captured host processes and
+workers. The host database contained no provider sessions or runs.
+
+This was a sealed QA bundle based on `3e74740f36829abfa2f9626abe35b1f28194074a`,
+with unique app/Keychain identities and isolated data. Its exact Root binary,
+native artifact, direct host artifact, and terminal evidence hashes are recorded.
+It does not certify service profile 4, the newer cloud-configured clients, release
+signing, other operating systems, or provider execution. The private QA source
+patch and build identity are separate from the producer on this branch.
+
+The run exposed a composer status bug: missing provider setup was reported as
+“Environment disconnected” despite successful host requests. The
+`composer-availability-reason` source patch keeps submission blocked and gives the
+actual provider/project setup instruction; only a disconnected environment uses
+the disconnected label. The changed shared web component passed full web
+typechecking and a production build. A rebuilt native artifact containing this
+message correction still needs its normal acceptance run.

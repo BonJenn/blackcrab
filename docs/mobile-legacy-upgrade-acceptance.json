@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "scope": "populated legacy experience upgrade from integration reference with queue-event delivery",
+  "baselineRevision": "d1d4d2741a9ffece4b1cf79a5255f667f535fd1e",
+  "candidateRevision": "8254c98fb614181512e95ca7d8422cfacfb5a74e",
+  "platform": {
+    "xcodeBuild": "27A9275",
+    "runtime": "iOS 26.2",
+    "device": "iPhone 17 Pro simulator",
+    "architecture": "arm64"
+  },
+  "baselineArtifactInventorySha256": "61699f23c4724890050a952dfe0c665ef7c53de2338ed44d36f2c4185b8faad9",
+  "candidateArtifactInventorySha256": "b41f876636b872ca5225cacc4e57290fcfe58fc9213f274ee290678641d4285b",
+  "runnerSha256": "f3ff1d85eba34e3f15a157b06daed368aaa59d1383b51fbbc43493ecaa15e8bf",
+  "harnessSourceSha256": {
+    "Acceptance.swift": "b76f8004eff3104586b0dd5696caaadb4617d5fbfa15ab22ecf2c39006668fbe",
+    "Acceptance.xcodeproj/project.pbxproj": "d9b6e830b7ebd9789c79426136e82c59fca5dcf8cdf99c27d85fc813468c7c65",
+    "Acceptance.xcodeproj/xcshareddata/xcschemes/Acceptance.xcscheme": "4240e4f63be0f792d19f2cf4c7e75ceb9c59901563f27f70e93537319033f6d7",
+    "controller.py": "04b5f1696c5e00da60bed00fc32f76013c518561ebd74b5bd332307edab432a9",
+    "controller_test.py": "fc6c944f0cd756de0ba0f436347fbf0f1aba0d3b9802a05f0dc7f475a679bddd",
+    "legacy-fixture.mjs": "54b4469d3dbf7f4694a4ca0a88710774a45249ce0ec241b0d0dbf8facb60779f",
+    "legacy-fixture.test.mjs": "589357a18a74da3566505cdc178d5d6dd2a9776e953beb14e06eb1753a9aabc9",
+    "legacy-upgrade.py": "8a86a9cb18fb2fc270edd7461acde29d1d0e018bb02b9bd80d72c147b948497a",
+    "legacy-upgrade_test.py": "acdd3fec36f814644ac5dc1a62d50883f54abd2fe75bf5d488c43759fe1f640b"
+  },
+  "terminalReportSha256": "c69df32c1ae4fa6ad0642418d0546fa5f2d1a62530e3b8d52dcdee3011b53826",
+  "phases": [
+    {
+      "phase": "seed-baseline",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "summarySha256": "239569a1aeb4bab870254335148a2a39b6350c7509828d76ff4d8c4d2d4f665c"
+    },
+    {
+      "phase": "inspect-upgraded",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "summarySha256": "7ae3f1b38993bed494ef135e93bdc16f115c4d478e4ad534484a7bc758e6d09a"
+    },
+    {
+      "phase": "retry-upgraded",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "summarySha256": "cc50afd7206118f0b54f2ced9cb23fc92b43f007ae8dd542fb5a58904ab2b007"
+    },
+    {
+      "phase": "cold-upgraded",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "summarySha256": "f4fe1dd57e7426e4ab94fad757514aef6b2f4eee631956be37ca5fe98dd00ed2"
+    }
+  ],
+  "assertions": {
+    "pairedHosts": 2,
+    "populatedDrafts": 3,
+    "pendingQueueBeforeUpgrade": 1,
+    "explicitRetryPreservedCommand": true,
+    "automaticResubmissions": 0,
+    "readMarkersRecoveredFromLocalCache": true,
+    "newerDraftPreservedAfterReceipt": true,
+    "ownedSimulatorShutdown": true,
+    "capturedChildrenExited": true
+  },
+  "limitations": {
+    "inertProtocolFixture": true,
+    "providerRuns": 0,
+    "realCloudOrProviderAcceptance": false,
+    "physicalDeviceAcceptance": false,
+    "olderPublishedReleaseUpgradeAcceptance": false,
+    "rawLogsPublished": false
+  }
+}

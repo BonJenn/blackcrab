@@ -123,3 +123,22 @@ test('actual Expo config injects the owned service and rejects incomplete input 
   const incomplete = load({ BLACKCRAB_RELAY_URL: env.BLACKCRAB_RELAY_URL });
   assert.throws(() => incomplete.run({ config: {} }), /Incomplete Blackcrab/); assert.equal(incomplete.calls.length, 0);
 });
+
+
+test('hosted links use the owned HTTPS origin and both Blackcrab app schemes', () => {
+  const hostedEnv = { ...env, BLACKCRAB_HOSTED_APP_URL: 'https://app.blackcrab.example/' };
+  const configured = cloud.configureOwnedCloud({ scheme: 'blackcrab-remote' }, hostedEnv);
+  assert.equal(configured.extra.blackcrabCloud.hostedAppUrl, 'https://app.blackcrab.example');
+  assert.deepEqual(configured.ios.associatedDomains, ['applinks:app.blackcrab.example']);
+  assert.deepEqual(configured.android.intentFilters[0].data, [{ scheme: 'https', host: 'app.blackcrab.example', pathPrefix: '/threads/' }]);
+  assert.deepEqual(cloud.configureOwnedCloud({}, {}).ios.associatedDomains, []);
+  assert.deepEqual(configured.scheme, ['blackcrab-remote', 'blackcrab']);
+  assert.deepEqual(cloud.configureOwnedCloud({ scheme: 'blackcrab-remote' }, {}).scheme, ['blackcrab-remote', 'blackcrab']);
+  assert.equal(cloud.resolveOwnedCloudConfig(configured.extra).hostedAppUrl, 'https://app.blackcrab.example');
+  assert.equal(cloud.cloudConfigFromEnvironment(env).hostedAppUrl, undefined);
+  assert.throws(() => cloud.cloudConfigFromEnvironment({ BLACKCRAB_HOSTED_APP_URL: hostedEnv.BLACKCRAB_HOSTED_APP_URL }), /Incomplete Blackcrab/);
+  for (const url of ['http://app.example', 'https://private@app.example', 'https://app.example/path', 'https://app.example/?private=1', 'https://app.example/#private', 'bad-private']) {
+    assert.throws(() => cloud.cloudConfigFromEnvironment({ ...env, BLACKCRAB_HOSTED_APP_URL: url }), e => e.message.includes('BLACKCRAB_HOSTED_APP_URL') && !e.message.includes('private'));
+    assert.equal(cloud.resolveOwnedCloudConfig({ blackcrabCloud: { ...valid, hostedAppUrl: url } }), null);
+  }
+});

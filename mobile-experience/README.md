@@ -81,3 +81,23 @@ Before installation the producer checks its SHA-256/SHA-512, lock entry and
 postinstall source hash; broader script approval is rejected. It then runs the
 owned resource generator explicitly and records the generated resource manifest
 hash before native prebuild. No manually prepared probe assets are required.
+
+
+## Shared hosted links
+
+Mobile consumers apply the same recorded shared cloud/link patches as managed
+host and desktop builds. These runtime changes are recorded separately from the
+JavaScript-neutral RPC type patch; original bytes, exact before/after hashes,
+the recomputed source graph and dependency closure remain verified.
+
+Set `BLACKCRAB_HOSTED_APP_URL` alongside the owned Clerk/relay settings to use
+Blackcrab's hosted thread and prompt links. The origin must be HTTPS and has no
+path, credentials, query or fragment. Babel embeds that validated public origin
+in the original shared link modules. Both Babel configuration and Metro transform
+caches change with the origin. Unconfigured builds generate portable local thread links and copy prompt links
+using the Blackcrab app scheme; they do not select T3's hosted application. Both `blackcrab://` and the existing
+`blackcrab-remote://` schemes are registered for iOS navigation and pairing.
+
+The hosted website must expose its app-opening links using the same scheme.
+Configuring a URL alone does not deploy the website or establish Apple domain
+association, account sign-in, remote reachability or push delivery.

@@ -7,7 +7,12 @@ const CONNECT_LOOPBACK_CALLBACK_PATH = "/callback";
 
 const CONNECT_AUTHORIZE_PATH = "/connect";
 
-export const DEFAULT_HOSTED_APP_URL = "https://app.t3.codes";
+declare const __BLACKCRAB_HOSTED_APP_URL__: string | undefined;
+
+export const DEFAULT_HOSTED_APP_URL =
+  typeof __BLACKCRAB_HOSTED_APP_URL__ === "undefined"
+    ? ""
+    : (__BLACKCRAB_HOSTED_APP_URL__?.trim() ?? "");
 
 export const CONNECT_OAUTH_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
 

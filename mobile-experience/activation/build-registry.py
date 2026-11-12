@@ -35,8 +35,7 @@ add('src/App.tsx',[
  ('setAgentNotificationPathname(workspaceLocationFromState(state).pathname);', 'setAgentNotificationPathname(managedRootLifecycle.isManagedVisible() ? workspaceLocationFromState(state).pathname : "");',1),
  ('const appServiceDisposers = [', 'const appServiceDisposers = [\n  managedRootLifecycle.subscribeVisibility((visible) => {\n    const state = visible && rootNavigationRef.isReady() ? rootNavigationRef.getRootState() : undefined;\n    setAgentNotificationPathname(state ? workspaceLocationFromState(state).pathname : "");\n  }),',1),
  ('import "../global.css";\n','',1),
- ('import { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";\n','',1),
- ('const appLinking = {', 'const ownedAppLinkPrefixes = [Linking.createURL("/"), "blackcrab-remote://"];\n\nconst appLinking = {',1),
+ ('const appLinking = {', 'const ownedAppLinkPrefixes = [Linking.createURL("/"), "blackcrab-remote://", "blackcrab://", ...(DEFAULT_HOSTED_APP_URL ? [DEFAULT_HOSTED_APP_URL] : [])];\n\nconst appLinking = {',1),
  ('  prefixes: [\n    Linking.createURL("/"),\n    "t3code://",\n    "t3code-dev://",\n    "t3code-preview://",\n    DEFAULT_HOSTED_APP_URL,\n  ],','  prefixes: ownedAppLinkPrefixes,',1),
  ('filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),', 'filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig(), ownedAppLinkPrefixes),',1),
  ('import { installShowcaseCapture } from "./features/showcase/ShowcaseCaptureCoordinator";\n','',1),
@@ -56,7 +55,7 @@ add('src/features/sharing/IncomingShareProvider.tsx',[
  ('  if (!transition.shareIdToPresent) return;', '  if (!transition.shareIdToPresent) return;\n  managedRootLifecycle.managedNavigation();',1),
 ])
 add('src/lib/appLinking.ts',[
- (r'^t3code(-dev|-preview)?:',r'^blackcrab-remote:',1),
+ (r'^t3code(-dev|-preview)?:',r'^blackcrab(?:-remote)?:',1),
  ('export function shouldHandleAppLink(url: string, cloudConfigured: boolean): boolean {', '''function hasOwnedAppPrefix(value: string, prefixes: readonly string[]): boolean {
   let url: URL;
   try { url = new URL(value); } catch { return false; }
@@ -65,17 +64,21 @@ add('src/lib/appLinking.ts',[
     let base: URL;
     try { base = new URL(prefix); } catch { return false; }
     if (base.username || base.password || base.search || base.hash || base.protocol !== url.protocol) return false;
-    if (url.protocol === "blackcrab-remote:" && prefix === "blackcrab-remote://") return value.startsWith(prefix);
+    if (["blackcrab-remote:", "blackcrab:"].includes(url.protocol) && prefix === url.protocol + "//") return value.startsWith(prefix);
     if (!["exp:", "exps:", "http:", "https:"].includes(url.protocol) || url.host !== base.host) return false;
     const path = base.pathname.replace(/\\/+$/, "");
     return url.pathname === path || url.pathname.startsWith(path + "/");
   });
 }
 
-export function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = ["blackcrab-remote://"]): boolean {''',1),
+export function shouldHandleAppLink(url: string, cloudConfigured: boolean, ownedPrefixes: readonly string[] = ["blackcrab-remote://", "blackcrab://"]): boolean {''',1),
  ('  return (\n    !route.includes("expo-development-client")', '  return (\n    hasOwnedAppPrefix(url, ownedPrefixes) &&\n    !route.includes("expo-development-client")',1),
 ])
-add('src/features/connection/pairing.ts',[( 'url.protocol === "t3code:"', 'url.protocol === "blackcrab-remote:"',1)])
+add('src/features/connection/pairing.ts',[( 'url.protocol === "t3code:"', '(url.protocol === "blackcrab-remote:" || url.protocol === "blackcrab:")',1)])
+add('src/features/prompt-links/prompt-link-actions.ts',[
+ ('import { buildNewThreadLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";', 'import { buildNewThreadLink, promptLinkDeepLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";\nimport { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";',1),
+ ('buildNewThreadLink({ prompt }), { target: "prompt link" }', '(DEFAULT_HOSTED_APP_URL ? buildNewThreadLink({ prompt }) : promptLinkDeepLink("/new?" + new URLSearchParams({ prompt }).toString())), { target: "prompt link" }',1),
+])
 add('src/lib/authClientMetadata.ts',[( 'label: "T3 Code Mobile"','label: "Blackcrab Remote"',1)])
 add('src/components/CompactBrandTitle.tsx',[( '"T3 Code, Threads"','"Blackcrab, Threads"',1)])
 add('src/widgets/AgentActivity.tsx',[( '`t3code://${','`blackcrab-remote://${',1),('<Image assetName="T3Mark" modifiers={[resizable()]} />','<Text modifiers={[font({ size: height, weight: "bold" })]}>BC</Text>',1)])

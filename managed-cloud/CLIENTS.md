@@ -11,7 +11,10 @@ Managed host and desktop builds accept these public settings:
 Supply all five to `scripts/build-managed-host.mjs` and
 `scripts/build-managed-desktop.mjs`, alongside their existing artifact/toolchain
 arguments. The same Clerk key, JWT template and relay origin configure the iOS
-build. A secret Clerk key is never a client build setting.
+build. Set `BLACKCRAB_HOSTED_APP_URL` for iOS too, so copied thread/prompt links
+and navigation use the same hosted web origin. iOS builds configured with only
+the original three fields retain account/relay access and local thread links.
+A secret Clerk key is never a client build setting.
 
 With no settings, the builds retain local mode. Partial configuration is rejected
 before building. Inherited T3, Vite, Expo and Vercel cloud settings do not select a

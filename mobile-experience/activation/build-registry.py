@@ -75,6 +75,7 @@ export function shouldHandleAppLink(url: string, cloudConfigured: boolean, owned
 # Preserve the action label while exposing the visible connection status to VoiceOver.
 add('src/features/connection/ConnectionEnvironmentRow.tsx',[
  ('          className="min-w-0 flex-1 gap-0.5 active:opacity-70"', '          className="min-w-0 flex-1 gap-0.5 active:opacity-70"\n          accessibilityValue={{ text: diagnosis?.headline ?? statusLabel ?? "" }}',1),
+ ('Managed by T3 Connect.', 'Managed by Blackcrab Connect.', 1),
 ])
 add('src/features/connection/pairing.ts',[( 'url.protocol === "t3code:"', '(url.protocol === "blackcrab-remote:" || url.protocol === "blackcrab:")',1)])
 add('src/features/prompt-links/prompt-link-actions.ts',[
@@ -92,6 +93,68 @@ for widget in ['src/widgets/SubscriptionUsage.tsx','src/widgets/SubscriptionUsag
 add('src/features/agent-awareness/androidNotifications.ts',[( '?? "t3code"','?? "blackcrab-remote"',1)])
 add('src/persistence/mobile-secure-storage.ts',[( 'const make = MobileSecureStorage.of({','const ownedKey=(key:string)=>key === "blackcrab.mobile.managedCatalog.v1" ? key : "blackcrab.mobile.native.v1." + key;\n\nconst make = MobileSecureStorage.of({',1),('SecureStore.getItemAsync(key)','SecureStore.getItemAsync(ownedKey(key))',1),('SecureStore.setItemAsync(key, value)','SecureStore.setItemAsync(ownedKey(key), value, {keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY})',1),('SecureStore.deleteItemAsync(key)','SecureStore.deleteItemAsync(ownedKey(key))',1)])
 add('src/persistence/mobile-database.ts',[( '"t3code-client.db"','"blackcrab-native-client.db"',1)])
+# Product copy only: retain protocol identifiers, native module names and original
+# source/license provenance. These explicit files contain visible or spoken labels.
+brand_files = [
+ 'src/Stack.tsx',
+ 'src/connection/platform.ts',
+ 'src/lib/mobileTheme.ts',
+ 'src/state/use-thread-composer-state.ts',
+ 'src/state/use-remote-environment-registry.ts',
+ 'src/features/voice-input/voiceDestination.ts',
+ 'src/features/connection/PullRequestRoutingSettings.tsx',
+ 'src/features/connection/ConnectionsNewRouteScreen.tsx',
+ 'src/features/connection/CloudEnvironmentRows.tsx',
+ 'src/features/cloud/T3ConnectProfilePage.tsx',
+ 'src/features/cloud/ConnectOnboardingRouteScreen.tsx',
+ 'src/features/settings/SettingsRouteScreen.tsx',
+ 'src/features/settings/SettingsAuthRouteScreen.tsx',
+ 'src/features/settings/VoiceModelSection.tsx',
+ 'src/features/settings/SettingsVoiceRouteScreen.tsx',
+ 'src/features/settings/SettingsNotificationsRouteScreen.tsx',
+ 'src/features/settings/SettingsScheduledTasksRouteScreen.tsx',
+ 'src/features/settings/OutdatedServerUpdateSection.tsx',
+ 'src/features/settings/SettingsEnvironmentDetailRouteScreen.tsx',
+ 'src/features/diagnostics/SettingsDiagnosticsRouteScreen.tsx',
+ 'src/features/diagnostics/crash-log-model.ts',
+ 'src/features/layout/workspace/PullRequestToolbar.android.tsx',
+ 'src/features/layout/workspace/WorkspaceRootScreen.tsx',
+ 'src/features/layout/workspace/WorkspaceListHeader.android.tsx',
+ 'src/features/home/HomeRouteScreen.tsx',
+ 'src/features/agent-awareness/remoteRegistration.ts',
+ 'src/features/showcase/showcaseAgentActivity.ts',
+ 'src/features/threads/ThreadQueueControl.tsx',
+ 'src/features/threads/ThreadFeed.tsx',
+ 'src/features/threads/ThreadComposer.tsx',
+ 'src/features/threads/ThreadNavigationSidebar.tsx',
+ 'src/features/threads/LinkRequestCard.tsx',
+ 'src/features/pull-requests/pullRequestAgentTasks.ts',
+ 'src/widgets/subscriptionUsageSnapshot.ts',
+]
+mobile_app_name_files = {
+ 'src/features/settings/SettingsVoiceRouteScreen.tsx',
+ 'src/features/settings/SettingsNotificationsRouteScreen.tsx',
+ 'src/features/agent-awareness/remoteRegistration.ts',
+ 'src/features/diagnostics/crash-log-model.ts',
+}
+for p in brand_files:
+ text=(src/p).read_text(); replacements=[]
+ for before,after in [
+  ('T3 Connect','Blackcrab Connect'),
+  ('T3 Account','Blackcrab Account'),
+  ('T3 account','Blackcrab account'),
+  ('T3 Code','Blackcrab Remote' if p in mobile_app_name_files else 'Blackcrab'),
+  ('Open T3','Open Blackcrab'),
+  ("T3's", "Blackcrab's"),
+ ]:
+  if before in text:
+   replacements.append((before,after,text.count(before)))
+   text=text.replace(before,after)
+ assert replacements, ('Expected product copy',p)
+ add(p,replacements)
+add('src/features/settings/lib/legal-document-url.ts',[
+ ('https://t3.codes','https://blackcrab.app',1),
+])
 entry='''/** Root must invoke once at process boot with proof that no old managed reader was ever started. */
 import type {ComponentType} from "react";
 import {makeActivationOwner} from "./owned-activation-owner.mjs";

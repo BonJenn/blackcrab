@@ -13,13 +13,14 @@ already available to the owner. Installation and release work are authorized.
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
 W=P/desktop-delivery-m6ki1jlt/source, branch parity/desktop-delivery-integration.
 Resolve HEAD/status: the 17-branch local integration base was 1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c,
-with reviewed integration/release fixes to commit. Latest verified stage is
-a52826650a0c080421e8c1c6db5ab29cddba0c13 (#264). No integration PR yet at the
-2026-11-12 20:38 UTC checkpoint. Preserve the extensively dirty main checkout
+with integration/release fixes now committed as 4d88e5f. Stage
+a52826650a0c080421e8c1c6db5ab29cddba0c13 (#264) is merged, preserving its branding
+adapters and these newer handoffs. No integration PR yet at the
+2026-11-12 20:44 UTC checkpoint. Preserve the extensively dirty main checkout
 /Volumes/G-DRIVE PRO/Programming/blackcrab and its index. Stage explicit files only.
 
-Immediate action: finish reviewing the integration and release changes, commit,
-merge latest stage while preserving fixes/handoffs, open a DRAFT PR and run CI.
+Immediate action: open the reviewed integration as a DRAFT PR and run CI.
+Actionlint 1.7.12 passes both workflows; 24 launcher/QA/freeze tests pass.
 Native UI acceptance remains a final merge/delivery gate. All old build handles
 are settled; no owned app/host/simulator is running. Do not restart builds blindly.
 

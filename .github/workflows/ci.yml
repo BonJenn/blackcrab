@@ -57,6 +57,8 @@ jobs:
 
       - run: npm run test:mobile:catalog
 
+      - run: npm run test:mobile:updates
+
       - run: node --test apps/mobile/babel-owned-hosted-origin.test.cjs
 
       - run: npx --no-install vitest run --config managed-validation/mobile-cloud-links.vitest.config.ts

@@ -380,6 +380,29 @@ or complete background behavior. Desktop service UI and the remaining ledger gat
 remain open. Owned mobile automatic updates are also still disabled and require
 Blackcrab Expo project/channel configuration and native-compatible update delivery.
 
+### Blackcrab-owned Expo update configuration (2026-11-11)
+
+The original App now retains `installAppUpdateChecks()` and the unchanged pinned
+update implementation. The owned Expo entry validates an explicit Blackcrab project
+UUID and channel, replaces inherited update configuration, and disables updates
+when not configured. Preview/production builds use fingerprint runtime compatibility;
+development retains the original app-version policy. EAS build profiles select
+explicit environments and the isolated native builder carries validated public
+update values without forwarding credentials.
+
+The generated updater's original tests cover persistence flushing, concurrent
+checks, deferred installs and rollback. Additional tests cover disabled/native-dev
+boundaries and foreground timing. Configuration tests execute the installed Expo
+plist plugin and verify the original generated initializer. The snapshot fixture
+now stages the actual host inputs present on its branch, then imports and exercises
+the production cloud patcher from the snapshot; it no longer assumes a service-only
+process-controller module exists on every mobile branch.
+
+See [mobile updates](mobile-updates.md) for build and publication requirements.
+An owned Expo project, a newly built update-enabled binary, actual update/rollback
+delivery and persisted-state/device acceptance remain open. Earlier simulator
+results used update-disabled binaries. These source tests do not close those gates.
+
 ### Authenticated manual pairing
 
 Legacy manual pairing now accepts a desktop address and code, performs the LAN

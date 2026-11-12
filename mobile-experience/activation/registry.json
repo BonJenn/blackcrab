@@ -136,16 +136,6 @@
           "count": 1
         },
         {
-          "before": "import { installAppUpdateChecks } from \"./features/updates/app-updates\";\n",
-          "after": "",
-          "count": 1
-        },
-        {
-          "before": "  installAppUpdateChecks(),",
-          "after": "  () => undefined, // Own OTA/update activation requires a separate reviewed adapter.",
-          "count": 1
-        },
-        {
           "before": "  installShowcaseCapture(rootPathnameFromState),",
           "after": "  () => undefined, // Upstream showcase capture is not activated.",
           "count": 1
@@ -156,7 +146,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "5102b62a72fe6858548efd96bd8d587f92612b3fb5c9f2ebb0e3aec59b776182"
+      "afterSha256": "a7335ecf9b0a2320d5808a40d0015d0ee1a28cd88764d2b421013ba6cbffce02"
     },
     {
       "path": "src/features/voice-input/GlobalVoiceInputControl.tsx",
@@ -455,7 +445,8 @@
       "iosBundleIdentifier": "dev.blackcrab.remote",
       "upstreamCloudEnabled": false,
       "ownedCloudConfiguration": "explicit BLACKCRAB public build variables; no inherited upstream account or relay",
-      "upstreamOTAEnabled": false
+      "upstreamOTAEnabled": false,
+      "ownedOTAConfiguration": "explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration"
     },
     "serviceLifetime": {
       "moduleAppInitializers": [
@@ -471,7 +462,7 @@
         "startIncomingShareInbox",
         "installAgentNotificationNavigation",
         "installAppShortcuts",
-        "installAppUpdateChecks (owned disabled)",
+        "installAppUpdateChecks (owned native configuration)",
         "installShowcaseCapture (owned disabled)"
       ],
       "foundations": [

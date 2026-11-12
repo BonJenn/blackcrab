@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { configureOwnedCloud } from '../mobile-experience/activation/adapters/owned-cloud-config.cjs';
+import { configureOwnedUpdates } from '../mobile-experience/activation/adapters/owned-update-config.cjs';
 import { createSourceSnapshot, isolatedBuildEnvironment, runLogged, resolveNativeEntry, sourceInventory, verifyNativeDependencyRoots, simulatorReleaseBuildArguments, resolveNpmCache, verifyNativeInstallInputs, NATIVE_INSTALL_INPUT } from './prepare-mobile-ios.mjs';
 const execute = promisify(execFile);
 async function fixture(run) {
@@ -224,4 +225,27 @@ test('isolated native builds retain hosted links and domain association through 
   assert.equal(config.android.intentFilters[0].data[0].host, 'app.example.test');
   assert.equal(isolatedBuildEnvironment('/owned', { PATH: '/bin', T3CODE_HOSTED_APP_URL: 'https://foreign.example.test' }).BLACKCRAB_HOSTED_APP_URL, undefined);
   assert.throws(() => isolatedBuildEnvironment('/owned', { ...env, BLACKCRAB_HOSTED_APP_URL: 'https://app.example.test/path' }), /BLACKCRAB_HOSTED_APP_URL must be an HTTPS origin/);
+});
+
+test('isolated native builds retain only validated public Expo update inputs', () => {
+  const projectId = '11111111-2222-4333-8444-555555555555';
+  const original = {
+    PATH: '/bin', BLACKCRAB_EAS_PROJECT_ID: projectId,
+    BLACKCRAB_UPDATE_CHANNEL: 'production', EAS_BUILD_PROFILE: 'production',
+    EXPO_TOKEN: 'private', EAS_PROJECT_ID: 'foreign', T3CODE_MOBILE_UPDATES_ENABLED: '1',
+  };
+  for (const enabled of ['0', '1']) {
+    const env = isolatedBuildEnvironment('/owned', { ...original, BLACKCRAB_MOBILE_UPDATES_ENABLED: enabled });
+    const config = configureOwnedUpdates({}, env);
+    assert.equal(env.BLACKCRAB_MOBILE_UPDATES_ENABLED, enabled);
+    assert.equal(config.updates.enabled, enabled === '1');
+    assert.equal(config.updates.url, 'https://u.expo.dev/' + projectId);
+    assert.deepEqual(config.updates.requestHeaders, { 'expo-channel-name': 'production' });
+    assert.deepEqual(config.runtimeVersion, { policy: 'fingerprint' });
+    for (const key of ['EXPO_TOKEN', 'EAS_PROJECT_ID', 'T3CODE_MOBILE_UPDATES_ENABLED']) assert.equal(env[key], undefined);
+  }
+  assert.equal(configureOwnedUpdates({}, isolatedBuildEnvironment('/owned', { PATH: '/bin' })).updates.enabled, false);
+  assert.throws(() => isolatedBuildEnvironment('/owned', { ...original, BLACKCRAB_UPDATE_CHANNEL: undefined }), /require BLACKCRAB_EAS_PROJECT_ID/);
+  assert.throws(() => isolatedBuildEnvironment('/owned', { ...original, BLACKCRAB_UPDATE_CHANNEL: 'preview' }), /must match/);
+  assert.throws(() => isolatedBuildEnvironment('/owned', { ...original, BLACKCRAB_EAS_PROJECT_ID: 'invalid' }), /must be the UUID/);
 });

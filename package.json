@@ -123,7 +123,9 @@
     "yaml": "2.9.0",
     "tailwindcss": "4.3.3",
     "@blackcrab/mobile-stream-builder": "npm:@voidzero-dev/vite-plus-core@1.4.0",
-    "micromark-util-types": "2.0.2"
+    "micromark-util-types": "2.0.2",
+    "@types/ws": "8.18.2",
+    "ws": "8.22.1"
   },
   "packageManager": "npm@12.2.2",
   "engines": {

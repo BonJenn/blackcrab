@@ -444,3 +444,17 @@ The UI test uses detailed diagnostics because the summary row does not expose it
 status to accessibility; that gap remains open. This is the update-disabled local
 combined candidate, not merged-stage, live cloud, physical-device, populated
 migration, all-permissions or complete parity certification.
+
+### Authenticated manual pairing
+
+Legacy manual pairing now accepts a desktop address and code, performs the LAN
+handshake, and saves the returned host identity and token only after acceptance.
+It no longer creates a placeholder host from the code. Pairing and reconnect reject
+mismatched identities; IPv6 endpoints work in both paths. Storage failure and
+timeout close the pending connection without reporting a successful pairing.
+Existing saved host records remain readable.
+
+Validation: 88 tests across 13 files passed, including real loopback WebSocket
+pairing, durable-store readback, token reconnect, negative handshake cases and the
+manual form. Scoped strict TypeScript checking passed. Installed iOS and off-LAN
+acceptance remain separate work.

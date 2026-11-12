@@ -8,6 +8,7 @@
 import type { StoredPairedHost } from "../pairingStore";
 import {
   LanWebSocketTransport,
+  lanWebSocketUrl,
   type LanWebSocketTransportConfig,
 } from "./lanWebSocketTransport";
 import { RelayTransport, type RelayTransportConfig } from "./relayTransport";
@@ -56,7 +57,7 @@ export interface ConnectStoredHostOptions {
 
 /**
  * Open a token-authenticated transport to a stored host. Returns `null` when
- * the host lacks a token or endpoint (e.g. a manual-code pairing).
+ * the host lacks a token or endpoint (e.g. an older unverified code entry).
  */
 export function connectStoredHost(
   host: StoredPairedHost,
@@ -64,7 +65,7 @@ export function connectStoredHost(
 ): LanWebSocketTransport | null {
   if (!canReconnect(host)) return null;
   return new LanWebSocketTransport({
-    url: `ws://${host.lanHost}:${host.lanPort}`,
+    url: lanWebSocketUrl(host.lanHost!, host.lanPort!),
     remoteToken: host.remoteToken,
     deviceName: RECONNECT_DEVICE_NAME,
     hostId: host.hostId,

@@ -12,6 +12,10 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(target_os = "macos")]
+#[path = "managed_desktop_home.rs"]
+mod account_home;
+
 const MANIFEST: &str = "blackcrab-managed-desktop.json";
 const APP_ID: &str = "com.blackcrab.desktop.managed";
 const PROFILE: &str = "blackcrab-managed-v1";
@@ -683,12 +687,13 @@ pub(super) async fn launch(
     let profile = prepare_profile(&host.desktop_profile_root())?;
     let (mut descriptor_writer, descriptor_reader) = UnixStream::pair().map_err(|_| error())?;
     let (control, client_control) = UnixStream::pair().map_err(|_| error())?;
+    let os_home = account_home::account_home()?;
     let mut command = Command::new(&package.executable);
     command
         .current_dir(&package.root)
         .env_clear()
         .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
-        .env("HOME", profile.join("home"))
+        .env("HOME", &os_home)
         .env("TMPDIR", profile.join("tmp"))
         .env("OTEL_SDK_DISABLED", "true")
         .stdin(Stdio::null())

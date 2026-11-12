@@ -35,7 +35,7 @@ export async function applyMobileCloudSourcePatches(root) {
   return { patches: records.map(descriptor), originals };
 }
 
-export async function validateMobileCloudSourcePatch(before, after, supplied) {
+export async function mobileCloudPatchedBytes(before, supplied) {
   const record = (await mobileCloudPatchRecords()).find(record => record.target === supplied.target);
   if (!record || JSON.stringify(supplied) !== JSON.stringify(descriptor(record))) throw new Error('Unregistered mobile cloud source patch');
   const patchBytes = await fs.readFile(path.join(directory, record.file));
@@ -45,5 +45,11 @@ export async function validateMobileCloudSourcePatch(before, after, supplied) {
     if (!anchor || expected.split(anchor).length !== 2) throw new Error('Mobile cloud patch anchor differs');
     expected = expected.replace(anchor, () => replacement);
   }
-  if (!Buffer.from(expected).equals(after) || hash(after) !== record.afterSha256) throw new Error('Mobile cloud source patch result differs');
+  const after = Buffer.from(expected);
+  if (hash(after) !== record.afterSha256) throw new Error('Mobile cloud source patch result differs');
+  return after;
+}
+
+export async function validateMobileCloudSourcePatch(before, after, supplied) {
+  if (!(await mobileCloudPatchedBytes(before, supplied)).equals(after)) throw new Error('Mobile cloud source patch result differs');
 }

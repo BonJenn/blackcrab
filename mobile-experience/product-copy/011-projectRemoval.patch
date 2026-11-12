@@ -1,0 +1,14 @@
+--- a/packages/client-runtime/src/state/projectRemoval.ts
++++ b/packages/client-runtime/src/state/projectRemoval.ts
+@@ -44,9 +44,9 @@
+       : [`This removes ${members.length} grouped project entries.`]),
+     ...(threadCount > 0
+       ? [
+-          "Those threads and any archived threads are deleted from T3 Code. Provider sessions are kept.",
++          "Those threads and any archived threads are deleted from Blackcrab. Provider sessions are kept.",
+         ]
+-      : ["Any archived threads are deleted from T3 Code. Provider sessions are kept."]),
++      : ["Any archived threads are deleted from Blackcrab. Provider sessions are kept."]),
+     isWholeGroup && !hasOtherMembers
+       ? "This removes only the project entries, not the files on disk."
+       : "Other entries in this grouped project are unaffected.",

@@ -11,7 +11,7 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const roots=new URL('../',import.meta.url);
 const GROUPS=[
  ['identity','fork-integration/identity/','object',['001-own-pairing-app-links','002-own-desktop-provider-return','003-own-mobile-pairing-reader','004-own-managed-policy']],
- ['managed-host','managed-host/patches/','array',['office-font-file-url-path','managed-native-local-api','managed-native-folder-picker-entry','managed-native-project-icon-api','managed-native-project-icon-picker','managed-native-project-icon-entry','blackcrab-renderer-origin','blackcrab-packaged-cors','managed-host-identity-proof',...Array.from({length:10},(_,i)=>`native-browser-host-${i+1}`),'blackcrab-pairing-app-links','blackcrab-provider-auth-return','native-browser-types-1','native-browser-types-2','native-browser-types-3','native-browser-types-4']],
+ ['managed-host','managed-host/patches/','array',["office-font-file-url-path","managed-native-local-api","managed-native-folder-picker-entry","managed-native-project-icon-api","managed-native-project-icon-picker","managed-native-project-icon-entry","blackcrab-renderer-origin","blackcrab-packaged-cors","managed-host-identity-proof","owned-client-01","owned-client-02","owned-client-03","owned-client-04","owned-client-05","owned-client-06","owned-client-07","owned-client-08","owned-client-09","owned-client-10","owned-client-11","owned-client-12","owned-client-13","owned-client-14","owned-client-15","owned-client-test-ownedcloud-test-ts","native-browser-host-1","native-browser-host-2","native-browser-host-3","native-browser-host-4","native-browser-host-5","native-browser-host-6","native-browser-host-7","native-browser-host-8","native-browser-host-9","native-browser-host-10","blackcrab-pairing-app-links","native-browser-types-1","native-browser-types-2","native-browser-types-3","native-browser-types-4"]],
  ['boot','fork-integration/boot-service/','object',['001-owned-service-and-local-installer','002-owned-payload-layout','003-launcher-payload-layout','004-owned-layout-protocol','005-unconfigured-owned-updater-gate']],
  ['auth','fork-integration/boot-service/owned-auth/','fixtures',['owned-auth-config','owned-auth-serviceProtocol','owned-auth-serviceLauncherClient','owned-auth-bootstrap-source']],
  ['identity-v2','fork-integration/owner-control/identity-v2/','identity-v2',['candidate-owner-proof-v2-http','candidate-owner-proof-v2-issuer-interface']],
@@ -27,6 +27,10 @@ const ENTRY_SOURCES={
  'apps/server/vite.config.ts':'880b8a7e545b943682376dc259d54d770f1150c2d95afcb259e9964be0389ef2',
 };
 const ALIASES=new Map([['blackcrab-pairing-app-links','001-own-pairing-app-links'],['blackcrab-provider-auth-return','002-own-desktop-provider-return']]);
+// The shared cloud records include these namespace changes and add configured
+// hosted return origins. Applying the historical versions as well would either
+// reject the predecessor bytes or remove the configured return origin.
+const SUPERSEDED_IDENTITY_IDS=new Set(['001-own-pairing-app-links','002-own-desktop-provider-return']);
 const receipts=new WeakMap();
 function relative(value){if(typeof value!=='string'||!value||value.includes('\\')||value.includes(':')||/[\x00-\x1f\x7f]/.test(value)||value.split('/').some(p=>!p||p==='.'||p==='..'))throw Error('Unsafe fixed service source path');return value;}
 async function read(file){const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size>8*1024*1024)throw Error('Service source data must be bounded regular file');return fs.readFile(file);}
@@ -49,6 +53,7 @@ export async function serviceProfilePlan(){
   if(!Array.isArray(patches)||!Array.isArray(added))throw Error('Malformed service source registry');
   validateServiceProfileIDs(name,[...patches,...added].map(r=>r.id));data.set(`${name}/registry.original.json`,raw);
   for(const [record,isAdded]of [...patches.map(r=>[r,false]),...added.map(r=>[r,true])]){
+   if(name==='identity'&&SUPERSEDED_IDENTITY_IDS.has(record.id))continue;
    if(ids.has(record.id))throw Error('Duplicate service source ID');ids.add(record.id);
    const file=relative(record.file??record.patch),payload=new URL((format==='identity-v2'?'patches/':'')+file,base),bytes=await read(payload);
    if(sha(bytes)!==record.sha256)throw Error('Service source patch bytes changed '+record.id);
@@ -61,12 +66,14 @@ export async function serviceProfilePlan(){
     normalized.replacements=[{before:before.toString('utf8'),after:after.toString('utf8')}];
    }else normalized.replacements=structuredClone(record.replacements);
    data.set(normalized.file,bytes);descriptors.push(Object.freeze({id:record.id,sha256:record.sha256}));
-   const alias=ALIASES.get(record.id);
+   // The current strict pairing policy follows the owned cloud patch; it is not
+   // the historical namespace-only alias with the same ID.
+   const alias=record.id==='blackcrab-pairing-app-links'?undefined:ALIASES.get(record.id);
    if(alias){const previous=canonical.get(alias);if(!previous)throw Error('Service identity alias predecessor absent');const verified=canonicalIdentityAlias(previous,normalized);previous.replacements=structuredClone(verified.replacements);normalized.replacements=structuredClone(verified.replacements);if(!equivalent(previous,normalized))throw Error('Service identity alias is not byte-identical');aliases.push({id:record.id,appliedAs:alias,derivation:verified.proof});}
    else{canonical.set(record.id,normalized);records.push(normalized);}
   }
  }
- if(descriptors.length!==58||records.length!==56||aliases.length!==2)throw Error('Service profile composition changed');
+ if(descriptors.length!==71||records.length!==71||aliases.length!==0)throw Error('Service profile composition changed');
  return {profile:SERVICE_PROFILE,protocol:4,version:'0.1.7',records,descriptors,aliases,data,entrySources:{...ENTRY_SOURCES}};
 }
 /** Source consistency API; actual producer below ALWAYS authenticates a fresh archive. */

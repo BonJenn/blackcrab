@@ -8,10 +8,10 @@
       "id": "owned-service-serviceLauncher",
       "target": "apps/server/src/serviceLauncher.ts",
       "predecessor": "003-launcher-payload-layout",
-      "beforeSha256": "14652fabb08682c449991ef6049b98da0684b4b7899245b875f8176e535c26f1",
-      "afterSha256": "4645aa731eeadf09126f06be0e3a5b0ed60108429c4e466cf9d8e01cc49caeee",
+      "beforeSha256": "dc1de4e9cce8cdc94975977053dcb895d5badbdf1e97ed0cfd7e9facc3dd55a4",
+      "afterSha256": "81c43acf995daf69275cd3bcd2064f1ebd3c9c7bde5c51e1421b6824f0b749b3",
       "file": "serviceLauncher.patch",
-      "sha256": "257a013ceb597640959bf4370af34a9b112b07869c53eb0315b44e1bf4c3d411"
+      "sha256": "4e999c6291b08e628c7ca390e799ad75bdd7df9f44c5ee4ef5eecff2ec8fd6dd"
     },
     {
       "id": "owned-service-cli-server",

@@ -18,7 +18,13 @@ check they still exist and match their recorded source before any reuse.
 The pending service profile/controller stack adds offline frozen dependency
 preparation, native issuer identity and owned publication. Read the implementation
 present on your branch; portions are still stacked PRs rather than merged stage.
-Keep server typechecking and original browser-channel regressions in the build.
+Keep server typechecking and original browser-channel regressions in the build. The controller's
+optional cloudEnvironment accepts only the five public BLACKCRAB client settings;
+never pass a process environment or secret key. That public configuration and all
+17 producer modules are included in the prepared input fingerprint. Refresh
+build-controller-source-freeze.json only from a completed successful build with
+unchanged protected inputs and quiescent captured children, never just to make
+its test pass. The current combined service graph contains 71 ordered records.
 
 ## Lifecycle and protocol
 

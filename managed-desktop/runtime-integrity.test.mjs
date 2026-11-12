@@ -58,3 +58,22 @@ test('secondary-only consumers resolve canonical Effect through a private depend
   await assert.rejects(linkDependencyCache(source,secondary,{canonicalProducer:primary}),{code:'ENOENT'});
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });
+
+test('relocated React consumers retain pnpm type peers during real TypeScript resolution',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-type-overlay-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const [source,primary,secondary]=['source','primary','secondary'].map(n=>path.join(root,n));
+ for(const d of [source,primary,secondary]){for(const n of ['apps/web','packages','scripts'])await fs.mkdir(path.join(d,n),{recursive:true});await fs.writeFile(path.join(d,'pnpm-lock.yaml'),'same-lock');}
+ const reactRel='node_modules/.pnpm/react@19/node_modules/react';
+ for(const d of [primary,secondary]){const p=path.join(d,reactRel);await fs.mkdir(p,{recursive:true});await fs.writeFile(path.join(p,'package.json'),JSON.stringify({name:'react',version:'19.3.0',main:'index.js'}));await fs.writeFile(path.join(p,'index.js'),'module.exports = {};');}
+ const types=path.join(secondary,'node_modules/.pnpm/@types+react@19/node_modules/@types/react');await fs.mkdir(types,{recursive:true});await fs.writeFile(path.join(types,'package.json'),JSON.stringify({name:'@types/react',version:'19.3.0',types:'index.d.ts'}));await fs.writeFile(path.join(types,'index.d.ts'),'export interface SVGProps { className?: string }');
+ const hoisted=path.join(secondary,'node_modules/.pnpm/node_modules/@types');await fs.mkdir(hoisted,{recursive:true});await fs.symlink(types,path.join(hoisted,'react'),'dir');
+ const consumer=path.join(secondary,'node_modules/.pnpm/icons@1/node_modules/icons');await fs.mkdir(consumer,{recursive:true});await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({name:'icons',version:'1.0.0',types:'index.d.ts',peerDependencies:{react:'*'}}));await fs.writeFile(path.join(consumer,'index.d.ts'),"import type { SVGProps } from 'react'; export type IconProps = SVGProps;");await fs.symlink(path.join(secondary,reactRel),path.join(consumer,'../react'),'dir');
+ await fs.mkdir(path.join(secondary,'apps/web/node_modules'),{recursive:true});await fs.symlink(consumer,path.join(secondary,'apps/web/node_modules/icons'),'dir');
+ await linkDependencyCache(source,primary);await linkDependencyCache(source,secondary,{canonicalProducer:primary});
+ const overlay=await fs.realpath(path.join(source,'apps/web/node_modules/icons'));
+ const ts=(await import('typescript')).default;
+ const resolved=ts.resolveModuleName('react',path.join(overlay,'index.d.ts'),{moduleResolution:ts.ModuleResolutionKind.Bundler},ts.sys).resolvedModule;
+ assert.ok(resolved?.resolvedFileName.endsWith('index.d.ts'));
+ assert.equal(await fs.readFile(resolved.resolvedFileName,'utf8'),'export interface SVGProps { className?: string }');
+ assert.equal(await fs.readFile(path.join(types,'index.d.ts'),'utf8'),'export interface SVGProps { className?: string }');
+});

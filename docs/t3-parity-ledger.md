@@ -25,6 +25,13 @@ For every applicable scenario record: owner; implementation PR and merged stage 
 
 ## Existing Blackcrab evidence, bounded to current plan statements
 
+Commercial rollout extension, accepted 2026-11-12: HS01–HS06 in the
+[hosted-service plan](hosted-service-plan.md) are **U**. They cover free local and
+self-hosted operation, invite-only hosted access, authoritative entitlements,
+billing lifecycle, quotas/cost controls and public paid-launch acceptance under
+G8/X10. These product-specific obligations do not certify or remove any pinned
+T3 scenario. Record source, merge and runtime evidence before closing each gate.
+
 Entries describe evidence at their original increment. Later entries supersede earlier open-item statements only within the later entry’s stated scope.
 
 - E1: Plans record #172 provider boundary and #173 durable execution; #174–177 queues/controller/backend/desktop/mobile source. Native mobile queue QA remains open.

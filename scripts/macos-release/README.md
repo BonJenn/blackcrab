@@ -1,0 +1,53 @@
+# Managed Apple-silicon release
+
+This path packages the original Tauri shell, the full Electron workspace and the
+background-service host for an M-series Mac. It preserves the existing
+`com.bonjenn.blackcrab` identity and updater public key. It is not an Intel build.
+
+1. Complete native lifecycle acceptance for the reviewed source. Record schema 1,
+   `state: "PASSED"`, its exact `sourceRevision`, and true checks for `firstLaunch`,
+   `enableService`, `openAndReuseDesktop`, `quitPreservesHost`,
+   `reopenPreservesIdentityAndCatalog`, `restartReconnects`,
+   `stopStartReconnects`, and `cleanup`. Keep the underlying UI/controller proof.
+   A running process or an uncapturable window does not pass these checks.
+2. Merge validated integration into stage. Commit the intended new version in
+   package.json/lock, Cargo.toml/lock and tauri.conf.json. Use a stable version newer
+   than the latest release; do not overwrite v0.3.0. Verify acceptance against the
+   final source, including any changes made after the original QA run.
+3. From verified production artifacts, run `sign-payloads.mjs`, then
+   `notarize-payloads.mjs`. Both preserve their inputs and emit separate output.
+   The latter needs an owner-only App Store Connect key file. Check Apple's
+   notarization log for all submitted binaries and any warnings.
+4. In a clean checkout of the accepted stage revision, set the public signing
+   identity/team and run `release-inputs.mjs --mode pack --desktop <notarized-desktop>
+   --service-host <notarized-service-host> --acceptance <native-acceptance.json>
+   --output <outside-checkout>/blackcrab-managed-payloads.zip --tag v<version>`.
+   This refuses absent/stale lifecycle evidence or non-notarized payloads. Retain
+   its SHA-256. Create a **draft** release targeting that exact commit, and upload
+   the archive under this fixed name.
+5. Dispatch the existing `release.yml` at the same stage revision, with
+   `kind=managed-apple-silicon`, the new tag and `payload_sha256`. It verifies the
+   downloaded input, builds `aarch64-apple-darwin`, and uses the existing GitHub
+   Apple/updater credentials in their intended jobs. Tauri signs/notarizes the
+   outer app and signs its updater archive; the final step notarizes/staples the
+   DMG. The release remains a draft. Tag creation no longer triggers the old
+   root-only recipe. `legacy-root-only` is available explicitly for that recipe.
+6. Inspect the final app and DMG signatures, stapled tickets and actual embedded
+   archive hashes; extract the updater archive and verify the same payloads.
+   Validate the updater signature against the existing public key. Test normal
+   installation and update from the old app with retained settings/catalog,
+   service restart and remote reconnect. Publish only after those checks pass.
+   Do not add old Intel/Linux/Windows URLs to a new arm64-only updater manifest.
+
+`verify-update-manifest.mjs` rejects stale platform entries, wrong release URLs
+and mismatched signatures. It does not replace cryptographic client verification
+or an actual installation/update test. Private keys are never exported from
+GitHub. Build receipts and UI gates are separate from notarization.
+
+As of the current handoff, inner signing/notarization and the real payload
+archive roundtrip passed. Native Root capture is blocked while the owner is away.
+The new workflow has portable validation but has not produced a final release.
+
+References: [Tauri updater](https://v2.tauri.app/plugin/updater/),
+[Tauri action](https://github.com/tauri-apps/tauri-action/tree/v0.6.2),
+[Apple notarization](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).

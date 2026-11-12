@@ -6,3 +6,27 @@ test('excluded workspace subtrees are pruned before lstat, link validation and d
 test('similarly named nonexcluded store subtree links still fail closed',async t=>{const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-cache-near-exclusion-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));const source=path.join(root,'protected');await fs.mkdir(path.join(source,'v11'),{recursive:true});await fs.writeFile(path.join(root,'outside'),'unchanged');await fs.symlink('../outside',path.join(source,'v11/projects-other'));const c=new BuildLifecycle();await assert.rejects(()=>copyPublicStore(source,path.join(root,'copy'),path.join(root,'proof.ndjson'),c));assert.equal(await fs.readFile(path.join(root,'outside'),'utf8'),'unchanged');});
 
 test('controller memory samples contain only bounded public usage counters',()=>{const m=controllerMemoryUsage();assert.deepEqual(Object.keys(m).sort(),['arrayBuffers','external','heapUsed','rss']);for(const n of Object.values(m))assert(Number.isSafeInteger(n)&&n>=0);assert(m.rss>0);});
+
+test('parallel cache operations retain deterministic inventory and proof ordering',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-cache-order-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),dir=path.join(source,'v11/files');await fs.mkdir(dir,{recursive:true});
+ const names=Array.from({length:70},(_,i)=>String(i).padStart(3,'0'));
+ for(const [i,name]of names.entries())await fs.writeFile(path.join(dir,name),i===0?Buffer.alloc(3*1024*1024,7):name);
+ const c=new BuildLifecycle(),before=await inventory(source,path.join(root,'before.ndjson'),c);
+ await copyPublicStore(source,path.join(root,'copy'),path.join(root,'proof.ndjson'),c);
+ const records=(await fs.readFile(path.join(root,'proof.ndjson'),'utf8')).trim().split('\n').map(JSON.parse);
+ assert.deepEqual(records.map(r=>r.path),names.map(n=>'v11/files/'+n));
+ const after=await inventory(source,path.join(root,'after.ndjson'),c);assert.equal(after.sha256,before.sha256);assert.equal(after.files,70);
+});
+
+test('cancelled cache copying settles every started write before rejecting',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-cache-cancel-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),dest=path.join(root,'copy');await fs.mkdir(path.join(source,'v11/files'),{recursive:true});
+ for(let i=0;i<70;i++)await fs.writeFile(path.join(source,'v11/files',String(i)),Buffer.alloc(16384,i));
+ let calls=0,cancelled=false;const control={assertRunning(){if(++calls>=40)cancelled=true;if(cancelled)throw Error('fixture cancellation');}};
+ await assert.rejects(copyPublicStore(source,dest,path.join(root,'proof.ndjson'),control),/fixture cancellation/);
+ const files=await fs.readdir(path.join(dest,'v11/files'));
+ await new Promise(resolve=>setTimeout(resolve,25));
+ assert.deepEqual(await fs.readdir(path.join(dest,'v11/files')),files);
+ assert(files.length<70);
+});

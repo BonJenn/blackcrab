@@ -41,6 +41,18 @@ export async function linkDependencyCache(source, producer, {canonicalProducer} 
    const rebound=await overlayPackage(dependency.root),link=path.join(target,'node_modules',name);
    await fs.mkdir(path.dirname(link),{recursive:true});await fs.symlink(rebound,link,'dir');
   }
+  // TypeScript also resolves DefinitelyTyped peers through pnpm's enclosing
+  // node_modules. Preserve those type-only edges when relocating the package.
+  for(const name of [...names].sort()){
+   if(name.startsWith('@types/'))continue;
+   const typeName='@types/'+(name.startsWith('@')?name.slice(1).replace('/','__'):name);
+   if(names.has(typeName))continue;
+   let types;
+   try{types=await packageRoot(typeName,root);}
+   catch(error){if(error.code==='BLACKCRAB_DEPENDENCY_ABSENT')continue;throw error;}
+   const rebound=await overlayPackage(types.root),link=path.join(target,'node_modules',typeName);
+   await fs.mkdir(path.dirname(link),{recursive:true});await fs.symlink(rebound,link,'dir');
+  }
   return target;
  }
  const packages=[''];for(const top of ['apps','packages'])for(const name of await fs.readdir(path.join(source,top)))packages.push(path.join(top,name));packages.push('scripts');

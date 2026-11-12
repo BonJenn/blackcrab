@@ -165,6 +165,7 @@ impl DesktopEpoch {
 pub(crate) struct ManagedHost {
     root: PathBuf,
     bundled_payload: Option<crate::managed_payload::EmbeddedPayload>,
+    bundled_service_profile: bool,
     operation: Arc<Mutex<()>>,
     desktop: Arc<StdMutex<DesktopEpoch>>,
     navigation: Arc<StdMutex<Option<url::Origin>>>,
@@ -175,6 +176,7 @@ impl ManagedHost {
         Self {
             root,
             bundled_payload: None,
+            bundled_service_profile: option_env!("BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE").is_some(),
             operation: Arc::new(Mutex::new(())),
             desktop: Arc::new(StdMutex::new(DesktopEpoch::default())),
             navigation: Arc::new(StdMutex::new(None)),
@@ -656,6 +658,15 @@ impl ManagedHost {
         let _lease = self.lease().await?;
         self.initialize_locked()?;
         let mut config = self.read_config()?;
+        // A service payload must not become a direct-owned workspace merely
+        // because the user opens a window before choosing service setup.
+        if config.is_none()
+            && selected.is_none()
+            && self.bundled_payload.is_some()
+            && self.bundled_service_profile
+        {
+            return Err("Enable the background service in Settings before opening a new workspace.".into());
+        }
         if let Some(existing) = &mut config {
             if existing.ownership == OwnershipMode::Service {
                 if selected.is_some() {
@@ -1862,6 +1873,43 @@ mod tests {
         host.desktop.lock().unwrap().invalidate().unwrap();
         assert!(clone.desktop_binding_current(&binding).is_err());
         assert!(host.desktop_pair_grant(&binding).await.is_err());
+        fs::remove_dir_all(base).unwrap();
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn fresh_service_window_open_preserves_unconfigured_ownership_and_explicit_choices() {
+        let base = fixture().canonicalize().unwrap();
+        let archive = base.join("bundled.tar.gz");
+        fs::write(&archive, b"service setup must precede archive extraction").unwrap();
+        let payload = crate::managed_payload::EmbeddedPayload::new(
+            crate::managed_payload::PayloadRole::Host,
+            archive,
+            "a".repeat(64),
+            "b".repeat(64),
+            base.join("payload-cache"),
+        ).unwrap();
+        let target = payload.target_directory();
+        let mut host = ManagedHost::new(base.join("managed-host/v1")).with_bundled_payload(payload);
+        // Model the compile-time service bundle selection without changing
+        // process environment or exposing an IPC-configurable ownership flag.
+        host.bundled_service_profile = true;
+        let message = "Enable the background service in Settings before opening a new workspace.";
+        assert_eq!(host.start(None).await.err().unwrap(), message);
+        assert_eq!(host.window_url().await.unwrap_err(), message);
+        assert!(!target.exists());
+        assert!(host.read_config().unwrap().is_none());
+        assert!(!host.root.join("logs/host.log").exists());
+        assert!(!host.root.join("host/userdata/server-runtime.json").exists());
+
+        let error = host.start(Some(base.join("explicit-invalid-runtime"))).await.err().unwrap();
+        assert_ne!(error, message);
+        assert!(host.read_config().unwrap().is_none());
+        let stored = config();
+        host.save_config(&stored).unwrap();
+        let original = fs::read(host.root.join("configuration.json")).unwrap();
+        assert_ne!(host.start(None).await.err().unwrap(), message);
+        assert_eq!(fs::read(host.root.join("configuration.json")).unwrap(), original);
+        assert!(!target.exists());
         fs::remove_dir_all(base).unwrap();
     }
     #[cfg(unix)]

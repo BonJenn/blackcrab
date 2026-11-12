@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseManagedResourceArgs, prepareManagedNativeResources } from "./managed-native-resources.mjs";
+import { verifyManagedReleasePayloads } from "./macos-release/verify-payloads.mjs";
 
 const managed = parseManagedResourceArgs(process.argv.slice(2));
 const rawArgs = managed.args;
@@ -155,8 +156,19 @@ function createLocalDmg() {
   });
 }
 
-const embedded = await prepareManagedNativeResources({ desktop: managed.desktop, host: managed.host, serviceHost: managed.serviceHost, target: buildTarget });
-if (managed.desktop !== undefined || managed.host !== undefined) {
+if (mode === "signed") {
+  await verifyManagedReleasePayloads({
+    desktop: managed.desktop, host: managed.host, serviceHost: managed.serviceHost,
+    identity: process.env.APPLE_SIGNING_IDENTITY, teamId: process.env.APPLE_TEAM_ID,
+  });
+}
+const embedded = await prepareManagedNativeResources({
+  desktop: managed.desktop, host: managed.host, serviceHost: managed.serviceHost, target: buildTarget,
+  verifyRoundtrip: mode === "signed" ? ({role, root}) => verifyManagedReleasePayloads({
+    [role]: root, identity: process.env.APPLE_SIGNING_IDENTITY, teamId: process.env.APPLE_TEAM_ID,
+  }) : undefined,
+});
+if (managed.desktop !== undefined || managed.host !== undefined || managed.serviceHost !== undefined) {
   tauriArgs.push("--config", JSON.stringify(embedded.config));
 }
 const bin = process.platform === "win32" ? "npx.cmd" : "npx";

@@ -5,7 +5,7 @@
     "repository": "BonJenn/t3code",
     "commit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8"
   },
-  "productionDesktopRegistrySha256": "2548af76196fff6e472ff9899cf0499e9509056dba0a7d84d0164c672254b9e6",
+  "productionDesktopRegistrySha256": "0905fc887ba5c73a5f8d03052f241bb288de8138edfe4e443b5acc859637c1b1",
   "stagePredicate": {
     "fixture": "fixtures/updateChannels.before.ts",
     "sha256": "6d3892b81e5622234ab6948b138648e207b1b5a6837df726196a11697e5b3a44"
@@ -34,7 +34,7 @@
       "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
       "fixture": "fixtures/descriptor.before.mjs",
       "phase": "source",
-      "beforeSha256": "bf0526ba6f5a32d00083771eb8a473dcff22353e1a8598234e2af4e298026576",
+      "beforeSha256": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2",
       "productionPatchIds": [
         "payload-descriptor.mjs"
       ]

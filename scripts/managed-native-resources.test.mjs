@@ -47,6 +47,16 @@ test('host self-consistent inventory cannot substitute reviewed patch records',a
  const {root}=await fixture(t,'host');const file=path.join(root,'blackcrab-managed-host.json');const manifest=JSON.parse(await fs.readFile(file));manifest.sourcePatches=[];await fs.writeFile(file,JSON.stringify(manifest));
  await assert.rejects(prepareManagedNativeResources({host:root}),/provenance/);
 });
+test('release verification inspects the unpacked copy and failed validation removes its staging',async t=>{
+ const {root}=await fixture(t,'host');let unpacked;
+ await assert.rejects(prepareManagedNativeResources({host:root,verifyRoundtrip:async({role,root:copy})=>{
+  assert.equal(role,'host');assert.notEqual(copy,root);unpacked=copy;
+  assert.equal(await fs.readFile(path.join(copy,'t3'),'utf8'),'fixture');
+  throw Error('notarization ticket rejected');
+ }}),/notarization ticket rejected/);
+ assert.ok(unpacked);await assert.rejects(fs.stat(path.dirname(unpacked)),{code:'ENOENT'});
+ assert.equal(await fs.readFile(path.join(root,'t3'),'utf8'),'fixture');
+});
 test('production desktop mapping verifies role and refuses rehashed QA application role',async t=>{
  const {root,put}=await fixture(t,'desktop');const result=await prepareManagedNativeResources({desktop:root,env:{},target:'aarch64-apple-darwin'});t.after(result.cleanup);
  assert.equal(result.env.BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256,sha(await fs.readFile(path.join(root,'blackcrab-managed-desktop.json'))));
@@ -135,4 +145,17 @@ test('real verified service artifact roundtrips through the explicit native reso
  assert.match(result.env.BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256,/^[a-f0-9]{64}$/);
  assert.match(result.env.BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256,/^[a-f0-9]{64}$/);
  assert.equal(Object.values(result.config.bundle.resources)[0],'managed-host-payload.tar.gz');
+});
+
+test('service-only native build passes the archive and trust pins to Tauri, then cleans staging',{skip:!process.env.BLACKCRAB_TEST_SERVICE_RESOURCE_ARTIFACT},async t=>{
+ const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');
+ const bin=await fs.mkdtemp(path.join(os.tmpdir(),'tauri-service-stub-'));t.after(()=>fs.rm(bin,{recursive:true,force:true}));
+ const capture=path.join(bin,'captured.json');
+ await fs.writeFile(path.join(bin,'npx'),`#!/usr/bin/env node\nconst fs=require('node:fs');const args=process.argv.slice(2);const configs=args.flatMap((arg,i)=>arg==='--config'?[JSON.parse(args[i+1])]:[]);const archives=configs.flatMap(config=>Object.keys(config.bundle.resources??{}));fs.writeFileSync(process.env.CAPTURE,JSON.stringify({args,archives,archivesPresent:archives.every(file=>fs.existsSync(file)),manifest:process.env.BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256,archive:process.env.BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256,profile:process.env.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE}));\n`,{mode:0o755});
+ await promisify(execFile)(process.execPath,[fileURLToPath(new URL('./tauri-build.mjs',import.meta.url)),'--local','--bundles','app','--managed-service-host',process.env.BLACKCRAB_TEST_SERVICE_RESOURCE_ARTIFACT],{env:{...process.env,PATH:bin+path.delimiter+path.dirname(process.execPath)+path.delimiter+process.env.PATH,CAPTURE:capture},timeout:300000});
+ const result=JSON.parse(await fs.readFile(capture));
+ assert.equal(result.args.includes('--managed-service-host'),false);
+ assert.equal(result.profile,'blackcrab-local-service-layout-v1');assert.match(result.manifest,/^[a-f0-9]{64}$/);assert.match(result.archive,/^[a-f0-9]{64}$/);
+ assert.equal(result.archives.length,1);assert.equal(result.archivesPresent,true);
+ await assert.rejects(fs.stat(result.archives[0]),{code:'ENOENT'});
 });

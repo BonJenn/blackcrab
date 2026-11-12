@@ -41,7 +41,7 @@ export function parseManagedResourceArgs(args) {
 /** Verify producer contracts before supplying Tauri's documented source->destination resource map.
  * Input directories must remain immutable during archive preparation. Returned cleanup owns only private staging.
  */
-export async function prepareManagedNativeResources({desktop,host,serviceHost,env=process.env,platform=process.platform,arch=process.arch,target=""}={}) {
+export async function prepareManagedNativeResources({desktop,host,serviceHost,env=process.env,platform=process.platform,arch=process.arch,target="",verifyRoundtrip}={}) {
  if(host!==undefined&&serviceHost!==undefined)throw Error('Choose either a direct host or a service host');
  host=serviceHost??host;
  if ((desktop !== undefined || host !== undefined) && target) {
@@ -97,6 +97,7 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
   const unpack=path.join(stage,`roundtrip-${role}`);await fs.mkdir(unpack,{mode:0o700});
   await run('/usr/bin/tar',['-xzpf',archive,'--no-same-owner','--no-acls','--no-xattrs',...metadataFlags,'-C',unpack],{env:{...process.env,COPYFILE_DISABLE:'1'},maxBuffer:1024*1024});
   await verify(unpack);
+  if(verifyRoundtrip)await verifyRoundtrip({role:role==='host'&&serviceHost!==undefined?'serviceHost':role,root:unpack});
   if(JSON.stringify(tree)!==JSON.stringify(await checkArchiveTree(unpack)))throw Error('Archive mode/link topology changed');
   if(!after.equals(await fs.readFile(path.join(unpack,manifestName)))||!after.equals(await fs.readFile(path.join(root,manifestName))))throw Error('Artifact manifest changed during archive roundtrip');
   await verify(root);

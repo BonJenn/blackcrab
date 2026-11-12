@@ -1,5 +1,262 @@
 # Blackcrab parity and release handoff
 
+## Current continuation checkpoint — 2026-11-12 20:38 UTC
+
+This section supersedes historical live-state claims below. The owner prioritizes
+background-service integration and a signed update for an existing Blackcrab app
+on an **Apple-silicon work Mac (M-series)**. The owner is away from the build Mac;
+do not ask them again to inspect/unlock its display now. Continue independent
+release work. Full parity, ordinary Mac installation and remote acceptance are
+not complete. TestFlight 1.0.0 (4) is already available to the owner.
+
+### Current evidence and remaining gates
+
+- Both production inner payloads are built. All 20 desktop and 17 host Mach-O
+  signatures use Developer ID Application: Jonathan Benn (YF28W3NGG6), with secure
+  timestamps and hardened runtime. Original artifacts remain unchanged.
+- Apple accepted submission `2958751f-0bbd-4d03-bc20-e805a52acfc2`. Its actual log
+  contains no issues. All 37 binary CDHashes match the notarization tickets.
+  Desktop stapling and Gatekeeper pass. The actual native-resource archive
+  roundtrip also passes signature, ticket and Gatekeeper checks after extraction.
+- Combined Root QA compiled successfully: resource tests, root tsc/Vite, default
+  cargo check, 13 QA denial tests, 6 service-owner tests and the debug QA binary.
+- Actual Root UI acceptance is **blocked, not passed**. CUA returned
+  `-10005 cgWindowNotFound` for both the fresh bundle ID and its exact app path.
+  App diagnostics reported one visible, non-minimized 2200×1560 window; that does
+  not establish visual acceptance. The owner answered they are away.
+- The captured Root controller was stopped cooperatively and exited 0. All
+  captured cleanup passed. Zero service initializations, service actions, native
+  children and provider commands occurred. No service was installed by this QA.
+  `root-qa/native-ui-acceptance.json` does not exist. Do not fabricate it.
+- No final normal Tauri app, signed outer installer/updater, ordinary installation
+  or public release has been completed. `/Applications/Blackcrab.app` has not been
+  updated by this work. The latest public version is still v0.3.0 from June 15.
+
+### Active checkout and exact artifacts
+
+P = `/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes`.
+R = `P/desktop-delivery-m6ki1jlt`; W = `R/source`.
+Branch: `parity/desktop-delivery-integration`. Last base before the reviewed local
+fixes: `1da28f8d137ee8ad5835bce8d7f389ffe39c2a3c`. Resolve current HEAD/status before
+continuing. All 17 desktop/service stack tips are ancestors (stack-ancestry-review.json).
+Integration PR is not yet created at this checkpoint; commit, merge updated stage
+and open it as a draft for CI. Native acceptance still gates final merge/delivery.
+Latest verified origin/stage: `a52826650a0c080421e8c1c6db5ab29cddba0c13` (#264).
+
+Do not change/reset/clean/switch/stage-all the main dirty checkout at
+`/Volumes/G-DRIVE PRO/Programming/blackcrab`. Last verified main index SHA256:
+`eea7b021ea64188388c96b9e68693e9bbfbe10ecc682f9717c98ec7450c3155a`.
+Stage explicit reviewed paths only. Preserve all unrelated work and shared caches.
+
+Production Electron: `R/desktop-production-artifact`, with
+`desktop-production-result.json`. Service: `P/service-profile-build-7XbKuE/quarantine/artifact`.
+Service controller `/private/tmp/blackcrab-service-delivery-wJ2lcU/service-profile-controller-bDE8cZ/plan.json`
+completed successfully; final input/store/reference/metadata/Cargo checks passed
+and children settled. The 17-module / 71-record source freeze is recorded and tested.
+Signed copies: `R/developer-id-payloads`.
+Final notarized copies:
+`/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/desktop`
+and sibling `service-host`.
+Final desktop manifest SHA256:
+`fc1b886bb81e682f23106e2db3fbede4c45329d353d480805fe38cd4febbdd12`.
+Final service manifest SHA256:
+`c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83`.
+Evidence: `R/notary-ticket-audit.json`, `R/notarized-resource-roundtrip.json`,
+`R/inner-payload-notarization-run.json`, `R/developer-id-signing-run.json`.
+
+QA source/build: `R/root-qa/source`, `root-qa/compile/compile-result.json`.
+Fresh used QA identity: `com.blackcrab.desktop.root-entry-qa.n31e0815bab7aa86a`.
+Captured QA root:
+`/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/root-entry-ui-31e0815bab7aa86a`.
+Read `R/root-qa/native-ui-capture-status.json` and the root's `parent-terminal.json`.
+The old controller refuses an existing root. A later UI retry needs a fresh
+reviewed identity/package; do not erase/reuse the previous journal as fresh proof.
+No owned app, host or simulator remains active. Original handles 28186, 20453,
+33721, 60816, 44062, 23434, 93054, 43230 and 27777 all settled successfully.
+Earlier EXDEV and stale QA test nonce failures were corrected and retained.
+
+### Release implementation now prepared
+
+Read `scripts/macos-release/README.md` and paired guides. New tooling signs
+immutable payload copies, notarizes/staples/re-inventories them, checks signatures
+again after resource roundtrip, and prepares an independently pinned release-input
+archive only with real lifecycle acceptance for the exact committed stage source.
+The service-only resource-map omission is fixed; its actual service regression
+passed 1/1, not just a fixture. Focused integration checks passed 18 with one
+opt-in skipped. Portable release/resource suite passed 23 with three opt-in skipped.
+Actual notarized resource roundtrip separately passed. Required PR CI is pending.
+
+`release.yml` is now explicitly dispatched: managed Apple-silicon is default,
+legacy root-only is an explicit alternative. Tag creation no longer triggers the
+old root-only matrix. The managed job verifies its draft-release input archive,
+builds aarch64-apple-darwin through the real resource wrapper and uses the existing
+GitHub updater secret only in the intended Tauri job. Its updater metadata check
+rejects stale non-arm64 entries or wrong signatures/URLs. The final release stays
+DRAFT. This workflow has not yet produced a release; never claim otherwise.
+
+Next: finish source/diff/workflow review, update stage ancestry and open a draft
+integration PR for CI. While capture is unavailable, independent release review
+can continue. When native UI is available, verify first launch, service enable,
+ready state, Electron open/reuse, normal quit with host survival, reopen retaining
+identity/catalog, restart/stop/start and reconnection, then captured cleanup.
+Only genuine positive evidence may satisfy the acceptance gate. After final
+review/CI/merge, commit a stable version newer than 0.3.0 and create the reviewed
+release-input archive. Build the signed outer app/DMG/updater, verify actual
+embedded resources and updater cryptography, test normal installation and update
+retention, then publish. Do not ship a universal app with arm64-only payloads.
+Existing build-normal-root.py/install-normal-root.py still require actual native
+acceptance and clean committed source; their earlier ad-hoc 0.3.0 recipe is not
+public release proof.
+
+### Mobile and cloud continuation
+
+Mobile checkout: `P/mobile-owned-branding-4pdd465l/source`, branch
+`parity/mobile-owned-product-copy`, head `996caea0e569f7669f6a49cd9d18c80620052e08`.
+PR #264 merged to stage, all nine checks passed and it is unwatched. Do not rewatch.
+57 recorded app-copy adapters passed 46 tests and app-only AST audit. Its iOS
+export completed; runtime exactly matches accepted build 4:
+`2cbb84d9fbdb180f1af5bfe3e049108c47d628cb`.
+Export: `/private/tmp/blackcrab-ios-Rymkpu/artifacts/branding-update-export`.
+It is NOT published. Actual bundle audit found 27 T3 Connect / 36 T3 Code byte
+occurrences in shared runtime. Read the mobile parent's
+`runtime-product-copy-findings.json` and `update-export-artifact-audit.json`.
+A recorded shared-client consumer patch is next after desktop release priority;
+no followup worktree/edit exists. Preserve genuine third-party T3 Chat/GitHub App
+identities, licenses and protocols. Never hand-edit vendor inventories.
+
+TestFlight 1.0.0 (4): VALID / IN_BETA_TESTING, owner available in Blackcrab Internal
+Release. App 6780360079, bundle dev.blackcrab.remote, team YF28W3NGG6,
+build UUID 0003ebb6-c832-452d-92f9-d3ff9bb0d867. Do not upload build 4 again.
+Evidence: `P/ios-device-release-102m5jw4/testflight-delivery-verification.json`.
+Accepted IPA: `/private/tmp/blackcrab-ios-bDCQj6/artifacts/export-candidate-tHj97G/export/BlackcrabRemote.ipa`.
+SHA256 `cc350063805b35ab55b78d5225b72b648ca417bf4868a06ca9d3b0be0770d2df`.
+Expo project 33fb14fd-4b87-4e85-920c-b6d4204e4567, owner bonjenn, production channel.
+The old rejected export lost capabilities and must not be uploaded. Native
+branding update installation, data retention/reconnect and rollback remain unverified.
+
+Cloud/DNS/account setup is complete for existing scoped work; the user explicitly
+authorized existing keys and up to $30/month base plus metered usage. No renewed
+rotation hold. Relay/database health, OAuth metadata and unauthenticated rejection
+passed; app.blackcrab.app root/deep-link/JS/AASA return 200. Signed-in/off-LAN/provider
+and APNs acceptance remain unproven. Do not print secrets. The five PUBLIC client
+values are in `/private/tmp/blackcrab-clerk-setup-gjrvqjqi/blackcrab-client.env`;
+other files there can contain secrets. Legal/privacy/terms/security pages remain
+404 and public-release work is unfinished.
+Accepted product model: free local/self-hosted open source, public endpoints,
+invite-only hosted beta, then server-enforced entitlements/quotas/cost controls.
+HS01–HS06 are planned, not implemented; read docs/hosted-service-plan.md.
+
+Keep paired guides byte-identical and both handoffs current. No new unasked
+agents/threads/goals. Control only original captured children, never recovered PIDs.
+Use CUA for actual UI; do not substitute backend calls for window acceptance.
+Link a created/pushed/taken-over PR as the next tool call. Watch and end the turn
+when the authorized merge waits on checks/review; do not poll. Unwatch before
+handing the work back to the owner. No active watches at this checkpoint.
+
+## Historical checkpoints and supporting evidence
+
+The following dated material preserves provenance. Its old live-process, stage,
+PR and next-action claims are superseded by the current checkpoint above.
+
+## Accepted hosted-service plan — 2026-11-12
+
+The user approved adding the open-source plus paid hosted-service model to the
+plan. Follow [hosted-service-plan.md](hosted-service-plan.md): free local and
+self-hosted use; official releases with explicit public endpoints; invite-only
+hosted beta; server-enforced subscription access, quotas and cost controls before
+public paid signup. HS01–HS06 remain planned/unverified. Prices and payment
+provider are undecided; no live billing or signup setting was changed by this
+planning update. Keep the current Mac installation/TestFlight owner trial ahead
+of public paid launch. The parity and mobile plans, G8/X10 ledger extension and
+paired root/cloud guides now reference the same direction.
+
+
+## Desktop delivery continuation — 2026-11-12
+
+The user asks: “finish the desktop app and ill test testflight today”. TestFlight
+1.0.0 (4) is already available to the owner. Do not re-upload that build.
+Desktop delivery is actively being completed in the owned worktree
+`P/desktop-delivery-m6ki1jlt/source`, branch
+`parity/desktop-delivery-integration`, from stage `25bc6985ca95c443ad6a6a812289f831763d5755`.
+Local merges combine PR #215, the #223–251 desktop chain, the #217–237 service
+chain and #234 resource-profile changes. All 17 reviewed live tips are ancestors
+of the integration head (stack-ancestry-review.json), including the moved #232
+head. No new PR has been created yet.
+`P/desktop-delivery-latest.json` and this directory's `plan.json` identify it.
+
+The combined source now prepares 74 desktop, 40 direct-host and 71 service
+patches. A three-way launcher patch refresh preserves #260's queued-stop timer
+fix; production/native QA descriptor fixtures preserve existing environment IDs.
+Five real-source composition tests, 75 desktop/launcher/controller tests,
+root typechecking, 182 root renderer tests, and production Rust cargo check
+passed. Host/controller checks passed 88 tests with one source fixture skipped;
+that real-source composition fixture passed separately. The producer now runs full
+upstream desktop AND web typechecking before packaging.
+
+The first QA build caught lost React type peers in secondary dependency-cache
+overlays. The producer now preserves DefinitelyTyped dependency edges, covered
+by a real TypeScript module-resolution regression. The prior PR #215 dependency tree was missing a compiler bridge file, so it
+was rejected. QA attempt 3 uses the original verified primary/secondary caches
+with the type-edge fix and all five Blackcrab public cloud settings. Both full
+desktop and web typechecks now pass. Inspect `desktop-qa-attempt-3-result.json`
+and its original process handle before restarting. Failed first output is preserved; never treat it as
+an artifact. Producer service input freeze remains historical until a fresh
+successful controlled build records its new 17 code inputs and 71 patch records.
+
+The service controller now accepts an optional strictly public cloud environment;
+it rejects secrets/process settings and includes the configuration and all code
+imports in its prepared input fingerprint. `service-build-plan-pointer.json`
+points at the prepared plan. Service attempt 1 was interrupted through its original shell handle 94616
+because serial small-file cache I/O on the HFS hard drive was excessively slow.
+Its read-only audit completed with reference, metadata and Cargo seed unchanged; no output was built or adopted. Do not adopt PIDs.
+The controller now batches 16 file operations while preserving ordered hashes,
+all source/destination checks and settlement of started I/O on cancellation.
+Seven cache tests pass, including ordered output and cancellation. Attempt 2 is running through original handle 10664 with plan
+`/private/tmp/blackcrab-service-delivery-RlzEHX/service-profile-controller-o5afLo/plan.json`;
+inspect service-build-attempts.json and service-build-plan-pointer.json before restarting. The normal desktop package is complete and verified; original handle 99986 exited 0.
+Its manifest is 67bdb5fdbacb9c2eb74116bcc659f5846fc145cd2e653affcff05d35382e5e2b
+and all 3,348 packaged files and the strict signature passed. See desktop-production-result.json. QA attempt 3 is complete,
+verified and unlaunched: manifest cfb17e2d591890793d2b43d538664f93396bbe097ec389bf5071dc6622dfa659,
+nonce fe7a14e74ad2396b. Native Root acceptance is still pending. Production Rust service-control tests
+passed all six fixed-target/ownership/publication/serialization scenarios.
+The five upstream desktop suites passed 119 tests using only two renamed
+Blackcrab app-link fixture strings; production code and assertions were unchanged.
+See upstream-desktop-owned-links-result.json. The original T3-link fixture failed
+as expected against the renamed protocol and is preserved unchanged.
+
+A first-launch review found that opening a fresh service-backed desktop before
+explicit service setup could persist direct ownership. The current native fix
+refuses that implicit direct start before artifact extraction/configuration and
+points to Enable background service; existing selections are unchanged. Service
+controls now appear before Full desktop. The isolated QA overlay has the same fix.
+The native regression passes, and all 14 focused UI tests pass across the single-worker/retry reports in first-launch-* logs. Initial UI workers
+hit startup timeouts, so the retry uses one thread worker without raising the timeout.
+The separately prepared QA desktop archive hit its 30-second codesign deadline;
+qa-signature-diagnostic.json records a successful strict check taking 157 seconds on HFS. A private APFS copy will be fully reverified for the archive.
+The build-only strict codesign deadline is now bounded at five minutes, with distinct timeout errors; all signature/nonce/manifest gates remain mandatory. This verifier-only adjustment does not alter the already built payload bytes. See qa-signature-gates-tests.log.
+
+Native CUA successfully captured Finder this session, clearing the old universal
+cgWindowNotFound blocker. The new `root-qa/source` is a clean three-way application
+of the isolated test harness to current code (22 files, zero conflicts). It still
+needs fresh artifact pins, a fresh fixed identity, compilation, actual original
+Root UI acceptance and captured-child cleanup. Do not launch the old harness
+or count Finder capture as Blackcrab UI acceptance.
+
+Hosted production was promoted to `https://app.blackcrab.app` using the already
+validated deployment `dpl_9hAgt9zC3Zw38ZW1mHfe7FS2qZMh` in project blackcrab-app.
+The owned domain is verified; both aliases completed. Root, thread deep link,
+entry JS and iOS association file return 200; the association names
+YF28W3NGG6.dev.blackcrab.remote. See `hosted-promotion-verification.json`.
+The apex landing site is unchanged. Live signed-in remote operations remain
+unverified. Older “READY UNALIASED” paragraphs below are superseded.
+
+Next: finish the QA/full production desktop and controlled service artifacts;
+refresh build freeze only from successful evidence; compile and exercise the
+current isolated Root UI and service lifecycle; publish the coherent integration
+PR, merge after checks; package/install ordinary Blackcrab.app and verify launch.
+No ordinary current Mac app is installed yet. Preserve the dirty main checkout.
+
+
 Snapshot: 2026-11-12 16:16 UTC, after TestFlight delivery. This is a continuation checkpoint,
 not a completion report. Recheck mutable GitHub/account/filesystem facts before
 acting. Root and directory AGENTS.md/CLAUDE.md files are paired guidance.
@@ -410,3 +667,57 @@ Do not spawn extra agents unless the user/current instructions authorize it.
 Never create a replacement top-level thread or a new goal to evade an existing
 context/budget limit. When nearing the limit, update these documents and provide
 the copyable prompt with a truthful live-process and remaining-work summary.
+
+
+### Latest delivery checkpoint — 2026-11-12 18:31 UTC
+
+The normal Electron payload is built. QA desktop archive preparation completed
+with strict signature verification before and after extraction; see
+`desktop-delivery-m6ki1jlt/root-qa/desktop-resource-preparation.json`. The pinned
+archive is on the restored owned APFS volume under `Root-QA/blackcrab-managed-payloads-NMyRVp`.
+The current controlled service build remains active through original shell handle
+10664, still copying its private pnpm cache. Do not restart it or edit its frozen
+producer inputs. Root QA compilation still waits for the current service artifact.
+Completed generated source copies (including the successful QA build's source
+copy) have been retired with receipts; the QA and production artifacts remain.
+The TestFlight build's disposable private npm install is being retired to retain
+internal disk headroom; the uploaded IPA, signed archives, release worktree and
+build reports are preserved. See `completed-source-retirement.json` and
+`completed-ios-install-retirement.json`. Shared caches and the main checkout are untouched.
+
+The user asked how forks affect cloud bills and for a commercial recommendation.
+We explained that bills follow backend use, not Git ancestry. Recommended free
+local/self-hosted source, official builds configured for Blackcrab, and server-side
+subscription/usage enforcement for hosted remote access, starting invite-only.
+The user subsequently approved adding this model to the delivery plan. See
+[hosted-service-plan.md](hosted-service-plan.md) for HS01–HS06 and their acceptance
+gates. This acceptance records product direction and planned work, not completed
+billing, selected prices or a changed signup policy.
+
+
+### Active Mac integration and mobile branding — 2026-11-12
+
+The user explicitly requested Mac background-service integration and removal of
+mobile T3 branding such as “T3 Account”, then reminded us to keep handoffs current.
+Service attempt 2 (original handle 10664) has completed its private cache copies
+but entered its failure audit after internal free space fell below the 4 GiB
+build-start floor. Inspect its result.json when the audit settles; it has not
+produced an accepted service artifact. Do not edit frozen controller inputs yet.
+The owner approved removing only the local Time Machine snapshot dated 09:43.
+The tmutil command returned EX_SOFTWARE; the subsequent exact-UUID diskutil call
+reported no snapshots exist. Do not claim we deleted it; recheck free space and
+see local-snapshot-space-result.json. No external backup was deleted.
+
+Mobile branding has a separate clean stage-based worktree:
+`P/mobile-owned-branding-4pdd465l/source`, branch
+`parity/mobile-owned-product-copy`, base 25bc6985ca95c443ad6a6a812289f831763d5755.
+Checkout completed (original handle 97035 exited 0). The reviewed proposed
+generator is its parent's build-registry.next.py; apply it only after reading
+that checkout's guides, regenerate the activation registry, and run existing
+activation/link/config checks plus an audit of effective UI strings. Keep vendor
+source, protocol identifiers and attribution unchanged. The audit found account,
+Connect, settings, onboarding, notification and accessibility labels. The legal
+URL still defaults to t3.codes; owned /legal, /privacy-policy, /terms-of-service
+and /security-policy return 404, so owned policy publication remains a separate
+public-release requirement. Do not present upstream policies as Blackcrab's.
+No branding PR or replacement mobile release has been published yet.

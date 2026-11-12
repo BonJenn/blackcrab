@@ -34,6 +34,14 @@ supersedes them only for the exact source, artifact, platform and scenario teste
   registry, preserving hashes, original behavior, attribution and verification.
   Do not hand-edit vendor inventories or generated output to conceal a mismatch.
 
+## Hosted-service model
+
+The accepted commercial direction is documented in docs/hosted-service-plan.md:
+free local/self-hosted software and paid Blackcrab-hosted remote access, starting
+with an invite-only beta. Enforce access/quotas on the server; public endpoint URLs
+are not secrets or proof of payment. Billing and public signup remain planned
+release gates. Preserve the current owner Mac/TestFlight delivery priority.
+
 ## Repository and Git
 
 The main Mac checkout is `/Volumes/G-DRIVE PRO/Programming/blackcrab`.

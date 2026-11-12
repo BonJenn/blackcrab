@@ -60,6 +60,7 @@ jobs:
           fork-integration/boot-service/typecheck/*.test.mjs
 
       - run: node --test scripts/managed-native-resources.test.mjs
+      - run: node --test scripts/macos-release/*.test.mjs
 
       - run: npm run typecheck:managed-acceptance
 

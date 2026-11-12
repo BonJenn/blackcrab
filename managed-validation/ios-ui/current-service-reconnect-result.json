@@ -1,0 +1,86 @@
+{
+  "artifact": {
+    "bundleId": "dev.blackcrab.remote",
+    "hermesSha256": "6bd3736683388be8f47f30d4c1754d9e8b2cdd3d2e0b4bc9e916e6fa842ca0fe",
+    "inventorySha256": "61699f23c4724890050a952dfe0c665ef7c53de2338ed44d36f2c4185b8faad9",
+    "unchangedAfterAcceptance": true
+  },
+  "baselineSource": "2fa3808fb4d359f3bd00b2f0ed5ce091781c9bab",
+  "canary": {
+    "failed": 0,
+    "officialExportsReviewed": true,
+    "passed": 1,
+    "skipped": 0
+  },
+  "capturedHostClosed": true,
+  "catalogRetainedAcrossUpgradeWithoutUninstall": true,
+  "controllerSourceSha256": "92306c280bec9d22342af724ee3546e7761282928de18f8fda0c61c520021b34",
+  "date": "2026-11-11",
+  "evidenceSha256": {
+    "canaryReceipt": "0f769dfc3b65486a82b5d0a3b85ed31e37815d226afc8191d7d56a7bac000a8c",
+    "nativeMobileLifecycle": "d46c97603262ae7de122ba108b5ef3053950f915d6daf828c593355b938233fb",
+    "sdkObserver": "20713ae7342783d9f5d621b6bfe66badc8789eefc16938ba42b6d0ca8a1e1b23"
+  },
+  "format": 1,
+  "host": {
+    "archiveSha256": "f8a5593d44d7c1559bccbc7979631ddfd53376338a3821903c6edd17aca8866f",
+    "capturedLauncherClosed": true,
+    "configurationUnchanged": true,
+    "finalNativeEpoch": 3,
+    "freshServiceOwnerInitialized": true,
+    "manifestSha256": "9eac410b7393b18f510fe2d59a756880575bfcfe8fa8c171046f36abd1fa7937",
+    "nativeBinarySha256": "20ba09ef5768b0984d5d831122cfb072ff6313b6208979718ef4dd05666f8664",
+    "originalInitializationIssuerPairingAndLauncherUnchanged": true
+  },
+  "legacyDigestsUnchanged": true,
+  "legacyQueueInitiallyEmpty": true,
+  "nativeAppTerminatedBeforeServiceRestartAndSdkUnarchive": true,
+  "nativeColdLaunchObservedRemoteUnarchiveWithoutPairingAgain": true,
+  "nativeRenameArchiveAfterRestartVerifiedByIndependentSdk": true,
+  "observerSourceSha256": "de9da07a305304d814287d1c4fe8d3a821d234e7ebb83961456b66c1c3769769",
+  "os": "26.2",
+  "ownedSimulatorsShutdown": true,
+  "portableGuardTestsPassed": 30,
+  "previousResult": "current-service-acceptance-result.json",
+  "remaining": [
+    "actual desktop service Settings and OS manager controls",
+    "cloud/off-LAN provisioning and live access",
+    "real provider execution and broader agent workflows",
+    "populated legacy migration, physical devices, background/push/Live Activity and signing",
+    "all remaining parity ledger scenarios"
+  ],
+  "runnerExecutableSha256": "cdd9b995cd294f3b122367c9431c60cf499f3fad3bfdd22697524061a719f9ff",
+  "runnerSource": "scenarios/service-reconnect.swift",
+  "runnerSourceSha256": "8efc76cc08627e378eaf2d67dae9cbb222b8dcf6125ceff81f84942ddc9ad912",
+  "sameThreadPreservedAcrossAllPhases": true,
+  "sdkUnarchivedThreadWhileNativeAppStopped": true,
+  "source": {
+    "commit": "d1d4d2741a9ffece4b1cf79a5255f667f535fd1e",
+    "kind": "local-combined-integration",
+    "mergedStageSha": null
+  },
+  "status": "native-cold-reconnect-rename-archive-passed",
+  "testInputCorrection": "Use native triple-tap paragraph selection, assert the field clears, then assert the exact replacement. Prior failed shortcut attempts are not acceptance evidence.",
+  "uiPhases": {
+    "control-after-restart": {
+      "evidenceSha256": "355d326c997fff4e863bd66e10c44b68fd584b82679d92227464c95b80672496",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "control-upgraded": {
+      "evidenceSha256": "bc6891221d078e897b0c45c1cfde5a059c92f300a84302a60ce4d780add35a9e",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    },
+    "seed-baseline": {
+      "evidenceSha256": "5999c7980604ece71a6308b27dc7b8765022c43c12a7af651fd3281244ca466d",
+      "failed": 0,
+      "passed": 1,
+      "skipped": 0
+    }
+  },
+  "zeroProviderSessions": true,
+  "zeroRuns": true
+}

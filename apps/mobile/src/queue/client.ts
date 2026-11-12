@@ -26,7 +26,7 @@ export interface MobileQueueState {
   error: string | null;
   notice: string | null;
 }
-type RecordState = { hostId: string; sessionId: string; state: MobileQueueState; listeners: Set<() => void>; loading?: Promise<void> };
+type RecordState = { hostId: string; sessionId: string; state: MobileQueueState; listeners: Set<() => void>; saving: boolean; loading?: Promise<void> };
 type Request = { key: string; operation: QueueOperation; generation: number; done?: (ok: boolean) => void; timer: ReturnType<typeof setTimeout> };
 const keyFor = (hostId: string, sessionId: string) => JSON.stringify([hostId, sessionId]);
 
@@ -47,7 +47,7 @@ export class MobileQueueClient {
     const key = keyFor(hostId, sessionId);
     let record = this.records.get(key);
     if (!record) {
-      record = { hostId, sessionId, listeners: new Set(), state: { loaded:false, connected:false, support:"unknown", queue:null, busy:false, needsRefresh:false, pending:null, error:null, notice:null } };
+      record = { hostId, sessionId, listeners: new Set(), saving: false, state: { loaded:false, connected:false, support:"unknown", queue:null, busy:false, needsRefresh:false, pending:null, error:null, notice:null } };
       this.records.set(key,record);
     }
     return record;
@@ -59,7 +59,8 @@ export class MobileQueueClient {
     return () => { record.listeners.delete(callback); };
   }
   private update(record: RecordState, patch: Partial<MobileQueueState>) {
-    record.state={...record.state,...patch};
+    // Connection events cannot release a durable write that is still in flight.
+    record.state={...record.state,...patch,...(record.saving ? {busy:true} : {})};
     record.listeners.forEach(callback=>callback());
   }
   bind(transport: Transport | null, hostId: string | null) {
@@ -164,9 +165,11 @@ export class MobileQueueClient {
     if (draft && (!draft.editId || draft.text.trim() !== body)) return false;
     const generation=this.generation, connectionEpoch=this.connectionEpoch;
     const pending: PendingMessage={version:1,hostId,sessionId,threadId:state.queue.threadId,commandId:this.id(),body,...(draft ? {draft} : {})};
+    record.saving=true;
     this.update(record,{busy:true,error:null});
     try { await this.storage.write(keyFor(hostId,sessionId),JSON.stringify(pending)); }
-    catch { this.update(record,{busy:false,error:"Could not save retry data. Your draft is unchanged."}); return false; }
+    catch { record.saving=false; this.update(record,{busy:false,error:"Could not save retry data. Your draft is unchanged."}); return false; }
+    record.saving=false;
     this.update(record,{pending});
     if (generation!==this.generation || connectionEpoch!==this.connectionEpoch || record.state.queue?.threadId!==pending.threadId) {
       this.update(record,{busy:false,needsRefresh:true,error:"Connection or session changed while saving. Refresh, then retry the saved message explicitly."});

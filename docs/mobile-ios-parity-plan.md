@@ -111,6 +111,22 @@ passed, and iOS Hermes bundle export succeeded. The combined desktop/mobile tree
 127 native tests, Cargo check and production build). CI now typechecks workspaces
 as well as the root application. No signed build or real-device claim is made.
 
+### Queue ownership through legacy navigation
+
+The legacy screen now keeps one queue controller for the app lifetime, including
+while the full workspace interface is visible. An in-flight recovery-file write
+keeps the queue busy across disconnect, reconnect and screen detachment. A second
+send cannot overwrite that unfinished save; a connection change still requires
+refresh and explicit retry with the original command ID. A failed save preserves
+the draft and releases the busy state for recovery.
+
+Validation: the overwrite regression failed before the fix. Afterward, 39 tests
+across queue, draft, transport and composer paths passed, including an actual-file
+recovery test using Node filesystem adapters for the Expo boundary. Scoped strict
+TypeScript checking uses the prepared Expo 58.0.14 / React Native 0.88.0 dependency
+graph. These checks do not establish populated installed-iOS upgrade acceptance,
+provider execution or off-LAN delivery; those gates remain open.
+
 ### Remembered startup host increment
 
 Explicit connection/pairing choices now persist independently of pairing order.
@@ -272,6 +288,200 @@ failed dependency clones and native builds remain excluded from accepted evidenc
 Provider turns, complete M1–M6 workflows, populated legacy recovery, physical
 devices, push/background behavior and signed distribution remain open. The
 installed catalog/metadata tests establish only their named behaviors.
+
+
+### Combined iOS Release acceptance (2026-11-11)
+
+A fresh combined-source Release at `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`
+now builds with an embedded Hermes bundle and a verified ad-hoc simulator signature.
+Native staging includes the shared cloud patch inputs, carries the validated hosted
+origin, and uses the current Live Activity adapter digest (#249/#252).
+
+The exact product passed a fresh iOS 26.2 baseline-to-upgrade test without
+uninstalling. Its paired catalog remained available; rename and archive through the
+native interface were confirmed by the independent shared SDK. Both UI phases
+passed one test, with zero skips/failures. Legacy storage digests stayed unchanged,
+the captured host closed, both owned simulators shut down, and no provider runs or
+sessions were created. Thirty controller guards and a new source-bound nonsecret
+input canary also passed. See the [structured result](../managed-validation/ios-ui/combined-acceptance-result.json).
+
+This is evidence for a local combined integration candidate against the prior
+proof9 packaged direct host. It does not certify the latest managed service profile,
+live cloud/off-LAN access, populated legacy migration, physical devices, push,
+distribution signing, or the remaining M1–M6 workflows. No merged stage revision is
+claimed by this result.
+
+
+### Current managed service and native iOS acceptance (2026-11-11)
+
+The same combined Release product at `d1d4d2741a9ffece4b1cf79a5255f667f535fd1e`
+passed a second fresh-device test against the current 70-record managed service
+profile. The service manifest is
+`9eac410b7393b18f510fe2d59a756880575bfcfe8fa8c171046f36abd1fa7937`;
+the earlier proof9 host result above remains separate historical evidence.
+
+A private Release entry called the unchanged native initializer, current-executable
+issuer publisher, original packaged launcher, authentication and pairing code. Fresh
+setup and two preflight start/stop cycles passed. Repeated setup and runtime
+replacement were refused; desktop attachment did not start a stopped service.
+
+The native baseline paired with a second fresh service owner. Installing the current
+app without uninstalling retained the catalog. Rename and archive passed through
+the native UI and were confirmed by the shared SDK. The original service then
+stopped and restarted; the SDK reconnected and confirmed the same renamed, archived
+thread. The service retired all three epochs, configuration stayed unchanged, both
+captured owners closed, and both new simulators were confirmed shut down. Provider
+sessions and runs remained zero. Thirty controller guards and the source-bound
+nonsecret logging canary passed. The app inventory was unchanged. See the
+[structured result](../managed-validation/ios-ui/current-service-acceptance-result.json).
+
+This is combined-candidate evidence, with no merged stage revision. The private
+entry does not certify the desktop Settings button or OS service-manager controls.
+The post-restart assertion covers SDK reconnection and stored metadata; the native
+iOS UI's reconnect behavior was not asserted. Cloud/off-LAN, real providers, broader
+M1–M6 workflows, populated legacy migration, physical devices, push and distribution
+signing remain open.
+
+### Native iOS cold reconnect after service restart (2026-11-11)
+
+The same combined Release app and current managed service now passed the native
+cold-reconnect case left open by the previous acceptance result. After the baseline
+pairing and upgrade/rename/archive phases, the test terminated the app, restarted
+the service, and unarchived that same thread through the independent SDK. A cold
+launch displayed the unarchived thread without pairing again. Native rename and
+archive then succeeded again, and the SDK verified the exact new title and archive
+state on the same thread.
+
+All three native UI phases passed one test each with zero failures or skips. The
+source-bound redaction canary and 30 controller checks passed. All three service
+epochs closed; both owned simulators shut down; provider runs and sessions remained
+zero. The app inventory and service configuration remained unchanged. See the
+[structured result](../managed-validation/ios-ui/current-service-reconnect-result.json)
+and the [executed XCTest source](../managed-validation/ios-ui/scenarios/service-reconnect.swift).
+
+Earlier attempts reached the reconnect and rename dialog but failed when XCTest's
+Command-A shortcut did not select the text. The successful runner uses native touch
+selection, asserts an empty field before typing, then asserts the exact new title.
+Those earlier attempts remain failures; their cleanup was verified separately.
+
+This remains local combined-candidate evidence with no merged stage revision. It
+does not close foreground/background recovery, revoked credentials, live cloud or
+off-LAN access, real provider runs, populated migration, physical-device testing,
+push/Live Activity, signing, or the actual desktop service Settings/OS controls.
+
+### Native iOS foreground recovery after service restart (2026-11-11)
+
+The same combined Release app and current managed service passed a separate
+background-to-foreground workflow. After pairing and upgrade/rename/archive, the
+SDK unarchived the thread. The native app displayed it in the catalog and moved to the background via
+the Home button. While it remained backgrounded, the service restarted and the SDK
+changed the thread title. The app then activated without terminate/launch, displayed
+the changed title without pairing again, and renamed and archived that same thread.
+The independent SDK confirmed the exact final title and archive state.
+
+All four UI phases passed one test each with zero failures/skips. The runner checked
+background state both before the host restart and before activation; at least 25.5
+seconds elapsed between the completed background phase and foreground phase. The
+source-bound redaction canary and 30 controller checks passed. Product/configuration
+remained unchanged, all three native service epochs closed, both owned simulators
+shut down, and runs/provider sessions remained zero. See the
+[structured result](../managed-validation/ios-ui/current-service-foreground-result.json)
+and [executed XCTest source](../managed-validation/ios-ui/scenarios/service-foreground.swift).
+
+This evidence remains tied to the local combined candidate, without a merged stage
+revision. It covers a backgrounded app and service restart; it does not establish
+OS suspension, locked-phone behavior, Wi-Fi/cellular transitions, off-LAN access,
+physical-device delivery, push/Live Activity, signing, populated legacy migration,
+or complete background behavior. Desktop service UI and the remaining ledger gates
+remain open. Owned mobile automatic updates are also still disabled and require
+Blackcrab Expo project/channel configuration and native-compatible update delivery.
+
+### Blackcrab-owned Expo update configuration (2026-11-11)
+
+The original App now retains `installAppUpdateChecks()` and the unchanged pinned
+update implementation. The owned Expo entry validates an explicit Blackcrab project
+UUID and channel, replaces inherited update configuration, and disables updates
+when not configured. Preview/production builds use fingerprint runtime compatibility;
+development retains the original app-version policy. EAS build profiles select
+explicit environments and the isolated native builder carries validated public
+update values without forwarding credentials.
+
+The generated updater's original tests cover persistence flushing, concurrent
+checks, deferred installs and rollback. Additional tests cover disabled/native-dev
+boundaries and foreground timing. Configuration tests execute the installed Expo
+plist plugin and verify the original generated initializer. The snapshot fixture
+now stages the actual host inputs present on its branch, then imports and exercises
+the production cloud patcher from the snapshot; it no longer assumes a service-only
+process-controller module exists on every mobile branch.
+
+See [mobile updates](mobile-updates.md) for build and publication requirements.
+An owned Expo project, a newly built update-enabled binary, actual update/rollback
+delivery and persisted-state/device acceptance remain open. Earlier simulator
+results used update-disabled binaries. These source tests do not close those gates.
+
+### Service revocation and scoped pairing recovery (2026-11-11)
+
+Two original shared SDK clients passed revocation and recovery against the actual
+current native service. Revoking the remote session blocked its live connection,
+HTTP authentication, RPC-ticket creation and further edits. Pairing the same
+environment with a read-only grant preserved one catalog entry and allowed reads;
+the host rejected a bare-RPC edit without relying on the client permission guard.
+A fresh operate grant restored rename/archive. After a service restart, the
+authorized client retained the edited metadata and the old credential remained
+revoked. No runs or provider sessions were created, and all captured owners closed.
+
+See the [SDK result](../managed-validation/ios-ui/current-service-sdk-revocation-result.json)
+and [executed source template](../managed-validation/ios-ui/scenarios/service-revocation-sdk.test.ts.template).
+The native storage/network/app-state ports in this scenario were test adapters.
+This does not establish native UI recovery, live relay access, OAuth/DPoP/replay,
+other revoke endpoints, physical devices or complete permission coverage.
+
+### Native revocation and pairing recovery (2026-11-11)
+
+The installed combined Release and current service profile passed six native UI
+phases: baseline pairing, upgrade retention with rename/archive, holding the live
+environment, displaying revoked authentication in expanded diagnostics, pairing
+again, and rename/archive after recovery. The app stayed running across revocation
+and re-pairing. The scenario checked and acknowledged the original app's exact
+legacy-permission notice for its sole host; no system permission dialog was handled.
+
+The independent SDK confirmed a new session with exactly `orchestration:read` and
+`orchestration:operate`, one environment, remote metadata visibility, and native
+control of the same original thread. All six phases and both pairing-form canaries
+passed with zero failures/skips, and 30 controller checks passed. The captured
+service owner closed both epochs, the owned simulators shut down, and no runs or
+provider sessions were created. App/configuration and legacy digests were unchanged;
+the legacy queue was empty. Earlier failed harness attempts remain excluded.
+
+See the [native result](../managed-validation/ios-ui/current-service-revocation-result.json),
+[executed Swift source](../managed-validation/ios-ui/scenarios/service-revocation.swift)
+and [independent SDK observer](../managed-validation/ios-ui/scenarios/service-revocation-observer.test.ts.template).
+The UI test uses detailed diagnostics because the summary row does not expose its
+status to accessibility; that gap remains open. This is the update-disabled local
+combined candidate, not merged-stage, live cloud, physical-device, populated
+migration, all-permissions or complete parity certification.
+
+### Connection summary accessibility
+
+The owned adapter now exposes the visible connection status or diagnosis headline
+as the main environment button's accessibility value. Its Manage/Expand action
+label and behavior remain unchanged. A fresh combined Release build passed native
+checks for the Connected value, the authentication diagnosis after revocation,
+and the Connected value after re-pairing. The independent SDK also confirmed
+restored rename/archive control of the same thread and a single repaired environment.
+
+An initial canary stopped at a stale widget dylib hash and remains excluded.
+The replacement check permits only the observed mode changes for the exact new
+product inventory, with unchanged bytes and installed signature verification.
+
+All six UI phases and both pairing canaries passed, alongside 31 controller guards,
+29 activation/build-preparation checks, and full staged mobile typechecking. The
+captured service owner closed and both owned simulators shut down; no provider
+runs or sessions were created. See the [result](../managed-validation/ios-ui/current-service-accessibility-result.json)
+and [executed native scenario](../managed-validation/ios-ui/scenarios/service-connection-accessibility.swift).
+This verifies native accessibility values on the simulator, not spoken VoiceOver
+on a physical device or the remaining G5 scenarios. The build uses the combined
+candidate recorded in the result, with cloud and owned update delivery unconfigured.
 
 ### Authenticated manual pairing
 

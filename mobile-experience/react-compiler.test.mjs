@@ -117,20 +117,26 @@ test('configuration, published plugin lock, and original source graph fail close
 test('owned dynamic Expo configuration preserves compiler enablement without executing any upstream config', async () => {
   const vm = await import('node:vm');
   const { default: ownedCloud } = await import('./activation/adapters/owned-cloud-config.cjs');
+  const { default: ownedUpdates } = await import('./activation/adapters/owned-update-config.cjs');
   const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.json'))).expo;
-  for (const configured of [false, true]) {
+  for (const [cloudConfigured, updatesConfigured] of [[false, false], [false, true], [true, false], [true, true]]) {
     const module = { exports: {} }, calls = [];
-    const env = configured ? {
+    const env = cloudConfigured ? {
       BLACKCRAB_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only',
       BLACKCRAB_CLERK_JWT_TEMPLATE: 'blackcrab-relay',
       BLACKCRAB_RELAY_URL: 'https://relay.example.test',
     } : {};
+    if (updatesConfigured) Object.assign(env, {
+      BLACKCRAB_EAS_PROJECT_ID: '11111111-2222-4333-8444-555555555555',
+      BLACKCRAB_UPDATE_CHANNEL: 'production',
+    });
     vm.runInNewContext(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.config.js'), 'utf8'), {
       module, __dirname: path.join(repoRoot, 'apps/mobile'), process: { env, execPath: process.execPath },
       require(name) {
         if (name === 'node:path') return path;
         if (name === 'node:child_process') return { execFileSync: (...args) => calls.push(args) };
         if (name === '../../mobile-experience/activation/adapters/owned-cloud-config.cjs') return ownedCloud;
+        if (name === '../../mobile-experience/activation/adapters/owned-update-config.cjs') return ownedUpdates;
         throw new Error('Unexpected dynamic configuration dependency: ' + name);
       },
     });
@@ -138,7 +144,8 @@ test('owned dynamic Expo configuration preserves compiler enablement without exe
     assert.equal(effective.experiments.reactCompiler, true);
     assert.equal(effective.experiments.typedRoutes, config.experiments.typedRoutes);
     assert.equal(effective.ios.bundleIdentifier, config.ios.bundleIdentifier);
-    assert.equal(effective.extra.managedNativeFeatures.cloudConfigured, configured);
+    assert.equal(effective.extra.managedNativeFeatures.cloudConfigured, cloudConfigured);
+    assert.equal(effective.updates.enabled, updatesConfigured);
     assert.equal(calls.length, 1);
     assert.equal(calls[0][1][1], '--ui-only');
   }

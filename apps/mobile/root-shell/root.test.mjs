@@ -24,7 +24,13 @@ test('active root uses one sticky activation and retains full App while native l
  assert.match(app,/<Modal visible=\{!managedVisible\} presentationStyle="fullScreen"/);
  assert.match(app,/!managedVisible && <LegacyApp \/>/);
  for(const token of ['createNativeManagedEnvironmentsClient','ManagedEnvironmentsScreen','managedClient','key: "managed"']) assert(!legacy.includes(token),token);
- assert(legacy.includes('MobileQueueClient')); assert(legacy.includes('loadStoredHosts')); assert(!app.includes('src/managed/native'));
+ // Legacy navigation reuses the app-lifetime queue owner; detaching must not
+ // replace or dispose the controller while a recovery-file write is pending.
+ assert.match(legacy,/import \{ mobileQueue \} from "\.\/src\/queue\/owner"/);
+ assert.match(legacy,/const queueClient = mobileQueue;/);
+ assert.match(legacy,/return \(\) => queueClient\.bind\(null,\s*null\)/);
+ assert.doesNotMatch(legacy,/new MobileQueueClient|queueClient\.dispose\(/);
+ assert(legacy.includes('loadStoredHosts')); assert(!app.includes('src/managed/native'));
 });
 test('own configuration keeps self-hosted native capabilities and own extension identity without upstream account activation', async () => {
  const {expo:c}=JSON.parse(await fs.readFile(new URL('../app.json',import.meta.url)));

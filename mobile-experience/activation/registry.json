@@ -136,16 +136,6 @@
           "count": 1
         },
         {
-          "before": "import { installAppUpdateChecks } from \"./features/updates/app-updates\";\n",
-          "after": "",
-          "count": 1
-        },
-        {
-          "before": "  installAppUpdateChecks(),",
-          "after": "  () => undefined, // Own OTA/update activation requires a separate reviewed adapter.",
-          "count": 1
-        },
-        {
           "before": "  installShowcaseCapture(rootPathnameFromState),",
           "after": "  () => undefined, // Upstream showcase capture is not activated.",
           "count": 1
@@ -156,7 +146,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "5102b62a72fe6858548efd96bd8d587f92612b3fb5c9f2ebb0e3aec59b776182"
+      "afterSha256": "a7335ecf9b0a2320d5808a40d0015d0ee1a28cd88764d2b421013ba6cbffce02"
     },
     {
       "path": "src/features/voice-input/GlobalVoiceInputControl.tsx",
@@ -226,6 +216,19 @@
         }
       ],
       "afterSha256": "2180b914b90940380e602e1ec4620c1414538302314129b375672df7d7b15fb9"
+    },
+    {
+      "path": "src/features/connection/ConnectionEnvironmentRow.tsx",
+      "beforeSha256": "5f30e7802c429b207089bc9e9c5013934460e33ba6a5b3c1e9b21bda9f0c29cd",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"",
+          "after": "          className=\"min-w-0 flex-1 gap-0.5 active:opacity-70\"\n          accessibilityValue={{ text: diagnosis?.headline ?? statusLabel ?? \"\" }}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "9eb252181a099d2bc2c40fb1253951c78b84f54aba3a692bf023ea5bad630642"
     },
     {
       "path": "src/features/connection/pairing.ts",
@@ -404,7 +407,7 @@
     {
       "path": "owned-cloud-config.cjs",
       "template": "adapters/owned-cloud-config.cjs",
-      "sha256": "866d13110636708745c106e9b2766a830aee950b47e417aa16f8366bed865a75"
+      "sha256": "f3ec7ac587f5907c08661a6fb59c671a100b460bcd585bb19d4283a2fa9cc0b5"
     },
     {
       "path": "owned-cloud-config.d.cts",
@@ -455,7 +458,8 @@
       "iosBundleIdentifier": "dev.blackcrab.remote",
       "upstreamCloudEnabled": false,
       "ownedCloudConfiguration": "explicit BLACKCRAB public build variables; no inherited upstream account or relay",
-      "upstreamOTAEnabled": false
+      "upstreamOTAEnabled": false,
+      "ownedOTAConfiguration": "explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration"
     },
     "serviceLifetime": {
       "moduleAppInitializers": [
@@ -471,7 +475,7 @@
         "startIncomingShareInbox",
         "installAgentNotificationNavigation",
         "installAppShortcuts",
-        "installAppUpdateChecks (owned disabled)",
+        "installAppUpdateChecks (owned native configuration)",
         "installShowcaseCapture (owned disabled)"
       ],
       "foundations": [

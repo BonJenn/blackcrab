@@ -1,0 +1,23 @@
+--- a/infra/relay/src/db.ts
++++ b/infra/relay/src/db.ts
+@@ -9,7 +9,7 @@
+ import * as Effect from "effect/Effect";
+ import * as Layer from "effect/Layer";
+ 
+-import { relayDatabaseMode } from "./dbConfig.ts";
++import { relayDatabaseClusterSize, relayDatabaseMode } from "./dbConfig.ts";
+ 
+ export class RelayDb extends Context.Service<
+   RelayDb,
+@@ -47,9 +47,9 @@
+   const database =
+     mode === "shared-database"
+       ? yield* Planetscale.PostgresDatabase("RelayPostgresDatabase", {
+-          name: "t3coderelay",
++          name: "blackcrabconnectrelay",
+           region: { slug: "us-west" },
+-          clusterSize: "PS_80",
++          clusterSize: yield* relayDatabaseClusterSize,
+           migrations: { dir: schema.out, table: "relay_migrations" },
+           replicas: 2,
+         }).pipe(RemovalPolicy.retain())

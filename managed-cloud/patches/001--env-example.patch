@@ -1,0 +1,23 @@
+--- a/infra/relay/.env.example
++++ b/infra/relay/.env.example
+@@ -1,3 +1,11 @@
++# Required: explicit private file for generated client configuration
++BLACKCRAB_RELAY_CLIENT_CONFIG_ENV=/absolute/private/path/blackcrab-relay-client.env
++
++# Required for production: choose Postgres capacity after reviewing provider pricing.
++# PS_5 is a small starting size; use PS_80 to retain the inherited capacity.
++# This changes compute capacity only; the database retains two replicas.
++BLACKCRAB_RELAY_DATABASE_SIZE=PS_5
++
+ # Required: Relay API and managed tunnel domains
+ # Production adopts retained DNS zones in your Cloudflare account. The API
+ # zone serves relay.<zone> in production and relay-<stage>.<zone> for personal
+@@ -40,7 +48,7 @@
+ APNS_ENVIRONMENT=sandbox
+ APNS_TEAM_ID=...
+ APNS_KEY_ID=...
+-APNS_BUNDLE_ID=...
++APNS_BUNDLE_ID=dev.blackcrab.remote
+ APNS_PRIVATE_KEY=...
+ 
+ # Optional: Android push. Set this secret to the service account JSON from

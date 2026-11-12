@@ -116,20 +116,30 @@ test('configuration, published plugin lock, and original source graph fail close
 
 test('owned dynamic Expo configuration preserves compiler enablement without executing any upstream config', async () => {
   const vm = await import('node:vm');
-  const module = { exports: {} }, calls = [];
+  const { default: ownedCloud } = await import('./activation/adapters/owned-cloud-config.cjs');
   const config = JSON.parse(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.json'))).expo;
-  vm.runInNewContext(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.config.js'), 'utf8'), {
-    module, __dirname: path.join(repoRoot, 'apps/mobile'), process: { env: {}, execPath: process.execPath },
-    require(name) {
-      if (name === 'node:path') return path;
-      if (name === 'node:child_process') return { execFileSync: (...args) => calls.push(args) };
-      throw new Error('Unexpected dynamic configuration dependency: ' + name);
-    },
-  });
-  const effective = module.exports({ config });
-  assert.equal(effective.experiments.reactCompiler, true);
-  assert.equal(effective.experiments.typedRoutes, config.experiments.typedRoutes);
-  assert.equal(effective.ios.bundleIdentifier, config.ios.bundleIdentifier);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0][1][1], '--ui-only');
+  for (const configured of [false, true]) {
+    const module = { exports: {} }, calls = [];
+    const env = configured ? {
+      BLACKCRAB_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only',
+      BLACKCRAB_CLERK_JWT_TEMPLATE: 'blackcrab-relay',
+      BLACKCRAB_RELAY_URL: 'https://relay.example.test',
+    } : {};
+    vm.runInNewContext(fs.readFileSync(path.join(repoRoot, 'apps/mobile/app.config.js'), 'utf8'), {
+      module, __dirname: path.join(repoRoot, 'apps/mobile'), process: { env, execPath: process.execPath },
+      require(name) {
+        if (name === 'node:path') return path;
+        if (name === 'node:child_process') return { execFileSync: (...args) => calls.push(args) };
+        if (name === '../../mobile-experience/activation/adapters/owned-cloud-config.cjs') return ownedCloud;
+        throw new Error('Unexpected dynamic configuration dependency: ' + name);
+      },
+    });
+    const effective = module.exports({ config });
+    assert.equal(effective.experiments.reactCompiler, true);
+    assert.equal(effective.experiments.typedRoutes, config.experiments.typedRoutes);
+    assert.equal(effective.ios.bundleIdentifier, config.ios.bundleIdentifier);
+    assert.equal(effective.extra.managedNativeFeatures.cloudConfigured, configured);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][1][1], '--ui-only');
+  }
 });

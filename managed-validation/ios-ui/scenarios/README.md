@@ -42,3 +42,11 @@ scenario's diagnostics navigation does not repair or certify that summary row.
 The accepted native result is recorded in
 [`current-service-revocation-result.json`](../current-service-revocation-result.json),
 with six official UI passes and two reviewed pairing canaries.
+
+`service-connection-accessibility.swift` repeats the revocation/re-pairing scenario
+on the rebuilt app and requires the main environment row's native accessibility
+value to expose Connected, the authentication diagnosis, and Connected again.
+Its matching observer is `service-connection-accessibility-observer.test.ts.template`.
+See [native accessibility acceptance](../current-service-accessibility-result.json).
+These assertions inspect native accessibility values; spoken VoiceOver and
+physical-device coverage remain separate.

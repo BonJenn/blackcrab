@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {lifecycleChecks,validateAcceptance,validateReleaseInputs} from './release-inputs.mjs';
+import {lifecycleChecks,ownerTestingAuthorization,validateAcceptance,validateReleaseInputs} from './release-inputs.mjs';
 const options={revision:'a'.repeat(40),tag:'v0.4.0',version:'0.4.0',identity:'Developer ID Application: Example (ABCDEFGHIJ)',teamId:'ABCDEFGHIJ'};
 const acceptance={schema:1,state:'PASSED',sourceRevision:options.revision,checks:Object.fromEntries(lifecycleChecks.map(key=>[key,true]))};
+test('explicit owner testing is source-bound, limited to 0.4.0, and never records passing checks',()=>{
+ const value={schema:1,state:'OWNER_TESTING_AUTHORIZED',sourceRevision:options.revision,tag:options.tag,authorization:ownerTestingAuthorization,deferredChecks:[...lifecycleChecks]};
+ assert.equal(validateAcceptance(value,options.revision,options),'OWNER_TESTING_AUTHORIZED');
+ for(const mutation of [{schema:2},{sourceRevision:'b'.repeat(40)},{tag:'v0.5.0'},{authorization:null},{checks:acceptance.checks},{deferredChecks:[]},{deferredChecks:lifecycleChecks.slice(1)}])assert.throws(()=>validateAcceptance({...value,...mutation},options.revision,options));
+ for(const context of [{},{...options,tag:'v0.5.0',version:'0.5.0'},{...options,version:'0.3.0'}])assert.throws(()=>validateAcceptance(value,options.revision,context));
+});
 test('release preparation rejects blocked, partial or stale native lifecycle evidence',()=>{
  validateAcceptance(acceptance,options.revision);
  for(const value of [{...acceptance,state:'CAPTURE_BLOCKED'},{...acceptance,sourceRevision:'b'.repeat(40)},...lifecycleChecks.map(key=>({...acceptance,checks:{...acceptance.checks,[key]:false}}))])assert.throws(()=>validateAcceptance(value,options.revision));

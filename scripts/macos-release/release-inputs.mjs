@@ -16,11 +16,25 @@ export const lifecycleChecks = Object.freeze([
   'reopenPreservesIdentityAndCatalog', 'restartReconnects', 'stopStartReconnects', 'cleanup',
 ]);
 
-export function validateAcceptance(value, revision) {
+export const ownerTestingAuthorization = 'publish the mac release and ill test it myself. this will be version 0.4';
+
+export function validateAcceptance(value, revision, {tag, version} = {}) {
+  // Explicit owner instruction for this release only. This records deferred
+  // manual tests; it must never manufacture a PASSED lifecycle report.
+  if (value?.state === 'OWNER_TESTING_AUTHORIZED') {
+    if (value.schema !== 1 || value.sourceRevision !== revision ||
+        tag !== 'v0.4.0' || version !== '0.4.0' || value.tag !== tag ||
+        value.authorization !== ownerTestingAuthorization || value.checks !== undefined ||
+        JSON.stringify(value.deferredChecks) !== JSON.stringify(lifecycleChecks)) {
+      throw Error('Owner testing authorization must match the explicit v0.4.0 release and source');
+    }
+    return value.state;
+  }
   if (value?.schema !== 1 || value.state !== 'PASSED' || value.sourceRevision !== revision ||
       lifecycleChecks.some(key => value.checks?.[key] !== true)) {
     throw Error('Completed native lifecycle acceptance for this exact source revision is required');
   }
+  return value.state;
 }
 
 export function validateReleaseInputs(value, {revision, tag, version, identity, teamId}) {
@@ -53,7 +67,7 @@ async function validateDirectory(root, options) {
   validateReleaseInputs(inputs, options);
   const acceptance = path.join(root, 'native-acceptance.json');
   if (await fileDigest(acceptance) !== inputs.acceptanceSha256) throw Error('Native acceptance record differs');
-  validateAcceptance(await json(acceptance), options.revision);
+  validateAcceptance(await json(acceptance), options.revision, options);
   const desktop = path.join(root, 'desktop'), serviceHost = path.join(root, 'service-host');
   if (await fileDigest(path.join(desktop, MANIFEST)) !== inputs.desktopManifestSha256 ||
       await fileDigest(path.join(serviceHost, MANIFEST_FILE)) !== inputs.serviceHostManifestSha256) throw Error('Release payload manifest differs');
@@ -61,10 +75,10 @@ async function validateDirectory(root, options) {
   return inputs;
 }
 
-/** Prepare only after real UI acceptance. Keep the source artifacts and evidence immutable. */
+/** Preserve real acceptance or the release-specific owner instruction without conflating them. */
 export async function packReleaseInputs({desktop, serviceHost, acceptance, output, tag}) {
   const options = await sourceOptions(tag);
-  validateAcceptance(await json(acceptance), options.revision);
+  const acceptanceState = validateAcceptance(await json(acceptance), options.revision, options);
   await verifyManagedReleasePayloads({desktop, serviceHost, ...options});
   const stage = await fs.mkdtemp(path.join(path.dirname(path.resolve(output)), '.blackcrab-release-inputs-'));
   await fs.chmod(stage, 0o700);
@@ -88,7 +102,7 @@ export async function packReleaseInputs({desktop, serviceHost, acceptance, outpu
   const digest=await fileDigest(output);
   if(digest!==await fileDigest(archive))throw Error('Published release-input copy differs');
   await fs.rm(stage,{recursive:true});
-  return {state:'ACCEPTED_RELEASE_INPUTS_PREPARED',sha256:digest,output:path.resolve(output),sourceRevision:options.revision};
+  return {state:acceptanceState === 'PASSED' ? 'ACCEPTED_RELEASE_INPUTS_PREPARED' : 'OWNER_TEST_RELEASE_INPUTS_PREPARED',sha256:digest,output:path.resolve(output),sourceRevision:options.revision};
 }
 
 /** The workflow supplies the reviewed archive hash independently of the download. */

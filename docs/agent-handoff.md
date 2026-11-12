@@ -1,6 +1,92 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — 2026-11-12 21:24 UTC
+## Current continuation checkpoint — Mac 0.4.0 publication
+
+This checkpoint supersedes the older native-capture merge/publication hold below.
+The owner explicitly said: “publish the mac release and ill test it myself. this
+will be version 0.4”, followed by “go through the workflow of publishing it through
+the website too and updating the blog and release notes and all that”. Version is
+0.4.0 / v0.4.0. No further publication approval is needed. The owner will perform
+manual Mac UI, service lifecycle and upgrade-retention tests after publication.
+Do not claim those tests passed or that full parity is complete. Signing,
+notarization, payload integrity and updater cryptography still require verification.
+
+P = `/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes`.
+R = `P/desktop-delivery-m6ki1jlt`; desktop source = `R/source`, branch
+`parity/desktop-delivery-integration`, PR #265 targeting stage. Previous head
+45479589bb742297c01084fe2f2833935b33f01e passed all nine checks, with no reviews
+or comments. The 0.4.0 release revision is being committed on this branch; read
+`R/integration-pr.json` for its exact current head and checks before merging.
+Stage currently includes #266 at 49bedbd8196575ee0b1280c9d80803657b29159b.
+
+REL = `P/mac-release-040-v2llrqsa`; website checkout = `REL/website`, repository
+BonJenn/blackcrab-landing, branch `release/0.4.0-website` targeting main. Read
+`REL/plan.json` for PRs, release/build identifiers and live publication state.
+Vercel project blackcrab-landing / team bonjenns-projects serves www.blackcrab.app;
+app.blackcrab.app is the separate hosted agent application. Do not confuse them.
+
+### Prepared release and website changes
+
+- Root package/lock, Tauri config and Cargo manifest/lock are version 0.4.0;
+  bundle identity and updater public key remain unchanged.
+- release-inputs.mjs accepts OWNER_TESTING_AUTHORIZED only for this exact tag,
+  version, source SHA and recorded owner instruction, with all eight deferred
+  lifecycle checks and no passing-checks object. Never manufacture PASSED.
+- Managed release workflow now downloads the actual latest.json asset written
+  by tauri-action before verifying it; that action does not leave a local copy.
+- Portable release/resource suite: 24 passed, three explicitly opt-in skips.
+  Actionlint 1.7.12 passes. New version changes do not alter signed inner payloads.
+- GitHub release notes: docs/releases/v0.4.0.md. Website blog copy is mirrored in
+  docs/blog/2026-11-12-blackcrab-0.4.0.md. Website blog/changelog/home/docs/releases
+  identify Apple-silicon scope and outstanding manual/remote acceptance.
+- Website download resolver preserves older stable Windows/Linux installers when
+  latest is Mac-only. Three behavior tests pass. Production build and scoped
+  ESLint passed; a standalone TypeScript test-import issue was corrected by
+  using a .mjs Node test. Final validation logs/results live under REL.
+
+### Next actions, in order
+
+1. Finish local review, commit/push #265, link it immediately and mark ready;
+   wait for required CI before merging to stage. Prepare the website PR too, but
+   do not deploy its announcement before the real Mac artifacts are public.
+2. Use clean committed merged stage source to create the exact source-bound
+   OWNER_TESTING_AUTHORIZED record exported by release-inputs.mjs. Pack the
+   existing notarized payloads; do not rebuild unchanged inner source blindly.
+3. Create draft v0.4.0 targeting that source and upload blackcrab-managed-payloads.zip.
+   Dispatch release.yml managed-apple-silicon with tag and independently recorded
+   payload SHA256. Do not use the legacy root-only release mode.
+4. Verify the actual signed/stapled/notarized outer app and DMG, embedded payload
+   pins, updater archive and signature against the existing public key. Publish
+   v0.4.0 stable/latest after these artifact checks. Owner manual tests follow.
+5. Merge/deploy the website PR to the existing Vercel project; verify homepage,
+   blog, changelog, releases and Mac download target in the shared preview, plus
+   previous Windows/Linux links. Record release URL, deployment SHA and results.
+
+The final notarized payload directory is:
+`/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads`
+with desktop and service-host children. Desktop manifest SHA256
+fc1b886bb81e682f23106e2db3fbede4c45329d353d480805fe38cd4febbdd12;
+host manifest SHA256 c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83.
+Developer ID Jonathan Benn, team YF28W3NGG6. Apple's Accepted submission
+2958751f-0bbd-4d03-bc20-e805a52acfc2 covers all 37 native CDHashes. Signed
+archive roundtrip, stapling and Gatekeeper evidence are in R/notary-ticket-audit.json
+and R/notarized-resource-roundtrip.json. Existing GitHub signing secrets are used
+only by their intended workflow; never attempt to export the updater private key.
+
+As of preparation, no final outer installer/updater is published and no normal
+app has been installed at /Applications/Blackcrab.app by this work. No owned native
+app/host/simulator is running. Final short website validation commands are tracked
+in REL/plan.json; prior untracked command output was recovered from completed logs.
+Never adopt a discovered PID as an owned process. Preserve the main dirty checkout
+and index (last SHA256 eea7b021ea64188388c96b9e68693e9bbfbe10ecc682f9717c98ec7450c3155a).
+
+Mobile: #266 is merged and unwatched. TestFlight 1.0.0 (4) is already VALID /
+IN_BETA_TESTING for the owner; do not reupload it. The newer branded Hermes export
+is prepared, runtime-matched and NOT published. Installed OTA retention, remote
+and APNs validation remain separate ongoing work; Mac publication is not full
+parity acceptance. The historical sections retain their exact evidence below.
+
+## Historical checkpoint before owner publication instruction — 2026-11-12 21:24 UTC
 
 This section supersedes historical live-state claims below. The owner prioritizes
 background-service integration and a signed update for an existing Blackcrab app

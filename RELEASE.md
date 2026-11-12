@@ -1,8 +1,24 @@
 # Release Process
 
-Blackcrab publishes installers with GitHub Releases. The release workflow builds
-macOS, Windows, and Linux artifacts, uploads them to a draft release, and
-generates Tauri updater artifacts plus `latest.json`.
+The current managed Mac workflow is documented in
+[scripts/macos-release/README.md](scripts/macos-release/README.md). It packages
+both the full desktop and background service for Apple-silicon Macs, preserving
+the existing app identity and updater key. Dispatch `release.yml` explicitly;
+pushing a tag alone does not start it. Do not use the legacy root-only matrix for
+this release. Keep draft artifacts private until signatures, notarization,
+embedded resources and updater cryptography have been verified.
+
+For **v0.4.0**, the owner authorized publishing before their manual UI/upgrade
+test. Record the release-specific `OWNER_TESTING_AUTHORIZED` instruction instead
+of inventing a passing acceptance report. After publishing the verified GitHub
+release, update `BonJenn/blackcrab-landing` with the matching blog, changelog and
+Apple-silicon download copy. Verify the live `/download/macos`, `/releases`,
+`/changelog` and blog page. Older Intel/Windows/Linux downloads must be clearly
+identified as previous versions. Do not claim iOS App Store availability or full
+remote end-to-end validation from this Mac release.
+
+The historical checklist below also describes the legacy builds; the managed
+release instructions above take precedence.
 
 ## Versioning
 
@@ -33,6 +49,7 @@ release notes.
    - `package.json`
    - `package-lock.json`
    - `src-tauri/Cargo.toml`
+   - `src-tauri/Cargo.lock`
    - `src-tauri/tauri.conf.json`
 
 4. Update `ROADMAP.md` if priorities changed.

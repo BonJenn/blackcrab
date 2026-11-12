@@ -268,9 +268,15 @@ jobs:
         if: matrix.managed
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          node scripts/macos-release/verify-update-manifest.mjs latest.json \
+          set -euo pipefail
+          metadata_dir="$RUNNER_TEMP/blackcrab-updater-metadata"
+          mkdir "$metadata_dir"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern latest.json --dir "$metadata_dir"
+          node scripts/macos-release/verify-update-manifest.mjs "$metadata_dir/latest.json" \
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Blackcrab.app.tar.gz.sig "$RELEASE_TAG"
 
       - name: Notarize and re-upload macOS DMGs

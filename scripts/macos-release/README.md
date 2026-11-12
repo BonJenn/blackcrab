@@ -4,7 +4,15 @@ This path packages the original Tauri shell, the full Electron workspace and the
 background-service host for an M-series Mac. It preserves the existing
 `com.bonjenn.blackcrab` identity and updater public key. It is not an Intel build.
 
-1. Complete native lifecycle acceptance for the reviewed source. Record schema 1,
+For v0.4.0, the owner explicitly requested publication and will perform the
+manual Mac UI and upgrade tests afterward. Use a source-bound record with
+`state: "OWNER_TESTING_AUTHORIZED"`, `tag: "v0.4.0"`, the exact owner instruction
+exported as `ownerTestingAuthorization`, and `deferredChecks: lifecycleChecks`.
+Do not add a `checks` object or claim these tests passed. The exception applies
+only to this release; signatures, notarization, payload and updater verification
+remain required. Website downloads, release notes and the blog are also authorized.
+
+1. Normally complete native lifecycle acceptance for the reviewed source. Record schema 1,
    `state: "PASSED"`, its exact `sourceRevision`, and true checks for `firstLaunch`,
    `enableService`, `openAndReuseDesktop`, `quitPreservesHost`,
    `reopenPreservesIdentityAndCatalog`, `restartReconnects`,
@@ -22,7 +30,7 @@ background-service host for an M-series Mac. It preserves the existing
    identity/team and run `release-inputs.mjs --mode pack --desktop <notarized-desktop>
    --service-host <notarized-service-host> --acceptance <native-acceptance.json>
    --output <outside-checkout>/blackcrab-managed-payloads.zip --tag v<version>`.
-   This refuses absent/stale lifecycle evidence or non-notarized payloads. Retain
+   This refuses absent/stale acceptance or owner authorization and non-notarized payloads. Retain
    its SHA-256. Create a **draft** release targeting that exact commit, and upload
    the archive under this fixed name.
 5. Dispatch the existing `release.yml` at the same stage revision, with
@@ -36,7 +44,8 @@ background-service host for an M-series Mac. It preserves the existing
    archive hashes; extract the updater archive and verify the same payloads.
    Validate the updater signature against the existing public key. Test normal
    installation and update from the old app with retained settings/catalog,
-   service restart and remote reconnect. Publish only after those checks pass.
+   service restart and remote reconnect. For v0.4.0 the owner performs the installation/UI tests after publication;
+   complete the artifact and cryptographic checks before publication.
    Do not add old Intel/Linux/Windows URLs to a new arm64-only updater manifest.
 
 `verify-update-manifest.mjs` rejects stale platform entries, wrong release URLs
@@ -45,8 +54,10 @@ or an actual installation/update test. Private keys are never exported from
 GitHub. Build receipts and UI gates are separate from notarization.
 
 As of the current handoff, inner signing/notarization and the real payload
-archive roundtrip passed. Native Root capture is blocked while the owner is away.
-The new workflow has portable validation but has not produced a final release.
+archive roundtrip passed. Native Root capture remains unavailable, and the owner
+explicitly authorized v0.4.0 publication before their manual tests. The new
+workflow has portable validation but has not produced a final release. See the
+current handoff for publication state; do not infer it from prepared notes.
 
 References: [Tauri updater](https://v2.tauri.app/plugin/updater/),
 [Tauri action](https://github.com/tauri-apps/tauri-action/tree/v0.6.2),

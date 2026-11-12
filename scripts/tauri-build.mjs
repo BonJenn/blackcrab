@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { parseManagedResourceArgs, prepareManagedNativeResources } from "./managed-native-resources.mjs";
 import { verifyManagedReleasePayloads } from "./macos-release/verify-payloads.mjs";
+import { checkTauriVersions } from "./check-tauri-versions.mjs";
 
 const managed = parseManagedResourceArgs(process.argv.slice(2));
 const rawArgs = managed.args;
@@ -155,6 +156,8 @@ function createLocalDmg() {
     });
   });
 }
+
+await checkTauriVersions();
 
 if (mode === "signed") {
   await verifyManagedReleasePayloads({

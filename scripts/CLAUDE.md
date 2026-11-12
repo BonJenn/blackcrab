@@ -36,3 +36,13 @@ Run focused tests for real argument/provenance/lifecycle changes. Keep reports
 explicit about prepared/built/launched/signed/uploaded/processed/installed.
 Do not emit secret values even on errors. Validate release inputs before
 performing external publication or replacing the user's installed application.
+
+
+## Tauri release compatibility
+
+Keep the root @tauri-apps/api and plugin npm versions on the same major/minor
+lines as their Rust crates in src-tauri/Cargo.lock. These npm dependencies are
+exact-pinned after broad caret ranges drifted and blocked the 0.4.0 native release.
+Run npm run check:tauri-versions when either lockfile changes. The guard runs in
+CI and before release payload processing; do not disable Tauri's version check.
+Change npm/Rust pairs together when upgrading, and validate actual native packaging.

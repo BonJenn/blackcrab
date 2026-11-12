@@ -113,3 +113,13 @@ and source, never PASSED. The owner will perform UI/lifecycle and upgrade testin
 after publication. Keep signing, notarization, payload integrity and updater
 signature checks. Publish the verified Apple-silicon release and then update the
 website to its real downloads. No additional publication confirmation is needed.
+
+
+## Tauri release compatibility
+
+Keep the root @tauri-apps/api and plugin npm versions on the same major/minor
+lines as their Rust crates in src-tauri/Cargo.lock. These npm dependencies are
+exact-pinned after broad caret ranges drifted and blocked the 0.4.0 native release.
+Run npm run check:tauri-versions when either lockfile changes. The guard runs in
+CI and before release payload processing; do not disable Tauri's version check.
+Change npm/Rust pairs together when upgrading, and validate actual native packaging.

@@ -36,6 +36,34 @@ by Blackcrab. Builds without cloud configuration leave that capability disabled.
 Apple signing/provisioning and the relay's Blackcrab APNs credentials are still
 required for delivery; this build setting alone does not prove push delivery.
 
+## Native account readiness
+
+Enable **Native API** for the exact Blackcrab production instance in
+[Clerk → Native applications](https://dashboard.clerk.com/~/native-applications).
+Clerk requires this for native clients, independently of browser sign-in and the
+JWT template. See the [Expo setup](https://clerk.com/docs/expo/getting-started/quickstart).
+A successful ordinary `/v1/environment` browser response does not establish this
+setting: the same endpoint with `_is_native=1` can return `native_api_disabled`.
+
+Before a cloud-enabled mobile release, run the read-only check with the existing
+public `BLACKCRAB_CLERK_PUBLISHABLE_KEY` in its environment:
+
+```sh
+node mobile-experience/activation/native-account-preflight.mjs
+```
+
+It uses the same native request marker and mobile headers as the pinned Expo SDK,
+bounds the request to ten seconds, and reports only a public hostname, HTTP status
+and fixed failure category. It sends no user credentials and never signs in.
+An enabled native environment is a prerequisite, not proof of successful login,
+relay discovery or remote agent control.
+
+The account and Connect sign-in entries remain tappable while Clerk initializes.
+After fifteen seconds, an unfinished connection shows an actionable unavailable
+state instead of an indefinitely disabled Checking row or a blank auth page.
+If Clerk later loads, its existing sign-in/profile view appears normally. Recovery
+does not replace the provider or clear account, pairing, draft or outbox storage.
+
 ## Deployment and acceptance still required
 
 The relay must implement the pinned managed-relay API. The older legacy WebSocket

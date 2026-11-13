@@ -137,8 +137,27 @@ mobile_app_name_files = {
  'src/features/agent-awareness/remoteRegistration.ts',
  'src/features/diagnostics/crash-log-model.ts',
 }
+account_recovery = {
+ 'src/features/settings/SettingsRouteScreen.tsx': [
+  ('import { useAuth, useUser } from "@clerk/expo";', 'import { useAuth, useUser } from "@clerk/expo";\nimport { useAccountConnectionStatus } from "../cloud/AccountConnectionStatus";', 1),
+  ('  const accountLabel = !isLoaded\n    ? "Checking"', '  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const accountLabel = !isLoaded\n    ? (accountConnectionStatus === "unavailable" ? "Unavailable" : "Connecting…")', 1),
+  ('          disabled: !isLoaded,\n', '', 1),
+ ],
+ 'src/features/settings/SettingsAuthRouteScreen.tsx': [
+  ('import { hasCloudPublicConfig } from "../cloud/publicConfig";', 'import { hasCloudPublicConfig } from "../cloud/publicConfig";\nimport { AccountConnectionPending, useAccountConnectionStatus } from "../cloud/AccountConnectionStatus";', 1),
+  ('  const navigation = useNavigation();', '  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const navigation = useNavigation();', 1),
+  ('      ) : null}', '      ) : <AccountConnectionPending status={accountConnectionStatus === "unavailable" ? "unavailable" : "loading"} onBack={handleHostBack} />}', 1),
+ ],
+ 'src/features/connection/ConnectionsNewRouteScreen.tsx': [
+  ('          disabled={!isLoaded}\n', '', 1),
+  ('const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 'const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 1),
+ ],
+}
 for p in brand_files:
- text=(src/p).read_text(); replacements=[]
+ text=(src/p).read_text(); replacements=account_recovery.get(p, []).copy()
+ for before,after,count in replacements:
+  assert text.count(before)==count,(p,before,text.count(before),count)
+  text=text.replace(before,after)
  for before,after in [
   ('T3 Connect','Blackcrab Connect'),
   ('T3 Account','Blackcrab Account'),
@@ -167,5 +186,6 @@ export function activateFullNativeUI(verifyExclusiveOwnership:()=>void|Promise<v
 '''
 (root/'adapters/OwnedActivation.ts').write_text(entry)
 additions=[{'path':'src/connection/owned-catalog-state.ts','template':'catalog-state.ts','sha256':sha((root/'catalog-state.ts').read_bytes())}]
+additions.append({'path':'src/features/cloud/AccountConnectionStatus.tsx','template':'adapters/AccountConnectionStatus.tsx','sha256':sha((root/'adapters/AccountConnectionStatus.tsx').read_bytes())})
 (root/'registry.json').write_text(json.dumps({'schema':1,'kind':'blackcrab-full-mobile-ui-owned-adapters','generatorSha256':sha((root/'generator.mjs').read_bytes()),'upstreamCommit':'7f02de2eb8e253e0ec23f005b3cfff8e2c963be8','adapters':records,'additions':additions,'rootAdditions':[{'path':'owned-cloud-config.cjs','template':'adapters/owned-cloud-config.cjs','sha256':sha((root/'adapters/owned-cloud-config.cjs').read_bytes())},{'path':'owned-cloud-config.d.cts','template':'adapters/owned-cloud-config.d.cts','sha256':sha((root/'adapters/owned-cloud-config.d.cts').read_bytes())},{'path':'owned-root-lifecycle.mjs','template':'adapters/owned-root-lifecycle.mjs','sha256':sha((root/'adapters/owned-root-lifecycle.mjs').read_bytes())},{'path':'owned-root-lifecycle.d.mts','template':'adapters/owned-root-lifecycle.d.mts','sha256':sha((root/'adapters/owned-root-lifecycle.d.mts').read_bytes())},{'path':'OwnedActivation.ts','template':'adapters/OwnedActivation.ts','sha256':sha((root/'adapters/OwnedActivation.ts').read_bytes())},{'path':'owned-activation-owner.mjs','template':'owner.mjs','sha256':sha((root/'owner.mjs').read_bytes())},{'path':'owned-activation-owner.d.mts','template':'owner.d.mts','sha256':sha((root/'owner.d.mts').read_bytes())}], 'handoff':{'readyForMount':False,'sourceIntegrated':True,'nativeValidationPending':True,'owner':'process-lifetime; one original foundation/connection registry','requiredBeforeImport':['Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.','On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.','Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.','Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.','Restart process after foundation changes; no retry after partial module-install failure.'],'identity':{'name':'Blackcrab Remote','scheme':'blackcrab-remote','iosBundleIdentifier':'dev.blackcrab.remote','upstreamCloudEnabled':False,'ownedCloudConfiguration':'explicit BLACKCRAB public build variables; no inherited upstream account or relay','upstreamOTAEnabled':False,'ownedOTAConfiguration':'explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration'},'serviceLifetime':{'moduleAppInitializers':['SplashScreen.preventAutoHideAsync','hydrateWorkspaceSelections','installUiRuntimeMemoryWarningGc','subscribeComposerDraftModelReconciliation','installAppearanceRuntime','installSubscriptionUsageRefresh','installPermissionUpdateNotice','installThreadOutboxDelivery','installComposerAttachmentUploads','startIncomingShareInbox','installAgentNotificationNavigation','installAppShortcuts','installAppUpdateChecks (owned native configuration)','installShowcaseCapture (owned disabled)'],'foundations':['lib/runtime.runtime','connection/runtime.connectionAtomRuntime','state/atom-registry.appAtomRegistry','derived Atom runtimes sharing Runtime.layer']}}},indent=2)+'\n')
 print('Pinned adapters',len(records))

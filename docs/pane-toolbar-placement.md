@@ -24,10 +24,10 @@ and pane source. All six panes' move/close centers hit their own buttons with
 panels open and closed; the top-right close click reached its intended handler.
 The same required CI browser step now includes these cases. Evidence lives at
 REL/imported-task-notifications-validation. Local test/build processes completed.
-This branch is stacked on fix/imported-task-notifications to keep their registry
-and guide updates together; merge the notification PR first, then retarget this
-PR to stage and verify its current checks/base. Do not squash into a feature branch
-and mistake that for stage integration.
+The notification parent PR284 merged to stage at cc54beb2335cf3b414e62504110299399a36a238
+with all nine checks passing. PR285 is now retargeted to stage and includes that
+stage commit, including PR283's Mac permission attribution. Await CI on this
+combined head before merging; the old feature-parent check run is superseded.
 
 The parent CI correction pins the browser job to Ubuntu 24.04 for the frozen
 Playwright 1.60 graph. This child separately pins its complete 346-record desktop
@@ -38,5 +38,5 @@ predecessors still match the prepared actual source; no identity fixture or
 service build freeze changed. Review evidence:
 REL/imported-task-notifications-validation/ci-registry-review-pane-toolbar-placement.json.
 The corrected recipe plus all managed desktop/cloud Node suites pass on this
-combined branch: 104 tests, zero failures or skips. CI must validate the corrected
-Linux browser installation before either UI PR merges.
+combined branch: 104 tests, zero failures or skips. PR284 CI also passed the corrected Linux browser installation and notification
+regressions. PR285 must pass its own required checks on the combined stage base.

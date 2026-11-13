@@ -72,3 +72,12 @@ PR277–279 are merged at 1140889d5a6730d336b6f1a16347d2d1d33ca82c. Source types
 browser picker/pane tests pass. Do not restore shared pane composer ownership or
 upstream displayed version/copy. Read the live delivery plan and current handoff
 for the rebuilt artifact and native acceptance; source integration is not delivery.
+
+## Imported monitor notifications
+
+Historical server imports can label Claude monitor envelopes as user messages.
+Keep importedTaskNotification presentation restricted to the known complete
+format and imported provenance. Never filter arbitrary pasted XML, mutate history
+or interpret notification text as a command. Preserve expandable raw text and
+ordinary guest/scheduled attribution. Run the original timeline browser regression
+as well as focused parser/source tests; test fixtures contain synthetic content.

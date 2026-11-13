@@ -502,12 +502,22 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "          disabled={!isLoaded}\n",
+          "after": "",
+          "count": 1
+        },
+        {
+          "before": "const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });",
+          "after": "const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });",
+          "count": 1
+        },
+        {
           "before": "T3 Connect",
           "after": "Blackcrab Connect",
           "count": 1
         }
       ],
-      "afterSha256": "3f2520c5c5d32b6ba22498199035e9f0067538fbdf09e79dbb36757c75848538"
+      "afterSha256": "22b6c6f484e20ea49c510cbfe7f5689389990e3b7642818f33042856ea7d9428"
     },
     {
       "path": "src/features/connection/CloudEnvironmentRows.tsx",
@@ -559,12 +569,27 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import { useAuth, useUser } from \"@clerk/expo\";",
+          "after": "import { useAuth, useUser } from \"@clerk/expo\";\nimport { useAccountConnectionStatus } from \"../cloud/AccountConnectionStatus\";",
+          "count": 1
+        },
+        {
+          "before": "  const accountLabel = !isLoaded\n    ? \"Checking\"",
+          "after": "  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const accountLabel = !isLoaded\n    ? (accountConnectionStatus === \"unavailable\" ? \"Unavailable\" : \"Connecting\u2026\")",
+          "count": 1
+        },
+        {
+          "before": "          disabled: !isLoaded,\n",
+          "after": "",
+          "count": 1
+        },
+        {
           "before": "T3 Account",
           "after": "Blackcrab Account",
           "count": 1
         }
       ],
-      "afterSha256": "faa3791459ad312f0ae3f4198e4d4a334aabc405b0410758866f23bb33d8813b"
+      "afterSha256": "0c52de5a3d4c2599b1ef5426eb10bc3947e4cb68851f3baf32e4647c98ba21e0"
     },
     {
       "path": "src/features/settings/SettingsAuthRouteScreen.tsx",
@@ -572,12 +597,27 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import { hasCloudPublicConfig } from \"../cloud/publicConfig\";",
+          "after": "import { hasCloudPublicConfig } from \"../cloud/publicConfig\";\nimport { AccountConnectionPending, useAccountConnectionStatus } from \"../cloud/AccountConnectionStatus\";",
+          "count": 1
+        },
+        {
+          "before": "  const navigation = useNavigation();",
+          "after": "  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const navigation = useNavigation();",
+          "count": 1
+        },
+        {
+          "before": "      ) : null}",
+          "after": "      ) : <AccountConnectionPending status={accountConnectionStatus === \"unavailable\" ? \"unavailable\" : \"loading\"} onBack={handleHostBack} />}",
+          "count": 1
+        },
+        {
           "before": "T3 Connect",
           "after": "Blackcrab Connect",
           "count": 2
         }
       ],
-      "afterSha256": "d86e482296028713e6cab2deeed961640fe32795ce35f992f75e35071aa42fc6"
+      "afterSha256": "10c5c2edd4e3e057928cea1e930b81b061b06c11cc7c18c9ec5616df799966f9"
     },
     {
       "path": "src/features/settings/VoiceModelSection.tsx",
@@ -876,6 +916,11 @@
       "path": "src/connection/owned-catalog-state.ts",
       "template": "catalog-state.ts",
       "sha256": "a76a34fa0c3d1a9f0247481ac377eb1b393b178cd6b4442039cb0354ccdc2727"
+    },
+    {
+      "path": "src/features/cloud/AccountConnectionStatus.tsx",
+      "template": "adapters/AccountConnectionStatus.tsx",
+      "sha256": "b0428e3587e2333bbbb574601cc582d45570b798bf0a9153bb6fca35af2e5c31"
     }
   ],
   "rootAdditions": [

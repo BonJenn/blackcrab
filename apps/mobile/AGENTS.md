@@ -53,3 +53,13 @@ Test retained storage, cold/foreground reconnect, revocation, switching hosts,
 queue recovery and keyboard behavior. Broader agent/workspace actions, genuine
 off-LAN access, APNs, physical-device behavior and TestFlight are still separate
 gates; older simulator proofs must not be relabeled as a current release pass.
+
+## Account loading and mobile delivery
+
+The production Clerk Native API must be enabled separately from browser auth.
+Run the read-only native-account-preflight before cloud-enabled distribution;
+HTTP 200 from the browser endpoint alone is insufficient. Preserve the actionable
+account loading/error screen and original account/storage owners. A branded
+Hermes export is not delivery: distinguish the installed TestFlight build from
+unpublished compatible OTA candidates. Keep runtime fingerprint and retention/
+reconnect acceptance when publishing updates.

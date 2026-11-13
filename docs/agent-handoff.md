@@ -1,5 +1,48 @@
 # Blackcrab parity and release handoff
 
+## Current checkpoint — 2026-11-13: mobile account stuck on Checking
+
+The owner reports “T3 Account / Checking” greyed out in TestFlight. The exact
+production Clerk native request returned HTTP400 / native_api_disabled, while
+ordinary browser environment requests return200. This is a verified account
+configuration blocker, not a guessed connectivity problem. The owner was asked
+to enable Native API; their direct Clerk login did not show the app. Vercel CLI
+confirmed a marketplace installation owned by bonjenns-projects (team
+team_lnU3T6uVH1qWNsPuzZyybRUr), installation icfg_StWkesT4wBqXQ6OUUeYWynJ7,
+resource blackcrab / app_3Lxx0HOT2YePJBXeoWQl82HUFfh. Use
+`vercel integration open clerk blackcrab --scope team_lnU3T6uVH1qWNsPuzZyybRUr --format=json`
+to retrieve the correct SSO link. The connector's integration read lacked access;
+the existing CLI login succeeded. No fresh account or authorization is needed.
+The Clerk account email is not established. Do not create another application.
+
+Current worktree is P/mobile-account-recovery-e49g7nr9/source, branch
+fix/mobile-account-loading; P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Read its parent plan.json and validation logs for current revision/process state.
+The recorded activation adapter keeps the account/Connect entries tappable,
+replaces indefinite loading/blank auth with a bounded actionable message, and
+returns to the original Clerk sign-in/profile as soon as auth loads. No storage,
+provider identity, native dependency or authenticated command semantics change.
+The native-account-preflight is read-only and never prints credentials.
+
+Branding source changes from PR264/266 already merged, but their compatible
+Hermes export was NEVER PUBLISHED. TestFlight1.0.0(4) still contains older copy.
+Existing unpublished export: /private/tmp/blackcrab-ios-4AS02K/artifacts/shared-copy-export,
+runtime2cbb84d9fbdb180f1af5bfe3e049108c47d628cb. A new account-fix candidate must
+include both branding layers and use the same owned Expo production project;
+verify runtime compatibility and retained storage/reconnect before delivery.
+Do not describe source changes or an export as an update installed on the phone.
+
+The desktop0.4.4 request remains active: updater PR290 at e20672a773960580bc4757dcf9c3d449c6479f6e
+is linked/watched, waiting on required CI. Its worktree is
+P/mac-release-040-v2llrqsa/workspace-updates-044; read workspace-044-plan.json in its
+parent for details. Do not poll CI or restart the completed dependency preparation.
+Keep its pending handoff additions when integrating this branch. Mac0.4.3 and
+Windows/Linux0.3.0 remain public; native Windows/Linux packaging, three-platform
+0.4.4 publication and full two-computer+iOS Connect acceptance remain unfinished.
+WebsitePR17 is merged and verified. Preserve existing service manifest c04c4d44…
+and all user data. The finish line remains validated parity, a current normal Mac
+installation and an available, working TestFlight app, plus Windows/Linux delivery.
+
 ## Published Mac 0.4.3 — 2026-11-13
 
 Mac [v0.4.3](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.3) is public,

@@ -1,3 +1,26 @@
+Continue Blackcrab parity and the requested0.4.4 three-platform release.
+
+Read the latest docs/agent-handoff.md checkpoint first. Mobile account recovery is
+in P/mobile-account-recovery-e49g7nr9/source on fix/mobile-account-loading, with
+current processes/validation in its parent plan.json. P is
+/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Production Clerk native requests fail with native_api_disabled. The owner could
+not see the app in a direct Clerk login: it is the blackcrab Marketplace resource
+under their Vercel bonjenns-projects team. The handoff records the confirmed IDs
+and command for its SSO link. Verify Native API after their dashboard change;
+never create a duplicate application or ask again for existing credentials.
+The account row/recovery UI changes preserve storage and the original provider.
+The source branding fixes are merged but NOT delivered; TestFlight1.0.0(4) is old.
+Finish validation and compatible branded mobile delivery, then verify real sign-in
+and environment/session discovery. An exported bundle is not an installed update.
+
+Updater PR290 remains linked/watched. Do not poll its checks. Preserve that branch
+and its handoff additions on integration. Native Windows/Linux packages,0.4.4
+publication and actual Connect acceptance remain active. Do not claim full parity.
+
+---
+Historical delivery context follows; latest checkpoint takes precedence.
+
 Continue Blackcrab desktop/mobile parity and Windows/Linux delivery.
 
 First read AGENTS.md, docs/agent-handoff.md (the newest checkpoint),

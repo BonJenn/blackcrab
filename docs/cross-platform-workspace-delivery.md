@@ -36,3 +36,27 @@ existing 0.3.0 downloads are historical and do not satisfy this request.
 
 Keep the Mac follow-up (permissions, imported notifications and pane controls)
 separate from platform readiness. Preserve public 0.4.2 and existing user data.
+
+## Runtime input foundation — 2026-11-13
+
+`managed-desktop/targets.mjs` now defines exact darwin-arm64, win32-x64 and
+linux-x64 runtime inputs, Rust targets and package layouts. Hashes were read from
+Electron's official 44.10.1 SHASUMS256.txt (document digest 908e7b63…). The Windows
+and Linux ZIP downloads matched those hashes. Their actual electron.exe PE/x64
+and electron ELF/x64 headers passed inspection without execution; the existing
+Mac archive and Mach-O/arm64 executable passed the same input checks.
+
+The Mac producer consumes the descriptor and verifies the extracted native header.
+Its existing serialized Electron manifest fields are unchanged. Windows/Linux
+remain explicitly rejected as unimplemented producers; declaring a pinned input
+does not certify a bundle or enable Root launch. Next implement native extraction,
+layout, dependency closure and manifests, then the service/transport steps above.
+Do not set producerImplemented merely to bypass the native implementation gate.
+
+Local evidence (may be absent elsewhere): REL/cross-platform-target-inputs contains
+the official checksum document, download-verification.json, target-validation.json
+and focused/full Node regression logs (97 tests passed with zero skips). The first
+full run found a missing production-module fixture dependency; adding targets.mjs
+to that isolated fixture preserved its no-QA-dependency check. No Windows/Linux
+executable was launched,
+installer produced, service installed or platform download changed.

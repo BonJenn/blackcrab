@@ -60,6 +60,7 @@ pub(crate) enum ServiceAction {Status,Install,Start,Stop,Restart,Uninstall}
 #[serde(rename_all="camelCase")]
 pub(crate) struct ServiceStatus {
     state:&'static str,can_initialize:bool,installed:bool,loaded:bool,
+    permission_identity_restart_required:bool,
     #[serde(skip_serializing_if="Option::is_none")]
     error:Option<String>,
 }
@@ -230,7 +231,7 @@ impl ManagedHost {
         #[cfg(target_os="macos")]
         {service_control::control(self,action).await}
         #[cfg(not(target_os="macos"))]
-        {if action==ServiceAction::Status{Ok(ServiceStatus{state:"notAvailable",can_initialize:false,installed:false,loaded:false,error:None})}else{Err("Background-service controls are unavailable on this platform".into())}}
+        {if action==ServiceAction::Status{Ok(ServiceStatus{state:"notAvailable",can_initialize:false,installed:false,loaded:false,permission_identity_restart_required:false,error:None})}else{Err("Background-service controls are unavailable on this platform".into())}}
     }
     /// Explicit fresh service setup. No migration, process spawn or OS activation.
     pub(crate) async fn initialize_service(&self) -> Result<HostStatus, String> {

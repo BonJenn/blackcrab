@@ -241,12 +241,13 @@ jobs:
           if (result.error) throw result.error;
           process.exit(result.status ?? 1);
           JS
-      - name: test imported monitor presentation in Chromium
+      - name: test monitor presentation and pane controls in Chromium
         working-directory: ${{ steps.clients.outputs.source }}/apps/web
         run: >-
           node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run
           src/components/chat/MessagesTimeline.browser.test.tsx
-          --project browser --maxWorkers 1 -t 'imported monitor notifications'
+          src/components/panes/PaneToolbar.browser.test.tsx
+          --project browser --maxWorkers 1 -t 'imported monitor notifications|pane controls remain'
 
   managed-cloud-backend:
     name: cloud backend (pinned source + types + tests)

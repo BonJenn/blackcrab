@@ -30,6 +30,17 @@ TCC, interrupt existing agents or replace the retained host merely for branding.
 The separate host product-copy branch still needs a data-preserving manifest
 migration; it is not a prerequisite for adding LaunchAgent bundle association.
 
+Current integration: PR283 merged at ec746f13; PR284 merged at cc54beb2335cf3b414e62504110299399a36a238,
+both after nine passing checks and both unwatched. PR285 is now based on stage and
+includes cc54beb in REL/pane-toolbar-placement, branch fix/pane-toolbar-placement.
+Wait for its current combined-head CI, then merge to stage. Do not act on delayed
+checks for its old feature-parent base. Local 104-test desktop/cloud/QA suite and
+four actual browser cases passed; required CI validates the combined integration.
+All local processes have completed. Exact current head is in the live plan above.
+After merge, deliver a newly built/validated Mac update, then Windows/Linux full
+workspace packages; public 0.4.2 must remain immutable. The main-promotion release
+flow was discussed but not implemented; the existing release workflow is manual.
+
 Use one coherent PR per change, validate it and merge to stage. Keep AGENTS.md and
 CLAUDE.md identical within each changed directory. Preserve the dirty main checkout,
 provider ownership and public releases. Continue through validated desktop/mobile

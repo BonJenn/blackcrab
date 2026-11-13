@@ -84,3 +84,11 @@ format and imported provenance. Never filter arbitrary pasted XML, mutate histor
 or interpret notification text as a command. Preserve expandable raw text and
 ordinary guest/scheduled attribution. Run the original timeline browser regression
 as well as focused parser/source tests; test fixtures contain synthetic content.
+
+## Split-pane header controls
+
+Window-fixed panel controls must not be reused inside each pane. Closed-panel
+controls occupy the same header flow as move/close; open-panel controls are local
+to the owning pane. Preserve top-trailing native-caption insets and explicit
+no-drag hit regions. Check actual browser hit testing across top/bottom rows and
+open/closed panels; raising z-index alone merely reverses which button is blocked.

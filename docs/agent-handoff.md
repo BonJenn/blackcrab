@@ -1,6 +1,40 @@
 # Blackcrab parity and release handoff
 
-## Current follow-up — 2026-11-13: permission identity and imported notifications
+## Current follow-up — 2026-11-13: notification merged, pane CI pending
+
+PR283 (Mac permission attribution) merged as ec746f13e377f60077794fba62ca99164a023df4.
+PR284 (imported monitor notifications) merged as
+cc54beb2335cf3b414e62504110299399a36a238. Both passed all nine checks with no review
+objections, and both watches are cleared. Stage now contains both fixes; this is
+source integration, not a new installer or native permission-dialog acceptance.
+
+PR285, branch fix/pane-toolbar-placement in REL/pane-toolbar-placement, now targets
+stage and includes cc54beb. Its previous head 0c70f37 was tested against the feature
+parent; validate the new combined head in CI before merging into stage. Its desktop,
+cloud, QA and workflow inputs match the tested 0c70f37 bytes; its native/Root changes
+match stage. The pane patch graph has 346 records, and the QA recipe's full-registry
+pin is f68b16b2…. The previous CI failures were corrected without weakening checks:
+reviewed QA registry pins and Ubuntu 24.04 for pinned Playwright 1.60. PR284's new
+Linux browser/CI run passed; local full Node suites passed 103 tests for284 and
+104 for285, with zero skips/failures. Original combined source also passed actual
+web/desktop types and four Chromium notification/pane cases. See
+REL/imported-task-notifications-validation and docs/pane-toolbar-placement.md.
+
+All local test/build processes have completed. No app, provider run or user data
+was used for these corrections. The owner confirmed workspace startup succeeded.
+Public 0.4.2, website and TestFlight 1.0.0(4) remain unchanged. Next: merge285 after
+required checks, build and validate a new Mac delivery, then implement Windows
+x64/Linux x64 full-workspace packaging. Keep native acceptance separate from source
+checks. The finish line remains validated parity, a current normal Mac installation
+and an available TestFlight build. No full-parity claim is made.
+
+The owner asked why releases came from stage. The original instruction authorized
+stage integration; 0.4.2 was manually dispatched from its verified commit. Promotion
+through main was discussed as a cleaner future release flow, but no release-workflow
+or branch-protection change has been made. Preserve existing public tags/assets.
+The live plan and D/delivery-handoff.md carry exact current heads and CI state.
+
+## Historical follow-up — 2026-11-13: permission identity and imported notifications
 
 The owner confirmed the public workspace opens after Try again and responding to
 macOS permission prompts. Do not treat startup as still blocked. Their remaining

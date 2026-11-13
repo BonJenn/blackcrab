@@ -49,18 +49,105 @@ include both branding layers and use the same owned Expo production project;
 verify runtime compatibility and retained storage/reconnect before delivery.
 Do not describe source changes or an export as an update installed on the phone.
 
-The desktop 0.4.4 request remains active: updater PR290 at e20672a773960580bc4757dcf9c3d449c6479f6e
-is linked/watched, waiting on required CI. Its worktree is
+The desktop 0.4.4 updater PR290 merged to stage at
+a2d753a5e0a37dc7954902d9bede6ff82660b95f after all nine checks passed on
+e20672a773960580bc4757dcf9c3d449c6479f6e. Its Chromium notification regression
+actually ran and passed in CI, superseding the local browser dependency blocker.
+There are no outstanding review threads; PR290 is unwatched. Its worktree is
 P/mac-release-040-v2llrqsa/workspace-updates-044; read workspace-044-plan.json in its
-parent for details. Do not poll CI or restart the completed dependency preparation.
-Keep its pending handoff additions when integrating this branch. Mac 0.4.3 and
+parent for completed validation details. Do not restart completed preparation.
+The mobile branch integrates this stage merge and preserves both handoffs. Mac 0.4.3 and
 Windows/Linux 0.3.0 remain public; native Windows/Linux packaging, three-platform
 0.4.4 publication and full two-computer+iOS Connect acceptance remain unfinished.
 Website PR17 is merged and verified. Preserve existing service manifest c04c4d44…
 and all user data. The finish line remains validated parity, a current normal Mac
 installation and an available, working TestFlight app, plus Windows/Linux delivery.
 
-## Published Mac 0.4.3 — 2026-11-13
+## Desktop delivery checkpoint — updater merged, 0.4.4 release pending
+
+The owner's current request is to fix the workspace Check for updates control,
+restore the install notification, show download/installation progress, and publish
+0.4.4 for Mac, Windows and Linux. Publication is explicitly authorized. This does
+not certify unperformed native tests. Mac 0.4.3 remains public; Windows/Linux
+remain 0.3.0. No 0.4.4 release, version bump or replacement installed app exists yet.
+The latest Connect status question is additional scope/status, not cancellation.
+Website follow-up PR17 is merged at c2f36d77885a5deb727a864d37d286380af03601;
+production dpl_8d7vebB8T5HnYG3VPpaMjBMLigGT is READY. Preserve that newer docs work
+in addition to the historical 0.4.3 release article below.
+
+Completed updater worktree: REL/workspace-updates-044, branch fix/0.4.4-workspace-updates,
+based on stage ef3f4aea11734d8059698d12b7d2211b4d545cf1. REL is
+`/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa`.
+Read REL/workspace-044-plan.json for current PR/head and validation handles. Do not
+restart historical build handles below. Main checkout remains dirty and untouched.
+
+The root cause is that the extracted Electron workspace's updater was deliberately
+disabled while the signed outer Tauri app's manual updater lived in a hidden
+launcher. The reviewed source now delegates the existing desktop update service
+through a separate inherited FD5 socket to a native outer-app updater. FD3/FD4
+retain descriptor/pairing duties. Only fixed actions and an expected install
+version cross this channel; the renderer cannot supply a URL/path/key/process.
+Automatic checks advertise availability, and installation remains an explicit
+user action. Real byte progress stays below 100 until signature verification;
+unknown lengths and installation have indeterminate bars. Installation surfaces
+Root, pauses its workspace-exit monitor, closes only its captured workspace,
+installs/restarts the outer app, and retains the independent background service.
+Failures remain actionable; check/download/install races must not exit recovery.
+See docs/desktop-updates.md for the protocol and delivery scope.
+
+Source validation lives in REL/workspace-044-validation. The pinned prepared
+upstream source is blackcrab-desktop-source-TUnd5B; all 307 final production target
+files match registry hashes, including the notification regression.
+Do not repeat the completed 18-minute dependency preparation. Root types/build
+and 155 tests passed, followed by eight focused renderer tests after fieldset
+coordination. The complete managed Node suite passed 118 tests. Native updater
+and inherited FD isolation tests passed (two each). Full pinned desktop/web types,
+the actual desktop bundle and web production build passed. Final reviewed native
+and adapter tests passed. All nine CI jobs passed in run43526316952. The Chromium
+notification regression passed in cloud-client job132232854479 (one selected
+notification test; four unrelated tests skipped by the explicit filter). This
+supersedes the local read-only dependency overlay failure for that regression.
+It is browser behavior evidence, not native installation acceptance.
+All local build/test processes have completed. These checks do not establish
+native signed installation/restart or retained-service acceptance. The adapter
+also suppresses the in-progress install message from the workspace result because
+its existing result handler otherwise treats any such message as an error toast.
+
+Next actions:
+1. Updater PR290 is merged at a2d753a5e0a37dc7954902d9bede6ff82660b95f.
+   Preserve that integrated source and the compatible mobile candidate described
+   above. PR291 still needs current CI/review acceptance before merging.
+2. Implement Windows/Linux native package layouts/dependency closure/manifests,
+   Root launch, authenticated transport and per-user background-service lifecycle.
+   Start at docs/cross-platform-workspace-delivery.md and managed-desktop/targets.mjs.
+   Pinned Electron ZIPs are groundwork only. Do not enable a target or relabel a
+   historical root-only installer to claim full workspace delivery.
+3. Bump all root versions to 0.4.4 together, build target-native installers, verify
+   actual downloaded artifacts/updater signatures and perform appropriate native
+   checks. The current request authorizes publication, so do not request it again.
+   Publish website download links, article and release notes after real assets.
+4. Preserve the exact Mac service manifest
+   c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83.
+   A host change requires a stopped, data-preserving migration. Never interrupt
+   running agents just to change diagnostic copy. Older 0.4.2/0.4.3 workspaces
+   need the outer launcher's updater or one manual 0.4.4 install to gain this fix.
+
+Blackcrab Connect: sign-in/environment discovery/relay/database integrations are
+implemented; historical owned relay health/database and unauthenticated denial
+checks passed. Full two-computer + iOS sign-in, environment/session discovery,
+off-network agent control, reconnect/revocation and actual push delivery are
+still unverified. Do not equate infrastructure provisioning or installer delivery
+with cross-device acceptance. Continue those tests after desktop delivery work;
+preserve the existing authorized cloud credentials and account connections.
+The accepted hosted model remains free local/self-hosted, paid hosted remote,
+initially invite beta; public billing/entitlement acceptance is separate.
+TestFlight 1.0.0 (4) remains available under prior evidence, not newly validated.
+
+The finish line remains validated parity, a current normal Mac installation and
+an available TestFlight build, plus the now-requested Windows/Linux 0.4.4 delivery.
+Keep paired directory guides identical and this prompt/checkpoint current.
+
+## Historical checkpoint — published Mac 0.4.3
 
 Mac [v0.4.3](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.3) is public,
 stable/latest, from 18055fbc080faa4f6d518c420b19040ce45e3296. Release workflow

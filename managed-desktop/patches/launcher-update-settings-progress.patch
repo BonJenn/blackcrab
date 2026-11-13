@@ -1,0 +1,13 @@
+--- a/apps/web/src/components/settings/SettingsPanels.tsx
++++ b/apps/web/src/components/settings/SettingsPanels.tsx
+@@ -321,6 +321,10 @@
+           </Tooltip>
+         }
+       />
++      {updateState?.status === "downloading" && <div className="px-4 py-3" role="status">
++        <label className="block text-sm" htmlFor="blackcrab-download-progress">Downloading Blackcrab update{updateState.downloadPercent === null ? "…" : `… ${Math.floor(updateState.downloadPercent)}%`}</label>
++        <progress id="blackcrab-download-progress" className="mt-2 w-full" max={100} value={updateState.downloadPercent ?? undefined} />
++      </div>}
+       {hasDesktopBridge ? (
+         <SettingsRow
+           {...searchableSetting("update-track")}

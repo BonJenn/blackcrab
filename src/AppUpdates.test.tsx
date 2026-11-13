@@ -2,32 +2,41 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AppUpdates } from "./AppUpdates";
-const api = vi.hoisted(() => ({ check: vi.fn(), relaunch: vi.fn() }));
-vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "0.4.2" }));
-vi.mock("@tauri-apps/plugin-updater", () => ({ check: api.check }));
-vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: api.relaunch }));
+const api = vi.hoisted(() => ({ invoke: vi.fn(), event: null as null | ((event: {payload:unknown}) => void), stop: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: async (_: string, handler: typeof api.event) => { api.event = handler; return api.stop; } }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let host: HTMLDivElement, root: ReturnType<typeof createRoot>, mounted: boolean;
-beforeEach(() => { vi.clearAllMocks(); host = document.createElement("div"); document.body.append(host); root = createRoot(host); mounted = true; });
+const state = (overrides = {}) => ({status:"idle",currentVersion:"0.4.4",availableVersion:null,downloadPercent:null,downloadedBytes:0,totalBytes:null,installing:false,message:null,...overrides});
+beforeEach(() => { vi.clearAllMocks(); api.event=null; api.invoke.mockResolvedValue({accepted:true,state:state()}); host = document.createElement("div"); document.body.append(host); root = createRoot(host); mounted = true; });
 afterEach(async () => { if (mounted) await act(() => root.unmount()); host.remove(); });
-function update() { return { version: "0.4.3", close: vi.fn().mockResolvedValue(undefined), downloadAndInstall: vi.fn().mockResolvedValue(undefined) }; }
-it("serializes update checks and releases a late result after the view closes", async () => {
- const next = update(); let finish!: () => void; const busy = vi.fn();
- api.check.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(next); }));
- await act(() => root.render(<AppUpdates onBusyChange={busy} />));
- await act(() => { host.querySelector('button')!.click(); host.querySelector('button')!.click(); });
- expect(api.check).toHaveBeenCalledOnce(); expect(busy).toHaveBeenLastCalledWith(true);
- await act(() => root.unmount()); mounted = false;
- await act(() => finish()); expect(next.close).toHaveBeenCalledOnce(); expect(busy).toHaveBeenLastCalledWith(false);
+const button = (label:string) => [...host.querySelectorAll('button')].find(b=>b.textContent===label)!;
+it("checks through the launcher once, prevents double clicks, and cleans up subscriptions", async () => {
+ const busy = vi.fn(); await act(() => root.render(<AppUpdates onBusyChange={busy} />));
+ let finish!: (v:unknown)=>void; api.invoke.mockImplementationOnce(() => new Promise(resolve=>{finish=resolve;}));
+ await act(() => { button('Check for updates').click(); button('Check for updates').click(); });
+ expect(api.invoke).toHaveBeenLastCalledWith('managed_update',{request:{action:'check',expectedVersion:null}});
+ expect(api.invoke).toHaveBeenCalledTimes(2); expect(busy).toHaveBeenLastCalledWith(true);
+ await act(() => root.unmount()); mounted=false; expect(api.stop).toHaveBeenCalledOnce();
+ await act(() => finish({accepted:true,state:state({status:'available',availableVersion:'0.4.5'})}));
+ expect(busy).toHaveBeenLastCalledWith(false);
 });
-it("keeps the update resource alive until installation settles and avoids a late relaunch", async () => {
- const next = update(); let finish!: () => void; const busy = vi.fn();
- next.downloadAndInstall.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(undefined); }));
- api.check.mockResolvedValueOnce(next);
- await act(() => root.render(<AppUpdates onBusyChange={busy} />));
- await act(() => host.querySelector('button')!.click());
- await act(() => [...host.querySelectorAll('button')].find(button => button.textContent === 'Install update and restart')!.click());
- expect(busy).toHaveBeenLastCalledWith(true);
- await act(() => root.unmount()); mounted = false; expect(next.close).not.toHaveBeenCalled();
- await act(() => finish()); expect(next.close).toHaveBeenCalledOnce(); expect(api.relaunch).not.toHaveBeenCalled();
+it("shows real download progress and indeterminate installation instead of a false 100%", async () => {
+ await act(() => root.render(<AppUpdates />));
+ await act(() => api.event!({payload:state({status:'downloading',downloadPercent:42})}));
+ expect(host.querySelector('progress')?.value).toBe(42); expect(host.textContent).toContain('42%');
+ expect(button('Check for updates').disabled).toBe(true);
+ await act(() => api.event!({payload:state({status:'downloaded',availableVersion:'0.4.5'})}));
+ api.invoke.mockResolvedValueOnce({accepted:true,state:state({status:'downloaded',availableVersion:'0.4.5',installing:true})});
+ await act(() => button('Install update and restart').click());
+ expect(api.invoke).toHaveBeenLastCalledWith('managed_update',{request:{action:'install',expectedVersion:'0.4.5'}});
+ expect(host.querySelector('progress')?.hasAttribute('value')).toBe(false);
+ expect(host.textContent).toContain('Installing Blackcrab');
+});
+it("offers a retry after a download failure and handles unknown transfer sizes", async () => {
+ await act(() => root.render(<AppUpdates />));
+ await act(() => api.event!({payload:state({status:'downloading'})}));
+ expect(host.querySelector('progress')?.hasAttribute('value')).toBe(false);
+ await act(() => api.event!({payload:state({status:'available',availableVersion:'0.4.5',message:'Download or signature verification failed.'})}));
+ expect(button('Download update').disabled).toBe(false); expect(host.textContent).toContain('signature verification failed');
 });

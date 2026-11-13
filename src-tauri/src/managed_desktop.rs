@@ -948,30 +948,37 @@ fn inherit_private_fds(
     command: &mut Command,
     descriptor: &std::os::unix::net::UnixStream,
     control: &std::os::unix::net::UnixStream,
+) { inherit_workspace_fds(command, descriptor, control, None); }
+
+#[cfg(target_os = "macos")]
+fn inherit_workspace_fds(
+    command: &mut Command,
+    descriptor: &std::os::unix::net::UnixStream,
+    control: &std::os::unix::net::UnixStream,
+    updates: Option<&std::os::unix::net::UnixStream>,
 ) {
     use std::os::fd::AsRawFd;
     use std::os::unix::process::CommandExt;
-    let d = descriptor.as_raw_fd();
-    let c = control.as_raw_fd();
-    // Duplicate both sources before remapping; either source can itself be3/4.
+    let mut sources = vec![descriptor.as_raw_fd(), control.as_raw_fd()];
+    if let Some(stream) = updates { sources.push(stream.as_raw_fd()); }
+    // Duplicate all sources above the entire destination range before remapping.
     unsafe {
         command.pre_exec(move || {
-            let a = libc::fcntl(d, libc::F_DUPFD_CLOEXEC, 5);
-            if a < 0 {
-                return Err(std::io::Error::last_os_error());
+            let mut copies = [-1; 3];
+            for (i, fd) in sources.iter().enumerate() {
+                copies[i] = libc::fcntl(*fd, libc::F_DUPFD_CLOEXEC, 6);
+                if copies[i] < 0 {
+                    let error = std::io::Error::last_os_error();
+                    for fd in copies.iter().filter(|fd| **fd >= 0) { libc::close(*fd); }
+                    return Err(error);
+                }
             }
-            let b = libc::fcntl(c, libc::F_DUPFD_CLOEXEC, 5);
-            if b < 0 {
-                libc::close(a);
-                return Err(std::io::Error::last_os_error());
+            let mut result = Ok(());
+            for (i, fd) in copies.iter().take(sources.len()).enumerate() {
+                if libc::dup2(*fd, 3 + i as i32) < 0 { result = Err(std::io::Error::last_os_error()); break; }
             }
-            let ok = libc::dup2(a, 3) >= 0 && libc::dup2(b, 4) >= 0;
-            libc::close(a);
-            libc::close(b);
-            if !ok {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
+            for fd in copies.iter().filter(|fd| **fd >= 0) { libc::close(*fd); }
+            result
         });
     }
 }
@@ -1013,6 +1020,8 @@ async fn launch_verified(
     let profile = prepare_profile(&host.desktop_profile_root())?;
     let (mut descriptor_writer, descriptor_reader) = UnixStream::pair().map_err(|_| error())?;
     let (control, client_control) = UnixStream::pair().map_err(|_| error())?;
+    let update_app = if verified_identity == DesktopIdentity::Production { crate::managed_updates::bridge_app() } else { None };
+    let update_pair = if update_app.is_some() { Some(UnixStream::pair().map_err(|_| error())?) } else { None };
     let os_home = account_home::account_home()?;
     let mut command = Command::new(&package.executable);
     command
@@ -1027,7 +1036,7 @@ async fn launch_verified(
         .stderr(Stdio::null());
     #[cfg(all(test, target_os = "macos"))]
     crate::managed_native_entry::acceptance::configure_native_output(&mut command, &profile)?;
-    inherit_private_fds(&mut command, &descriptor_reader, &client_control);
+    inherit_workspace_fds(&mut command, &descriptor_reader, &client_control, update_pair.as_ref().map(|pair| &pair.1));
     let child = Arc::new(Mutex::new(
         command
             .spawn()
@@ -1072,13 +1081,10 @@ async fn launch_verified(
     descriptor_writer
         .set_write_timeout(Some(Duration::from_secs(2)))
         .map_err(|_| error())?;
+    let mut launch_descriptor: serde_json::Value = serde_json::from_slice(&descriptor_for_identity(&binding, &profile, &grant, verified_identity)?).map_err(|_| error())?;
+    if update_pair.is_some() { launch_descriptor["control"] = json!({"kind":"launcher-updates-fd-v1","fd":5}); }
     descriptor_writer
-        .write_all(&descriptor_for_identity(
-            &binding,
-            &profile,
-            &grant,
-            verified_identity,
-        )?)
+        .write_all(&serde_json::to_vec(&launch_descriptor).map_err(|_| error())?)
         .map_err(|_| error())?;
     descriptor_writer
         .shutdown(std::net::Shutdown::Write)
@@ -1090,6 +1096,10 @@ async fn launch_verified(
         crate::managed_native_entry::acceptance::NativeStage::DescriptorWritten,
     );
 
+    if let (Some((server, client)), Some(app)) = (update_pair, update_app) {
+        drop(client);
+        crate::managed_updates::serve(server, app);
+    }
     let stream = owner.control.try_clone().map_err(|_| error())?;
     let runtime = tokio::runtime::Handle::current();
     std::thread::spawn(move || {
@@ -1442,6 +1452,12 @@ mod tests {
         control.read_exact(&mut request).unwrap();
         assert_eq!(&request, b"renew\n");
         control.write_all(b"reply\n").unwrap();
+        if std::env::var_os("BLACKCRAB_UPDATE_FD_FIXTURE").is_some() {
+            let mut updates = unsafe { UnixStream::from_raw_fd(5) };
+            updates.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            let mut request = [0u8; 7]; updates.read_exact(&mut request).unwrap();
+            assert_eq!(&request, b"status\n"); updates.write_all(b"update-reply\n").unwrap();
+        }
     }
     #[cfg(target_os = "macos")]
     #[test]
@@ -1475,6 +1491,26 @@ mod tests {
         owner.read_exact(&mut reply).unwrap();
         assert_eq!(&reply, b"reply\n");
         assert!(child.lock().unwrap().wait().unwrap().success());
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn actual_inherited_update_fd5_keeps_pairing_fds_independent() {
+        use std::os::unix::net::UnixStream;
+        let (mut writer, reader) = UnixStream::pair().unwrap();
+        let (mut owner, client) = UnixStream::pair().unwrap();
+        let (mut updates, update_client) = UnixStream::pair().unwrap();
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        command.args(["--exact", "managed_desktop::tests::private_fd_child_fixture"])
+            .env_clear().env("BLACKCRAB_DESKTOP_FD_FIXTURE", "1").env("BLACKCRAB_UPDATE_FD_FIXTURE", "1")
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        inherit_workspace_fds(&mut command, &reader, &client, Some(&update_client));
+        let mut child = command.spawn().unwrap(); drop((reader, client, update_client));
+        writer.write_all(b"private-descriptor").unwrap(); writer.shutdown(std::net::Shutdown::Write).unwrap();
+        owner.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        updates.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        owner.write_all(b"renew\n").unwrap(); let mut reply = [0u8; 6]; owner.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"reply\n");
+        updates.write_all(b"status\n").unwrap(); let mut reply = [0u8; 13]; updates.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"update-reply\n");
+        assert!(child.wait().unwrap().success());
     }
     #[test]
     fn reviewed_patch_provenance_paths_are_exact_regular_files_without_aliases() {

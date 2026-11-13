@@ -71,7 +71,7 @@ import * as DesktopLegacyLocalStorage from "./app/DesktopLegacyLocalStorage.ts";
 import * as DesktopTelemetryPublisher from "./telemetry/DesktopTelemetryPublisher.ts";
 import * as DesktopRendererHistory from "./telemetry/DesktopRendererHistory.ts";
 import * as DesktopUpdatePolicy from "./updates/DesktopUpdatePolicy.ts";
-import * as DesktopUpdates from "./updates/DesktopUpdates.ts";
+import * as DesktopUpdates from "./app/ManagedUpdates.ts";
 import * as BrowserImport from "./preview/BrowserImport/BrowserImport.ts";
 import * as LinuxBrowserSecret from "./preview/BrowserImport/LinuxBrowserSecret.ts";
 import * as BrowserSession from "./preview/BrowserSession.ts";

@@ -6,8 +6,13 @@ use tauri::{Emitter, Manager};
 pub(crate) struct LauncherState {
     monitoring: AtomicBool,
     view_epoch: AtomicU64,
+    monitor_epoch: AtomicU64,
 }
 impl LauncherState {
+    pub(crate) fn pause_for_update(&self) {
+        self.monitor_epoch.fetch_add(1, Ordering::SeqCst);
+        self.monitoring.store(false, Ordering::SeqCst);
+    }
     pub(crate) fn has_workspace(&self) -> bool { self.monitoring.load(Ordering::SeqCst) }
 }
 
@@ -44,17 +49,26 @@ pub(crate) async fn managed_launcher_handoff(
         }
         window.hide().map_err(|_| "Could not finish opening the workspace")?;
         if !app.state::<LauncherState>().monitoring.swap(true, Ordering::SeqCst) {
+            let monitor_epoch = app.state::<LauncherState>().monitor_epoch.load(Ordering::SeqCst);
             let handle = app.clone();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    if handle.state::<LauncherState>().monitor_epoch.load(Ordering::SeqCst) != monitor_epoch { return; }
                     let result = handle.state::<crate::managed_native_entry::ManagedNativeEntry>()
                         .client_exit().await;
+                    // An install may pause this monitor while the child lock
+                    // is awaited, including an install that already failed.
+                    if handle.state::<LauncherState>().monitor_epoch.load(Ordering::SeqCst) != monitor_epoch { return; }
                     match result {
                         Ok(None) => continue,
                         // Quit in the workspace also quits its hidden launcher.
                         // The independently owned background service is retained.
-                        Ok(Some(true)) => { handle.exit(0); return; }
+                        Ok(Some(true)) if !crate::managed_updates::installing(&handle) => { handle.exit(0); return; }
+                        Ok(Some(_)) if crate::managed_updates::installing(&handle) => {
+                            handle.state::<LauncherState>().monitoring.store(false, Ordering::SeqCst);
+                            return;
+                        }
                         _ => {
                             handle.state::<LauncherState>().monitoring.store(false, Ordering::SeqCst);
                             show(&handle, "blackcrab-workspace-failed");

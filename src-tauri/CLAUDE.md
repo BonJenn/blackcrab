@@ -71,3 +71,16 @@ field for compatibility; reject foreign/multiple associations. Upgrade only unde
 the control lease after launchd and the native journal both confirm stopped.
 Preserve the installed PATH and owner/runtime/lifecycle fields. Status must not
 restart agents or rewrite registration. Never reset user privacy grants in tests.
+
+## Requested 0.4.4 update and three-platform release — 2026-11-13
+
+The owner reported that the workspace update button says automatic updates are
+unavailable, and explicitly requested working checks, an install notification,
+installation progress, and publication of 0.4.4 for Mac, Windows and Linux. This
+authorizes the release work; it does not establish native tests passed. Preserve
+the existing independent Mac service payload/data. Read docs/desktop-updates.md
+and the latest handoff. The Electron workspace must delegate to the signed outer
+app updater rather than update its extracted inner app. Windows/Linux still need
+implemented native packages and service/transport; root-only installers do not
+satisfy the request. Keep current public versions until replacement artifacts
+are actually built and verified. No extra publication confirmation is required.

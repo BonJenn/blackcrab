@@ -1,42 +1,43 @@
 # Copyable continuation prompt
 
-Continue the authorized Mac 0.4.0 release, website, blog and release notes. Read
-AGENTS.md and the latest docs/agent-handoff.md checkpoint. The owner will test UI,
-service lifecycle and upgrade behavior AFTER publication; do not restore capture
-or approval gates. Still verify actual signatures/notarization/updater/payloads.
+Continue Blackcrab/T3 parity from the PUBLISHED Mac 0.4.0 release. Read AGENTS.md,
+docs/agent-handoff.md (current checkpoint first), the parity plan and ledger.
+The owner authorized publication before their manual Mac UI/service/upgrade tests.
+Do not repeat release setup or claim full parity/manual acceptance/installation.
 
-P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes;
-REL=P/mac-release-040-v2llrqsa. Read REL/plan.json and REL/notary-auth-fix-pr.json.
-Active checkout REL/notary-auth-fix, branch release/0.4.0-notarization-auth.
-PR267 already merged to stage cbf167200b740fab7fc34bb125b99dd95bf3c826 and unwatched.
-Its npm/Rust version fix worked: run 43333392902 compiled and signed 0.4.0, but
-notarization failed HTTP 401. API preflight passed; Tauri preferred the stale Apple
-ID/password also supplied. Monitor 38476 is settled. No app or service is running.
+Public release: https://github.com/BonJenn/blackcrab/releases/tag/v0.4.0
+Source/tag: caf57b6fab1b4391836c6635882a15a88edfac0d, after merged PR267/268,
+each with nine passed checks. Workflow 43337173131 succeeded. Actual app/DMG
+signatures, notarization, payload inventories and compiled pins passed. Updater
+cryptography verifies with the existing v0.3.0 key; read-only installer contents
+exactly match the updater app. Never overwrite or retarget the public v0.4.0 tag.
 
-The new managed wrapper selects complete API credentials and REMOVES Apple
-ID/password from its child env (empty values still trigger Tauri's priority).
-Complete Apple ID-only config is supported. Five new tests pass; combined focused
-suite 33 pass / 3 opt-in skips. No native code or dependency graph changed. Finish
-PR/link/checks/review/merge to stage. For required PR waits watch and end, no polling.
+Website PR12 merged to ff4c3442a53dc446a4a126ca9df79654b509571a and deployed to
+www.blackcrab.app (Vercel blackcrab-landing, bonjenns-projects). Live home/blog/
+changelog/releases and actual Mac 0.4 / Windows 0.3 / Linux 0.3 downloads were verified.
+The initial stale Mac redirect revalidated naturally; account for five-minute
+website data caching during future releases. This is separate from app.blackcrab.app.
 
-After merge prepare a NEW exact-source OWNER_TESTING_AUTHORIZED ZIP and update
-the owned draft v0.4.0 target/input/hash, then dispatch corrected release.yml.
-Do not rerun old 43333392902 or reuse its source-bound ZIP. Signed/notarized inner
-payloads are unchanged at /private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/{desktop,service-host}.
-The root's unchanged updater key/verifier are at REL/updater-verifier.
-Update SOURCE/workflow ID in REL/verify-final-artifacts.py and sourceRevision in
-REL/artifact-verification-plan.json, then verify actual release assets. The script
-only downloads/verifies/read-only mounts, never launches or installs. Do not
-claim its prepared checks passed. Publish GitHub stable/latest only after success.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+REL=P/mac-release-040-v2llrqsa. Read REL/plan.json, artifact-verification result
+at REL/final-artifact-verification-cr8kp25e/result.json and
+REL/website-publication-verification.json. Release checkout REL/notary-auth-fix
+stays clean at the public source. Current documentation work is in
+REL/post-release-handoff, branch docs/0.4.0-published-handoff; its private
+post-release-handoff-pr.json records any pending PR/CI. Finish that PR as needed.
+For PR waits, watch and end rather than polling. Keep guides paired identically.
 
-Then merge website PR12 https://github.com/BonJenn/blackcrab-landing/pull/12,
-checkout REL/website, head 45074e77ae990e71983a0d0f657461bed76eca03. Tests/types/lint/
-build and Vercel checks passed. It stays draft pending actual Mac release. Use
-existing blackcrab-landing Vercel project/team bonjenns-projects for www.blackcrab.app
-(not hosted app.blackcrab.app). Verify home/blog/changelog/releases and actual Mac
-download plus previous-platform fallback. All preview tabs/access links are closed.
+All local build handles are settled; no owned app/service/simulator/mount/browser
+is running. The main dirty checkout/index/shared caches and installed
+/Applications/Blackcrab.app were untouched. The owner will install/update on their
+work Mac. Record actual results for first launch, service enable/start, full
+desktop open/reuse, quit/reopen, restart, stop/start and retained data. See
+REL/OWNER-TESTING.md and Settings → Background service / Full desktop. Preserve
+all existing sessions, catalogs, credentials and pairings when investigating.
 
-Do not touch main dirty checkout/index, shared caches or installed app incidentally.
-TestFlight 1.0.0 (4) is available; newer branded mobile export is unpublished and
-remote/APNs/retention acceptance still remains. Full parity is not complete.
-Keep handoffs and all changed AGENTS/CLAUDE pairs current and byte-identical.
+TestFlight 1.0.0 (4) is already available. Do not reupload it. Newer branded export
+is not published. Mobile retention/reconnect/OTA, off-LAN remote control, APNs,
+hosted billing/signup and owned policy publication remain broader-plan work.
+Finish line: validated parity, normal Mac installation and owner TestFlight
+availability, not merely merged code or a public release. User authorized existing
+cloud keys and the smaller backend budget; don't request those approvals again.

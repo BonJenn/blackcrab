@@ -123,3 +123,13 @@ exact-pinned after broad caret ranges drifted and blocked the 0.4.0 native relea
 Run npm run check:tauri-versions when either lockfile changes. The guard runs in
 CI and before release payload processing; do not disable Tauri's version check.
 Change npm/Rust pairs together when upgrading, and validate actual native packaging.
+
+
+## Published Mac 0.4.0 baseline
+
+Mac v0.4.0 is public at caf57b6fab1b4391836c6635882a15a88edfac0d. Its signed and
+notarized artifacts and existing-key updater verification passed. The website
+publication and real download buttons also passed. Preserve the public tag and
+release assets; future fixes need a new version. Publication does not establish
+manual Mac installation/UI/service/upgrade acceptance or full parity. Start at
+the latest docs/agent-handoff.md checkpoint; older checkpoints are historical.

@@ -1,6 +1,94 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — correct mixed notarization authentication
+## Current continuation checkpoint — Mac 0.4.0 and website published
+
+On November 12, 2026 Pacific (November 13 UTC), the authorized Apple-silicon
+Mac 0.4.0 release and website announcement were published and verified.
+This does not mean full T3 parity, manual acceptance or normal installation passed.
+The owner explicitly chose to test Mac UI/service/upgrade behavior after publication.
+
+### Public release and source
+
+- Release: https://github.com/BonJenn/blackcrab/releases/tag/v0.4.0
+- Installer: https://github.com/BonJenn/blackcrab/releases/download/v0.4.0/Blackcrab_0.4.0_aarch64.dmg
+- Updater: https://github.com/BonJenn/blackcrab/releases/latest/download/latest.json
+- Public tag and release source: caf57b6fab1b4391836c6635882a15a88edfac0d.
+- Successful workflow: https://github.com/BonJenn/blackcrab/actions/runs/43337173131
+- PR267 and PR268 each passed all nine checks, merged to stage and were unwatched.
+  PR267 fixes six mismatched npm/Rust Tauri pairs; PR268 makes the managed wrapper
+  use the validated API credentials instead of simultaneously present Apple ID.
+- Version 0.4.0 is stable/latest, not a draft. Never retarget, overwrite or rebuild
+  this public tag to incorporate later changes. Use a new release version.
+
+The DMG SHA256 is 211b5b8547a5b0d71fdeefc73fb6be4a47e6002a5e9ed18d195ace502d3d92fd
+(336480293 bytes). The updater archive SHA256 is
+d1d95f629cb2b15419d25302da6bbd9fb37531c9b85e7970641d3119750d6cc0.
+Apple accepted app submission 7c58ba8d-a3a2-4f59-9314-48b1bad6276a and DMG
+submission c6c76ade-9ff9-4d23-9ca8-fbe1723e447c. Developer ID team YF28W3NGG6.
+
+Actual downloaded files passed GitHub asset digests, Root identity/version/arm64,
+hardened Developer ID signatures, stapled tickets and Gatekeeper. The updater
+cryptographic signature verifies with the unchanged v0.3.0 public key. Its
+manifest advertises only the current Apple-silicon artifacts. The exact compiled
+archive and manifest pins, inner desktop/service inventories and all native
+signatures passed. The app inside the read-only mounted DMG is identical to the
+updater app. The captured mount was ejected and removed; no app was launched.
+
+### Website publication
+
+Website PR12 merged to ff4c3442a53dc446a4a126ca9df79654b509571a. The existing
+Vercel blackcrab-landing project on bonjenns-projects deployed production
+dpl_4SvMsmqXhW99c23iykH3DWKRiHgc and assigned www.blackcrab.app / blackcrab.app.
+This is the marketing site, separate from app.blackcrab.app.
+
+- Home: https://www.blackcrab.app
+- Blog: https://www.blackcrab.app/blog/blackcrab-0-4-0-managed-mac-workspace
+- Changelog: https://www.blackcrab.app/changelog
+- Releases: https://www.blackcrab.app/releases
+
+The live homepage was visually inspected. Blog index/article, changelog and
+releases returned 200 with the new content. Internal input ZIP is hidden from
+user installers. Actual homepage button downloads verified the Mac 0.4.0 DMG,
+Windows 0.3.0 EXE and Linux 0.3.0 AppImage against GitHub digests. An initial Mac
+request returned a stale 0.3.0 download, then the normal route revalidated and
+served 0.4.0; no purge or redeploy was needed. For future releases, account for
+the website's five-minute data cache and verify actual buttons after publishing.
+The owned preview tab is closed and its temporary downloaded copies are removed.
+
+### Evidence and continuation
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+REL=P/mac-release-040-v2llrqsa. Keep these owned records; temporary paths may
+disappear, so public release/CI/source evidence above is the durable reference:
+
+- REL/plan.json and REL/published-release.json / published-tag.json.
+- REL/final-artifact-verification-cr8kp25e/result.json: RELEASE_ARTIFACTS_VERIFIED.
+- REL/website-publication-verification.json: actual public page/download proof.
+- REL/release-workflow-caf57b6-{watch.log,result.json}: successful run.
+- REL/OWNER-TESTING.md: manual steps mapped to the current UI labels.
+- Release checkout REL/notary-auth-fix stays clean at the published source.
+- Documentation checkout REL/post-release-handoff, branch
+  docs/0.4.0-published-handoff; read REL/post-release-handoff-pr.json for its PR.
+
+All build/validation handles are settled. No owned native app, service, simulator,
+mount or preview tab remains running. The main dirty checkout/index and shared
+caches were not modified. /Applications/Blackcrab.app was not replaced. The
+owner can download/update on their work Mac and test; do not call it installed.
+
+Next: record the owner's actual first-launch, service setup, desktop open/reuse,
+quit/reopen, restart/stop/start, retained catalog/settings and upgrade results.
+Use Settings → Background service and Settings → Full desktop → Open full desktop.
+Fix concrete failures in isolated worktrees/PRs targeting stage. Preserve sessions,
+pairings, credentials and the single-writer model; do not delete app data to test.
+
+TestFlight 1.0.0 (4) is already VALID/IN_BETA_TESTING for the owner. The newer
+branded Hermes export remains unpublished; mobile retention/reconnect/OTA,
+off-LAN remote control and APNs acceptance still remain. Billing/public signup
+and policy publication also remain in the broader plan. Do not reupload build 4
+or describe this release as full parity. The overall finish line is validated
+parity, a current normal Mac app installed and the iOS app in the owner's TestFlight.
+
+## Historical checkpoint — correct mixed notarization authentication
 
 The owner has authorized publishing Mac 0.4.0 and the website/blog/release notes.
 They will test native UI/service/upgrade behavior afterward. Keep artifact and

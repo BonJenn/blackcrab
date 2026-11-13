@@ -46,3 +46,12 @@ Never print environment objects or secret-bearing assertion diffs.
 Live sign-in, relay pairing, cross-network remote agent control, revocation,
 push/Live Activities and service recovery need end-to-end evidence after setup.
 Do not mark those complete from configuration tests or successful DNS alone.
+
+## Shared desktop and hosted patch composition
+
+Hosted source is prepared by applying the full managed-desktop patch chain first.
+When shared branding changes legalLinks, WelcomeWizard or HostedEmptyState, rebase
+the hosted-specific deltas on those exact new bytes. Preserve hosted privacy URL
+configuration and connection instructions; do not replay old upstream branding
+replacements or weaken hash checks. hosted-source.test.mjs exercises those actual
+layer boundaries; also prepare fresh single-origin and channel sources.

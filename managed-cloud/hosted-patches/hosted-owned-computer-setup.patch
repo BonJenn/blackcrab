@@ -8,15 +8,6 @@
  import { useT3ConnectAuthPrompt } from "./clerk/useT3ConnectAuthPrompt";
  import { CloudEnvironmentConnectRows } from "./cloud/CloudEnvironmentConnectList";
  import { Button } from "./ui/button";
-@@ -43,7 +42,7 @@
-                 ? "Turn it back on, or connect a different computer."
-                 : cloudEnabled
-                   ? "Your agents run on your computer."
--                  : "Your agents run on your computer. Start T3 Code there first."}
-+                  : "Your agents run on your computer. Start Blackcrab there first."}
-             </EmptyDescription>
-           </EmptyHeader>
-           <EmptyContent>
 @@ -88,7 +87,7 @@
          )}
        </SetupStep>

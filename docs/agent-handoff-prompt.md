@@ -43,6 +43,15 @@ Final launcher typecheck/build and 26 focused startup/settings/updater tests pas
 after the last updater cleanup change. Service/update controls prevent navigation
 while their operations are in flight.
 Read the live plan for final source, PR and any active handles.
+
+PR275 CI initially failed both hosted-web jobs on the same stale
+`hosted-owned-privacy` predecessor. The correction also rebases hosted welcome and
+empty-state patches on the shared branding output. Fresh single/channel hosted
+preparation now passes all 197 shared plus nine hosted patches, and 13 cloud tests
+pass, including a regression for that layer boundary. Full CI build/types/tests
+still need to rerun on the corrected head; do not count source preparation as a
+completed hosted production build. PR275 remains watched.
+
 Next: create/link the coherent PR, merge only after current CI/review, rebuild and
 notarize the branded desktop payload, then build the new exact-source Root draft.
 Verify automatic first launch, reopen, quit, service survival and recovery in the

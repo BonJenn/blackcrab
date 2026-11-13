@@ -17,3 +17,14 @@ six panes and both open/closed panels. It checks center-point hit testing for
 every move and close button, geometry bounds, no-drag styling and a real close
 click on the top-right pane. Exact source tests also verify ChatView wiring.
 Actual packaged Mac UI testing remains separate; public 0.4.2 is unchanged.
+
+Validation: seven focused source/wiring checks, full actual web and desktop
+TypeScript, and both Chromium geometry cases passed on the combined notification
+and pane source. All six panes' move/close centers hit their own buttons with
+panels open and closed; the top-right close click reached its intended handler.
+The same required CI browser step now includes these cases. Evidence lives at
+REL/imported-task-notifications-validation. Local test/build processes completed.
+This branch is stacked on fix/imported-task-notifications to keep their registry
+and guide updates together; merge the notification PR first, then retarget this
+PR to stage and verify its current checks/base. Do not squash into a feature branch
+and mistake that for stage integration.

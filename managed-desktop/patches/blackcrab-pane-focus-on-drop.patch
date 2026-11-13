@@ -1,0 +1,12 @@
+--- a/apps/web/src/components/panes/PaneGrid.tsx
++++ b/apps/web/src/components/panes/PaneGrid.tsx
+@@ -153,6 +153,9 @@
+       data-testid="pane"
+       style={{ flex: `${weight} 1 0%` }}
+       onPointerDownCapture={focusPane}
++      onDropCapture={event => {
++        if (event.dataTransfer.types.includes("Files")) focusPane();
++      }}
+     >
+       <ThreadRouteView target={target} pane={{ context, onMissing }} />
+     </div>

@@ -37,15 +37,28 @@ Local validation: 38 folder/palette logic tests, six patch-registry tests and fu
 web types pass. The two real-browser shortcut tests pass. The browser harness needs
 explicit prebundling of both use-sync-external-store selector import spellings
 because the reviewed dependency cache uses workspace symlinks; no UI logic is
-replaced by that harness. The actual palette integration test is also being run;
-see the live plan for its final result and PR number.
+replaced by that harness. The actual palette integration test also passes: real clicks switch the selected
+Mac to /Volumes/ and back to ~/. It loads the real stylesheet, and the local
+cache harness prebundles the icon and use-sync-external-store CJS entry points.
 
-Next: finish and validate these three fixes in separate coherent PRs, merge to
-stage, rebuild the exact source, then complete native lifecycle/installation and
+External volumes are in PR278 (branch fix/workspace-volume-picker-042, head
+33f4ca9a25011c66407e4d5883c8b1aef8149d04), based on stage. Pane fix PR279 branch:
+fix/workspace-pane-attachments-042, stacked on PR278. Each ChatView now owns its
+composer handle and provides it to its descendants; only the focused pane registers
+for global commands. File drops focus their destination and stop bubbling. Full
+web types, the existing two transfer-splitting tests and the real-browser three-pane
+regression pass, including focus changes and unmount cleanup. Keep the original
+production service artifact/pin when rebuilding; these are client-only changes.
+
+Next: review checks/comments and merge PR278 to stage, retarget PR279 to stage
+without losing its parent, then merge it. Rebuild the exact merged source, then complete native lifecycle/installation and
 publish Mac/website updates. Full parity is not certified. TestFlight 1.0.0 (4)
 remains available. Finish line remains accepted desktop/mobile/hosted parity,
 a normal current Mac installation, and TestFlight availability. No native build
-is running; source validation handles are tracked in the live plan.
+is running; local source validation is complete and active handles/PR heads are
+tracked in the live plan. Website source REL/website-patch-042 is now bb01d27,
+unpushed/unpublished, with the matching /docs#mobile anchor and invite-only beta
+copy. Scoped lint passed; full website checks are required before publication.
 
 ## Historical checkpoint — 2026-11-12: installer verified; Mac locked
 

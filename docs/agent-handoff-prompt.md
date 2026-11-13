@@ -12,7 +12,9 @@ PR276 and branding/version PR277 are merged; PR277 passed nine checks. Preserve 
 The prior candidate and snapshots are in sole-workspace-042-delivery; first-launch
 identity/catalog hashes match. Native capture became available, then coordinate
 input lost its window; the owner is using the app. No provider commands were sent.
-Complete the three fixes and PRs, merge to stage, rebuild/sign/notarize, test actual
+External volumes are PR278; the pane fix is PR279 stacked on that branch. Both have
+passing source types and targeted tests, including real browser clicks through the
+folder picker and three-pane drops/focus/unmount. Complete CI/review and these PRs, merge to stage, rebuild/sign/notarize, test actual
 launch/reopen/service retention, install normally, publish Mac release and website.
 TestFlight 1.0.0 (4) is available. Full parity remains uncertified; keep handoffs
 current and do not confuse source tests or signed artifacts with runtime acceptance.

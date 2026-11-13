@@ -1,4 +1,31 @@
 Continue Blackcrab parity and release delivery. Read AGENTS.md and the current
+
+## Current checkpoint — 2026-11-13: publish the workspace fixes now
+
+The owner explicitly renewed publication. Release branch release/0.4.2-owner-publication
+in REL/workspace-publish-042 starts from merged c0e9fbd (PR280 passed nine checks).
+Its only code change records the exact renewed 0.4.2 owner-publication instruction,
+bound to the final source and immutable published 0.4.1 baseline; it does not claim
+native lifecycle acceptance. Retain the existing production service artifact/pin.
+The separate local a62414a host-copy branch changes 159 source files, but cannot
+yet ship: existing service attachment binds the old compiled manifest and runtime
+version directory. It requires a deliberate stopped-service manifest migration.
+Its producer build was cooperatively cancelled through original handle 69082;
+await the final audit before calling it stopped. Do not refresh its source freeze.
+
+Desktop build handle 53133 uses immutable REL/workspace-final-042-release at a62414a.
+The desktop producer inputs and 337 patch records are unchanged from c0e9fbd; verify
+that equality before signing/reusing the artifact for the publication branch.
+Output is REL/workspace-final-042-delivery. All actual handles and release state
+are in REL/workspace-polish-042-plan.json. The old 1140889 build remains superseded.
+
+Next: complete the current desktop build; verify producer equality; sign/notarize
+with the ORIGINAL production host; merge the publication PR after required checks;
+pack the exact merged source, replace only the private v0.4.2 draft assets, dispatch
+the managed release workflow, verify actual downloaded installer/updater/signatures,
+publish GitHub and then the website. Keep service-message cleanup as an explicit
+remaining follow-up. Do not claim every host message or full parity is complete.
+
 checkpoint in docs/agent-handoff.md before historical notes. User wants ALL visible
 T3 product branding removed, Blackcrab 0.4.2 shown, easy external volumes, and correct
 pane image drops. PR277–279 merged with nine checks each. Their 1140889 desktop built,

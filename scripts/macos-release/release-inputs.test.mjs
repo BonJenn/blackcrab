@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {lifecycleChecks,ownerTestingAuthorization,validateAcceptance,validateReleaseInputs} from './release-inputs.mjs';
+import {lifecycleChecks,ownerTestingAuthorization,owner042PublicationAuthorization,validateAcceptance,validateReleaseInputs} from './release-inputs.mjs';
 const options={revision:'a'.repeat(40),tag:'v0.4.0',version:'0.4.0',identity:'Developer ID Application: Example (ABCDEFGHIJ)',teamId:'ABCDEFGHIJ'};
 const acceptance={schema:1,state:'PASSED',sourceRevision:options.revision,checks:Object.fromEntries(lifecycleChecks.map(key=>[key,true]))};
 test('explicit owner testing is source-bound, limited to the initial release without follow-up evidence, and never records passing checks',()=>{
@@ -37,4 +37,14 @@ test('pending lifecycle validation allows only explicit draft building and never
  assert.throws(()=>validateAcceptance(value,draft.revision,{tag:draft.tag,version:draft.version}));
  for(const mutation of [{schema:2},{sourceRevision:'b'.repeat(40)},{tag:'v0.4.1'},{checks:acceptance.checks},{deferredChecks:[]},{deferredChecks:lifecycleChecks.slice(1)}])assert.throws(()=>validateAcceptance({...value,...mutation},draft.revision,draft));
  for(const mutation of [{revision:'stage'},{tag:'v0.4.3'},{version:'0.4.2-beta.1'},{draftBuild:'true'}]){const selected={...draft,...mutation};assert.throws(()=>validateAcceptance(value,selected.revision,selected));}
+});
+
+test('renewed 0.4.2 publication instruction is exact, source-bound, and never passing lifecycle evidence',()=>{
+ const release={...options,tag:'v0.4.2',version:'0.4.2'};
+ const value={schema:1,state:'OWNER_TESTING_AUTHORIZED',sourceRevision:release.revision,tag:release.tag,
+  authorization:owner042PublicationAuthorization,deferredChecks:[...lifecycleChecks],
+  followUpOf:'v0.4.1',followUpSourceRevision:'62ef3868d65252ba062bbee0200d6cb74a27ea6f'};
+ assert.equal(validateAcceptance(value,release.revision,release),'OWNER_TESTING_AUTHORIZED');
+ for(const mutation of [{authorization:ownerTestingAuthorization},{followUpOf:'v0.4.0'},{followUpSourceRevision:'b'.repeat(40)},{checks:acceptance.checks},{deferredChecks:[]},{sourceRevision:'b'.repeat(40)}])assert.throws(()=>validateAcceptance({...value,...mutation},release.revision,release));
+ for(const version of ['0.4.3','0.5.0'])assert.throws(()=>validateAcceptance({...value,tag:`v${version}`},release.revision,{...release,version,tag:`v${version}`}));
 });

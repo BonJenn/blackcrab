@@ -1,0 +1,39 @@
+--- a/apps/web/src/components/chat/MessagesTimeline.browser.test.tsx
++++ b/apps/web/src/components/chat/MessagesTimeline.browser.test.tsx
+@@ -1555,3 +1555,36 @@
+     .element(screen.getByRole("button", { name: "Open the current tab", exact: true }))
+     .toBeVisible();
+ });
++
++const IMPORTED_MONITOR_TEXT = `<task-notification> <task-id>monitor-123</task-id> <summary>Monitor event: "support updates"</summary> <event>New message: order example needs a reply.</event> If this event is something the user would act on now, send a PushNotification. Routine or benign output doesn't need one. </task-notification>`;
++
++describe("MessagesTimeline imported monitor notifications", () => {
++  it("folds an imported monitor update and keeps its event and original available", async () => {
++    setup();
++    await using screen = await renderTimeline([
++      message(IMPORTED_MONITOR_TEXT, { createdBy: "user", creationSource: "server" }, "import:claudeAgent:example:000042"),
++    ]);
++    const header = screen.button(/^Background update/);
++    expect(header.getAttribute("aria-expanded")).toBe("false");
++    expect(header.textContent).toContain('Monitor event: "support updates"');
++    expect(screen.text()).not.toContain("<task-notification>");
++    await click(header);
++    expect(screen.text()).toContain("New message: order example needs a reply.");
++    const original = screen.container.querySelector("details");
++    expect(original).not.toBeNull();
++    expect(original!.querySelector("pre")!.textContent).toBe(IMPORTED_MONITOR_TEXT);
++    expect(original!.open).toBe(false);
++    await click(original!.querySelector("summary")!);
++    expect(original!.open).toBe(true);
++    await click(screen.button(/^Background update/));
++    expect(screen.text()).not.toContain("<task-notification>");
++  });
++  it("keeps newly pasted notification XML as the user's message", async () => {
++    setup();
++    await using screen = await renderTimeline([
++      message(IMPORTED_MONITOR_TEXT, { createdBy: "user", creationSource: "web" }, "new-message"),
++    ]);
++    expect(screen.buttons(/^Background update/)).toHaveLength(0);
++    expect(screen.text()).toContain("<task-notification>");
++  });
++});

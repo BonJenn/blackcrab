@@ -11,6 +11,9 @@ Blackcrab host. It must not start another host or claim legacy provider sessions
 Patch order matters when multiple records change the same upstream file.
 Update before/after/patch/payload digests only from the reviewed exact changes.
 Never dump complete registry replacement strings into chat; some embed huge files.
+When the production registry changes, review the exact delta and verify the QA
+identity predecessors before updating fork-integration/native-keychain-qa's
+whole-registry pin. Do not weaken that check or refresh the host build freeze.
 
 The browser bridge preserves the original browser Manager/CDP/services. Retire
 old connection epochs and cancel their work without closing successor sessions.
@@ -72,3 +75,12 @@ PR277–279 are merged at 1140889d5a6730d336b6f1a16347d2d1d33ca82c. Source types
 browser picker/pane tests pass. Do not restore shared pane composer ownership or
 upstream displayed version/copy. Read the live delivery plan and current handoff
 for the rebuilt artifact and native acceptance; source integration is not delivery.
+
+## Imported monitor notifications
+
+Historical server imports can label Claude monitor envelopes as user messages.
+Keep importedTaskNotification presentation restricted to the known complete
+format and imported provenance. Never filter arbitrary pasted XML, mutate history
+or interpret notification text as a command. Preserve expandable raw text and
+ordinary guest/scheduled attribution. Run the original timeline browser regression
+as well as focused parser/source tests; test fixtures contain synthetic content.

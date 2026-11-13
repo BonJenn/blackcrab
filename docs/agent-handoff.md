@@ -3,8 +3,8 @@
 ## Current checkpoint — 2026-11-13: mobile account stuck on Checking
 
 The owner reports “T3 Account / Checking” greyed out in TestFlight. The exact
-production Clerk native request returned HTTP400 / native_api_disabled, while
-ordinary browser environment requests return200. This is a verified account
+production Clerk native request returned HTTP 400 / native_api_disabled, while
+ordinary browser environment requests return 200. This is a verified account
 configuration blocker, not a guessed connectivity problem. The owner was asked
 to enable Native API; their direct Clerk login did not show the app. Vercel CLI
 confirmed a marketplace installation owned by bonjenns-projects (team
@@ -23,23 +23,40 @@ replaces indefinite loading/blank auth with a bounded actionable message, and
 returns to the original Clerk sign-in/profile as soon as auth loads. No storage,
 provider identity, native dependency or authenticated command semantics change.
 The native-account-preflight is read-only and never prints credentials.
+PR291 is https://github.com/BonJenn/blackcrab/pull/291. The physical staged source
+/private/tmp/blackcrab-ios-yP6Wlk/repo passed the full mobile typecheck and all 94
+experience/activation tests with no skips; the consumer verifier also passed.
+Initial mixed dependency-overlay failures are superseded by that actual physical
+validation. Runtime/export state is in parent account-export-result.json. No
+production update or new TestFlight binary has been published by this change.
+The export completed at source d6a3a6e9ff3d8cf2d0ed2c19155574fe2ef91676:
+/private/tmp/blackcrab-ios-yP6Wlk/artifacts/account-export, native runtime
+2cbb84d9fbdb180f1af5bfe3e049108c47d628cb matches TestFlight build4. Hermes SHA256
+099c4db00a51001f5a05079c5a05d8888683407643197ba811806c30440910f3. Byte audit found
+zero T3 Account/account/Connect strings and the new account recovery strings.
+All local processes completed; no build is running. Next: inspect current PR291
+CI/reviews on its wake, merge validated source, confirm native readiness after
+the owner's dashboard change, then validate installed OTA retention/reconnect
+and publish through the owned production channel. Do not publish the older
+branding-only export or change the runtime hash to force compatibility. The
+corrected bundle is compatible, but installed update acceptance is still pending.
 
 Branding source changes from PR264/266 already merged, but their compatible
-Hermes export was NEVER PUBLISHED. TestFlight1.0.0(4) still contains older copy.
+Hermes export was NEVER PUBLISHED. TestFlight 1.0.0 (4) still contains older copy.
 Existing unpublished export: /private/tmp/blackcrab-ios-4AS02K/artifacts/shared-copy-export,
-runtime2cbb84d9fbdb180f1af5bfe3e049108c47d628cb. A new account-fix candidate must
+runtime 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb. A new account-fix candidate must
 include both branding layers and use the same owned Expo production project;
 verify runtime compatibility and retained storage/reconnect before delivery.
 Do not describe source changes or an export as an update installed on the phone.
 
-The desktop0.4.4 request remains active: updater PR290 at e20672a773960580bc4757dcf9c3d449c6479f6e
+The desktop 0.4.4 request remains active: updater PR290 at e20672a773960580bc4757dcf9c3d449c6479f6e
 is linked/watched, waiting on required CI. Its worktree is
 P/mac-release-040-v2llrqsa/workspace-updates-044; read workspace-044-plan.json in its
 parent for details. Do not poll CI or restart the completed dependency preparation.
-Keep its pending handoff additions when integrating this branch. Mac0.4.3 and
-Windows/Linux0.3.0 remain public; native Windows/Linux packaging, three-platform
+Keep its pending handoff additions when integrating this branch. Mac 0.4.3 and
+Windows/Linux 0.3.0 remain public; native Windows/Linux packaging, three-platform
 0.4.4 publication and full two-computer+iOS Connect acceptance remain unfinished.
-WebsitePR17 is merged and verified. Preserve existing service manifest c04c4d44…
+Website PR17 is merged and verified. Preserve existing service manifest c04c4d44…
 and all user data. The finish line remains validated parity, a current normal Mac
 installation and an available, working TestFlight app, plus Windows/Linux delivery.
 

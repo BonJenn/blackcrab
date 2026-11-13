@@ -73,6 +73,15 @@ browser picker/pane tests pass. Do not restore shared pane composer ownership or
 upstream displayed version/copy. Read the live delivery plan and current handoff
 for the rebuilt artifact and native acceptance; source integration is not delivery.
 
+## Imported monitor notifications
+
+Historical server imports can label Claude monitor envelopes as user messages.
+Keep importedTaskNotification presentation restricted to the known complete
+format and imported provenance. Never filter arbitrary pasted XML, mutate history
+or interpret notification text as a command. Preserve expandable raw text and
+ordinary guest/scheduled attribution. Run the original timeline browser regression
+as well as focused parser/source tests; test fixtures contain synthetic content.
+
 ## Split-pane header controls
 
 Window-fixed panel controls must not be reused inside each pane. Closed-panel

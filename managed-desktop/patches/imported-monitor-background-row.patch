@@ -1,0 +1,47 @@
+--- a/apps/web/src/components/chat/TimelineUserMessageRow.tsx
++++ b/apps/web/src/components/chat/TimelineUserMessageRow.tsx
+@@ -281,9 +281,11 @@
+   const ctx = use(TimelineRowCtx);
+   const [expanded, setExpanded] = useState(false);
+   const revealRef = findRevealRef(() => setExpanded(true));
+-  const { text, scheduledTaskId } = resolveUserMessagePresentation(row.message);
++  const { text, scheduledTaskId, backgroundNotification } = resolveUserMessagePresentation(row.message);
++  const label = backgroundNotification ? "Background update" : "Automation";
+   const summary =
+     useScheduledTaskTitle(ctx.activeThreadEnvironmentId, scheduledTaskId) ??
++    backgroundNotification?.summary ??
+     text.trim().split(/\r?\n/, 1)[0] ??
+     "";
+ 
+@@ -305,10 +307,10 @@
+           expanded && "w-full",
+         )}
+       >
+-        <MessageAuthorHeading>Automation</MessageAuthorHeading>
++        <MessageAuthorHeading>{label}</MessageAuthorHeading>
+         <FoldedMessageHeader
+           icon={CalendarClockIcon}
+-          label="Automation"
++          label={label}
+           summary={summary}
+           expanded={expanded}
+           onToggle={() => setExpanded((value) => !value)}
+@@ -321,7 +323,17 @@
+             className={cn("px-3 pb-3", !ctx.findActive && "max-h-96 overflow-auto")}
+             data-thread-find-text="true"
+           >
+-            <UserMessageBody text={text} skills={ctx.skills} markdownCwd={ctx.markdownCwd} />
++            {backgroundNotification ? (
++              <>
++                <UserMessageBody text={backgroundNotification.event} skills={ctx.skills} markdownCwd={ctx.markdownCwd} />
++                <details className="mt-3 text-xs text-muted-foreground">
++                  <summary>Original notification</summary>
++                  <pre className="mt-2 whitespace-pre-wrap break-words">{text}</pre>
++                </details>
++              </>
++            ) : (
++              <UserMessageBody text={text} skills={ctx.skills} markdownCwd={ctx.markdownCwd} />
++            )}
+           </div>
+         ) : null}
+       </div>

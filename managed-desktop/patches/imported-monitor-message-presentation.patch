@@ -1,0 +1,43 @@
+--- a/packages/client-runtime/src/userMessage.ts
++++ b/packages/client-runtime/src/userMessage.ts
+@@ -28,6 +28,8 @@
+   beforeCacheExpires: "Context automatically compacted before cache expiry",
+   onReturn: "Context compacted before sending",
+ } satisfies Record<OrchestrationV2IdleCompaction, string>;
++
++import { importedTaskNotification, type ImportedTaskNotification } from "./importedTaskNotification.ts";
+ 
+ const LEGACY_AUTOMATION_PREFIX = /^\[Triggered by schedule task: [^\r\n]+\]\r?\n\r?\n/;
+ const LEGACY_AUTOMATION_MESSAGE_ID = /^scheduled-task-message:(.+):\d+:(?:scheduled|manual)$/;
+@@ -62,6 +64,7 @@
+   readonly id?: string;
+   readonly role: string;
+   readonly text: string;
++  readonly attachments?: ReadonlyArray<ChatAttachment> | undefined;
+   readonly createdBy?: OrchestrationV2Actor;
+   readonly creationSource?: OrchestrationV2CreationSource;
+   readonly scheduledTaskId?: ScheduledTaskId | undefined;
+@@ -72,6 +75,7 @@
+   readonly scheduledTaskId: ScheduledTaskId | undefined;
+   /** Set when `attribution` is "guest". */
+   readonly guestName?: string;
++  readonly backgroundNotification?: ImportedTaskNotification;
+ } {
+   if (message.role !== "user") {
+     return { text: message.text, attribution: null, scheduledTaskId: undefined };
+@@ -91,6 +95,15 @@
+       text: message.text,
+       attribution: "automation",
+       scheduledTaskId: message.scheduledTaskId,
++    };
++  }
++  const backgroundNotification = importedTaskNotification(message);
++  if (backgroundNotification !== undefined) {
++    return {
++      text: message.text,
++      attribution: "automation",
++      scheduledTaskId: undefined,
++      backgroundNotification,
+     };
+   }
+   const legacyPrefix = LEGACY_AUTOMATION_PREFIX.exec(message.text);

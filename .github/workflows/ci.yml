@@ -189,7 +189,7 @@ jobs:
   managed-cloud-clients:
     name: cloud clients (pinned source + types + tests)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -224,6 +224,28 @@ jobs:
       - name: test owned cloud and original account/link behavior
         working-directory: ${{ steps.clients.outputs.source }}
         run: node --no-experimental-webstorage node_modules/vite-plus/bin/vp test run --config blackcrab-cloud-test.config.ts
+
+      - name: install pinned browser for workspace regressions
+        working-directory: ${{ steps.clients.outputs.source }}/apps/web
+        run: |
+          node --input-type=module <<'JS'
+          import { createRequire } from 'node:module';
+          import path from 'node:path';
+          import { spawnSync } from 'node:child_process';
+          const require = createRequire(path.join(process.cwd(), 'package.json'));
+          const provider = createRequire(require.resolve('@vitest/browser-playwright'));
+          const cli = path.join(path.dirname(provider.resolve('playwright/package.json')), 'cli.js');
+          const result = spawnSync(process.execPath, [cli, 'install', '--with-deps', 'chromium-headless-shell'], { stdio: 'inherit' });
+          if (result.error) throw result.error;
+          process.exit(result.status ?? 1);
+          JS
+      - name: test monitor presentation and pane controls in Chromium
+        working-directory: ${{ steps.clients.outputs.source }}/apps/web
+        run: >-
+          node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run
+          src/components/chat/MessagesTimeline.browser.test.tsx
+          src/components/panes/PaneToolbar.browser.test.tsx
+          --project browser --maxWorkers 1 -t 'imported monitor notifications|pane controls remain'
 
   managed-cloud-backend:
     name: cloud backend (pinned source + types + tests)

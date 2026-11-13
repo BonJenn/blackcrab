@@ -18,6 +18,7 @@ export const lifecycleChecks = Object.freeze([
 
 export const ownerTestingAuthorization = 'publish the mac release and ill test it myself. this will be version 0.4';
 export const owner042PublicationAuthorization = 'you have plenty of usage get this published';
+export const owner043UpdateAuthorization = 'continue and update it. where are w with the windows and linux builds?';
 
 export function validateAcceptance(value, revision, {tag, version, draftBuild = false} = {}) {
   // Build the actual signed installer before asserting its GUI/lifecycle behavior.
@@ -46,10 +47,15 @@ export function validateAcceptance(value, revision, {tag, version, draftBuild = 
       value.authorization === owner042PublicationAuthorization &&
       value.followUpOf === 'v0.4.1' &&
       value.followUpSourceRevision === '62ef3868d65252ba062bbee0200d6cb74a27ea6f';
+    const requestedWorkspaceUpdate = tag === 'v0.4.3' && version === '0.4.3' &&
+      value.authorization === owner043UpdateAuthorization &&
+      value.manualTestingAuthorization === ownerTestingAuthorization &&
+      value.followUpOf === 'v0.4.2' &&
+      value.followUpSourceRevision === 'cb586b1f4832714e624c4a328b777ef321670fd3';
     if (value.schema !== 1 || value.sourceRevision !== revision ||
         !/^[a-f0-9]{40}$/.test(revision ?? '') ||
-        !(initialRelease || correctivePatch || requestedWorkspaceRelease) || value.tag !== tag ||
-        (!requestedWorkspaceRelease && value.authorization !== ownerTestingAuthorization) || value.checks !== undefined ||
+        !(initialRelease || correctivePatch || requestedWorkspaceRelease || requestedWorkspaceUpdate) || value.tag !== tag ||
+        (!requestedWorkspaceRelease && !requestedWorkspaceUpdate && value.authorization !== ownerTestingAuthorization) || value.checks !== undefined ||
         JSON.stringify(value.deferredChecks) !== JSON.stringify(lifecycleChecks)) {
       throw Error('Owner publication authorization must match the explicitly requested release, baseline and source');
     }

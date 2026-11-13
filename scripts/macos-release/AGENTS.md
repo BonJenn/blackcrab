@@ -110,3 +110,18 @@ acceptance. The owner's private candidate was not replaced by this publication.
 Some host diagnostic copy remains: preserve the production c04c4d44… manifest until
 an explicitly stopped, data-preserving host migration is implemented and tested.
 Full parity and final user installation/runtime acceptance remain separate work.
+
+## Requested 0.4.3 update — 2026-11-13
+
+The current owner instruction is “continue and update it. where are w with the
+windows and linux builds?” Continue the requested Mac update under the owner's
+existing “publish the mac release and ill test it myself. this will be version
+0.4” delivery preference. This is the current update authorization, not a claim
+that native tests passed or that the old 0.4.2 exception covers future versions.
+Record OWNER_TESTING_AUTHORIZED, both exact instructions, the final source,
+followUpOf v0.4.2 and followUpSourceRevision
+cb586b1f4832714e624c4a328b777ef321670fd3. Keep all eight lifecycle checks deferred.
+Signing, notarization, complete payload verification, helper identity and updater
+cryptographic verification remain mandatory before publication. Keep the existing
+c04c4d44… service payload; publish website notes after verified public installers.
+Windows/Linux remain separate implementation and native validation work.

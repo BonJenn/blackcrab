@@ -49,11 +49,37 @@ not launch the app, extract archives, repair permissions, read sessions or
 change data. The initialization lock is only acquired nonblocking and immediately
 released through a read-only descriptor. Run with the normal defaults on the
 owner's Mac; optional --app and --data paths support isolated validation.
-An all-passed report would not establish native UI startup success.
+The owner returned that pinned report: all 19 checks passed. Both archive
+SHA256 values match the published release, the cache marker contents are
+recognized, initialization locking succeeds, and the running Root executable
+is the Applications copy. Filesystem ownership was the only unknown because
+the report passed an arbitrary directory to diskutil. The corrected report now
+resolves the containing device with df before asking diskutil; a fresh isolated
+validation passes all 20 checks and preserves its data exactly. Do not ask the
+owner to repeat already-passed checks or infer GUI success from this report.
 
-The renderer also now preserves native string rejections instead of replacing
-them with "Desktop request failed." A real native command rejection needs to
-remain distinct from a returned unavailable status.
+The renderer now preserves native string rejections instead of replacing them
+with "Desktop request failed." Cache startup errors identify filesystem ownership,
+permissions, marker validation, lock acquisition and creation/sync failures.
+Messages include error kinds/OS numbers only, never paths or file contents. All
+checks and rejection behavior remain intact; no cache repair is performed.
+
+The owner then confirmed only ONE unavailable line. That narrows the observed
+UI toward notBundled: a returned native unavailable status carries a second
+error line. The TypeScript client was synthesizing notBundled when isTauri()
+returned false, without invoking native status. It now always asks the native
+command; only a native response can establish a missing package. Three regression
+tests using the real Tauri JavaScript API and a stubbed native invoke fail with
+the original client and pass with the correction. They cover a missing runtime
+marker with a working bridge, native notBundled and rejection responses, and
+an absent bridge. This proves the client misclassification, NOT that the owner's
+actual runtime marker is missing. The earlier report of a visible service Enable
+button remains relevant because that client uses the same isTauri marker.
+
+Local checks: 21 payload tests pass (three explicit opt-in tests skipped), six
+native-entry tests pass and seven renderer/client tests pass. Required CI must
+run on the updated PR head. Finder inspection currently returns cgWindowNotFound;
+no released app/host was launched and no UI acceptance is claimed.
 
 ## Continuation
 
@@ -65,9 +91,11 @@ PR and process handles. The worktree is `desktop-startup-fix`, branch
 are retained outside product source in `desktop-startup-diagnosis-mnb93460`.
 The source contains no hardcoded public-release test pins.
 
-Next, inspect the owner's diagnostic report and obtain the specific failing
-native initialization check before claiming a fix;
-do not disable verification, delete caches or change permissions speculatively.
+Next, finish PR270 checks/reviews and merge the validated head to stage. Deliver
+and verify a new patch artifact, then establish the actual native status and
+ordinary full-desktop launch on the owner's Mac. Do not describe the candidate
+client correction as a confirmed fix of their installation before that evidence.
+Do not disable verification, delete caches or change permissions speculatively.
 Deliver a new patch version after the real fix is validated. Also make the new
 workspace prominent in the primary app experience: 0.4.0 currently opens the
 legacy Root interface and hides the new desktop entry below Claude in Settings.

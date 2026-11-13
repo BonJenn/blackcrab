@@ -75,7 +75,7 @@ fn payload(
                 cache.to_path_buf(),
             )
             .map(Some)
-            .map_err(|_| format!("Blackcrab could not prepare private storage for the {label}. The app's workspace cache may have incompatible ownership, permissions or contents."))
+            .map_err(|reason| format!("Blackcrab could not initialize the {label}. {reason}"))
         }
         _ => Err(format!(
             "This Blackcrab build has incomplete verification information for the {label} package."
@@ -408,7 +408,7 @@ mod tests {
         let result = blocked.status().await;
         assert_eq!(result.state, "unavailable");
         let error = result.error.unwrap();
-        assert!(error.contains("could not prepare private storage"));
+        assert!(error.contains("could not initialize the full desktop"));
         assert!(!error.contains(base.to_str().unwrap()));
         assert_eq!(fs::read(cache.join("existing-data")).unwrap(), b"retain me");
         assert!(!cache.join(".blackcrab-managed-payload-cache-v1").exists());

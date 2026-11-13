@@ -95,14 +95,28 @@ for my $item (['Initialization lock', "$data/.blackcrab-payload-init-$key.lock"]
     } else { check('Initialization lock readable', 0, "Cannot open: $!"); }
 }
 
-if ($^O eq 'darwin' && -d $data && open(my $disk, '-|', '/usr/sbin/diskutil', 'info', '-plist', $data)) {
-    local $/;
-    my $plist = <$disk> // '';
-    close $disk;
-    if ($plist =~ m{<key>GlobalPermissionsEnabled</key>\s*<(true|false)\s*/>}) {
-        check('Filesystem ownership enabled', $1 eq 'true', $1);
-    } else { $report->{filesystemOwnership} = 'Could not determine; not treated as a passed check'; }
+# diskutil accepts a volume/device, not an arbitrary directory. Resolve the
+# containing filesystem using df; only a local device identifier is passed on.
+if ($^O eq 'darwin' && -d $data) {
+    my $device;
+    if (open(my $df, '-|', '/bin/df', '-P', $data)) {
+        while (my $line = <$df>) {
+            $device = $1 if $line =~ m{^(/dev/[A-Za-z0-9]+)\s};
+        }
+        close $df;
+    }
+    $report->{filesystemOwnership} = 'Could not determine; not treated as a passed check';
+    if (defined($device) && open(my $disk, '-|', '/usr/sbin/diskutil', 'info', '-plist', $device)) {
+        local $/;
+        my $plist = <$disk> // '';
+        close $disk;
+        if ($plist =~ m{<key>GlobalPermissionsEnabled</key>\s*<(true|false)\s*/>}) {
+            check('Filesystem ownership enabled', $1 eq 'true', $1);
+            delete $report->{filesystemOwnership};
+        }
+    }
 }
+
 my @running;
 if ($^O eq 'darwin' && open(my $ps, '-|', '/bin/ps', '-axo', 'pid=,comm=')) {
     while (my $line = <$ps>) {

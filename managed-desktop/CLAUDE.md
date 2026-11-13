@@ -11,6 +11,9 @@ Blackcrab host. It must not start another host or claim legacy provider sessions
 Patch order matters when multiple records change the same upstream file.
 Update before/after/patch/payload digests only from the reviewed exact changes.
 Never dump complete registry replacement strings into chat; some embed huge files.
+When the production registry changes, review the exact delta and verify the QA
+identity predecessors before updating fork-integration/native-keychain-qa's
+whole-registry pin. Do not weaken that check or refresh the host build freeze.
 
 The browser bridge preserves the original browser Manager/CDP/services. Retire
 old connection epochs and cancel their work without closing successor sessions.

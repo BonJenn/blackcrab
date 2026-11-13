@@ -30,3 +30,18 @@ Evidence: REL/imported-task-notifications-validation, including final-source-
 verification.json (346 records, 301 final targets), type logs and browser log.
 All local test processes completed. Public 0.4.2 is unchanged; a new client build
 is needed to deliver this fix.
+
+CI on 124d8ce caught two integration issues: the native-keychain QA recipe still
+pinned the preceding desktop graph, and ubuntu-latest moved to 26.04, which the
+frozen Playwright 1.60 browser installer rejects. The client job now uses Ubuntu
+24.04 without changing dependencies or skipping browser coverage. The QA recipe
+now pins the reviewed 341-record graph (3a40b8c3…). All 337 preceding records are
+unchanged, the four added payloads authenticate, and none touches QA identity
+targets. All seven source predecessors also match the prepared actual source.
+The nine-target fixtures, strict whole-registry check and service build freeze
+remain unchanged. Local evidence: ci-registry-review-imported-task-notifications.json
+in the validation directory above. The historical production-predecessor-update.json
+describes an earlier, separate source change and remains intact.
+The corrected recipe plus all managed desktop/cloud Node suites pass: 103 tests,
+zero failures or skips. The Linux browser install will be rechecked by CI; local
+Chromium acceptance above remains valid because no client source changed.

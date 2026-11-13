@@ -158,3 +158,12 @@ claim of passing native acceptance or a blanket exception for future versions.
 Signing, notarization, payload verification and updater verification remain
 mandatory. Preserve public 0.4.0 assets; release notes must call the work-Mac
 resolution unconfirmed until the owner actually opens the new desktop.
+
+## Published 0.4.1 correction
+
+Mac 0.4.1 is published from 62ef3868d65252ba062bbee0200d6cb74a27ea6f. Actual
+signed/notarized installer, payload and updater checks passed; website notes and
+real platform download redirects were verified. Preserve its public tag/assets.
+The owner still needs to confirm Full desktop on their work Mac; publication is
+not runtime acceptance or full parity. Read the current handoff checkpoint before
+its explicitly historical sections, and do not restart old build handles.

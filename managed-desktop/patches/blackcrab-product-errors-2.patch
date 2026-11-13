@@ -1,0 +1,25 @@
+--- a/packages/client-runtime/src/relay/managedRelayState.ts
++++ b/packages/client-runtime/src/relay/managedRelayState.ts
+@@ -209,11 +209,11 @@
+   yield* relay.unlinkEnvironment({ clerkToken, environmentId: input.environmentId });
+ });
+ 
+-/** Returns the T3 Chat page URL where the signed-in user confirms the link. */
++/** Returns the subscription page URL where the signed-in user confirms the link. */
+ export const createManagedRelayT3ChatLinkRequest = Effect.fn(
+   "clientRuntime.managedRelaySession.createT3ChatLinkRequest",
+ )(function* (registry: AtomRegistry.AtomRegistry, input: { readonly accountId: string }) {
+-  const clerkToken = yield* requireSessionClerkToken(registry, input.accountId, "linking T3 Chat");
++  const clerkToken = yield* requireSessionClerkToken(registry, input.accountId, "linking subscription");
+   const relay = yield* ManagedRelay.ManagedRelayClient;
+   return (yield* relay.createT3ChatLinkRequest({ clerkToken })).url;
+ });
+@@ -223,7 +223,7 @@
+     const clerkToken = yield* requireSessionClerkToken(
+       registry,
+       input.accountId,
+-      "unlinking T3 Chat",
++      "unlinking subscription",
+     );
+     const relay = yield* ManagedRelay.ManagedRelayClient;
+     yield* relay.unlinkT3Chat({ clerkToken });

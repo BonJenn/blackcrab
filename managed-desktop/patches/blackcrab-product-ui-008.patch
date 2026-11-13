@@ -1,0 +1,27 @@
+--- a/apps/web/src/components/settings/CliCommandSettingsRow.tsx
++++ b/apps/web/src/components/settings/CliCommandSettingsRow.tsx
+@@ -26,7 +26,7 @@
+         toastManager.add(
+           stackedThreadToast({
+             type: "error",
+-            title: action === "install" ? "Could not install t3" : "Could not remove t3",
++            title: action === "install" ? "Could not install the command-line launcher" : "Could not remove the command-line launcher",
+             description: error instanceof Error ? error.message : "Something went wrong.",
+           }),
+         );
+@@ -37,12 +37,12 @@
+   if (!bridge || !state?.supported) return null;
+   const installed = state.installedPath !== null;
+   const description = state.shadowedBy
+-    ? `Another t3 at ${state.shadowedBy} runs first in a new terminal. Remove it to use Blackcrab's.`
++    ? `Another launcher at ${state.shadowedBy} runs first in a new terminal. Remove it to use Blackcrab's.`
+     : !installed
+-      ? "Run Blackcrab's CLI as `t3` from any terminal."
++      ? "Use Blackcrab from your terminal."
+       : state.onPath
+         ? `Installed at ${state.installedPath}. Open a new terminal to use it.`
+-        : `Installed at ${state.installedPath}, which is not on your PATH yet. Add its folder to your PATH to run \`t3\`.`;
++        : `Installed at ${state.installedPath}, which is not on your PATH yet. Add its folder to your PATH to use the launcher.`;
+ 
+   return (
+     <SettingsRow

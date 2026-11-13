@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/chat/McpAppFrame.tsx
++++ b/apps/web/src/components/chat/McpAppFrame.tsx
+@@ -238,7 +238,7 @@
+         platform: isElectron ? "desktop" : "web",
+         locale: navigator.language,
+         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+-        userAgent: `t3-code/${APP_VERSION}`,
++        userAgent: `blackcrab/${APP_VERSION}`,
+         deviceCapabilities: {
+           touch: window.matchMedia("(pointer: coarse)").matches,
+           hover: window.matchMedia("(hover: hover)").matches,
+@@ -254,7 +254,7 @@
+       flushSync(() => setDisplayMode("inline"));
+       const approved = await requestConfirmDialog(message);
+       if (approved === undefined) {
+-        throw new McpAppHostRefusal({ message: "T3 could not ask for approval here." });
++        throw new McpAppHostRefusal({ message: "Blackcrab could not ask for approval here." });
+       }
+       return approved;
+     };

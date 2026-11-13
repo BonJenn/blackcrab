@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/authorization/remote.test.ts
++++ b/packages/client-runtime/src/authorization/remote.test.ts
+@@ -96,7 +96,7 @@
+         credential: "one-time-credential",
+         dpopProof: "token-proof",
+         clientMetadata: {
+-          label: "T3 Code Mobile",
++          label: "Blackcrab Mobile",
+           deviceType: "mobile",
+           os: "iOS",
+         },

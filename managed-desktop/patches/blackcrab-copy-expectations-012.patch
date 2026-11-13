@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/settingsScope.test.ts
++++ b/apps/web/src/components/settings/settingsScope.test.ts
+@@ -18,7 +18,7 @@
+   return {
+     id: ProjectId.make(id),
+     environmentId,
+-    title: "T3 Code",
++    title: "Blackcrab",
+     workspaceRoot: `/repos/${id}`,
+     physicalProjectKey: `${environmentId}:/repos/${id}`,
+     environmentLabel:

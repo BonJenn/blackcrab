@@ -1,0 +1,22 @@
+--- a/apps/web/src/components/settings/ProjectActionsSettings.tsx
++++ b/apps/web/src/components/settings/ProjectActionsSettings.tsx
+@@ -136,7 +136,7 @@
+                 </MenuTrigger>
+                 <MenuPopup align="end">
+                   <MenuGroup>
+-                    <MenuGroupLabel>Import from t3.json</MenuGroupLabel>
++                    <MenuGroupLabel>Import repository configuration</MenuGroupLabel>
+                     <p className="px-2 pb-2 text-pretty text-sm text-muted-foreground">
+                       Add actions declared by this checkout without editing them first.
+                     </p>
+@@ -186,8 +186,8 @@
+       )}
+       {t3File.status === "invalid" ? (
+         <SettingsRow
+-          title="t3.json is invalid"
+-          description="A t3.json exists in this checkout but fails to parse, so every action and icon it declares is ignored. Check the JSON syntax and icon values."
++          title="Repository configuration is invalid"
++          description="A repository configuration file exists in this checkout but fails to parse, so every action and icon it declares is ignored. Check the JSON syntax and icon values."
+           className="text-warning"
+         />
+       ) : null}

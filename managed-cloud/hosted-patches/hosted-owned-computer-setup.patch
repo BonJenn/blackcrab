@@ -1,41 +1,32 @@
 --- a/apps/web/src/components/HostedEmptyState.tsx
 +++ b/apps/web/src/components/HostedEmptyState.tsx
-@@ -9,7 +9,6 @@
- import { isElectron } from "../env";
- import { isLocalEnvironmentDisabled } from "../localEnvironment";
- import { useRelayEnvironmentDiscovery } from "../state/environments";
--import { CommandBlock } from "./CommandBlock";
- import { useT3ConnectAuthPrompt } from "./clerk/useT3ConnectAuthPrompt";
- import { CloudEnvironmentConnectRows } from "./cloud/CloudEnvironmentConnectList";
- import { Button } from "./ui/button";
-@@ -88,7 +87,7 @@
+@@ -87,7 +87,7 @@
          )}
        </SetupStep>
        <SetupStep number={2}>
--        <RunOnComputer command="npx t3 connect" />
+-        <RunOnComputer />
 +        <DesktopInstructions mode="connect" />
          {isSignedIn ? (
            <div className="mt-4 space-y-1.5">
              <CloudEnvironmentConnectRows
-@@ -119,7 +118,7 @@
+@@ -118,7 +118,7 @@
    return (
      <>
        <SetupStep number={1}>
--        <RunOnComputer command="npx t3 pair" />
+-        <RunOnComputer />
 +        <DesktopInstructions mode="pair" />
        </SetupStep>
        <SetupStep number={2}>
          <Button render={<Link to="/settings/connections" />} size="sm">
-@@ -145,18 +144,19 @@
+@@ -144,17 +144,19 @@
    );
  }
  
--function RunOnComputer({ command }: { readonly command: string }) {
+-function RunOnComputer() {
 +function DesktopInstructions({ mode }: { readonly mode: "connect" | "pair" }) {
    return (
      <>
--      <p>Run on your computer:</p>
--      <CommandBlock command={command} className="mt-2" />
+-      <p>Open Blackcrab on your computer, then go to Settings → Sharing &amp; access to connect it or copy a pairing link.</p>
 +      <p>{mode === "connect"
 +        ? "Open Blackcrab on your computer and sign in with the same account."
 +        : "Open Blackcrab on your computer and create a pairing link."}</p>

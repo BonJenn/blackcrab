@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/userMessage.ts
++++ b/packages/client-runtime/src/userMessage.ts
+@@ -17,7 +17,7 @@
+ import { imageMimeType } from "@t3tools/shared/image";
+ import { videoMimeType } from "@t3tools/shared/video";
+ 
+-/** The working row while T3 Code's own compaction runs. */
++/** The working row while Blackcrab's own compaction runs. */
+ export const IDLE_COMPACTING_LABELS = {
+   beforeCacheExpires: "Compacting before the cache expires…",
+   onReturn: "Compacting…",

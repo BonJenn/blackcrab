@@ -1,0 +1,11 @@
+--- a/packages/shared/src/relayTracing.ts
++++ b/packages/shared/src/relayTracing.ts
+@@ -35,7 +35,7 @@
+   defaultValue: () => Option.none<Tracer.Tracer>(),
+ }) {}
+ 
+-/** Export only T3 Connect spans; wrap local work with {@link withLocalTracing}. */
++/** Export only Blackcrab Connect spans; wrap local work with {@link withLocalTracing}. */
+ export const withRelayClientTracing = <A, E, R>(
+   effect: Effect.Effect<A, E, R>,
+ ): Effect.Effect<A, E, R> =>

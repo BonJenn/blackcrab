@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/BranchNamingSettings.tsx
++++ b/apps/web/src/components/settings/BranchNamingSettings.tsx
+@@ -81,7 +81,7 @@
+           serverScoped
+           settingKeys={["branchNamePrefix"]}
+           title="Branch prefix"
+-          description="For example, t3 or t3/ produces t3/add-search. Leave empty for no prefix."
++          description="For example, feature or feature/ produces feature/add-search. Leave empty for no prefix."
+           resetAction={
+             prefixMixed ||
+             settings.branchNamePrefix !== DEFAULT_SERVER_SETTINGS.branchNamePrefix ? (

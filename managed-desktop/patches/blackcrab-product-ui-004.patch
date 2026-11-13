@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/chat/MessagesTimeline.logic.ts
++++ b/apps/web/src/components/chat/MessagesTimeline.logic.ts
+@@ -191,7 +191,7 @@
+   return typeof threadId === "string" && threadId.trim().length > 0 ? threadId.trim() : null;
+ }
+ 
+-const THREAD_READ_OBJECT = " a T3 thread";
++const THREAD_READ_OBJECT = " a Blackcrab thread";
+ 
+ export function threadReadTargetTitle(
+   shell: Pick<ThreadShell, "title" | "archivedAt" | "deletedAt"> | null,

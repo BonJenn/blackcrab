@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/chat/MessagesTimeline.browser.test.tsx
++++ b/apps/web/src/components/chat/MessagesTimeline.browser.test.tsx
+@@ -859,7 +859,7 @@
+     expect(screen.text()).not.toContain("drops the index");
+   });
+ 
+-  it("leaves messages sent by T3 Code as full bubbles", async () => {
++  it("leaves messages sent by Blackcrab as full bubbles", async () => {
+     setup();
+     await using screen = await renderTimeline([
+       message(AGENT_MESSAGE, { createdBy: "agent", creationSource: "server" }),

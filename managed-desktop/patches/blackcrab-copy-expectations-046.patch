@@ -1,0 +1,20 @@
+--- a/packages/client-runtime/src/connection/registry.test.ts
++++ b/packages/client-runtime/src/connection/registry.test.ts
+@@ -2044,7 +2044,7 @@
+   const lanRegistration = (target = LAN_TARGET, profile = LAN_PROFILE) =>
+     new BearerConnectionRegistration({ target, profile, credential: BEARER_CREDENTIAL });
+ 
+-  it.effect("adds a paired LAN route ahead of T3 Connect instead of replacing it", () =>
++  it.effect("adds a paired LAN route ahead of Blackcrab Connect instead of replacing it", () =>
+     Effect.gen(function* () {
+       const harness = yield* makeHarness([RELAY_TARGET]);
+       yield* Effect.gen(function* () {
+@@ -2151,7 +2151,7 @@
+       }),
+   );
+ 
+-  it.effect("signing out of T3 Connect keeps an environment that still has a LAN route", () =>
++  it.effect("signing out of Blackcrab Connect keeps an environment that still has a LAN route", () =>
+     Effect.gen(function* () {
+       const harness = yield* makeHarness(
+         [LAN_TARGET, RELAY_TARGET, SECOND_RELAY_TARGET],

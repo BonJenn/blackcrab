@@ -1,6 +1,40 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 2026-11-12: installer verified; Mac locked
+## Current checkpoint — 2026-11-13: workspace works; owner requested polish
+
+The owner unlocked the Mac. The previous Root quit normally; read-only process
+inventory showed both old Root/client exited. The exact verified 0.4.2 Root from
+sole-workspace-042-delivery then automatically opened the new Electron workspace.
+The first-launch catalog, configuration, environment identity and keybinding hashes
+match the pre-upgrade baseline (one project, four v2 threads, no runs). No provider
+prompt was sent. The owner reports it looks and works fine, but requests complete
+visible branding cleanup, the correct 0.4.2 version, easy external-volume selection,
+and fixing image drops that currently go to the rightmost pane.
+
+Publication is held for these fixes. Do not publish the prior private draft.
+REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Current implementation: REL/workspace-polish-042. Live state:
+REL/workspace-polish-042-plan.json. Validation and prepared pinned producer source:
+REL/workspace-polish-042-validation. PR276 merged at 512c96eb8068290b9aa57d124fe60548843924b9
+and is unwatched. Main dirty checkout and immutable prior artifacts are preserved.
+
+Branding fixes cover shared runtime/contracts and theme labels as well as web and
+desktop copy; preserve internal protocol/storage IDs and upstream license notices.
+Managed Electron/package/renderer versions must derive from Blackcrab's root
+release version, including the web cache key and native bundle metadata.
+The pane bug is a shared composer ref in ChatView; scope attachment insertion to
+each pane and register only the focused composer for global palette commands.
+The folder picker should expose Home, External drives (/Volumes on the selected
+Mac environment) and filesystem locations without typing hidden mount paths.
+
+Next: finish and validate these three fixes in separate coherent PRs, merge to
+stage, rebuild the exact source, then complete native lifecycle/installation and
+publish Mac/website updates. Full parity is not certified. TestFlight 1.0.0 (4)
+remains available. Finish line remains accepted desktop/mobile/hosted parity,
+a normal current Mac installation, and TestFlight availability. No native build
+is running; source validation handles are tracked in the live plan.
+
+## Historical checkpoint — 2026-11-12: installer verified; Mac locked
 
 The owner wants the older interface removed and the new workspace to open directly.
 PR275 passed all nine checks and merged to stage

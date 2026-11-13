@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/cloud/ConnectCliAuthSurface.tsx
++++ b/apps/web/src/components/cloud/ConnectCliAuthSurface.tsx
+@@ -15,7 +15,7 @@
+   context: "Authorization request",
+   title: "This connect link is incomplete",
+   description:
+-    "The link is missing its authorization request. Re-run `t3 connect` in your terminal and open the freshly printed URL.",
++    "The link is missing its authorization request. Return to Blackcrab Settings → Sharing & access and start the connection again.",
+ } as const;
+ 
+ export function ConnectCliAuthorizeSurface() {

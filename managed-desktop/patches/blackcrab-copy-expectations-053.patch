@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/work-log/toolPresentation.test.ts
++++ b/packages/client-runtime/src/work-log/toolPresentation.test.ts
+@@ -31,7 +31,7 @@
+       toolSource: source,
+       input: {
+         title: "Restrict the breakpoint to Git actions",
+-        code: "await sky.type_text({app:'T3 Code (Nightly)',text:'debug(ga.run)'});",
++        code: "await sky.type_text({app:'Blackcrab (Nightly)',text:'debug(ga.run)'});",
+       },
+     };
+     expect(extractToolActivityPresentation(item)).toEqual({

@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/errors/transport.ts
++++ b/packages/client-runtime/src/errors/transport.ts
+@@ -6,7 +6,7 @@
+   /\bSocketCloseError\b/i,
+   /\bSocketOpenError\b/i,
+   /\bSocket is not connected\b/i,
+-  /Unable to connect to the T3 server WebSocket\./i,
++  /Unable to connect to the Blackcrab server WebSocket\./i,
+   // The RPC session appends the network hint for relay connections. Any other
+   // trailing text means a different error that the user should still see.
+   new RegExp(

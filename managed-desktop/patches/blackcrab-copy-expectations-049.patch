@@ -1,0 +1,38 @@
+--- a/packages/client-runtime/src/connection/supervisor.test.ts
++++ b/packages/client-runtime/src/connection/supervisor.test.ts
+@@ -1625,7 +1625,7 @@
+         prepare: (_attempt, target) => {
+           attempted.push(target._tag);
+           return target._tag === "RelayConnectionTarget"
+-            ? Effect.fail(blocked("Sign in to T3 Connect."))
++            ? Effect.fail(blocked("Sign in to Blackcrab Connect."))
+             : Effect.succeed(preparedFor(target));
+         },
+       });
+@@ -1640,7 +1640,7 @@
+     }).pipe(Effect.provide(TestClock.layer())),
+   );
+ 
+-  it.effect("skips a silent LAN route and connects over T3 Connect", () =>
++  it.effect("skips a silent LAN route and connects over Blackcrab Connect", () =>
+     Effect.gen(function* () {
+       const harness = yield* makeHarness({
+         checkRoute: (route) =>
+@@ -1699,7 +1699,7 @@
+         checkRoute: () => Effect.succeed("answered"),
+         prepare: (_attempt, target) =>
+           target._tag === "RelayConnectionTarget"
+-            ? Effect.fail(blocked("Sign in to T3 Connect."))
++            ? Effect.fail(blocked("Sign in to Blackcrab Connect."))
+             : Effect.fail(transient("LAN socket refused.")),
+       });
+       const supervisor = yield* EnvironmentSupervisor.make(LAN_THEN_RELAY_ENTRY, {
+@@ -1920,7 +1920,7 @@
+   );
+ 
+   it.effect.each(["initial", "late", "withdrawn", "withdrawn-upgrade", "omitted"] as const)(
+-    "learns the %s direct endpoint over T3 Connect",
++    "learns the %s direct endpoint over Blackcrab Connect",
+     (discovery) =>
+       Effect.gen(function* () {
+         const relayEntry: ConnectionCatalogEntry =

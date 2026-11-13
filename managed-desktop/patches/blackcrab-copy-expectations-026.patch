@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/permissions/MacPermissionHelper.test.ts
++++ b/apps/desktop/src/permissions/MacPermissionHelper.test.ts
+@@ -59,7 +59,7 @@
+   }
+   return {
+     app: {
+-      getPath: () => "/Applications/T3 Code (Nightly).app/Contents/MacOS/T3 Code",
++      getPath: () => "/Applications/Blackcrab (Nightly).app/Contents/MacOS/Blackcrab",
+     },
+     nativeImage: { createFromPath: mocks.createFromPath },
+     BrowserWindow: class extends MockWindow {},

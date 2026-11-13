@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/authorization/remote.ts
++++ b/packages/client-runtime/src/authorization/remote.ts
+@@ -49,7 +49,7 @@
+ }
+ 
+ /**
+- * Tells the environment, for analytics, which T3 Connect account and device
++ * Tells the environment, for analytics, which Blackcrab Connect account and device
+  * are connecting, so it can count the environment as theirs.
+  */
+ export const readClientOwnerParams = Effect.gen(function* () {

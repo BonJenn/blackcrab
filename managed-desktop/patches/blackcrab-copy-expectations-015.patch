@@ -1,0 +1,11 @@
+--- a/apps/web/src/lib/assistantTextSelection.test.ts
++++ b/apps/web/src/lib/assistantTextSelection.test.ts
+@@ -262,7 +262,7 @@
+     const viewport = new SelectionNode("MAIN").append(
+       source,
+       new SelectionNode("DIV", "", { "data-select-none": "" }).append(textNode("echo ok")),
+-      new SelectionNode("H3", "", { "data-select-none": "" }).append(textNode("T3 Code")),
++      new SelectionNode("H3", "", { "data-select-none": "" }).append(textNode("Blackcrab")),
+       assistantSource(nextParagraph),
+     );
+ 

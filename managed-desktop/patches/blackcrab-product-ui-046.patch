@@ -1,0 +1,11 @@
+--- a/packages/contracts/src/environmentHttp.ts
++++ b/packages/contracts/src/environmentHttp.ts
+@@ -435,7 +435,7 @@
+ ]);
+ export type EnvironmentConnectReachabilityCause = typeof EnvironmentConnectReachabilityCause.Type;
+ 
+-/** Whether other devices can reach this environment through its T3 Connect tunnel. */
++/** Whether other devices can reach this environment through its Blackcrab Connect tunnel. */
+ export const EnvironmentConnectReachability = Schema.Union([
+   Schema.Struct({
+     status: Schema.Literal("reachable"),

@@ -1,0 +1,20 @@
+--- a/apps/desktop/src/window/DesktopWindow.test.ts
++++ b/apps/desktop/src/window/DesktopWindow.test.ts
+@@ -1210,7 +1210,7 @@
+         createCount,
+         mainWindow,
+         onReveal: () => {
+-          foreground = "T3 Code";
++          foreground = "Blackcrab";
+           operations.push("reveal");
+         },
+       });
+@@ -1223,7 +1223,7 @@
+         operations.length = 0;
+         foreground = "Discord";
+         yield* desktopWindow.dispatchSnapShotEvent({ type: "started", id: captureOne });
+-        assert.equal(foreground, "T3 Code");
++        assert.equal(foreground, "Blackcrab");
+         foreground = "Explorer";
+         yield* desktopWindow.dispatchSnapShotEvent({ type: "ready", id: captureOne });
+         yield* desktopWindow.dispatchSnapShotEvent({ type: "failed", id: captureTwo });

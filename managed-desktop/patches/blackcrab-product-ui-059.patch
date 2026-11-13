@@ -1,0 +1,11 @@
+--- a/packages/shared/src/relayClient.ts
++++ b/packages/shared/src/relayClient.ts
+@@ -593,7 +593,7 @@
+     if (!releaseAsset) {
+       return yield* new RelayClientInstallError({
+         reason: "unsupported_platform",
+-        message: `T3 Code does not provide a managed relay client binary for ${platform}-${arch}.`,
++        message: `Blackcrab does not provide a managed relay client binary for ${platform}-${arch}.`,
+       });
+     }
+ 

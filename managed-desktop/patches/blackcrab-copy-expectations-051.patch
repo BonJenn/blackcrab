@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/state/projectGrouping.test.ts
++++ b/packages/client-runtime/src/state/projectGrouping.test.ts
+@@ -88,7 +88,7 @@
+   provider: SourceControlProviderKind.make("github"),
+   owner: "t3tools",
+   name: "t3code",
+-  displayName: "T3 Code",
++  displayName: "Blackcrab",
+ };
+ 
+ function makeProject(

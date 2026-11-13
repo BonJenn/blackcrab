@@ -1,20 +1,22 @@
-Continue Blackcrab desktop/mobile parity and owner delivery. Read AGENTS.md and
-the Current checkpoint in docs/agent-handoff.md before historical entries.
+Continue Blackcrab parity and delivery. Read AGENTS.md and the Current checkpoint
+in docs/agent-handoff.md before historical notes. All three latest owner fixes
+(complete UI branding/version, visible external drives, correct pane image drops)
+are merged in stage 1140889d5a6730d336b6f1a16347d2d1d33ca82c after nine checks per PR.
+PR277–279 are merged/unwatched. Four real-browser tests and full types pass.
 
-The 0.4.2 sole workspace now launches and the owner reports it works. Do not publish
-the existing draft: their newest request requires complete visible T3 branding
-cleanup, correct Blackcrab 0.4.2 version, external-volume discovery, and pane-local
-image drops. Live work and handles: /Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa/workspace-polish-042-plan.json.
-Current worktree is its sibling workspace-polish-042; prepared pinned source and
-validation are in workspace-polish-042-validation. Keep source deltas in the
-managed producer registry and test fresh application plus hosted patch layering.
-PR276 and branding/version PR277 are merged; PR277 passed nine checks. Preserve the dirty main checkout and existing user data.
-The prior candidate and snapshots are in sole-workspace-042-delivery; first-launch
-identity/catalog hashes match. Native capture became available, then coordinate
-input lost its window; the owner is using the app. No provider commands were sent.
-External volumes are PR278; the pane fix is PR279 stacked on that branch. Both have
-passing source types and targeted tests, including real browser clicks through the
-folder picker and three-pane drops/focus/unmount. Complete CI/review and these PRs, merge to stage, rebuild/sign/notarize, test actual
-launch/reopen/service retention, install normally, publish Mac release and website.
-TestFlight 1.0.0 (4) is available. Full parity remains uncertified; keep handoffs
-current and do not confuse source tests or signed artifacts with runtime acceptance.
+REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Read REL/workspace-polish-042-plan.json for live handles and evidence. Frozen source:
+REL/workspace-polish-042-release. D=REL/workspace-polish-042-delivery. The production
+desktop build runs on original shell handle 20725; resume it and wait for its result.
+Do not duplicate it. Signing/preparation scripts are ready but not yet run. Keep
+existing service artifact/pin; only the desktop client changed. Internal disk space
+is low: use external temp/output and preserve all user data/shared caches.
+
+Build/sign/notarize, replace only the verified superseded private 0.4.2 draft,
+build Root, verify exact installer/helper/payload/updater artifacts, then test
+actual UI/lifecycle and install/publish normally. The current running app is the
+previous candidate and does not include the latest fixes. Keep source, runtime
+acceptance and publication status distinct. Website bb01d27 is prepared and all
+local checks pass, but remains unpushed until the Mac installer is public.
+TestFlight 1.0.0 (4) is available; full parity remains uncertified. Keep this handoff
+and the live plan current, including when original background commands finish.

@@ -1,6 +1,47 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 2026-11-13: workspace works; owner requested polish
+## Current checkpoint — 2026-11-13: all polish fixes merged; replacement build running
+
+Branding/version PR277, external-drive picker PR278 and pane-local attachment PR279
+are merged to stage. Each passed all nine CI checks; all are unwatched. Final source
+is 1140889d5a6730d336b6f1a16347d2d1d33ca82c. The resulting tree equals the tested
+pane PR head. Full desktop/web types, 38 picker logic tests, transfer tests, producer
+registry/version checks and all four browser tests passed. All 333 patches applied
+to fresh pinned source; prepared sources match the final 293 target file digests.
+
+REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Authoritative live state: REL/workspace-polish-042-plan.json.
+Frozen release checkout: REL/workspace-polish-042-release at the exact merge SHA.
+D=REL/workspace-polish-042-delivery. Managed desktop build is currently running
+through its original shell handle 20725, controller D/build-desktop.mjs. Resume that
+handle and inspect D/desktop-build-result.json; do not restart a second build.
+Signing tools are linked only after matching both package/lock files to the prior
+verified release. D/sign-notarize.mjs and D/prepare-inputs.py are prepared, not run.
+D/native-acceptance.json remains DRAFT_VALIDATION_PENDING for this exact source.
+
+The internal disk hit its limit. Only the known duplicate review download
+~/Downloads/Blackcrab_0.4.2_new-workspace_aarch64.dmg was replaced by a symlink to
+its verified, unmounted, checksum-identical archive on G-DRIVE PRO. Evidence:
+D/relocated-review-download.json. User data and the running app were untouched.
+Use external output/temp directories; do not delete user files or shared caches.
+
+After the desktop build passes, sign/notarize its new copy. Retain the ORIGINAL
+unchanged production service artifact and pin from the live plan; do not select
+the newly re-signed unused host copy. Next, adapt the prior private-draft dispatch
+and artifact verifier to this source, preserving verified backups of all five
+current private v0.4.2 assets. D/previous-draft.json confirms the old draft still
+points at d9b5601d424e9808ee2c8dcac5bf42f8cf97d137. It is not public. Require actual
+new Electron/native/renderer version 0.4.2, signed/notarized Root and helper,
+archive pins and updater signature. Complete native UI/lifecycle acceptance,
+normal installation and publication before describing the new build as delivered.
+
+Website REL/website-patch-042 is bb01d27, committed but unpushed/unpublished. It
+includes /docs#mobile for the owned workspace link and truthful invite-only iOS
+beta information. Download tests, scoped lint, full Next build and types pass.
+Publish that website only after the real Mac installer is public. TestFlight
+1.0.0 (4) is still available; no new iOS build is implied. Full parity is not certified.
+
+## Historical checkpoint — 2026-11-13: workspace works; owner requested polish
 
 The owner unlocked the Mac. The previous Root quit normally; read-only process
 inventory showed both old Root/client exited. The exact verified 0.4.2 Root from

@@ -37,11 +37,23 @@ underlying launch failure. Six native-entry tests pass, including checks that
 missing packages remain disabled and an unrecognized cache is not adopted or
 modified. No production cache, session data or app installation was changed.
 
-The owner has been asked to quit with Command-Q and reopen from Applications.
-That result is pending at this checkpoint. The current entry retains its
-initialization error for the process lifetime, so a persistent failure and a
-stale startup failure need to be distinguished. Do not treat elapsed time as
-the owner's answer or assume a successful relaunch.
+The owner fully quit with Command-Q and reopened from Applications. The desktop
+is still unavailable: this is persistent, not merely a stale process state.
+Do not ask for another reinstall or repeat that restart as if it were untested.
+
+`scripts/diagnose-macos-040.pl` is a read-only report for this exact published
+version. It uses the Mac's system Perl to compare the executable and resource
+archive digests, check cache paths/ownership/modes/marker contents and the
+initialization lock, and list the paths of running Root executables. It does
+not launch the app, extract archives, repair permissions, read sessions or
+change data. The initialization lock is only acquired nonblocking and immediately
+released through a read-only descriptor. Run with the normal defaults on the
+owner's Mac; optional --app and --data paths support isolated validation.
+An all-passed report would not establish native UI startup success.
+
+The renderer also now preserves native string rejections instead of replacing
+them with "Desktop request failed." A real native command rejection needs to
+remain distinct from a returned unavailable status.
 
 ## Continuation
 
@@ -53,15 +65,16 @@ PR and process handles. The worktree is `desktop-startup-fix`, branch
 are retained outside product source in `desktop-startup-diagnosis-mnb93460`.
 The source contains no hardcoded public-release test pins.
 
-Next, incorporate the owner's actual restart result. If the error persists,
-obtain the specific failing native initialization check before claiming a fix;
+Next, inspect the owner's diagnostic report and obtain the specific failing
+native initialization check before claiming a fix;
 do not disable verification, delete caches or change permissions speculatively.
 Deliver a new patch version after the real fix is validated. Also make the new
 workspace prominent in the primary app experience: 0.4.0 currently opens the
 legacy Root interface and hides the new desktop entry below Claude in Settings.
 Preserve legacy sessions, pairings and the single managed-host writer.
 
-The release-publication handoff is tracked separately in PR269. Its successful
+The release-publication handoff PR269 merged after nine passing checks to stage
+`39e2c7f6c0813682741bae6a6cceabe9fea4e4fe` and was unwatched. Its successful
 artifact/signature/updater/website results remain valid, but do not establish
 the owner's desktop launch acceptance. TestFlight 1.0.0 (4) already exists; this
 investigation does not require a mobile reupload or new account authorizations.

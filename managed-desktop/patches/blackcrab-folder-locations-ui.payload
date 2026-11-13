@@ -1,0 +1,24 @@
+import { FolderIcon, HardDriveIcon, HouseIcon } from "lucide-react";
+import { folderLocations } from "./folderLocations";
+import { Button } from "./ui/button";
+
+export function FolderLocationShortcuts(props: {
+  readonly platform: string;
+  readonly disabled: boolean;
+  readonly onBrowse: (path: string) => void;
+}) {
+  return <nav aria-label="Folder locations" className="flex shrink-0 flex-wrap items-center gap-1 border-b px-3 py-2">
+    {folderLocations(props.platform).map(location => <Button
+      key={location.path}
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={props.disabled}
+      title={location.path}
+      onClick={() => props.onBrowse(location.path)}
+    >
+      {location.path === "~/" ? <HouseIcon /> : location.path === "/" ? <FolderIcon /> : <HardDriveIcon />}
+      {location.label}
+    </Button>)}
+  </nav>;
+}

@@ -1,0 +1,23 @@
+import { describe, expect, it, vi } from "vite-plus/test";
+import { render } from "../../test/render";
+import { FolderLocationShortcuts } from "./FolderLocationShortcuts";
+
+describe("folder location controls", () => {
+  it("opens external volumes with one click and keeps the mount path out of required input", async () => {
+    const onBrowse = vi.fn();
+    const screen = await render(<FolderLocationShortcuts platform="MacIntel" disabled={false} onBrowse={onBrowse} />);
+    await screen.getByRole("button", { name: "External drives" }).click();
+    expect(onBrowse).toHaveBeenCalledExactlyOnceWith("/Volumes/");
+    await screen.getByRole("button", { name: "Home", exact: true }).click();
+    expect(onBrowse).toHaveBeenLastCalledWith("~/");
+    await screen.unmount();
+  });
+  it("does not offer Mac paths on another target or allow navigation while disabled", async () => {
+    const onBrowse = vi.fn();
+    const screen = await render(<FolderLocationShortcuts platform="Linux" disabled onBrowse={onBrowse} />);
+    await expect.element(screen.getByRole("button", { name: "Mounted volumes" })).toBeDisabled();
+    await expect.element(screen.getByRole("button", { name: "External drives" })).not.toBeInTheDocument();
+    expect(onBrowse).not.toHaveBeenCalled();
+    await screen.unmount();
+  });
+});

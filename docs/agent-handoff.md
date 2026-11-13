@@ -1,6 +1,34 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — published 0.4.0 Full desktop is disabled
+## Current checkpoint — 0.4.1 corrective release preparation
+
+PR270 passed all nine checks at 7054c3b62a353344aae01419c1eb607d75eeb093,
+merged to stage 1af8e72562afda52d0891c64d666d2be914d360a and was unwatched.
+The owner's work-Mac issue remains unconfirmed fixed; only the reproducible
+client misclassification and diagnostics are corrected. No 0.4.1 build or public
+release exists yet. Do not overwrite v0.4.0 or claim native UI acceptance.
+
+Active worktree REL/desktop-patch-041, branch release/0.4.1-desktop-startup.
+REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Read REL/desktop-patch-041-plan.json for current PR/head/handles. Version 0.4.1
+is synchronized across root npm/Cargo/Tauri manifests and locks. No dependency
+resolution or inner desktop/service source changes are intended. Release notes
+are docs/releases/v0.4.1.md. The release input validator allows this single
+corrective follow-up of the owner's 0.4 test delivery, with the original public
+tag/source explicitly bound and all lifecycle checks still marked deferred.
+It does not allow 0.4.2 or later and does not manufacture passing evidence.
+
+Next validate/merge the version PR, prepare a NEW source-bound release-input
+archive from the unchanged notarized production payloads, and dispatch the
+managed-apple-silicon release workflow at the merged source. Preserve all Apple,
+payload and updater checks. Verify actual downloaded artifacts before publication
+and use the owner test to establish whether the desktop opens on their Mac.
+No owned app/host/service/mount is running. The published 0.4.0 and website remain
+intact. The broader finish line remains validated parity, a usable Mac installation
+and the already-available owner TestFlight app; PR merges alone do not finish it.
+
+
+## Investigation checkpoint — published 0.4.0 Full desktop is disabled
 
 The owner installed the correct signed arm64 release at /Applications/Blackcrab.app.
 Executable and both payload SHA256 values match the immutable public 0.4.0 files.

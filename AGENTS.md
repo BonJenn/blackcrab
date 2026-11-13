@@ -144,3 +144,17 @@ whether a desktop package is bundled; a JavaScript runtime marker is not package
 metadata. Preserve the distinction between a reproduced client misclassification
 and confirmation of the owner's actual failure. Do not delete/repair data from
 speculation or claim that unit tests establish GUI acceptance.
+
+## 0.4.1 corrective delivery
+
+The owner is testing the published 0.4 release and reported a disabled Full
+desktop entry. PR270's corrected native-status query and startup diagnostics
+merged to stage 1af8e72562afda52d0891c64d666d2be914d360a after nine passing checks.
+The single 0.4.1 follow-up continues that delivery/test workflow. Its
+OWNER_TESTING_AUTHORIZED record must name followUpOf v0.4.0 and
+followUpSourceRevision caf57b6fab1b4391836c6635882a15a88edfac0d, as well as the
+exact NEW source revision and all deferred lifecycle checks. This is not a new
+claim of passing native acceptance or a blanket exception for future versions.
+Signing, notarization, payload verification and updater verification remain
+mandatory. Preserve public 0.4.0 assets; release notes must call the work-Mac
+resolution unconfirmed until the owner actually opens the new desktop.

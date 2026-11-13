@@ -19,14 +19,20 @@ export const lifecycleChecks = Object.freeze([
 export const ownerTestingAuthorization = 'publish the mac release and ill test it myself. this will be version 0.4';
 
 export function validateAcceptance(value, revision, {tag, version} = {}) {
-  // Explicit owner instruction for this release only. This records deferred
-  // manual tests; it must never manufacture a PASSED lifecycle report.
+  // The owner's 0.4 manual-testing delivery includes the single corrective
+  // 0.4.1 patch for their reported startup failure. Bind that follow-up to the
+  // immutable 0.4.0 baseline; do not extend the exception to later releases.
+  // This records deferred tests, never a PASSED lifecycle report.
   if (value?.state === 'OWNER_TESTING_AUTHORIZED') {
+    const initialRelease = tag === 'v0.4.0' && version === '0.4.0';
+    const correctivePatch = tag === 'v0.4.1' && version === '0.4.1' &&
+      value.followUpOf === 'v0.4.0' &&
+      value.followUpSourceRevision === 'caf57b6fab1b4391836c6635882a15a88edfac0d';
     if (value.schema !== 1 || value.sourceRevision !== revision ||
-        tag !== 'v0.4.0' || version !== '0.4.0' || value.tag !== tag ||
+        !(initialRelease || correctivePatch) || value.tag !== tag ||
         value.authorization !== ownerTestingAuthorization || value.checks !== undefined ||
         JSON.stringify(value.deferredChecks) !== JSON.stringify(lifecycleChecks)) {
-      throw Error('Owner testing authorization must match the explicit v0.4.0 release and source');
+      throw Error('Owner testing authorization must match the 0.4 release or its bound 0.4.1 correction and source');
     }
     return value.state;
   }

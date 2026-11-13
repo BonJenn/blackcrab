@@ -4442,8 +4442,8 @@
     "file": "blackcrab-folder-locations-palette-test.payload",
     "target": "apps/web/src/components/CommandPalette.locations.browser.test.tsx",
     "beforeSha256": null,
-    "afterSha256": "121c3bd5d34acc32982cd8d143198bc5271d56a508c2e5bd75ecb4ca7d23bd84",
-    "sha256": "121c3bd5d34acc32982cd8d143198bc5271d56a508c2e5bd75ecb4ca7d23bd84",
+    "afterSha256": "5677efdcc93bc150aa11a024e4a73ef567455ffc1fa0da61e0f30bcc8f6c739b",
+    "sha256": "5677efdcc93bc150aa11a024e4a73ef567455ffc1fa0da61e0f30bcc8f6c739b",
     "kind": "payload"
   }
 ]

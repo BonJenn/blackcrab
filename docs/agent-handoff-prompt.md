@@ -1,64 +1,68 @@
 # Continue Blackcrab delivery
 
-## Current checkpoint — new workspace becomes the only desktop UI
+## Current checkpoint — 2026-11-12: PR275 merged; replacement Mac candidate building
 
-The owner confirmed the first 0.4.2 workspace looked good, identified T3 branding
-in environment selection, and explicitly requested removing the older interface
-entirely. That instruction supersedes all historical legacy-view preservation
-guidance. The corrected helper already runs in the real signed candidate, the
-service is running, Full desktop opened and repeated Open reused one captured
-client. No provider prompt was sent by the assistant. This is narrower than full
-lifecycle acceptance. The owner is using that candidate; do not kill its processes.
+PR275 passed all nine checks on efdb0ea2e1e7cbda5ea8bb65c96384dc0e995799,
+including full hosted web build/typechecks/tests in both modes. It merged to
+stage d9b5601d424e9808ee2c8dcac5bf42f8cf97d137 and was unwatched. Do not relink,
+rewatch or merge it again. The old interface is removed from this source.
 
 REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
-Current worktree REL/desktop-default-042, branch feat/new-workspace-default-042,
-based on stage 184500a423f87b47cd49c6ac31d8022d26f3af59. Read
-REL/desktop-default-042-plan.json for current handles/validation/PR. The older
-REL/desktop-patch-042-plan.json points here. The main dirty checkout/index is untouched.
-PR273/274 are merged and unwatched. Private v0.4.2 workflow 43369124588 succeeded;
-its artifacts passed signature/notarization/updater/payload checks but are now
-superseded by the owner's new UX instruction. Do not publish that earlier draft.
+The immutable release worktree is REL/desktop-default-042-release at that merge.
+Delivery artifacts and scripts live in REL/sole-workspace-042-delivery (D).
+Read REL/desktop-default-042-plan.json first for current handles and phase; it
+supersedes transient process descriptions here. Keep the main dirty checkout/index
+and the frozen release worktree untouched. Documentation updates belong in
+REL/desktop-default-042 until the release source has been delivered.
 
-The new source removes legacy renderer components and their obsolete UI tests,
-replaces App with automatic managed service/workspace startup, narrows Root native
-commands, and stops initializing the old remote-session server. Root retains only
-startup/recovery, service controls and signed updates. AppKit activates only the
-captured child before Root hides. Workspace Quit exits Root while leaving the
-service running; crash recovery stays visible. User data is never deleted.
+D/desktop-build-result.json records BUILT_VERIFIED_UNLAUNCHED: the new branded
+production desktop built and passed full desktop/web typechecks, web/native build
+and exact inventory verification. Its unsigned manifest is
+9875c74ac15a3375b8d53364c63f9eb8ab6ebf13b3b2f78c22881073a012704d.
+D/sign-notarize.mjs completed successfully: Apple accepted the new desktop,
+its ticket is stapled and Gatekeeper/signature verification passed. D/prepare-inputs.py
+is preparing draft-only inputs; read the live plan for its current handle.
+IMPORTANT: deliver the previously notarized unchanged service-host bytes with
+manifest c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83.
+Native attachment requires the existing service manifest, so do not select the
+newly re-signed host from the notarization derivation. The host code did not change.
+The live plan records serviceArtifact and notarizedDesktop separately. Original
+artifacts are unchanged; no new app is launched, installed or published. Saved Apple credentials are private;
+never print the signing-preparation file or env files.
 
-123 exact pinned producer deltas replace human-facing T3 wording across desktop
-and web surfaces, shared logo components, onboarding environment/account selection
-and instructions. Internal protocol/package names and upstream legal notices
-remain. Upstream T3 Chat subscription/link pages are removed from account navigation;
-tunnel usage and management remain, with server limits unchanged. Rebuild the managed
-desktop payload; the old branded payload is insufficient.
+The private draft has been replaced and release workflow 43380980343 is running
+at d9b5601d424e9808ee2c8dcac5bf42f8cf97d137. The draft input ZIP SHA-256 is
+01cf7268deb6868f00d275e8da1db30864957f807230162ce650166f2c07ff7b. The new
+notarized desktop manifest is
+1c8425779907103e2d370e1c90c4ef99d1de0ec51d11cb0eef543f92dc69c56d.
+D/watch-and-verify-release.py runs in captured shell handle 5635: it watches this
+release workflow (not a PR), validates the helper receipt for the exact source,
+then downloads and verifies actual Root/DMG/updater/payloads. Resume that handle;
+do not dispatch a duplicate build. It never launches or publishes. Read the live
+plan and final-artifact-verification-latest.json for completion/failure.
+Public 0.4.0/0.4.1 assets are unchanged. Actual automatic launch/reopen/quit/service
+recovery and catalog-retention checks remain after packaging. The read-only
+before-upgrade-catalog.json records one project, four v2 threads and no agent runs,
+with hashed catalog/identity/configuration values, not conversation contents.
+DRAFT_VALIDATION_PENDING is not passing native evidence.
 
-Validation/evidence lives in REL/desktop-default-042-validation. Root frontend
-TypeScript, 151 renderer tests and Vite production build passed, as did native
-`cargo check --locked`. Full upstream web and desktop typechecks passed after all
-branding/account changes. Managed producer/identity/contract checks passed 85 tests;
-cloud configuration checks passed 12 tests. A fresh pinned source extraction applied
-all 197 patches exactly. These are source checks, not packaged GUI acceptance.
-Final launcher typecheck/build and 26 focused startup/settings/updater tests passed
-after the last updater cleanup change. Service/update controls prevent navigation
-while their operations are in flight.
-Read the live plan for final source, PR and any active handles.
+The earlier Root/client/service remain running for the owner. CUA observed four
+settled threads and an empty draft in the existing client; no prompts were sent.
+Do not adopt or kill processes by discovered PID. Use actual CUA app controls;
+getApp/getAXState can relaunch a quit Mac app, so inspect Finder/process counts
+after quitting rather than querying that app again. Its current desktop path and
+previous evidence are in REL/patch-042-delivery/native-runtime-progress.json.
 
-PR275 CI initially failed both hosted-web jobs on the same stale
-`hosted-owned-privacy` predecessor. The correction also rebases hosted welcome and
-empty-state patches on the shared branding output. Fresh single/channel hosted
-preparation now passes all 197 shared plus nine hosted patches, and 13 cloud tests
-pass, including a regression for that layer boundary. Full CI build/types/tests
-still need to rerun on the corrected head; do not count source preparation as a
-completed hosted production build. PR275 remains watched.
+Website REL/website-patch-042 is locally committed at
+c5f96a8 (branch release/0.4.2-website), unpushed/unpublished. Home, setup docs,
+metadata, blog and changelog now describe the sole workspace and remove retired
+grid/shortcut claims. Download tests, scoped lint, Next production build and types
+passed; paired guides match. Publish the verified Mac installer first, then create
+and link the website PR, verify its preview and deploy. Do not claim full parity.
+TestFlight 1.0.0 (4) remains available; no new mobile build is part of this change.
 
-Next: create/link the coherent PR, merge only after current CI/review, rebuild and
-notarize the branded desktop payload, then build the new exact-source Root draft.
-Verify automatic first launch, reopen, quit, service survival and recovery in the
-actual signed app before publication/installation and website updates.
-
-The existing website 0.4.2 branch is validated but local/unpublished; rewrite its
-copy to this final single-workspace behavior before creating its PR. Keep current
-public 0.4.0/0.4.1 assets immutable. TestFlight 1.0.0 (4) is available. Overall
-finish line remains accepted desktop/mobile/hosted parity, a current normal Mac
-app installed, and TestFlight available. No full-parity completion is asserted.
+Finish line: validated desktop/mobile/hosted parity, a current normal Mac app
+installed for the owner, and the processed iOS build available in their TestFlight.
+This release work is not full parity certification. Temporary evidence paths may
+be absent after cleanup; inspect before resuming, and never recreate an ownership
+claim from a stale process ID.

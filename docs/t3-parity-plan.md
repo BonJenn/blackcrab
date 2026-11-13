@@ -2,6 +2,8 @@
 
 ## Current desktop direction — sole workspace
 
+PR275 is merged at d9b5601d424e9808ee2c8dcac5bf42f8cf97d137 with all nine CI checks passed. The replacement signed installer passed final artifact verification. Actual runtime validation is blocked by the locked build Mac; publication and installation remain pending in the current handoff. No parity acceptance is implied.
+
 The owner explicitly removed the older desktop interface. The current 0.4.2
 candidate launches the managed workspace automatically, retains native recovery
 and updates, and removes upstream account/subscription branding. The earlier

@@ -5,6 +5,9 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 #[path = "managed_service_manager_io.rs"]
 mod manager_io;
 const LABEL: &str = "com.blackcrab.desktop.managed.service";
+// launchd must attribute the independently running host to the signed app for
+// macOS file/network permission prompts and System Settings.
+const RESPONSIBLE_BUNDLE: &str = "com.bonjenn.blackcrab";
 const UNIT_LIMIT: usize = 64 * 1024;
 fn invalid() -> String { "The background-service unit is unavailable or belongs to a different owner".into() }
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -20,6 +23,8 @@ struct OwnerStamp {
 #[serde(rename_all = "PascalCase", deny_unknown_fields)]
 struct UnitDocument {
     label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    associated_bundle_identifiers: Option<Vec<String>>,
     program_arguments: Vec<String>,
     environment_variables: BTreeMap<String, String>,
     working_directory: String,
@@ -91,6 +96,7 @@ impl ServiceUnitPlan {
         let owner_stamp = serde_json::to_string(&owner).map_err(|_| invalid())?;
         let document = UnitDocument {
             label: LABEL.into(), program_arguments: vec![text(&config.artifact_path.join("t3"))?, "__service-launcher".into()],
+            associated_bundle_identifiers: Some(vec![RESPONSIBLE_BUNDLE.into()]),
             environment_variables: BTreeMap::from([
                 ("PATH".into(), environment_path), ("T3CODE_HOME".into(), text(&root.join("host"))?),
                 ("T3_BOOT_SERVICE_UNIT".into(), format!("{LABEL}.plist")),
@@ -109,16 +115,57 @@ impl ServiceUnitPlan {
         Ok(bytes)
     }
     pub(super) fn recognizes(&self, bytes: &[u8]) -> Result<(), String> {
+        self.owned_document(bytes).map(|_| ())
+    }
+    fn owned_document(&self, bytes: &[u8]) -> Result<UnitDocument, String> {
         if bytes.len() > UNIT_LIMIT { return Err(invalid()); }
         let mut document: UnitDocument = plist::from_bytes(bytes).map_err(|_| invalid())?;
+        let original = document.clone();
         let mut expected = self.document.clone();
         // Installer PATH can change between app launches. Ownership binds every
         // other field; preserve the installed PATH instead of silently rewriting it.
         let installed_path = document.environment_variables.remove("PATH").ok_or_else(invalid)?;
         if installed_path.is_empty() || installed_path.contains('\0') { return Err(invalid()); }
         expected.environment_variables.remove("PATH");
+        // Accept only the exact prior document without this field. A present
+        // empty/foreign/multiple association is not a legacy unit we may adopt.
+        if document.associated_bundle_identifiers.is_none() {
+            document.associated_bundle_identifiers = expected.associated_bundle_identifiers.clone();
+        }
         if document != expected { return Err(invalid()); }
-        Ok(())
+        Ok(original)
+    }
+    fn permission_identity_upgrade(&self, bytes: &[u8]) -> Result<Option<Vec<u8>>, String> {
+        let mut document = self.owned_document(bytes)?;
+        if document.associated_bundle_identifiers.is_some() { return Ok(None); }
+        // Preserve the installed PATH and every owner, runtime and lifecycle field.
+        document.associated_bundle_identifiers = self.document.associated_bundle_identifiers.clone();
+        let mut updated = Vec::new();
+        plist::to_writer_xml(&mut updated, &document).map_err(|_| invalid())?;
+        if updated.len() > UNIT_LIMIT { return Err(invalid()); }
+        Ok(Some(updated))
+    }
+    fn needs_permission_identity_upgrade(&self) -> Result<bool, String> {
+        match self.read_owned_unit()? {
+            Some(bytes) => Ok(self.permission_identity_upgrade(&bytes)?.is_some()),
+            None => Ok(false),
+        }
+    }
+    /// Called under the control lease only after launchd and the native owner
+    /// journal confirm stopped. Status and attachment never rewrite the unit.
+    fn upgrade_permission_identity(&self) -> Result<(), String> {
+        let original = self.read_owned_unit()?.ok_or_else(invalid)?;
+        let Some(updated) = self.permission_identity_upgrade(&original)? else { return Ok(()); };
+        let directory = self.unit_path.parent().ok_or_else(invalid)?;
+        let temporary = directory.join(format!(".blackcrab-service-identity-{}", random_secret()?));
+        write_new(&temporary, &updated)?;
+        let result = (|| {
+            if self.read_owned_unit()?.as_deref() != Some(original.as_slice()) { return Err(invalid()); }
+            fs::rename(&temporary, &self.unit_path).map_err(io_error)?;
+            File::open(directory).and_then(|file| file.sync_all()).map_err(io_error)
+        })();
+        if fs::symlink_metadata(&temporary).is_ok() { let _ = fs::remove_file(&temporary); }
+        result
     }
     fn directory_ready(&self) -> Result<bool, String> {
         let home = Path::new(&self.document.working_directory);
@@ -234,6 +281,8 @@ impl ServiceUnitPlan {
             registration.installed=true;
         }
         if !registration.loaded {
+            service_issuer::require_stopped_for_control(&host, &self.configuration)?;
+            self.upgrade_permission_identity()?;
             service_issuer::refresh_bundled_issuer(&host, &self.configuration)?;
         }
         if registration.loaded{return Ok(registration);}
@@ -273,6 +322,8 @@ mod tests {
     fn plist_preserves_original_launchd_lifecycle_and_native_owner_binding() {
         let plan = plan(); let bytes = plan.render().unwrap(); plan.recognizes(&bytes).unwrap();
         let document: UnitDocument = plist::from_bytes(&bytes).unwrap();
+        let app: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(document.associated_bundle_identifiers, Some(vec![app["identifier"].as_str().unwrap().into()]));
         assert_eq!(document.working_directory, "/Users/test & viewer");
         assert_eq!(document.program_arguments[1], "__service-launcher");
         assert!(document.keep_alive && document.run_at_load); assert_eq!(document.exit_time_out,90);
@@ -345,6 +396,59 @@ mod tests {
         fs::remove_dir(root.join("Library/LaunchAgents")).unwrap();fs::remove_dir(root.join("Library")).unwrap();fs::remove_dir(root).unwrap();
     }
     #[test]
+    fn legacy_permission_identity_upgrade_preserves_installed_path_and_owner() {
+        let plan = plan();
+        let mut legacy = plan.document.clone();
+        legacy.associated_bundle_identifiers = None;
+        legacy.environment_variables.insert("PATH".into(), "/existing/custom/bin:/usr/bin".into());
+        let before = encode(&legacy);
+        plan.recognizes(&before).unwrap();
+        let after = plan.permission_identity_upgrade(&before).unwrap().unwrap();
+        let mut expected = legacy.clone();
+        expected.associated_bundle_identifiers = Some(vec![RESPONSIBLE_BUNDLE.into()]);
+        assert!(plist::from_bytes::<UnitDocument>(&after).unwrap() == expected);
+        assert!(plan.permission_identity_upgrade(&after).unwrap().is_none());
+        for association in [vec![], vec!["com.t3tools.t3code".into()], vec![RESPONSIBLE_BUNDLE.into(), "foreign.app".into()]] {
+            legacy.associated_bundle_identifiers = Some(association);
+            assert!(plan.permission_identity_upgrade(&encode(&legacy)).is_err());
+        }
+        legacy.associated_bundle_identifiers = None;
+        legacy.program_arguments[0] = "/foreign/runtime".into();
+        assert!(plan.permission_identity_upgrade(&encode(&legacy)).is_err());
+    }
+    #[test]
+    fn permission_identity_upgrade_changes_only_the_owned_unit_and_keeps_private_mode() {
+        let mut plan = plan();
+        let root = std::env::temp_dir().join(format!("blackcrab-unit-identity-{}", random_secret().unwrap()));
+        fs::create_dir(&root).unwrap();
+        plan.document.working_directory = root.to_str().unwrap().into();
+        plan.unit_path = root.join("Library/LaunchAgents").join(format!("{LABEL}.plist"));
+        let history = root.join("history");
+        write_new(&history, b"retained workspace history").unwrap();
+        plan.publish_unit().unwrap();
+        let mut legacy = plan.document.clone();
+        legacy.associated_bundle_identifiers = None;
+        legacy.environment_variables.insert("PATH".into(), "/custom/provider/bin:/usr/bin".into());
+        fs::write(&plan.unit_path, encode(&legacy)).unwrap();
+        assert!(plan.needs_permission_identity_upgrade().unwrap());
+        plan.upgrade_permission_identity().unwrap();
+        assert!(!plan.needs_permission_identity_upgrade().unwrap());
+        let updated = fs::read(&plan.unit_path).unwrap();
+        let document: UnitDocument = plist::from_bytes(&updated).unwrap();
+        assert_eq!(document.environment_variables, legacy.environment_variables);
+        assert_eq!(document.program_arguments, legacy.program_arguments);
+        assert_eq!(fs::metadata(&plan.unit_path).unwrap().mode() & 0o777, 0o600);
+        plan.upgrade_permission_identity().unwrap();
+        assert_eq!(fs::read(&plan.unit_path).unwrap(), updated);
+        assert_eq!(fs::read(&history).unwrap(), b"retained workspace history");
+        legacy.label = "foreign.service".into();
+        let foreign = encode(&legacy);
+        fs::write(&plan.unit_path, &foreign).unwrap();
+        assert!(plan.upgrade_permission_identity().is_err());
+        assert_eq!(fs::read(&plan.unit_path).unwrap(), foreign);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn unit_file_rejects_links_loose_modes_and_changed_owner_records() {
         let mut plan=plan();let root=std::env::temp_dir().join(format!("blackcrab-unit-policy-{}",random_secret().unwrap()));
         fs::create_dir(&root).unwrap();fs::create_dir(root.join("Library")).unwrap();fs::create_dir(root.join("Library/LaunchAgents")).unwrap();
@@ -370,11 +474,11 @@ pub(super) async fn control(host:&ManagedHost,action:Action)->Result<super::Serv
                 let bundled=expected.is_some()&&host.bundled_payload.as_ref().is_some_and(|payload|payload.expected_host_manifest_sha256()==expected);
                 let available=profile&&bundled;
                 let fresh=super::service_initialization::fresh_owner(host).is_ok();
-                return Ok(super::ServiceStatus{state:if available{"notConfigured"}else{"notAvailable"},can_initialize:available&&fresh,installed:false,loaded:false,error:None});
+                return Ok(super::ServiceStatus{state:if available{"notConfigured"}else{"notAvailable"},can_initialize:available&&fresh,installed:false,loaded:false,permission_identity_restart_required:false,error:None});
             }
             Some(config) if config.ownership==OwnershipMode::Direct=>{
                 if action!=Action::Status{return Err("This workspace uses direct startup; background-service setup cannot replace it".into());}
-                return Ok(super::ServiceStatus{state:"direct",can_initialize:false,installed:false,loaded:false,error:None});
+                return Ok(super::ServiceStatus{state:"direct",can_initialize:false,installed:false,loaded:false,permission_identity_restart_required:false,error:None});
             }
             Some(_)=>{}
         }
@@ -387,5 +491,6 @@ pub(super) async fn control(host:&ManagedHost,action:Action)->Result<super::Serv
             Ok(Probe::Attached(_))=>("running",None),Ok(Probe::Stopped)=>("starting",None),Err(error)=>("unavailable",Some(error)),
         }
     };
-    Ok(super::ServiceStatus{state,can_initialize:false,installed:registration.installed,loaded:registration.loaded,error})
+    let permission_identity_restart_required = registration.loaded && plan.needs_permission_identity_upgrade()?;
+    Ok(super::ServiceStatus{state,can_initialize:false,installed:registration.installed,loaded:registration.loaded,permission_identity_restart_required,error})
 }

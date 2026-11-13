@@ -1,5 +1,19 @@
 # T3 functionality parity delivery plan
 
+## Immediate owner follow-ups — 2026-11-13
+
+1. Correct macOS file/local-network permission attribution using the signed app's
+   identity; preserve existing service settings/history and restart explicitly.
+2. Render recognized imported monitor notifications as collapsible background
+   updates, preserving their raw text and ordinary user-authored XML.
+3. Keep split-pane move/close controls clear of panel buttons in every pane.
+4. Deliver Windows x64 and Linux x64 with the same full workspace; validate native
+   launch, ownership, packaging and updates before replacing the old downloads.
+   See [platform delivery barriers and order](cross-platform-workspace-delivery.md).
+
+The owner confirmed the 0.4.2 workspace opens after permission prompts. These are
+follow-up defects/platform work, not a new report that startup remains blocked.
+
 ## Current desktop direction — published sole workspace
 
 Mac 0.4.2 is published from cb586b1f4832714e624c4a328b777ef321670fd3 after actual

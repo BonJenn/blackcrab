@@ -11,5 +11,6 @@ it("checks native service availability even without the JavaScript runtime marke
 it("accepts only the public service-status contract", () => {
   const value = { state: "running", canInitialize: false, installed: true, loaded: true };
   expect(readServiceStatus(value)).toEqual(value);
-  for (const invalid of [null, [], { ...value, state: "foreign" }, { ...value, loaded: "yes" }, { ...value, ownerSecret: "not public" }]) expect(() => readServiceStatus(invalid)).toThrow();
+  expect(readServiceStatus({ ...value, permissionIdentityRestartRequired: true }).permissionIdentityRestartRequired).toBe(true);
+  for (const invalid of [null, [], { ...value, state: "foreign" }, { ...value, loaded: "yes" }, { ...value, permissionIdentityRestartRequired: "yes" }, { ...value, ownerSecret: "not public" }]) expect(() => readServiceStatus(invalid)).toThrow();
 });

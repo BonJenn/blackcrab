@@ -49,6 +49,7 @@ export function ManagedServiceControls({ client = managedServiceClient, onBusyCh
   return <section className="managed-workspace-entry" aria-label="Background service" aria-busy={disabled}>
     <h3>Background service</h3>
     <p role="status">{pending ? pendingLabels[pending] : status ? labels[status.state] : "Background service status could not be checked."}</p>
+    {status?.permissionIdentityRestartRequired && <p>Restart the background service when your agents are idle to use Blackcrab’s name in macOS permission prompts.</p>}
     {(error || status?.error) && <p role="alert">{error || status?.error}</p>}
     <div className="managed-workspace-actions">
       {status?.canInitialize && <button type="button" disabled={disabled} onClick={() => { void run("initialize"); }}>Enable background service</button>}

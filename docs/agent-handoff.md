@@ -1,6 +1,90 @@
 # Blackcrab parity and release handoff
 
-## Published Mac 0.4.3 — 2026-11-13
+## Current checkpoint — 2026-11-13: 0.4.4 updater and three-platform delivery
+
+The owner's current request is to fix the workspace Check for updates control,
+restore the install notification, show download/installation progress, and publish
+0.4.4 for Mac, Windows and Linux. Publication is explicitly authorized. This does
+not certify unperformed native tests. Mac 0.4.3 remains public; Windows/Linux
+remain 0.3.0. No 0.4.4 release, version bump or replacement installed app exists yet.
+The latest Connect status question is additional scope/status, not cancellation.
+Website follow-up PR17 is merged at c2f36d77885a5deb727a864d37d286380af03601;
+production dpl_8d7vebB8T5HnYG3VPpaMjBMLigGT is READY. Preserve that newer docs work
+in addition to the historical 0.4.3 release article below.
+
+Active worktree: REL/workspace-updates-044, branch fix/0.4.4-workspace-updates,
+based on stage ef3f4aea11734d8059698d12b7d2211b4d545cf1. REL is
+`/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa`.
+Read REL/workspace-044-plan.json for current PR/head and validation handles. Do not
+restart historical build handles below. Main checkout remains dirty and untouched.
+
+The root cause is that the extracted Electron workspace's updater was deliberately
+disabled while the signed outer Tauri app's manual updater lived in a hidden
+launcher. The reviewed source now delegates the existing desktop update service
+through a separate inherited FD5 socket to a native outer-app updater. FD3/FD4
+retain descriptor/pairing duties. Only fixed actions and an expected install
+version cross this channel; the renderer cannot supply a URL/path/key/process.
+Automatic checks advertise availability, and installation remains an explicit
+user action. Real byte progress stays below 100 until signature verification;
+unknown lengths and installation have indeterminate bars. Installation surfaces
+Root, pauses its workspace-exit monitor, closes only its captured workspace,
+installs/restarts the outer app, and retains the independent background service.
+Failures remain actionable; check/download/install races must not exit recovery.
+See docs/desktop-updates.md for the protocol and delivery scope.
+
+Source validation lives in REL/workspace-044-validation. The pinned prepared
+upstream source is blackcrab-desktop-source-TUnd5B; all 307 final production target
+files match registry hashes, including the notification regression.
+Do not repeat the completed 18-minute dependency preparation. Root types/build
+and 155 tests passed, followed by eight focused renderer tests after fieldset
+coordination. The complete managed Node suite passed 118 tests. Native updater
+and inherited FD isolation tests passed (two each). Full pinned desktop/web types,
+the actual desktop bundle and web production build passed. Final reviewed native and adapter tests passed. The new Chromium notification
+regression is a required CI step. Local browser execution is blocked before test
+collection: the read-only secondary dependency overlay serves a CommonJS selector
+shim as raw ESM. A test-only optimizer wrapper did not resolve it; no browser PASS
+is claimed. CI uses a fresh frozen dependency install without that overlay.
+All local build/test processes have completed. These checks do not establish
+native signed installation/restart or retained-service acceptance. The adapter
+also suppresses the in-progress install message from the workspace result because
+its existing result handler otherwise treats any such message as an error toast.
+
+Next actions:
+1. Finish final local regressions and inspect the exact diff. Commit explicit
+   owned paths, create a coherent updater PR to stage, link immediately, then
+   watch current CI and merge only after required checks/reviews. On a watch wait,
+   end the turn; do not poll CI. Record the PR URL/head in the live plan.
+2. Implement Windows/Linux native package layouts/dependency closure/manifests,
+   Root launch, authenticated transport and per-user background-service lifecycle.
+   Start at docs/cross-platform-workspace-delivery.md and managed-desktop/targets.mjs.
+   Pinned Electron ZIPs are groundwork only. Do not enable a target or relabel a
+   historical root-only installer to claim full workspace delivery.
+3. Bump all root versions to 0.4.4 together, build target-native installers, verify
+   actual downloaded artifacts/updater signatures and perform appropriate native
+   checks. The current request authorizes publication, so do not request it again.
+   Publish website download links, article and release notes after real assets.
+4. Preserve the exact Mac service manifest
+   c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83.
+   A host change requires a stopped, data-preserving migration. Never interrupt
+   running agents just to change diagnostic copy. Older 0.4.2/0.4.3 workspaces
+   need the outer launcher's updater or one manual 0.4.4 install to gain this fix.
+
+Blackcrab Connect: sign-in/environment discovery/relay/database integrations are
+implemented; historical owned relay health/database and unauthenticated denial
+checks passed. Full two-computer + iOS sign-in, environment/session discovery,
+off-network agent control, reconnect/revocation and actual push delivery are
+still unverified. Do not equate infrastructure provisioning or installer delivery
+with cross-device acceptance. Continue those tests after desktop delivery work;
+preserve the existing authorized cloud credentials and account connections.
+The accepted hosted model remains free local/self-hosted, paid hosted remote,
+initially invite beta; public billing/entitlement acceptance is separate.
+TestFlight 1.0.0 (4) remains available under prior evidence, not newly validated.
+
+The finish line remains validated parity, a current normal Mac installation and
+an available TestFlight build, plus the now-requested Windows/Linux 0.4.4 delivery.
+Keep paired directory guides identical and this prompt/checkpoint current.
+
+## Historical checkpoint — published Mac 0.4.3
 
 Mac [v0.4.3](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.3) is public,
 stable/latest, from 18055fbc080faa4f6d518c420b19040ce45e3296. Release workflow

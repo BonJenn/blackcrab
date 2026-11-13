@@ -223,6 +223,16 @@ impl ManagedNativeEntry {
         self.owner.activate(app).await
     }
     #[cfg(target_os = "macos")]
+    pub(crate) async fn close_for_update(&self) -> Result<(), String> {
+        if !self.owner.running().await? { return Ok(()); }
+        self.owner.detach().await;
+        for _ in 0..80 {
+            if self.owner.client_exit().await?.is_some() { return Ok(()); }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+        Err("Workspace is still closing".into())
+    }
+    #[cfg(target_os = "macos")]
     pub(crate) async fn client_exit(&self) -> Result<Option<bool>, String> {
         self.owner.client_exit().await
     }

@@ -178,7 +178,7 @@ jobs:
             --pattern blackcrab-managed-payloads.zip --dir "$input_dir"
           node scripts/macos-release/release-inputs.mjs --mode unpack \
             --archive "$input_dir/blackcrab-managed-payloads.zip" --sha "$PAYLOAD_SHA256" \
-            --output "$input_dir/payloads" --tag "$RELEASE_TAG"
+            --output "$input_dir/payloads" --tag "$RELEASE_TAG" --draft-build
           payloads="$(cd "$input_dir/payloads" && pwd -P)"
           echo "BLACKCRAB_RELEASE_PAYLOADS_DIR=$payloads" >> "$GITHUB_ENV"
 

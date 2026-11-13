@@ -28,3 +28,13 @@ test('arm64 release inputs bind source, version, identity, evidence and both man
  for(const mutation of [{target:'darwin-universal'},{sourceRevision:'b'.repeat(40)},{version:'0.3.0'},{tag:'v0.5.0'},{teamId:'OTHERTEAM1'},{bundleIdentifier:'com.example.qa'},{desktopManifestSha256:null},{serviceHostManifestSha256:null},{acceptanceSha256:null}])assert.throws(()=>validateReleaseInputs({...value,...mutation},options));
  for(const mutation of [{revision:'stage'},{tag:'v0.4.0\ninvalid'},{version:'0.4.0-beta.1'},{version:'00.4.0'}])assert.throws(()=>validateReleaseInputs(value,{...options,...mutation}));
 });
+
+test('pending lifecycle validation allows only explicit draft building and never publication',()=>{
+ const draft={...options,version:'0.4.2',tag:'v0.4.2',draftBuild:true};
+ const value={schema:1,state:'DRAFT_VALIDATION_PENDING',sourceRevision:draft.revision,tag:draft.tag,deferredChecks:[...lifecycleChecks]};
+ assert.equal(validateAcceptance(value,draft.revision,draft),'DRAFT_VALIDATION_PENDING');
+ assert.throws(()=>validateAcceptance(value,draft.revision,{...draft,draftBuild:false}));
+ assert.throws(()=>validateAcceptance(value,draft.revision,{tag:draft.tag,version:draft.version}));
+ for(const mutation of [{schema:2},{sourceRevision:'b'.repeat(40)},{tag:'v0.4.1'},{checks:acceptance.checks},{deferredChecks:[]},{deferredChecks:lifecycleChecks.slice(1)}])assert.throws(()=>validateAcceptance({...value,...mutation},draft.revision,draft));
+ for(const mutation of [{revision:'stage'},{tag:'v0.4.3'},{version:'0.4.2-beta.1'},{draftBuild:'true'}]){const selected={...draft,...mutation};assert.throws(()=>validateAcceptance(value,selected.revision,selected));}
+});

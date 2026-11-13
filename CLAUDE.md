@@ -177,3 +177,13 @@ the separately built/signed/notarized CLI helper embedded in Root. Preserve
 existing service configuration/generation during an explicitly stopped upgrade.
 Signature verification, real helper readiness and actual app UI acceptance are
 different checks; do not label the whole delivery complete from the first two.
+
+
+## Draft installer validation
+
+A source-bound DRAFT_VALIDATION_PENDING record permits an explicit --draft-build
+only. The workflow must independently confirm the release is a draft and leave it
+a draft. Build the actual signed/notarized installer, then validate native UI and
+service lifecycle; pending evidence is never acceptance or public publication
+permission. Default validateAcceptance rejects it. Do not extend old owner-testing
+exceptions or invent successful lifecycle checks to build a candidate.

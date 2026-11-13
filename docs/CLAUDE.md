@@ -55,3 +55,15 @@ acceptance. The owner's private candidate was not replaced by this publication.
 Some host diagnostic copy remains: preserve the production c04c4d44… manifest until
 an explicitly stopped, data-preserving host migration is implemented and tested.
 Full parity and final user installation/runtime acceptance remain separate work.
+
+## Published 0.4.3 and next platforms — 2026-11-13
+
+Mac 0.4.3 is public from 18055fbc080faa4f6d518c420b19040ce45e3296. The actual signed/
+notarized installer, helper, complete payloads, updater cryptography, anonymous
+public downloads and production website passed verification. Preserve the public
+release; no packaging job remains active. Native lifecycle status remains
+OWNER_TESTING_AUTHORIZED, not PASSED. The owner's existing app was not replaced.
+TestFlight 1.0.0 (4) is unchanged. Read the current handoff before historical sections.
+Windows/Linux runtime inputs merged inPR288, but new producers, service/transport,
+installers and native lifecycle tests remain unfinished. Their public downloads
+remain 0.3.0. Retain the c04c4d44… production host pending a data-preserving migration.

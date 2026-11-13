@@ -1,6 +1,63 @@
 # Blackcrab parity and release handoff
 
-## Current release preparation — 2026-11-13: Mac 0.4.3
+## Published Mac 0.4.3 — 2026-11-13
+
+Mac [v0.4.3](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.3) is public,
+stable/latest, from 18055fbc080faa4f6d518c420b19040ce45e3296. Release workflow
+43512623914 passed. All twelve downloaded-artifact verification groups passed:
+workflow/source, asset hashes, updater cryptography, Root identity/architecture/
+signature/notarization, independent embedded helper, both archive/manifest pins,
+complete payload inventories/signatures, workspace version, DMG signature/ticket,
+DMG/updater app equality and owned unmount. Anonymous installer/updater endpoints
+returned 200 and update metadata/signature bytes matched the verified artifacts.
+
+The release fixes pane control overlap, recognized imported monitor presentation
+and service permission attribution. Existing service registrations update metadata
+only during an explicitly stopped start/restart; do not interrupt running agents
+or substitute the newly re-signed service copy. The shipped production host still
+has manifest c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83.
+The desktop producer was 7a3a642d94bc4fe6224e2f5b373ecf6727631764; its source inputs
+match the final release commit. Preserve both revisions as distinct provenance.
+
+Native lifecycle acceptance remains OWNER_TESTING_AUTHORIZED with eight deferred
+checks, bound to this release, current update request and existing manual-testing
+instruction. No final GUI/service lifecycle PASS or newly installed user app is
+claimed. The owner will test the published update. Preserve public 0.4.0–0.4.3
+assets and tags; any further shipped change needs a new version.
+
+Website PR16 merged as 7aebba7bbd55b2deefd3f2012d2ba058cc996115. Vercel production
+dpl_Eekh2ZQt8YhrjHtXJMFGnKMyn6xq is READY at www.blackcrab.app. Anonymous home,
+0.4.3 article, changelog, releases, docs/mobile anchor and all platform download
+redirects passed. Mac resolves to 0.4.3; Windows/Linux correctly retain 0.3.0. The
+first Mac redirect used stale 300-second release metadata, then revalidated; no
+route-code change was necessary. New-deployment runtime logs had no error groups.
+TestFlight 1.0.0 (4) remains unchanged. App PRs 286–288 and website PR16 are merged and
+unwatched. No build/verification process remains running.
+
+Windows/Linux input groundwork (#288) merged as 24080b6bebc5675c2ff9149f6a4a3cc2a4f0383c.
+Official Electron 44.10.1 archives and actual Mach-O/PE/ELF architecture headers
+were verified; 97 desktop/cloud Node tests and all 9 CI checks passed. This only
+adds pinned target inputs/layouts and Mac producer checks. Windows/Linux producers
+remain unimplemented, with no new full-workspace installers. Next implement
+native package extraction/layout/dependency closure and manifests, then Root
+launch, authenticated browser transport, persistent per-user services and native
+install/update/lifecycle tests. Start at managed-desktop/targets.mjs/build.mjs,
+artifact-structure.mjs, src-tauri/src/managed_desktop.rs and
+managed_service_control.rs; follow docs/cross-platform-workspace-delivery.md.
+Do not enable a target by merely changing producerImplemented.
+
+Local evidence (paths may be absent elsewhere): REL/workspace-043-plan.json and
+REL/workspace-043-delivery/{publication-result,public-download-verification,
+website-production-verification}.json. Final artifact report is in
+workspace-043-delivery/final-artifact-verification-4otey0cx/result.json. REL is
+/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+The next owned docs worktree is REL/cross-platform-targets on
+docs/0.4.3-published-handoff; frozen producer/final-release worktrees stay immutable.
+The finish line remains validated parity, a current normal Mac installation and
+an available TestFlight build. Public delivery is complete for 0.4.3; full parity
+and Windows/Linux delivery are not complete.
+
+## Historical release preparation — 2026-11-13: Mac 0.4.3
 
 The owner requested: “continue and update it. where are w with the windows and
 linux builds?” Prepare the next Mac update as 0.4.3, preserving public 0.4.2.

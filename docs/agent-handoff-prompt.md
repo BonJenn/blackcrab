@@ -12,7 +12,10 @@ D=REL/workspace-polish-042-delivery; V=REL/workspace-polish-042-validation.
 Four corrective patches and a compiled-renderer guard are implemented. Eighteen focused
 and twelve cloud tests, full desktop/web types, 337 fresh patches pass. The corrected compiled renderer passes its guard (958 JavaScript files), and the
 guard rejects the old bundle. Handle 49347 is complete; no build is running.
-Create/link/check/merge that PR, then address host-supplied visible copy recorded in
+PR280 is open and watched. Its initial frontend failure was the QA recipe's stale
+whole-registry pin; after checking the unchanged 333 records and four new records,
+the pin was refreshed. The failed group plus keychain producer tests pass: 70 passed,
+one pre-existing skip. Await CI on the correction and merge, then address host copy in
 D/host-product-copy-audit.txt. Host has a separate source profile; client patches
 alone do not change provider messages or runtime instructions. Rebuild affected
 artifacts honestly and preserve service identity during a stopped upgrade.

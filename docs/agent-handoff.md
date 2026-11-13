@@ -26,7 +26,14 @@ No replacement production build is running yet.
 REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
 D=REL/workspace-polish-042-delivery; V=REL/workspace-polish-042-validation.
 Read REL/workspace-polish-042-plan.json for current handles and PR state.
-Next: finish renderer validation, create/link the corrective PR, pass CI and merge.
+Corrective PR280 is open and watched. Its first frontend CI run failed because the
+QA recipe still pinned the previous 333-record production registry. Verified all
+333 existing records are unchanged, the four appended records match fresh source,
+and none touches the QA identity targets; refreshed only the complete-registry pin
+to fd0109a54ea9129593d3b2b74e4c6faa3be3fa067ab4d72e50d79e992946e31e.
+The failed test group plus native-keychain producer tests now pass: 70 passed,
+one existing skip, no failures. Review evidence is V/provider-copy-qa-pin-review.json.
+Next: inspect CI on the pushed correction and merge only when all checks pass.
 The deeper audit also found host-originated provider/status/runtime-instruction
 copy: D/host-product-copy-audit.txt. Review those strings before claiming every UI
 surface is owned. Host source preparation has its own 71-record service profile;

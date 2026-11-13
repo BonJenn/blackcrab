@@ -3,7 +3,9 @@ import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 export const UPSTREAM = Object.freeze({ repository: 'BonJenn/t3code', commit: '7f02de2eb8e253e0ec23f005b3cfff8e2c963be8', archiveSha256: 'eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6' });
-export const ELECTRON = Object.freeze({ version: '44.10.1', platform: 'darwin', arch: 'arm64', archiveSha256: '687f922034f1e991ab34ed7f47c4cb4e5c5e85e974b0ce155c22ce6d6f699aa3', url: 'https://github.com/electron/electron/releases/download/v44.10.1/electron-v44.10.1-darwin-arm64.zip' });
+import {desktopTarget} from './targets.mjs';
+// Keep the production manifest fixed to the implemented Mac producer.
+export const ELECTRON = desktopTarget('darwin-arm64').electron;
 export const MANIFEST = 'blackcrab-managed-desktop.json';
 export const digest = value => createHash('sha256').update(value).digest('hex');
 export async function fileDigest(file) { const hash = createHash('sha256'); for await (const chunk of createReadStream(file)) hash.update(chunk); return hash.digest('hex'); }

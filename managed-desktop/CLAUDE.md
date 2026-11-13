@@ -92,3 +92,12 @@ controls occupy the same header flow as move/close; open-panel controls are loca
 to the owning pane. Preserve top-trailing native-caption insets and explicit
 no-drag hit regions. Check actual browser hit testing across top/bottom rows and
 open/closed panels; raising z-index alone merely reverses which button is blocked.
+
+## Cross-platform producer inputs
+
+`targets.mjs` pins the official runtime archives and native layouts for Mac arm64,
+Windows x64 and Linux x64. Only the Mac producer is implemented. Keep archive
+hash verification and native executable format/architecture checks separate from
+OS launch or lifecycle certification. Mac manifest serialization stays compatible.
+Implement packaging, dependency closure, native launch and service/transport before
+enabling another producer; never turn on a target solely because its ZIP verifies.

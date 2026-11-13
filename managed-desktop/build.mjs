@@ -5,6 +5,7 @@ import { spawn,execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { prepareSource } from './source.mjs';
+import {desktopBuildTarget,verifyElectronArchive,verifyElectronExecutable} from './targets.mjs';
 import { readBlackcrabVersion } from './release-version.mjs';
 import { assertOwnedRendererCopy } from './renderer-branding.mjs';
 import { linkDependencyCache,stageRuntimeDependencies,collectDependencyNotices } from './dependencies.mjs';
@@ -19,10 +20,10 @@ export async function buildManagedDesktop({archive,cacheDir,output,node,pnpm,ele
  const cloud=clientCloudConfigFromEnvironment(cloudEnvironment);
  const appVersion=await readBlackcrabVersion();
  if(nativeKeychainQaNonce!==undefined&&(qa||typeof nativeKeychainQaNonce!=='string'||!/^([a-f0-9]{16})$/.test(nativeKeychainQaNonce)))throw Error('Native keychain QA requires a distinct fixednonce mode; old QA is mutually exclusive');
- if(process.platform!=='darwin'||process.arch!=='arm64')throw Error('Managed desktop producer currently certifies darwin-arm64 only');
+ const target=desktopBuildTarget(process.platform,process.arch);
  for(const value of [archive,cacheDir,output,node,pnpm,electronArchive])if(typeof value!=='string'||!path.isAbsolute(value))throw Error('Pass absolute producer paths');
  await absent(output);await fs.mkdir(cacheDir,{recursive:true});const checkHome=path.join(cacheDir,'toolchain-home');await fs.mkdir(checkHome,{recursive:true,mode:0o700});const checkEnv={HOME:checkHome,PATH:path.dirname(node)+':/usr/bin:/bin:/usr/sbin:/sbin',COREPACK_ENABLE_PROJECT_SPEC:'0',npm_config_userconfig:'/dev/null',npm_config_globalconfig:'/dev/null'};if((await exec(node,['--version'],{env:checkEnv})).stdout.trim()!=='v26.12.1'||(await exec(pnpm,['--version'],{cwd:cacheDir,env:checkEnv})).stdout.trim()!=='12.14.0')throw Error('Desktop requires pinned Node 26.12.1/pnpm 12.14.0');
- if(await fileDigest(electronArchive)!==ELECTRON.archiveSha256)throw Error('Official Electron archive digest mismatch');
+ await verifyElectronArchive(electronArchive,target.id);
  const {source,sourcePatches}=await prepareSource({archive,cacheDir}),work=await fs.mkdtemp(path.join(cacheDir,'blackcrab-desktop-build-'));for(const d of ['home','tmp','logs'])await fs.mkdir(path.join(work,d),{mode:0o700});
  const qaPolicy=qa?await applyQAPolicy(source):undefined;
  const nativeQaTools=nativeKeychainQaNonce===undefined?undefined:await import('./native-keychain-qa.mjs');
@@ -42,6 +43,7 @@ export async function buildManagedDesktop({archive,cacheDir,output,node,pnpm,ele
  // Keep the final rename on the output filesystem when the build cache is on another volume.
  await fs.mkdir(path.dirname(output),{recursive:true});
  const staging=await fs.mkdtemp(path.join(path.dirname(output),'.blackcrab-desktop-artifact-'));await step('electron-extract','/usr/bin/ditto',['-x','-k',electronArchive,staging]);
+ await verifyElectronExecutable(path.join(staging,target.layout.archiveExecutable),target.id);
  const app=path.join(staging,'Blackcrab.app');await fs.rename(path.join(staging,'Electron.app'),app);const contents=path.join(app,'Contents'),payload=path.join(contents,'Resources/app');await fs.mkdir(payload);
  await fs.rename(path.join(contents,'MacOS/Electron'),path.join(contents,'MacOS/Blackcrab'));
  await fs.cp(path.join(source,'apps/desktop/dist-electron'),path.join(payload,'apps/desktop/dist-electron'),{recursive:true});await fs.cp(path.join(source,'apps/web/dist'),path.join(payload,'apps/server/dist/client'),{recursive:true});

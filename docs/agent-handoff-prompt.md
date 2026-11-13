@@ -1,3 +1,10 @@
+Current owner instruction: continue and deliver the update. Mac 0.4.3 is being
+prepared in REL/workspace-release-043 (release/0.4.3-workspace-fixes), based on
+stage 9a265383072f9b69a9e7f95cb8c94a8447f35f63. PR283/284/285 are all merged and
+unwatched. Read REL/workspace-043-plan.json and the current handoff before any
+old release commands. Never modify public 0.4.2. Windows/Linux full-workspace
+packages still need platform producer, service/transport and native validation.
+
 Continue Blackcrab desktop/mobile/hosted parity. Read AGENTS.md, the CURRENT
 checkpoint in docs/agent-handoff.md, docs/t3-parity-plan.md and the scenario ledger.
 

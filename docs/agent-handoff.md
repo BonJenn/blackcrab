@@ -1,6 +1,31 @@
 # Blackcrab parity and release handoff
 
-## Current follow-up — 2026-11-13: notification merged, pane CI pending
+## Current release preparation — 2026-11-13: Mac 0.4.3
+
+The owner requested: “continue and update it. where are w with the windows and
+linux builds?” Prepare the next Mac update as 0.4.3, preserving public 0.4.2.
+All three fixes merged into stage 9a265383072f9b69a9e7f95cb8c94a8447f35f63 after
+nine passing checks each: Mac permission attribution (#283), imported monitor
+presentation (#284), pane move/close control placement (#285). Their watches are
+cleared. This release branch changes the Root/npm/Cargo versions together; the
+managed workspace derives its displayed and packaged version from them.
+
+Active release worktree: REL/workspace-release-043, branch
+release/0.4.3-workspace-fixes. Delivery directory: REL/workspace-043-delivery;
+live state: REL/workspace-043-plan.json. Read that state before starting/resuming
+commands. Keep the unchanged c04c4d44… production service artifact. Build and
+notarize the new desktop, package a private draft installer, verify actual assets
+and native behavior before publication; do not fabricate acceptance or reuse the
+old 0.4.2 authorization as a blanket waiver. Update the website after publication.
+The current owner instruction authorizes preparing and delivering this update.
+
+Windows/Linux status: shared source and compile checks exist, but the managed
+producer, native launch/transport and persistent service remain Mac-specific.
+Their public downloads are still 0.3.0 and are not full-workspace parity. Follow
+docs/cross-platform-workspace-delivery.md for the native implementation and
+installer validation; do not relabel the legacy Root-only packages.
+
+## Historical follow-up — 2026-11-13: notification merged, pane CI pending
 
 PR283 (Mac permission attribution) merged as ec746f13e377f60077794fba62ca99164a023df4.
 PR284 (imported monitor notifications) merged as

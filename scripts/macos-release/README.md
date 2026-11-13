@@ -38,7 +38,11 @@ remain required. Website downloads, release notes and the blog are also authoriz
    downloaded input, builds `aarch64-apple-darwin`, and uses the existing GitHub
    Apple/updater credentials in their intended jobs. Tauri signs/notarizes the
    outer app and signs its updater archive; the final step notarizes/staples the
-   DMG. The release remains a draft. Tag creation no longer triggers the old
+   DMG. The managed wrapper prefers the same explicit API key used by the preflight
+   and DMG step, removing Apple ID/password from its child environment. Tauri
+   otherwise gives those credentials priority even when they are empty strings.
+   Complete Apple ID-only authentication remains supported. The release remains
+   a draft. Tag creation no longer triggers the old
    root-only recipe. `legacy-root-only` is available explicitly for that recipe.
 6. Inspect the final app and DMG signatures, stapled tickets and actual embedded
    archive hashes; extract the updater archive and verify the same payloads.

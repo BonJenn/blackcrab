@@ -1,6 +1,61 @@
 # Blackcrab parity and release handoff
 
-## Current continuation checkpoint — repair the first Mac 0.4.0 release build
+## Current continuation checkpoint — correct mixed notarization authentication
+
+The owner has authorized publishing Mac 0.4.0 and the website/blog/release notes.
+They will test native UI/service/upgrade behavior afterward. Keep artifact and
+updater checks; do not restore the native capture gate or ask approval again.
+Full parity and normal Mac installation remain unfinished.
+
+PR267 merged after nine passed checks to stage
+cbf167200b740fab7fc34bb125b99dd95bf3c826 and was unwatched. The Tauri npm/Rust
+version mismatch is fixed. Release run 43333392902 compiled the full optimized
+0.4.0 binary and signed the Root app, then failed notarization with HTTP401.
+Its API-key notarytool preflight passed. Tauri selected the older Apple ID/password
+because both methods were present; its upstream notarize_auth checks Apple ID
+first, including empty environment variables. Native code did not fail compilation.
+The monitor shell 38476 is settled with exit1; no app/host was launched.
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+REL=P/mac-release-040-v2llrqsa. Active checkout REL/notary-auth-fix, branch
+release/0.4.0-notarization-auth from corrected stage cbf1672. Read REL/plan.json
+and REL/notary-auth-fix-pr.json for current PR/head/checks and command handles.
+The fix selects API auth in the managed release wrapper and deletes the legacy
+Apple ID/password values from the spawned environment. Complete Apple ID-only
+configuration remains supported, incomplete configuration fails early, and
+updater/signing values remain intact. It neither rotates nor exports credentials.
+Five auth regressions pass, including a real child-process environment check;
+the focused release/resource/version suite passes 33 tests with three opt-in skips.
+The existing frontend CI wildcard includes the new tests. No package graph,
+native application source, signed inner payload or updater identity was changed.
+
+Commit/push/link the correction PR, wait through watch (never PR polling), inspect
+its checks/reviews and merge to stage. Then update a clean source checkout and
+regenerate source-bound OWNER_TESTING_AUTHORIZED input ZIP in a NEW directory.
+The old REL/release-inputs-cbf1672 package belongs to failed run 43333392902, not
+the next corrected revision. Reuse the unchanged notarized inner payloads listed
+below. Retarget the existing DRAFT v0.4.0 and replace its owned input ZIP/hash;
+dispatch release.yml at the new stage SHA. No public v0.4.0 tag has been published.
+
+REL/verify-final-artifacts.py is prepared, not passing evidence. Update its SOURCE
+and workflow ID and REL/artifact-verification-plan.json to the next actual run
+before executing it. It checks actual downloaded digests, updater cryptography,
+Root identity/architecture/signature/ticket, embedded archive/manifest pins, all
+inner payloads, DMG signatures and read-only mounted DMG/updater equality. It does
+not launch/install the app. The updater verifier/public key are already available
+in REL/updater-verifier. The key still matches v0.3.0. Preserve private keys.
+
+Website PR12 remains draft at 45074e77ae990e71983a0d0f657461bed76eca03, with local
+validation and both Vercel checks passed. After verified GitHub publication,
+merge/deploy www.blackcrab.app using existing blackcrab-landing/bonjenns-projects
+and verify pages plus actual Mac download and old Windows/Linux fallback.
+No preview tab is open and no temporary access link remains. TestFlight 1.0.0 (4)
+is already available; later branded export and remote/APNs acceptance remain open.
+The dirty main checkout/index, shared caches and /Applications/Blackcrab.app are
+untouched. The finish line remains validated parity, a current normal Mac build
+installed and the iOS app available in the owner's TestFlight.
+
+## Historical checkpoint — repair the first Mac 0.4.0 release build
 
 The owner explicitly authorized Mac 0.4.0 publication and will test it afterward,
 including the website/blog/release-notes workflow. This still supersedes the old

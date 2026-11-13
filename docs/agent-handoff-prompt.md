@@ -17,16 +17,18 @@ never restart old handles. Website PR14 merged at 7b4cf8594001ff0b236508bcbf9114
 its production deployment and anonymous pages/downloads are verified. Do not
 repeat publication; read the production verification record for evidence.
 
-The next code task is safe background-service upgrading and remaining host message
-branding. Local-only REL/workspace-polish-042, branch fix/host-product-copy-042 at
-a62414a, has 159 reviewed copy patches and 33 passing source/artifact tests. Its
-real build was cancelled without adoption, and its producer freeze remains old.
-The public release intentionally uses the original c04c4d44… host manifest.
-Existing attachment pins the host manifest and a fixed runtime version directory;
-implement a stopped-service migration preserving identity, credentials, environment,
-catalog and generation before changing that artifact. Read the exact files and
-constraints in the current handoff. Do not substitute a re-signed host copy, weaken
-manifest checks or test migration against user data.
+The owner confirmed the workspace opened after Try again and permission prompts.
+Current follow-ups: macOS dialogs still name t3; imported monitor notifications
+appear as user XML bubbles; rightmost pane move/close controls overlap panel
+buttons; then prepare full-workspace Windows x64/Linux x64.
+Read the newest handoff checkpoint before historical host-migration instructions.
+REL/macos-native-identity (fix/macos-service-identity) adds LaunchAgent responsible
+bundle association and a stopped-only metadata upgrade preserving the existing
+host. Eight native tests, 25 renderer tests and TypeScript passed; actual prompt
+attribution still needs native validation. Test processes completed. Do not reset
+TCC, interrupt existing agents or replace the retained host merely for branding.
+The separate host product-copy branch still needs a data-preserving manifest
+migration; it is not a prerequisite for adding LaunchAgent bundle association.
 
 Use one coherent PR per change, validate it and merge to stage. Keep AGENTS.md and
 CLAUDE.md identical within each changed directory. Preserve the dirty main checkout,

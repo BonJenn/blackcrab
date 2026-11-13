@@ -54,3 +54,17 @@ it("hides unavailable installations and preserves loaded controls after readines
     expect(view.button("Stop background service").disabled).toBe(false); expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Host identity was refused.");
   } finally { view.dispose(); }
 });
+it("explains the permission-name update without restarting an active service automatically", async () => {
+  const api = client({
+    status: vi.fn(async () => status("running", { installed: true, loaded: true, permissionIdentityRestartRequired: true })),
+    perform: vi.fn(async () => status("running", { installed: true, loaded: true, permissionIdentityRestartRequired: false })),
+  }), view = surface(api);
+  try {
+    await act(async () => view.render());
+    expect(view.element.textContent).toContain("when your agents are idle");
+    expect(api.perform).not.toHaveBeenCalled();
+    await act(async () => view.button("Restart background service").click());
+    expect(api.perform).toHaveBeenCalledExactlyOnceWith("restart");
+    expect(view.element.textContent).not.toContain("when your agents are idle");
+  } finally { view.dispose(); }
+});

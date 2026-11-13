@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 export type ServiceState = "notAvailable" | "notConfigured" | "direct" | "notInstalled" | "stopped" | "starting" | "running" | "unavailable";
 export type ServiceAction = "install" | "start" | "stop" | "restart" | "uninstall";
-export type ServiceStatus = { state: ServiceState; canInitialize: boolean; installed: boolean; loaded: boolean; error?: string };
+export type ServiceStatus = { state: ServiceState; canInitialize: boolean; installed: boolean; loaded: boolean; permissionIdentityRestartRequired?: boolean; error?: string };
 export interface ManagedServiceClient {
   status(): Promise<ServiceStatus>;
   initialize(): Promise<ServiceStatus>;
@@ -13,7 +13,8 @@ export function readServiceStatus(value: unknown): ServiceStatus {
   if (!["notAvailable", "notConfigured", "direct", "notInstalled", "stopped", "starting", "running", "unavailable"].includes(result.state as string)
     || ["canInitialize", "installed", "loaded"].some(key => typeof result[key] !== "boolean")
     || (result.error !== undefined && typeof result.error !== "string")
-    || Object.keys(result).some(key => !["state", "canInitialize", "installed", "loaded", "error"].includes(key))) throw new Error("Unexpected background-service response.");
+    || (result.permissionIdentityRestartRequired !== undefined && typeof result.permissionIdentityRestartRequired !== "boolean")
+    || Object.keys(result).some(key => !["state", "canInitialize", "installed", "loaded", "permissionIdentityRestartRequired", "error"].includes(key))) throw new Error("Unexpected background-service response.");
   return result as ServiceStatus;
 }
 const control = async (action: ServiceAction | "status") => readServiceStatus(await invoke<unknown>("managed_service_control", { action }));

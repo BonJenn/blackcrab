@@ -1,6 +1,39 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 2026-11-13: Mac 0.4.2 published
+## Current follow-up — 2026-11-13: permission identity and imported notifications
+
+The owner confirmed the public workspace opens after Try again and responding to
+macOS permission prompts. Do not treat startup as still blocked. Their remaining
+reports are macOS dialogs naming `t3` and older imported threads showing raw Claude
+`<task-notification>` monitor events as user bubbles. The owner also reported
+rightmost pane move/close buttons obscured by panel controls. They requested Windows
+x64 and Linux x64 packages with the full workspace after these Mac fixes.
+
+`fix/macos-service-identity` adds the signed Root bundle identifier to the owned
+LaunchAgent's AssociatedBundleIdentifiers and supplies Blackcrab local-network
+usage text. Legacy owned units remain readable; only a confirmed stopped start or
+restart upgrades their metadata, retaining installed PATH, runtime/owner binding
+and user data. Status only reports that a restart is needed; no running agent is
+automatically interrupted. This does not replace the pinned host artifact.
+Validation: 8 actual-crate native service tests, 25 focused renderer tests and
+root TypeScript passed. Actual macOS permission-dialog attribution is pending;
+source tests do not establish native prompt acceptance. Public 0.4.2 is unchanged.
+
+Active owned worktree: REL/macos-native-identity; base stage 20bea615 (PR282 merged,
+all nine checks passed, watch removed). Evidence: REL/macos-native-identity-validation.
+Both native/frontend test processes completed. Notification and pane follow-ups
+are implemented in REL/imported-task-notifications and REL/pane-toolbar-placement.
+Their combined pinned source passed full web/desktop types, 17 focused checks,
+and 4 Chromium behavior cases (2 notifications, 2 six-pane hit-area scenarios).
+All 346 patch records / 301 final targets were verified; 40 unrelated timeline
+cases were filtered out. Browser setup initially failed on relocated CommonJS
+cache shims; putting the unchanged copies under owned node_modules resolved it.
+All local processes completed; no app/provider was launched against user data.
+Next: finish separate imported-notification rendering, validate
+and merge coherent PRs, then implement cross-platform full-workspace packaging.
+Do not ship a root-only Windows/Linux app or claim the old 0.3.0 downloads are parity.
+
+## Published baseline — 2026-11-13: Mac 0.4.2 published
 
 Mac [v0.4.2](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.2) is public,
 stable/latest, from `cb586b1f4832714e624c4a328b777ef321670fd3` (PR281 merged after

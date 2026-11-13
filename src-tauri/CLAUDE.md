@@ -62,3 +62,12 @@ Never accept a renderer PID or choose an app by a process-name search. Reopen
 reuses the captured workspace. Normal workspace Quit exits its hidden launcher;
 a crash presents recovery. Neither transition stops the independent host.
 Keep service controls and signed updates available in the native launcher menu.
+
+## macOS permission identity
+
+Owned LaunchAgents associate with com.bonjenn.blackcrab so macOS can attribute
+service access to the signed app. Recognize the exact prior unit without this
+field for compatibility; reject foreign/multiple associations. Upgrade only under
+the control lease after launchd and the native journal both confirm stopped.
+Preserve the installed PATH and owner/runtime/lifecycle fields. Status must not
+restart agents or rewrite registration. Never reset user privacy grants in tests.

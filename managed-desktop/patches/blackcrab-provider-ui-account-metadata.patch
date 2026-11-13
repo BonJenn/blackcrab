@@ -1,0 +1,23 @@
+--- a/packages/contracts/src/relay.ts
++++ b/packages/contracts/src/relay.ts
+@@ -1139,17 +1139,17 @@
+       headers: RelayBearerRequestHeaders,
+       success: RelayT3ChatLinkResponse,
+       error: RelayAuthAndInternalErrors,
+-    }).annotate(OpenApi.Summary, "Get the linked T3 Chat account"),
++    }).annotate(OpenApi.Summary, "Get the linked chat account"),
+     HttpApiEndpoint.post("createT3ChatLinkRequest", "/v1/client/t3chat-link-requests", {
+       headers: RelayBearerRequestHeaders,
+       success: RelayT3ChatLinkRequestResponse,
+       error: RelayAuthAndInternalErrors,
+-    }).annotate(OpenApi.Summary, "Start linking a T3 Chat account"),
++    }).annotate(OpenApi.Summary, "Start linking a chat account"),
+     HttpApiEndpoint.delete("unlinkT3Chat", "/v1/client/t3chat-link", {
+       headers: RelayBearerRequestHeaders,
+       success: RelayOkResponse,
+       error: RelayAuthAndInternalErrors,
+-    }).annotate(OpenApi.Summary, "Unlink the T3 Chat account"),
++    }).annotate(OpenApi.Summary, "Unlink the chat account"),
+   )
+   .annotate(OpenApi.Description, "Cloud-user environment links and registered devices.")
+   .middleware(RelayClientAuth);

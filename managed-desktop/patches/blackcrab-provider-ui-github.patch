@@ -1,0 +1,26 @@
+--- a/packages/source-control-github/src/shared/definition.ts
++++ b/packages/source-control-github/src/shared/definition.ts
+@@ -44,11 +44,11 @@
+   );
+ }
+ 
+-/** Signing in through the T3 Code for GitHub app lifts the per-user API rate limit to the app's. */
++/** Optional app metadata; Blackcrab offers GitHub CLI and personal-token authentication. */
+ export const APP_SIGN_IN: SourceControlAppSignIn = {
+-  appName: "T3 Code for GitHub",
++  appName: "GitHub app",
+   hosts: ["github.com"],
+-  installUrl: "https://github.com/apps/t3-code-for-github/installations/new",
++  installUrl: "https://github.com/settings/installations",
+   revokeUrl: "https://github.com/settings/apps/authorizations",
+ };
+ 
+@@ -68,7 +68,7 @@
+     tokenEnvVar: "GH_TOKEN",
+     tokenAccess: "read and write access to pull requests and contents",
+     newTokenUrl: (host) => `https://${host}/settings/personal-access-tokens/new`,
+-    appSignIn: APP_SIGN_IN,
++    // App sign-in is not offered without a Blackcrab-owned GitHub app.
+   },
+   changeRequest: {
+     shortLabel: "PR",

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { validateToolchain } from '../managed-host/build.mjs';
 import { UPSTREAM, NODE_VERSION, PNPM_VERSION } from '../managed-host/artifact.mjs';
 import { prepareHostedWeb } from './hosted-source.mjs';
+import { assertOwnedRendererCopy } from '../managed-desktop/renderer-branding.mjs';
 import { hostedOutputConfig, hostedWebBuildEnvironment, hostedWebConfigFromEnvironment } from './hosted-config.mjs';
 
 const json = value => JSON.stringify(value, null, 2) + '\n';
@@ -40,6 +41,7 @@ export async function buildHostedWeb({ archive, cacheDir, output, node, pnpm, en
   await step('install', pnpm, ['--filter', '@t3tools/web...', '--filter', '@t3tools/scripts...', '--filter', './', 'install', '--frozen-lockfile', '--ignore-scripts']);
   await step('web', node, [path.join(source, 'node_modules/vite-plus/bin/vp'), 'build'], path.join(source, 'apps/web'));
   const dist = path.join(source, 'apps/web/dist');
+  await assertOwnedRendererCopy(dist);
   await fs.access(path.join(dist, 'index.html'));
   // Public association bytes must survive the original Vite build unchanged.
   for (const name of ['apple-app-site-association.json', 'assetlinks.json']) {

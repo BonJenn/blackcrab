@@ -42,3 +42,13 @@ A local ad-hoc signature is not Developer ID signing/notarization. The user's
 finish line includes a current normal Finder-launchable Mac installation.
 Preserve existing app data when installing and verify the installed version and
 ordinary launch path after installation.
+
+## 0.4.1 signed-helper startup defect
+
+The owner failure is now reproduced. Read the current handoff before historical
+startup notes. A signed app executable cannot simply be copied as a standalone
+service issuer: its external signed Info.plist is lost and macOS kills it. Use
+the separately built/signed/notarized CLI helper embedded in Root. Preserve
+existing service configuration/generation during an explicitly stopped upgrade.
+Signature verification, real helper readiness and actual app UI acceptance are
+different checks; do not label the whole delivery complete from the first two.

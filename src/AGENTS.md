@@ -19,3 +19,9 @@ to renderer tests. Historical API fixtures and successful package extraction
 are narrower evidence. Keep the UI's loading/error/retry states actionable.
 Preserve user-facing functionality; keep QA machinery and artifact internals
 out of normal product flows unless users need them to make a decision.
+
+The primary Full desktop action is available in both Claude and Codex toolbars.
+ManagedDesktopDialog keeps service setup and the desktop entry together; use
+its native dialog focus/escape behavior and preserve mounted conversation owners.
+A native launch error must retain a manual retry and fixed actionable setup text,
+not misclassify a bundled app as absent. See desktop-startup-041-diagnosis.md.

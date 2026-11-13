@@ -33,3 +33,13 @@ Read the Current checkpoint before historical sections. Older active-handle,
 open-PR and next-step statements are evidence of their time, not instructions
 to restart work. Keep the copyable prompt focused on the current checkpoint;
 retain historical provenance behind an explicit divider in the main handoff.
+
+## 0.4.1 signed-helper startup defect
+
+The owner failure is now reproduced. Read the current handoff before historical
+startup notes. A signed app executable cannot simply be copied as a standalone
+service issuer: its external signed Info.plist is lost and macOS kills it. Use
+the separately built/signed/notarized CLI helper embedded in Root. Preserve
+existing service configuration/generation during an explicitly stopped upgrade.
+Signature verification, real helper readiness and actual app UI acceptance are
+different checks; do not label the whole delivery complete from the first two.

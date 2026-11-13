@@ -233,6 +233,9 @@ impl ServiceUnitPlan {
             self.publish_unit()?;
             registration.installed=true;
         }
+        if !registration.loaded {
+            service_issuer::refresh_bundled_issuer(&host, &self.configuration)?;
+        }
         if registration.loaded{return Ok(registration);}
         service_issuer::require_stopped_for_control(&host,&self.configuration)?;
         let requests=self.requests(Action::Start);

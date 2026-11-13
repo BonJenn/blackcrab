@@ -112,10 +112,14 @@ it("hands history to the preview without starting and keeps its view mounted acr
   expect(call.mock.calls.every(([method]) => method === "codex_query")).toBe(true);
 });
 it("renders a full workspace without a modal and preserves its view while inactive", async () => {
+  const openDesktop = vi.fn();
   const opener = document.createElement("button"); document.body.append(opener); opener.focus();
   call.mockResolvedValueOnce(reply("threads", page([])));
-  await act(async () => root.render(<CodexHistory presentation="workspace" open={true} onClose={close} saveError="Selection is only saved for this app session" />));
+  await act(async () => root.render(<CodexHistory presentation="workspace" open={true} onClose={close} onOpenDesktop={openDesktop} saveError="Selection is only saved for this app session" />));
   expect(element.querySelector("dialog")).toBeNull();
+  await click("Full desktop");
+  expect(openDesktop).toHaveBeenCalledTimes(1);
+  expect(call.mock.calls.every(([method]) => method === "codex_query")).toBe(true);
   const main = element.querySelector<HTMLElement>("main")!;
   expect(main.hidden).toBe(false);
   const picker = main.querySelector<HTMLSelectElement>(".desktop-provider-switcher select")!;

@@ -21,6 +21,19 @@ fn status(state: &'static str, error: Option<String>) -> NativeDesktopStatus {
 fn unavailable() -> String {
     "Full desktop is unavailable in this installation.".into()
 }
+// Only fixed product messages cross the renderer boundary. Do not forward
+// arbitrary launcher diagnostics, paths, HTTP bodies or credential material.
+fn open_failure_message(reason: &str) -> String {
+    match reason {
+        "Enable the background service in Settings before opening a new workspace." =>
+            "Enable the background service above, then open Full desktop.".into(),
+        "The background service is stopped; start it through its service controls" =>
+            "Start the background service above, then open Full desktop.".into(),
+        "Choose a managed runtime package first" =>
+            "Choose a workspace runtime in Settings before opening Full desktop.".into(),
+        _ => "Full desktop could not start. Check the background service status and try again.".into(),
+    }
+}
 #[derive(Clone, Copy, Default)]
 struct Pins<'a> {
     host_manifest: Option<&'a str>,
@@ -240,8 +253,7 @@ impl ManagedNativeEntry {
             {
                 #[cfg(all(test, target_os = "macos"))]
                 acceptance::record_open_failure(&diagnostic_profile, &error);
-                let _ = error;
-                return status("unavailable", Some(unavailable()));
+                return status("ready", Some(open_failure_message(&error)));
             }
             return self.status_for_identity(identity).await;
         }
@@ -258,6 +270,12 @@ pub(crate) mod acceptance;
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn launch_failure_keeps_service_instructions_without_exposing_diagnostics() {
+        assert!(super::open_failure_message("Enable the background service in Settings before opening a new workspace.").starts_with("Enable the background service"));
+        assert!(super::open_failure_message("The background service is stopped; start it through its service controls").starts_with("Start the background service"));
+        assert!(!super::open_failure_message("secret-token-diagnostic").contains("secret-token"));
+    }
     use super::*;
     #[test]
     fn absent_and_partial_trust_do_not_invent_runtime() {

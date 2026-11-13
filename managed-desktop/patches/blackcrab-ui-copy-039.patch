@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/chat/RightPanelSurfaceContent.tsx
++++ b/apps/web/src/components/chat/RightPanelSurfaceContent.tsx
+@@ -124,7 +124,7 @@
+         return (
+           <PullRequestsUnavailableState
+             title="Pull requests unavailable"
+-            error="Update this environment's T3 Code server to browse pull requests."
++            error="Update this environment's Blackcrab server to browse pull requests."
+           />
+         );
+       }

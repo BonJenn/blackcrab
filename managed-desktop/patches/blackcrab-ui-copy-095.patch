@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/UpdateTrackSwitchDialog.tsx
++++ b/apps/web/src/components/settings/UpdateTrackSwitchDialog.tsx
+@@ -164,7 +164,7 @@
+           ? ["This app's updates are off here, so reinstall it yourself to switch."]
+           : []),
+         ...(switchesLocal && isMacPlatform(navigator.platform)
+-          ? ["If T3 Code does not reopen after it restarts, open it again."]
++          ? ["If Blackcrab does not reopen after it restarts, open it again."]
+           : []),
+       ]}
+       restarts={everything.restarts}

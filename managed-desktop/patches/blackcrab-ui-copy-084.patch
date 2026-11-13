@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/NotificationSettings.tsx
++++ b/apps/web/src/components/settings/NotificationSettings.tsx
+@@ -23,7 +23,7 @@
+       {...searchableSetting("thread-notifications")}
+       description={
+         permissionMessage ??
+-        "System alerts when a thread finishes, fails, or needs input or approval. Applies to this device while T3 Code is open."
++        "System alerts when a thread finishes, fails, or needs input or approval. Applies to this device while Blackcrab is open."
+       }
+       control={
+         <Select

@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/app/DesktopAppActivation.ts
++++ b/apps/desktop/src/app/DesktopAppActivation.ts
+@@ -162,7 +162,7 @@
+       activeRequestId = parsed.requestId;
+       void input.handle(parsed).then(finish, () => {
+         finish(
+-          invalidResponse(parsed.requestId, "T3 Code could not process the desktop app request."),
++          invalidResponse(parsed.requestId, "Blackcrab could not process the desktop app request."),
+         );
+       });
+     });

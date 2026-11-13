@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/chat/guestShareAvailability.ts
++++ b/apps/web/src/components/chat/guestShareAvailability.ts
+@@ -7,7 +7,7 @@
+ /**
+  * Whether this environment offers "Share with guest": the user may create links there, and its
+  * Guest links beta is on (Settings > Labs). The server refuses links while the beta is off.
+- * Guests arrive through T3 Connect, so a policy that turns Connect off hides sharing too.
++ * Guests arrive through Blackcrab Connect, so a policy that turns Connect off hides sharing too.
+  */
+ export const canShareWithGuestAtom = Atom.family((environmentId: EnvironmentId) =>
+   Atom.make((get) => {

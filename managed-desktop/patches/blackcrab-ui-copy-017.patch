@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/ssh/DesktopSshEnvironment.ts
++++ b/apps/desktop/src/ssh/DesktopSshEnvironment.ts
+@@ -100,7 +100,7 @@
+       break;
+     case "DesktopSshPromptWindowUnavailableError":
+     case "DesktopSshPromptPresentationError":
+-      message = "T3 Code window is not available for SSH authentication.";
++      message = "Blackcrab window is not available for SSH authentication.";
+       break;
+     case "DesktopSshPromptTimedOutError":
+       message = `SSH authentication timed out for ${cause.destination}.`;

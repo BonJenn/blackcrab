@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/onboarding/FirstRunGate.tsx
++++ b/apps/web/src/components/onboarding/FirstRunGate.tsx
+@@ -197,7 +197,7 @@
+         <p className="mt-2 text-sm text-muted-foreground">
+           {settingsReadFailed
+             ? "Your saved settings could not be loaded."
+-            : "T3 Code could not confirm this workspace."}
++            : "Blackcrab could not confirm this workspace."}
+         </p>
+         <Button
+           className="mt-5"

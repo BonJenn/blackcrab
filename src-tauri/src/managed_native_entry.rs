@@ -218,6 +218,14 @@ impl ManagedNativeEntry {
         self.open_for_identity(host, crate::managed_desktop::DesktopIdentity::Production)
             .await
     }
+    #[cfg(target_os = "macos")]
+    pub(crate) async fn activate(&self, app: &tauri::AppHandle) -> Result<bool, String> {
+        self.owner.activate(app).await
+    }
+    #[cfg(target_os = "macos")]
+    pub(crate) async fn client_exit(&self) -> Result<Option<bool>, String> {
+        self.owner.client_exit().await
+    }
     async fn open_for_identity(
         &self,
         host: ManagedHost,

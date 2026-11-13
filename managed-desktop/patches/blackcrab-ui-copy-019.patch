@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/updates/DesktopUpdatePolicy.ts
++++ b/apps/desktop/src/updates/DesktopUpdatePolicy.ts
+@@ -76,7 +76,7 @@
+             mode: "off",
+             feedUrl: undefined,
+             allowNightly: false,
+-            message: `Updates are off because T3 Code cannot use the managed policy at ${error.path}. Contact your administrator.`,
++            message: `Updates are off because Blackcrab cannot use the managed policy at ${error.path}. Contact your administrator.`,
+           }),
+         ),
+     }),

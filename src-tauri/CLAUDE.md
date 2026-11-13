@@ -4,8 +4,8 @@ Keep this file and CLAUDE.md identical. Read ../AGENTS.md and the handoff.
 
 ## Boundaries
 
-The Tauri root preserves legacy desktop behavior and is the trusted entry into
-managed hosts/full desktop. Native commands must validate their own authority.
+The Tauri root owns startup/recovery for the sole managed desktop interface.
+It no longer starts or exposes the retired session UI/server. Native commands must validate their own authority.
 Do not accept renderer-supplied package paths, digests, credentials or PIDs as
 proof of ownership. Bundled defaults must not override an existing host choice.
 
@@ -52,3 +52,13 @@ the separately built/signed/notarized CLI helper embedded in Root. Preserve
 existing service configuration/generation during an explicitly stopped upgrade.
 Signature verification, real helper readiness and actual app UI acceptance are
 different checks; do not label the whole delivery complete from the first two.
+
+## Managed launcher lifecycle
+
+managed_launcher hides the startup window only after activating the exact captured
+Electron child. AppKit process lookup is made while holding that Child handle's
+lock so it cannot be reaped/reused between the ownership check and activation.
+Never accept a renderer PID or choose an app by a process-name search. Reopen
+reuses the captured workspace. Normal workspace Quit exits its hidden launcher;
+a crash presents recovery. Neither transition stops the independent host.
+Keep service controls and signed updates available in the native launcher menu.

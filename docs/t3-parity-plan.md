@@ -1,5 +1,16 @@
 # T3 functionality parity delivery plan
 
+## Current desktop direction — sole workspace
+
+The owner explicitly removed the older desktop interface. The current 0.4.2
+candidate launches the managed workspace automatically, retains native recovery
+and updates, and removes upstream account/subscription branding. The earlier
+button-based 0.4.2 draft is superseded and must not be published. User data stays
+on disk; old renderer acceptance does not certify the new startup path. See the
+[current handoff](agent-handoff.md) for source checks and remaining signed/native
+acceptance. Historical increments below retain their original evidence scope.
+
+
 Full remote iOS control is an explicit delivery requirement, including all applicable
 T3 mobile workflows. The app lives in `apps/mobile`; see the
 [iOS delivery plan](mobile-ios-parity-plan.md). Mobile foundations can proceed

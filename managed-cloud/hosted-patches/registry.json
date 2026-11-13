@@ -45,12 +45,12 @@
     "id": "hosted-owned-privacy",
     "file": "hosted-owned-privacy.patch",
     "target": "apps/web/src/legalLinks.ts",
-    "sha256": "5ba44b664217b16a76bb8d3f45cd487d0654aa8f2e96ea354525f82ad9665696",
-    "beforeSha256": "4bd71cb329fe21e77e42153d421d249fe7dfdede21d37b37196b4b8930433404",
+    "sha256": "0b8c681a7d91e3c5616618ff015104a4b1dcf0784143bd01397fac0ecfeb324c",
+    "beforeSha256": "c7396078b892176f167dfba7d8a82dd34055a5e112fb19471d3c5fc2e1ff1dca",
     "afterSha256": "2acce8d1851a37b657b23c845df5b8cd4ee85eca9d976896fdc209a129bd75bb",
     "replacements": [
       {
-        "before": "export const PRIVACY_POLICY_URL = \"https://t3.codes/privacy-policy\";",
+        "before": "export const PRIVACY_POLICY_URL = \"https://www.blackcrab.app/docs#privacy-security\";",
         "after": "declare const __BLACKCRAB_PRIVACY_POLICY_URL__: string | undefined;\nexport const PRIVACY_POLICY_URL =\n  typeof __BLACKCRAB_PRIVACY_POLICY_URL__ === \"undefined\" ? \"\" : (__BLACKCRAB_PRIVACY_POLICY_URL__ ?? \"\");"
       }
     ]
@@ -59,17 +59,13 @@
     "id": "hosted-owned-computer-setup",
     "file": "hosted-owned-computer-setup.patch",
     "target": "apps/web/src/components/HostedEmptyState.tsx",
-    "sha256": "9ac4cd6aeeeea1c0d99ca36a2aaf0a3d3bf92e6d9a3426bb78af1b159296655d",
-    "beforeSha256": "17c5314e150e62ec7d7ff2545d38ebe6c12883cb8c1fb8665696c73502311722",
+    "sha256": "a333be069fc757b55fcedd259dc1988658c34932540081d9349ac00b67696fa3",
+    "beforeSha256": "08970afdba31956c5cd6fcdc1f065e3859973b331bee90c3a19630d7f7ecf38d",
     "afterSha256": "f3164307241ad62be566b0dd8b6d415b61776d5a3361b0c0d21e5568a380453c",
     "replacements": [
       {
         "before": "import { CommandBlock } from \"./CommandBlock\";\n",
         "after": ""
-      },
-      {
-        "before": "Your agents run on your computer. Start T3 Code there first.",
-        "after": "Your agents run on your computer. Start Blackcrab there first."
       },
       {
         "before": "<RunOnComputer command=\"npx t3 connect\" />",
@@ -111,64 +107,12 @@
     "id": "hosted-owned-welcome",
     "file": "hosted-owned-welcome.patch",
     "target": "apps/web/src/components/onboarding/WelcomeWizard.tsx",
-    "sha256": "f6ec14dde5b5cedf35cdae7a60ed1bc4937252b6a4d7fb3060478bffef72988e",
-    "beforeSha256": "e414af33b536284fb658a015edde4f61f88c47337a255d806ade7d4560635194",
-    "afterSha256": "1e32c4e4c0a6b37e45435d3671e9ae2e8f35bf87891a3de7a80ac4ce855a1d8b",
+    "sha256": "6d3d1210ad0fdf26d2f205754ee03b63fe64924963abdd9d39c5da4484e91a39",
+    "beforeSha256": "b14d2f69fdeaae9122a061a49b6ef4d6b2b545688858829026d0b4b3b5f9ea4e",
+    "afterSha256": "ce80fcbfe8fcbecfa9268a183878458d4b2bcb6c86b21f3bdc5bc9e5d9e0eca3",
     "replacements": [
       {
-        "before": "import { CommandBlock } from \"../CommandBlock\";\n",
-        "after": ""
-      },
-      {
-        "before": "import { T3Wordmark } from \"../T3Wordmark\";\n",
-        "after": ""
-      },
-      {
-        "before": "title=\"Set up T3 Code\"",
-        "after": "title=\"Set up Blackcrab\""
-      },
-      {
-        "before": "aria-label=\"T3 Code\"",
-        "after": "aria-label=\"Blackcrab\""
-      },
-      {
-        "before": "              <T3Wordmark className=\"h-4 w-auto shrink-0\" aria-hidden />\n",
-        "after": ""
-      },
-      {
-        "before": "                Code\n",
-        "after": "                Blackcrab\n"
-      },
-      {
-        "before": "<span className=\"flex-1 text-left\">T3 Connect</span>",
-        "after": "<span className=\"flex-1 text-left\">Blackcrab Connect</span>"
-      },
-      {
-        "before": "              Run this on each computer you want to connect.",
-        "after": "              Open Blackcrab on each computer you want to connect and sign in with the same account."
-      },
-      {
-        "before": "            <CommandBlock command=\"npx t3 connect\" className=\"mt-3\" />\n",
-        "after": ""
-      },
-      {
-        "before": "Keep T3 Code running. Select the computers you want to set up above.",
-        "after": "Keep Blackcrab running. Select the computers you want to set up above."
-      },
-      {
-        "before": "              On the computer with your code, start T3 Code or run{\" \"}\n              <code className=\"font-mono\">npx t3 serve</code>, then run:",
-        "after": "              Open Blackcrab on the computer with your code. In Settings \u2192 Connections, create a pairing link and paste it here."
-      },
-      {
-        "before": "            <CommandBlock command=\"npx t3 pair\" className=\"mt-2\" />\n",
-        "after": ""
-      },
-      {
-        "before": "              On a tailnet, run <code className=\"font-mono\">npx t3 pair --tailscale</code> instead.",
-        "after": "              For a tailnet connection, select Tailscale HTTPS in the computer\u2019s connection settings before creating the link."
-      },
-      {
-        "before": "          {telemetryOff ?? \"T3 Code collects anonymous usage data to help us improve it.\"} To read\n          more about how your data is used{telemetryOff === undefined ? \" and how to opt out\" : \"\"},\n          see our{\" \"}",
+        "before": "          {telemetryOff ?? \"Blackcrab collects anonymous usage data to help us improve it.\"} To read\n          more about how your data is used{telemetryOff === undefined ? \" and how to opt out\" : \"\"},\n          see our{\" \"}",
         "after": "          {telemetryOff ? <>{telemetryOff} </> : null}For details about how Blackcrab handles your data, see our{\" \"}"
       }
     ]

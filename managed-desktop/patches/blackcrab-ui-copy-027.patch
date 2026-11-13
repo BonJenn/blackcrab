@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -2827,7 +2827,7 @@
+         : serverConfig === null
+           ? "Side chats are not ready yet. Try again in a moment."
+           : serverConfig.environment.capabilities.sideChats !== true
+-            ? "Update this environment's T3 Code server to use side chats."
++            ? "Update this environment's Blackcrab server to use side chats."
+             : sideChatsOffered && !isServerThread
+               ? "Side chats start after the first message."
+               : sideChat.available &&

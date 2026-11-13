@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/settings/SettingsPanels.tsx
++++ b/apps/web/src/components/settings/SettingsPanels.tsx
+@@ -2075,7 +2075,7 @@
+           {...searchableSetting("privacy-policy")}
+           description={
+             telemetryOff === undefined
+-              ? "How we handle your data, including the anonymous usage data T3 Code collects."
++              ? "How we handle your data, including the anonymous usage data Blackcrab collects."
+               : `How we handle your data. ${telemetryOff}`
+           }
+           control={
+@@ -2090,7 +2090,7 @@
+         />
+         <SettingsRow
+           {...searchableSetting("open-source-licenses")}
+-          description="Notices for dependencies, assets, and optional tools used by T3 Code."
++          description="Notices for dependencies, assets, and optional tools used by Blackcrab."
+           control={
+             <Button
+               render={<Link to="/settings/open-source-licenses" />}

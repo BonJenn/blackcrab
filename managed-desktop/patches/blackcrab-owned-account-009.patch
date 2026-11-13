@@ -1,0 +1,22 @@
+--- a/apps/web/src/components/settings/SavedEnvironmentRows.tsx
++++ b/apps/web/src/components/settings/SavedEnvironmentRows.tsx
+@@ -488,8 +488,8 @@
+         limit={usage.limit}
+         action={
+           // At the cap the alert below carries the same action.
+-          usage.upgrade && openAccountPage && !showLimitAlert ? (
+-            <InlineButton onClick={() => openAccountPage("t3-chat")}>Get more tunnels</InlineButton>
++          openAccountPage && !showLimitAlert ? (
++            <InlineButton onClick={() => openAccountPage("t3-connect")}>Manage tunnels</InlineButton>
+           ) : null
+         }
+       />
+@@ -501,8 +501,6 @@
+           {meter}
+           {showLimitAlert ? (
+             <TunnelLimitAlert
+-              upgrade={usage.upgrade}
+-              onLinkT3Chat={openAccountPage ? () => openAccountPage("t3-chat") : null}
+               onManageTunnels={openAccountPage ? () => openAccountPage("t3-connect") : null}
+             />
+           ) : null}

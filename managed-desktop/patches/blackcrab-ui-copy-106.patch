@@ -1,0 +1,5 @@
+--- a/apps/web/src/legalLinks.ts
++++ b/apps/web/src/legalLinks.ts
+@@ -1 +1 @@
+-export const PRIVACY_POLICY_URL = "https://t3.codes/privacy-policy";
++export const PRIVACY_POLICY_URL = "https://www.blackcrab.app/docs#privacy-security";

@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/SettingsPanels.logic.ts
++++ b/apps/web/src/components/settings/SettingsPanels.logic.ts
+@@ -163,7 +163,7 @@
+       ? ["Floating preview"]
+       : []),
+     ...(settings.pullRequestLinksOpenInApp !== DEFAULT_UNIFIED_SETTINGS.pullRequestLinksOpenInApp
+-      ? ["Open pull requests in T3 Code"]
++      ? ["Open pull requests in Blackcrab"]
+       : []),
+   ];
+ }

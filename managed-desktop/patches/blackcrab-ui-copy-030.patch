@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/EnvironmentContextChip.tsx
++++ b/apps/web/src/components/EnvironmentContextChip.tsx
+@@ -33,7 +33,7 @@
+         }
+       />
+       <TooltipPopup side="top">
+-        {environment ? "T3 Code environment" : "Machine not in this app"}
++        {environment ? "Blackcrab environment" : "Machine not in this app"}
+       </TooltipPopup>
+     </Tooltip>
+   );

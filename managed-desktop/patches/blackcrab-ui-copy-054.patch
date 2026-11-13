@@ -1,0 +1,13 @@
+--- a/apps/web/src/components/cloud/ConnectCliAuthSurface.tsx
++++ b/apps/web/src/components/cloud/ConnectCliAuthSurface.tsx
+@@ -73,8 +73,8 @@
+         title="Connecting your terminal"
+         description={
+           isSignedIn
+-            ? "Redirecting to authorize T3 Connect for your CLI…"
+-            : "Sign in to continue authorizing T3 Connect for your CLI."
++            ? "Redirecting to authorize Blackcrab Connect for your CLI…"
++            : "Sign in to continue authorizing Blackcrab Connect for your CLI."
+         }
+       />
+       {isLoaded && !isSignedIn ? (

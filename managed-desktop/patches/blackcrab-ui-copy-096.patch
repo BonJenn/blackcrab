@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/providerStatus.ts
++++ b/apps/web/src/components/settings/providerStatus.ts
+@@ -55,7 +55,7 @@
+     return {
+       headline: "Disabled",
+       detail:
+-        provider.message ?? "This provider is installed but disabled for new sessions in T3 Code.",
++        provider.message ?? "This provider is installed but disabled for new sessions in Blackcrab.",
+     };
+   }
+   if (!provider.installed) {

@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/app/DesktopApp.ts
++++ b/apps/desktop/src/app/DesktopApp.ts
+@@ -143,7 +143,7 @@
+   const wasQuitting = yield* Ref.getAndSet(state.quitting, true);
+   if (!wasQuitting) {
+     yield* electronDialog.showErrorBox(
+-      "T3 Code failed to start",
++      "Blackcrab failed to start",
+       `Stage: ${stage}\n${message}${detail}`,
+     );
+   }

@@ -38,3 +38,13 @@ fixes; read the real stack before integration. Do not lose either branch's fixes
 
 Keep QA-derived identities and permission policies separate from production.
 A QA or unselected artifact is not the normal installed Blackcrab.app.
+
+## Sole workspace and owned branding
+
+The owner removed the legacy root UI; this client is the primary desktop. Keep
+onboarding, environment/account selection, shared marks and recovery copy branded
+Blackcrab. blackcrab-ui-copy-* registry records are exact deltas applied after the
+existing adapters. Internal protocols, package names and upstream license notices
+retain their original identity. Do not rename compatibility keys as cosmetic work.
+Onboarding must direct users to Blackcrab Settings → Sharing & access rather than
+download/run the upstream T3 service. Assets use the already-owned packaged icon.

@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/pullRequest/PullRequestsPage.tsx
++++ b/apps/web/src/components/pullRequest/PullRequestsPage.tsx
+@@ -1155,7 +1155,7 @@
+       ) : !pullRequestsSupported ? (
+         <PullRequestsUnavailableState
+           title="Pull requests unavailable"
+-          error="Update your T3 Code servers to browse pull requests."
++          error="Update your Blackcrab servers to browse pull requests."
+         />
+       ) : firstLoad ? (
+         <PullRequestListGhost rows={7} caption="Loading pull requests…" />

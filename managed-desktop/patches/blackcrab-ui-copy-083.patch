@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/MultipleAccountsNote.tsx
++++ b/apps/web/src/components/settings/MultipleAccountsNote.tsx
+@@ -34,7 +34,7 @@
+       <InfoIcon aria-hidden />
+       <AlertDescription>
+         <p>
+-          We do not recommend managing multiple {providerName} accounts in T3 Code.{" "}
++          We do not recommend managing multiple {providerName} accounts in Blackcrab.{" "}
+           <a
+             href={MULTIPLE_ACCOUNTS_FAQ_URL}
+             target="_blank"

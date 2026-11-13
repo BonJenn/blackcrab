@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/promptLinks/linkedPrompt.ts
++++ b/apps/web/src/components/promptLinks/linkedPrompt.ts
+@@ -9,7 +9,7 @@
+   toastManager.add({
+     type: "warning",
+     title: "This prompt had hidden characters, it may be malicious",
+-    description: `T3 Code removed ${prompt.hiddenCharacters} hidden character${prompt.hiddenCharacters === 1 ? "" : "s"}. Read the prompt before you send it.`,
++    description: `Blackcrab removed ${prompt.hiddenCharacters} hidden character${prompt.hiddenCharacters === 1 ? "" : "s"}. Read the prompt before you send it.`,
+     timeout: 0,
+   });
+ }

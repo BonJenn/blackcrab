@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/cloud/TunnelUsage.tsx
++++ b/apps/web/src/components/cloud/TunnelUsage.tsx
+@@ -48,7 +48,7 @@
+       </div>
+       <div
+         role="meter"
+-        aria-label="T3 Connect tunnels in use"
++        aria-label="Blackcrab Connect tunnels in use"
+         aria-valuemin={0}
+         aria-valuemax={limit}
+         aria-valuenow={used}

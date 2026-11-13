@@ -1,0 +1,29 @@
+--- a/apps/web/src/desktopAppActivation.ts
++++ b/apps/web/src/desktopAppActivation.ts
+@@ -85,7 +85,7 @@
+       return failure(
+         request.requestId,
+         "project-create-failed",
+-        errorMessage(error, "T3 Code could not add the project."),
++        errorMessage(error, "Blackcrab could not add the project."),
+       );
+     }
+   }
+@@ -99,7 +99,7 @@
+       return failure(
+         request.requestId,
+         "thread-open-failed",
+-        "T3 Code could not open a new thread for the project.",
++        "Blackcrab could not open a new thread for the project.",
+       );
+     }
+     return {
+@@ -113,7 +113,7 @@
+     return failure(
+       request.requestId,
+       "thread-open-failed",
+-      errorMessage(error, "T3 Code could not open a new thread for the project."),
++      errorMessage(error, "Blackcrab could not open a new thread for the project."),
+     );
+   }
+ }

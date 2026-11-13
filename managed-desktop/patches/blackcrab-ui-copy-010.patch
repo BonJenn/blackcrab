@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/snapShot/HyprlandSnapShot.ts
++++ b/apps/desktop/src/snapShot/HyprlandSnapShot.ts
+@@ -96,7 +96,7 @@
+       const bundle = await regularFile(this.paths.bundle);
+       if (!bundle)
+         throw new Error(
+-          "The Hyprland capture helper is missing from this build. Update or reinstall T3 Code.",
++          "The Hyprland capture helper is missing from this build. Update or reinstall Blackcrab.",
+         );
+       if (!installed.equals(bundle))
+         return {

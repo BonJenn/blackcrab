@@ -15,22 +15,22 @@ const pendingLabels: Record<Operation, string> = {
   stop: "Stopping background service…", restart: "Restarting background service…", uninstall: "Uninstalling background service…", refresh: "Checking background service…",
 };
 const message = (error: unknown) => error instanceof Error ? error.message : typeof error === "string" ? error : "Background-service request failed.";
-export function ManagedServiceControls({ client = managedServiceClient }: { client?: ManagedServiceClient }) {
+export function ManagedServiceControls({ client = managedServiceClient, onBusyChange }: { client?: ManagedServiceClient; onBusyChange?: (busy: boolean) => void }) {
   const [status, setStatus] = useState<ServiceStatus | null>(null);
   const [pending, setPending] = useState<Operation | null>("refresh");
   const [error, setError] = useState<string | null>(null);
   const epoch = useRef(0), busy = useRef(true);
   useEffect(() => {
     const current = ++epoch.current;
-    busy.current = true; setStatus(null); setPending("refresh"); setError(null);
+    busy.current = true; onBusyChange?.(true); setStatus(null); setPending("refresh"); setError(null);
     void client.status().then(result => { if (epoch.current === current) setStatus(result); },
       failure => { if (epoch.current === current) setError(message(failure)); })
-      .finally(() => { if (epoch.current === current) { busy.current = false; setPending(null); } });
-    return () => { ++epoch.current; };
-  }, [client]);
+      .finally(() => { if (epoch.current === current) { busy.current = false; onBusyChange?.(false); setPending(null); } });
+    return () => { ++epoch.current; onBusyChange?.(false); };
+  }, [client, onBusyChange]);
   async function run(operation: Operation) {
     if (busy.current) return;
-    busy.current = true; const current = ++epoch.current; const active = () => epoch.current === current;
+    busy.current = true; onBusyChange?.(true); const current = ++epoch.current; const active = () => epoch.current === current;
     setError(null); setPending(operation);
     try {
       const result = await (operation === "refresh" ? client.status() : operation === "initialize" ? client.initialize() : client.perform(operation));
@@ -42,7 +42,7 @@ export function ManagedServiceControls({ client = managedServiceClient }: { clie
         // real state instead of offering another initialization over existing data.
         try { const result = await client.status(); if (active()) setStatus(result); } catch { /* Preserve the actionable operation error. */ }
       }
-    } finally { if (active()) { busy.current = false; setPending(null); } }
+    } finally { if (active()) { busy.current = false; onBusyChange?.(false); setPending(null); } }
   }
   if (status?.state === "notAvailable") return null;
   const disabled = pending !== null;

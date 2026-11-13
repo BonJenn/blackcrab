@@ -1,0 +1,34 @@
+--- a/apps/web/src/components/settings/IntegrationsSettings.tsx
++++ b/apps/web/src/components/settings/IntegrationsSettings.tsx
+@@ -648,7 +648,7 @@
+ 
+ const LINK_TARGET_LABELS: Readonly<Record<BrowserLinkTarget, string>> = {
+   system: "Your default browser",
+-  app: "T3 Code",
++  app: "Blackcrab",
+ };
+ 
+ function BrowserLinkTargetSetting({ disabled }: { readonly disabled: boolean }) {
+@@ -785,11 +785,11 @@
+   return (
+     <SettingsRow
+       {...searchableSetting("pull-request-links-open-in-app")}
+-      description="Clicking a pull request link opens it in T3 Code. Turn off to open pull request links like any other link, on your git host."
++      description="Clicking a pull request link opens it in Blackcrab. Turn off to open pull request links like any other link, on your git host."
+       resetAction={
+         openInApp ? null : (
+           <SettingResetButton
+-            label="open pull requests in T3 Code"
++            label="open pull requests in Blackcrab"
+             onClick={() => updateSettings({ pullRequestLinksOpenInApp: true })}
+           />
+         )
+@@ -800,7 +800,7 @@
+           onCheckedChange={(checked) =>
+             updateSettings({ pullRequestLinksOpenInApp: Boolean(checked) })
+           }
+-          aria-label="Open pull requests in T3 Code"
++          aria-label="Open pull requests in Blackcrab"
+         />
+       }
+     />

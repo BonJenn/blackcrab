@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/clerk/MobileClientsUserProfilePage.tsx
++++ b/apps/web/src/components/clerk/MobileClientsUserProfilePage.tsx
+@@ -94,7 +94,7 @@
+       <EmptyHeader>
+         <EmptyTitle>No mobile clients</EmptyTitle>
+         <EmptyDescription>
+-          Install T3 Code on your phone and sign in to T3 Connect to get push notifications and Live
++          Install Blackcrab on your phone and sign in to Blackcrab Connect to get push notifications and Live
+           Activities.
+         </EmptyDescription>
+       </EmptyHeader>

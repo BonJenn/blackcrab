@@ -1,6 +1,48 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.1 failure reproduced; standalone service helper fix
+## Current checkpoint — helper fix merged; preparing draft 0.4.2
+
+PR273 merged to stage 8aaa56fd9b0d34d3bd433c1d0d07e088c77db3bf after all nine
+checks passed on 0126076c02b05cd877bfe2f5b6eb0fea925f03c1. It is unwatched.
+The actual 0.4.1 service-helper signature failure and its hidden setup error are
+reproduced; the dedicated signed helper and preserved-configuration upgrade passed
+local native tests. See desktop-startup-041-diagnosis.md for the precise scope.
+
+The active worktree is REL/desktop-patch-042, branch release/0.4.2-service-startup.
+REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Read REL/desktop-patch-042-plan.json for the current head, PR, release and handles.
+The original fix and its evidence remain at REL/desktop-launch-041-fix and
+REL/desktop-launch-041-diagnosis. No corrected installer has been built/published.
+The main dirty checkout/index and public 0.4.0/0.4.1 releases are preserved.
+
+This change prepares root version 0.4.2 without changing dependency versions or
+mobile version. It adds explicit draft-only build validation so the final signed
+installer can be produced before asserting its UI behavior. DRAFT_VALIDATION_PENDING
+is bound to exact source/tag and lists all untested lifecycle checks; it requires
+--draft-build. The workflow independently checks isDraft and leaves output a draft.
+Normal validateAcceptance rejects this state. The old owner-testing exception is
+unchanged; no successful native UI evidence is asserted or fabricated.
+
+Next: validate/merge this preparation PR; reuse the exact notarized inner payloads;
+pack source-bound draft inputs, create a new draft v0.4.2 and dispatch release.yml
+at that source. The new helper is independently signed/notarized before embedding.
+Download and verify final Root/DMG/updater/helper, then exercise actual service
+installation, Full desktop open/reuse, quit/reopen and upgrade preservation before
+publishing. Update the website only after that new release is verified/public.
+Native CUA last returned cgWindowNotFound; retry current capture, do not infer
+application exit from it or relabel missing UI evidence as passed.
+
+The 21 release/helper tests passed, with no skips. Locked Tauri npm/Rust
+compatibility, Cargo metadata, unchanged npm dependency graph and paired guides
+were verified. CI and final native packaging/runtime checks still remain.
+
+No build/test process is currently owned. The diagnostic service is stopped and
+its unloaded LaunchAgent archived; workspace configuration remains for upgrade
+validation. Continue scoped native service controls and captured children; never
+adopt discovered PIDs. TestFlight 1.0.0 (4) remains available. Full desktop/mobile/
+hosted runtime parity and a usable installed Mac app remain the overall finish line.
+
+## Historical checkpoint — 0.4.1 failure reproduced; standalone service helper fix
 
 The owner reports 0.4.1 still cannot open Full desktop. Native CUA reproduced it
 in the actual 0.4.1 DMG app on this Mac: Refresh makes desktop ready; Open returns

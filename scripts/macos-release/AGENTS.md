@@ -74,3 +74,13 @@ claim of passing native acceptance or a blanket exception for future versions.
 Signing, notarization, payload verification and updater verification remain
 mandatory. Preserve public 0.4.0 assets; release notes must call the work-Mac
 resolution unconfirmed until the owner actually opens the new desktop.
+
+
+## Draft installer validation
+
+A source-bound DRAFT_VALIDATION_PENDING record permits an explicit --draft-build
+only. The workflow must independently confirm the release is a draft and leave it
+a draft. Build the actual signed/notarized installer, then validate native UI and
+service lifecycle; pending evidence is never acceptance or public publication
+permission. Default validateAcceptance rejects it. Do not extend old owner-testing
+exceptions or invent successful lifecycle checks to build a candidate.

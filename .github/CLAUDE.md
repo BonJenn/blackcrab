@@ -67,3 +67,13 @@ empty strings are not sufficient because Tauri checks presence and prefers
 Apple ID first. Preserve signing identity/team and updater credentials. Never
 log the environment. The original API preflight passed while the mixed-auth
 Tauri build failed with Apple ID HTTP401; no key rotation is needed for that bug.
+
+
+## Draft installer validation
+
+A source-bound DRAFT_VALIDATION_PENDING record permits an explicit --draft-build
+only. The workflow must independently confirm the release is a draft and leave it
+a draft. Build the actual signed/notarized installer, then validate native UI and
+service lifecycle; pending evidence is never acceptance or public publication
+permission. Default validateAcceptance rejects it. Do not extend old owner-testing
+exceptions or invent successful lifecycle checks to build a candidate.

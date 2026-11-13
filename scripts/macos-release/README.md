@@ -16,6 +16,16 @@ the exact new source and `tag: "v0.4.1"`; later versions are not allowed by this
 exception. Signatures, notarization, payload and updater verification remain
 required. Website downloads, release notes and the blog are also authorized.
 
+A corrected installer can be built privately before its native lifecycle is
+accepted. Use `state: "DRAFT_VALIDATION_PENDING"`, schema 1, the exact source,
+matching tag, and `deferredChecks: lifecycleChecks`; do not include passing checks.
+Pass `--draft-build` to pack/unpack. The workflow independently verifies the target
+release is still a draft before enabling this option, and always leaves its output
+a draft. This is a build permission only: the normal `validateAcceptance` call
+without `draftBuild` rejects pending evidence. Verify the final packaged app and
+record actual lifecycle acceptance for that source before public publication.
+This does not extend the older release-specific owner-testing exception.
+
 1. Normally complete native lifecycle acceptance for the reviewed source. Record schema 1,
    `state: "PASSED"`, its exact `sourceRevision`, and true checks for `firstLaunch`,
    `enableService`, `openAndReuseDesktop`, `quitPreservesHost`,

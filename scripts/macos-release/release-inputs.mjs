@@ -18,7 +18,20 @@ export const lifecycleChecks = Object.freeze([
 
 export const ownerTestingAuthorization = 'publish the mac release and ill test it myself. this will be version 0.4';
 
-export function validateAcceptance(value, revision, {tag, version} = {}) {
+export function validateAcceptance(value, revision, {tag, version, draftBuild = false} = {}) {
+  // Build the actual signed installer before asserting its GUI/lifecycle behavior.
+  // The workflow independently confirms the release is a draft before opting in.
+  // Normal publication validation never accepts this state.
+  if (value?.state === 'DRAFT_VALIDATION_PENDING') {
+    if (draftBuild !== true || value.schema !== 1 || value.sourceRevision !== revision ||
+        !/^[a-f0-9]{40}$/.test(revision ?? '') ||
+        !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version ?? '') ||
+        tag !== `v${version}` || value.tag !== tag || value.checks !== undefined ||
+        JSON.stringify(value.deferredChecks) !== JSON.stringify(lifecycleChecks)) {
+      throw Error('Pending native validation permits only an explicit source-bound draft build');
+    }
+    return value.state;
+  }
   // The owner's 0.4 manual-testing delivery includes the single corrective
   // 0.4.1 patch for their reported startup failure. Bind that follow-up to the
   // immutable 0.4.0 baseline; do not extend the exception to later releases.
@@ -55,7 +68,7 @@ export function validateReleaseInputs(value, {revision, tag, version, identity, 
       !sha256(value.acceptanceSha256)) throw Error('Managed release inputs do not match the selected source, version, platform or payloads');
 }
 
-async function sourceOptions(tag) {
+async function sourceOptions(tag, draftBuild = false) {
   const config = await json(path.join(repository, 'src-tauri/tauri.conf.json'));
   const pkg = await json(path.join(repository, 'package.json'));
   if (pkg.version !== config.version || config.identifier !== 'com.bonjenn.blackcrab') throw Error('Root package versions or identity differ');
@@ -63,7 +76,7 @@ async function sourceOptions(tag) {
   const dirty = (await exec('git', ['status', '--porcelain', '--untracked-files=normal'], {cwd:repository})).stdout;
   if (dirty) throw Error('Release preparation requires a clean committed checkout');
   await exec('git', ['merge-base', '--is-ancestor', revision, 'origin/stage'], {cwd:repository});
-  return {revision, tag, version:config.version, identity:process.env.APPLE_SIGNING_IDENTITY, teamId:process.env.APPLE_TEAM_ID};
+  return {revision, tag, version:config.version, identity:process.env.APPLE_SIGNING_IDENTITY, teamId:process.env.APPLE_TEAM_ID, draftBuild};
 }
 
 async function validateDirectory(root, options) {
@@ -81,9 +94,9 @@ async function validateDirectory(root, options) {
   return inputs;
 }
 
-/** Preserve real acceptance or the release-specific owner instruction without conflating them. */
-export async function packReleaseInputs({desktop, serviceHost, acceptance, output, tag}) {
-  const options = await sourceOptions(tag);
+/** Keep draft-build evidence, real acceptance and the release-specific owner instruction distinct. */
+export async function packReleaseInputs({desktop, serviceHost, acceptance, output, tag, draftBuild = false}) {
+  const options = await sourceOptions(tag, draftBuild);
   const acceptanceState = validateAcceptance(await json(acceptance), options.revision, options);
   await verifyManagedReleasePayloads({desktop, serviceHost, ...options});
   const stage = await fs.mkdtemp(path.join(path.dirname(path.resolve(output)), '.blackcrab-release-inputs-'));
@@ -99,6 +112,7 @@ export async function packReleaseInputs({desktop, serviceHost, acceptance, outpu
     serviceHostManifestSha256:await fileDigest(path.join(serviceHost,MANIFEST_FILE)),
     acceptanceSha256:await fileDigest(acceptance)};
   delete inputs.revision;
+  delete inputs.draftBuild;
   await fs.writeFile(path.join(payloads,'release-inputs.json'), JSON.stringify(inputs,null,2)+'\n');
   await validateDirectory(payloads,options);
   const archive = path.join(stage,'blackcrab-managed-payloads.zip');
@@ -108,13 +122,13 @@ export async function packReleaseInputs({desktop, serviceHost, acceptance, outpu
   const digest=await fileDigest(output);
   if(digest!==await fileDigest(archive))throw Error('Published release-input copy differs');
   await fs.rm(stage,{recursive:true});
-  return {state:acceptanceState === 'PASSED' ? 'ACCEPTED_RELEASE_INPUTS_PREPARED' : 'OWNER_TEST_RELEASE_INPUTS_PREPARED',sha256:digest,output:path.resolve(output),sourceRevision:options.revision};
+  return {state:acceptanceState === 'PASSED' ? 'ACCEPTED_RELEASE_INPUTS_PREPARED' : acceptanceState === 'DRAFT_VALIDATION_PENDING' ? 'DRAFT_RELEASE_INPUTS_PREPARED' : 'OWNER_TEST_RELEASE_INPUTS_PREPARED',sha256:digest,output:path.resolve(output),sourceRevision:options.revision};
 }
 
 /** The workflow supplies the reviewed archive hash independently of the download. */
-export async function unpackReleaseInputs({archive, sha, output, tag}) {
+export async function unpackReleaseInputs({archive, sha, output, tag, draftBuild = false}) {
   if(!sha256(sha)||await fileDigest(archive)!==sha)throw Error('Downloaded release-input archive differs');
-  const options = await sourceOptions(tag);
+  const options = await sourceOptions(tag, draftBuild);
   // The digest identifies our own reviewed archive, not an arbitrary third-party zip.
   await fs.mkdir(output,{mode:0o700});
   await exec('/usr/bin/ditto',['-x','-k',archive,output],{timeout:300000});
@@ -123,8 +137,8 @@ export async function unpackReleaseInputs({archive, sha, output, tag}) {
 }
 
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
- const {values}=parseArgs({options:{mode:{type:'string'},desktop:{type:'string'},'service-host':{type:'string'},acceptance:{type:'string'},archive:{type:'string'},sha:{type:'string'},output:{type:'string'},tag:{type:'string'}}});
+ const {values}=parseArgs({options:{mode:{type:'string'},desktop:{type:'string'},'service-host':{type:'string'},acceptance:{type:'string'},archive:{type:'string'},sha:{type:'string'},output:{type:'string'},tag:{type:'string'},'draft-build':{type:'boolean',default:false}}});
  if(!['pack','unpack'].includes(values.mode))throw Error('Choose pack or unpack');
- const result=values.mode==='pack'?await packReleaseInputs({desktop:values.desktop,serviceHost:values['service-host'],acceptance:values.acceptance,output:values.output,tag:values.tag}):await unpackReleaseInputs(values);
+ const result=values.mode==='pack'?await packReleaseInputs({desktop:values.desktop,serviceHost:values['service-host'],acceptance:values.acceptance,output:values.output,tag:values.tag,draftBuild:values['draft-build']}):await unpackReleaseInputs({...values,draftBuild:values['draft-build']});
  console.log(JSON.stringify(result));
 }

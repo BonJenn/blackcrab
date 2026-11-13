@@ -255,3 +255,16 @@ TestFlight 1.0.0 (4) is unchanged. Read the current handoff before historical se
 Windows/Linux runtime inputs merged inPR288, but new producers, service/transport,
 installers and native lifecycle tests remain unfinished. Their public downloads
 remain 0.3.0. Retain the c04c4d44… production host pending a data-preserving migration.
+
+## Requested 0.4.4 update and three-platform release — 2026-11-13
+
+The owner reported that the workspace update button says automatic updates are
+unavailable, and explicitly requested working checks, an install notification,
+installation progress, and publication of 0.4.4 for Mac, Windows and Linux. This
+authorizes the release work; it does not establish native tests passed. Preserve
+the existing independent Mac service payload/data. Read docs/desktop-updates.md
+and the latest handoff. The Electron workspace must delegate to the signed outer
+app updater rather than update its extracted inner app. Windows/Linux still need
+implemented native packages and service/transport; root-only installers do not
+satisfy the request. Keep current public versions until replacement artifacts
+are actually built and verified. No extra publication confirmation is required.

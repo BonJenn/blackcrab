@@ -1,0 +1,26 @@
+--- a/apps/web/src/components/sidebar/SidebarUpdatePill.tsx
++++ b/apps/web/src/components/sidebar/SidebarUpdatePill.tsx
+@@ -4,7 +4,7 @@
+   managedUpdatesDenial,
+ } from "@t3tools/contracts";
+ import { TriangleAlertIcon } from "lucide-react";
+-import { type ComponentProps, useId, useRef, useState } from "react";
++import { type ComponentProps, useEffect, useId, useRef, useState } from "react";
+ import { flushSync } from "react-dom";
+ import { settlePromise, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+ import { isElectron } from "../../env";
+@@ -266,6 +266,14 @@
+   const isInteractionDisabled = disabled || isActionPending || isRunningEverything;
+   const showReleaseNotesPopover =
+     !isRunningEverything && shouldUseSidebarUpdateReleaseNotesPopover(showUpdateDetails, state);
++
++  const announcedUpdate = useRef<string | null>(null);
++  useEffect(() => {
++    if (state?.status !== "available" || !state.availableVersion || announcedUpdate.current === state.availableVersion) return;
++    announcedUpdate.current = state.availableVersion;
++    toastManager.add({type: "info", title: `Blackcrab ${state.availableVersion} is available`,
++      description: "Use the update button to download it. You choose when to install and restart."});
++  }, [state?.status, state?.availableVersion]);
+ 
+   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
+   const [releaseNotesTriggerFocusVisible, setReleaseNotesTriggerFocusVisible] = useState(false);

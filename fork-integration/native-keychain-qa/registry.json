@@ -33,7 +33,7 @@
       "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
       "fixture": "fixtures/descriptor.before.mjs",
       "phase": "source",
-      "beforeSha256": "a07d4da4cdcdbff1c68a124ec33c728e543dc10d42ded51dabc757668d66c7a2",
+      "beforeSha256": "33730523f36e2ae6867d2e1451d6b9eb370e558f91048d4b8fb180ae151ec263",
       "productionPatchIds": [
         "payload-descriptor.mjs"
       ]
@@ -56,10 +56,11 @@
       "target": "apps/desktop/src/main.ts",
       "fixture": "fixtures/main.before.ts",
       "phase": "preserved-source",
-      "beforeSha256": "a2dd1d5402d1a811c9682859c3d6a888ec43ba15553654ae74074483cbf75b5c",
+      "beforeSha256": "b6ad6554068c03c61fb67f793eb6394f5f915528fb9ce4f03a6a3e778d9cae0b",
       "productionPatchIds": [
         "attached-service-graph",
-        "unconfigured-ssh-runtime-distribution"
+        "unconfigured-ssh-runtime-distribution",
+        "launcher-owned-updates"
       ]
     },
     {
@@ -86,5 +87,5 @@
       ]
     }
   ],
-  "productionDesktopRegistrySha256": "f68b16b250ec9aa940fb39704bdf9702457a432347f6b998548d11e3240e2eeb"
+  "productionDesktopRegistrySha256": "0464a9dd6842b569256839fb4ee07b399e4799d6c2df66bdf294707f855d9f11"
 }

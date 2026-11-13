@@ -17,3 +17,7 @@ p { color: #babac6; line-height: 1.6; }
 .launcher-spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid #41414d; border-top-color: #f16c74; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .launcher-spinner { animation: none; border-color: #f16c74; } }
+.launcher-update-progress { display: grid; gap: .65rem; margin: 1rem 0; }
+.launcher-update-progress progress { width: 100%; accent-color: #e23e4b; height: .75rem; }
+
+.launcher-settings fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }

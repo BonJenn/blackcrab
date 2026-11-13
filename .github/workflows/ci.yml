@@ -223,6 +223,9 @@ jobs:
       - name: typecheck complete desktop source
         working-directory: ${{ steps.clients.outputs.source }}/apps/desktop
         run: node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit
+      - name: test workspace to signed-launcher update integration
+        working-directory: ${{ steps.clients.outputs.source }}/apps/desktop
+        run: node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run src/app/ManagedUpdates.test.ts
       - name: test owned cloud and original account/link behavior
         working-directory: ${{ steps.clients.outputs.source }}
         run: node --no-experimental-webstorage node_modules/vite-plus/bin/vp test run --config blackcrab-cloud-test.config.ts
@@ -241,13 +244,14 @@ jobs:
           if (result.error) throw result.error;
           process.exit(result.status ?? 1);
           JS
-      - name: test monitor presentation and pane controls in Chromium
+      - name: test monitor presentation, pane controls and updates in Chromium
         working-directory: ${{ steps.clients.outputs.source }}/apps/web
         run: >-
           node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run
           src/components/chat/MessagesTimeline.browser.test.tsx
           src/components/panes/PaneToolbar.browser.test.tsx
-          --project browser --maxWorkers 1 -t 'imported monitor notifications|pane controls remain'
+          src/components/sidebar/SidebarUpdatePill.browser.test.tsx
+          --project browser --maxWorkers 1 -t 'imported monitor notifications|pane controls remain|Blackcrab update notification'
 
   managed-cloud-backend:
     name: cloud backend (pinned source + types + tests)

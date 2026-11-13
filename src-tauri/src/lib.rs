@@ -13,6 +13,7 @@ mod managed_desktop;
 mod managed_host;
 mod managed_native_entry;
 mod managed_launcher;
+mod managed_updates;
 mod managed_payload;
 mod managed_service_install;
 mod pairing;
@@ -68,6 +69,7 @@ async fn managed_native_desktop_open(
     host: State<'_, managed_host::ManagedHost>,
 ) -> Result<managed_native_entry::NativeDesktopStatus, String> {
     require_main_window(&window)?;
+    if managed_updates::installing(window.app_handle()) { return Err("An update is being installed. Please wait.".into()); }
     Ok(entry.open(host.inner().clone()).await)
 }
 #[tauri::command]
@@ -5182,7 +5184,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    if window.state::<managed_launcher::LauncherState>().has_workspace() {
+                    if window.state::<managed_launcher::LauncherState>().has_workspace() || managed_updates::installing(window.app_handle()) {
                         api.prevent_close();
                         let _ = window.hide();
                     }
@@ -5198,11 +5200,13 @@ pub fn run() {
             managed_service_control,
             managed_workspace_open,
             managed_launcher::managed_launcher_handoff,
+            managed_updates::managed_update,
             managed_bridge::managed_native_pick_folder,
             managed_bridge::managed_native_pick_project_favicon,
             managed_bridge::managed_native_open_external
         ])
         .setup(|app| {
+            managed_updates::init(app.handle());
             let app_data = app.path().app_data_dir()?;
             let native_entry = managed_native_entry::ManagedNativeEntry::from_bundled_paths(
                 &app.path().resource_dir()?, &app_data,

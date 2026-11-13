@@ -1,7 +1,7 @@
 [[permission]]
 identifier = "main-app-commands"
 description = "Workspace startup and service recovery, restricted to the main local window."
-commands.allow = ["managed_native_desktop_status", "managed_native_desktop_open", "managed_host_status", "managed_host_start", "managed_service_initialize", "managed_service_control", "managed_workspace_open", "managed_launcher_handoff", "managed_native_pick_folder", "managed_native_pick_project_favicon", "managed_native_open_external"]
+commands.allow = ["managed_native_desktop_status", "managed_native_desktop_open", "managed_host_status", "managed_host_start", "managed_service_initialize", "managed_service_control", "managed_workspace_open", "managed_launcher_handoff", "managed_update", "managed_native_pick_folder", "managed_native_pick_project_favicon", "managed_native_open_external"]
 
 [[permission]]
 identifier = "managed-native"

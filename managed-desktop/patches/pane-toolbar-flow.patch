@@ -1,0 +1,50 @@
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -3308,9 +3308,11 @@
+       showThreadPanelControl={!inlineRightPanelOwnsTitleBar}
+     />
+   );
+-  const threadPanelHeaderControl = <ThreadPanelHeaderControl {...panelToggleControlProps} />;
++  const threadPanelHeaderControl = <ThreadPanelHeaderControl {...panelToggleControlProps} inline={pane !== null} />;
+   const panelLayoutControls = (
+     <WorkspaceTitlebarControls
++      placement={pane === null ? "window" : rightPanelControlsAtRoot ? "pane" : "inline"}
++      reserveNativeControls={pane?.topTrailing ?? false}
+       showMaximizeControl={!shouldUsePlanSidebarSheet}
+       rightPanelOpen={rightPanelOpen}
+       animationsActive={panelAnimationsActive}
+@@ -3366,14 +3368,14 @@
+               (pane === null || pane.topLeading) && COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
+             )}
+           >
+-            {isElectron && rightPanelControlsAtRoot ? (
++            {isElectron && rightPanelControlsAtRoot && pane === null ? (
+               <span
+                 aria-hidden
+                 className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-28 [-webkit-app-region:no-drag]"
+               />
+             ) : null}
+-            {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
+-            {inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
++            {pane === null && !rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
++            {pane === null && inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
+             <ChatHeader
+               activeThreadEnvironmentId={activeThread.environmentId}
+               activeThreadId={activeThread.id}
+@@ -3384,6 +3386,7 @@
+               parentThreadLink={headerParentThreadLink}
+               onOpenThread={onOpenRelatedThreadStable}
+               rightPanelOpen={inlineRightPanelOwnsTitleBar}
++              reservePanelControls={pane === null}
+               onNewThreadInProject={handleNewThreadInActiveProjectStable}
+               {...(activeDraftLogicalProjectKey
+                 ? { onOpenProjectSettings: handleOpenDraftProjectSettingsStable }
+@@ -3391,6 +3394,8 @@
+               {...(threadFindEnabled ? { onFindInThread: openThreadFindStable } : {})}
+             />
+             {pane ? <PaneHeaderControls index={pane.index} onClose={pane.onClose} /> : null}
++            {pane !== null && inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
++            {pane !== null && !rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
+           </header>
+         )}
+ 

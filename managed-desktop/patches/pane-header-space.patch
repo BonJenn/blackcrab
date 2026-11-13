@@ -1,0 +1,27 @@
+--- a/apps/web/src/components/chat/ChatHeader.tsx
++++ b/apps/web/src/components/chat/ChatHeader.tsx
+@@ -53,6 +53,7 @@
+   parentThreadLink: { threadId: ThreadId; title: string } | null;
+   onOpenThread: (threadId: ThreadId) => void;
+   rightPanelOpen: boolean;
++  reservePanelControls?: boolean;
+   onNewThreadInProject: () => void;
+   onOpenProjectSettings?: (() => void) | undefined;
+   onFindInThread?: ((threadRef: ScopedThreadRef) => void) | undefined;
+@@ -80,6 +81,7 @@
+   parentThreadLink,
+   onOpenThread,
+   rightPanelOpen,
++  reservePanelControls = true,
+   onNewThreadInProject,
+   onOpenProjectSettings,
+   onFindInThread,
+@@ -284,7 +286,7 @@
+       ref={breadcrumbContainerRef}
+       className={cn(
+         "flex min-w-0 flex-1 items-center gap-2 sm:gap-3",
+-        rightPanelOpen ? "pr-10" : "pr-24",
++        reservePanelControls && (rightPanelOpen ? "pr-10" : "pr-24"),
+       )}
+       onContextMenu={handleHeaderContextMenu}
+     >

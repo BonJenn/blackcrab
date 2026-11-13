@@ -1,0 +1,46 @@
+--- a/apps/web/src/components/chat/PanelLayoutControls.tsx
++++ b/apps/web/src/components/chat/PanelLayoutControls.tsx
+@@ -162,10 +162,16 @@
+ });
+ 
+ /** The thread panel toggle on a header whose right side the inline right panel covers. */
+-export function ThreadPanelHeaderControl(props: PanelLayoutControlsProps) {
++export function ThreadPanelHeaderControl({
++  inline = false,
++  ...props
++}: PanelLayoutControlsProps & { readonly inline?: boolean }) {
+   return (
+     <div
+-      className="absolute top-[var(--workspace-controls-top)] right-[calc(env(safe-area-inset-right)+0.75rem)] z-50 flex h-[var(--workspace-topbar-height)] items-center [-webkit-app-region:no-drag]"
++      className={cn(
++        "z-50 flex h-[var(--workspace-topbar-height)] shrink-0 items-center [-webkit-app-region:no-drag]",
++        inline ? "relative ml-1" : "absolute top-[var(--workspace-controls-top)] right-[calc(env(safe-area-inset-right)+0.75rem)]",
++      )}
+       data-workspace-titlebar-controls
+     >
+       <PanelLayoutControls {...props} showTerminalControl={false} showRightPanelControl={false} />
+@@ -175,6 +181,8 @@
+ 
+ /** The window's top-right panel controls, with the maximize toggle while the panel is open. */
+ export function WorkspaceTitlebarControls(props: {
++  readonly placement?: "window" | "pane" | "inline";
++  readonly reserveNativeControls?: boolean;
+   readonly showMaximizeControl: boolean;
+   readonly rightPanelOpen: boolean;
+   readonly animationsActive: boolean;
+@@ -184,7 +192,14 @@
+ }) {
+   return (
+     <div
+-      className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] z-50 mr-px flex h-[var(--workspace-topbar-height)] items-center gap-1 [-webkit-app-region:no-drag]"
++      className={cn(
++        "pointer-events-none z-50 mr-px flex h-[var(--workspace-topbar-height)] shrink-0 items-center gap-1 [-webkit-app-region:no-drag]",
++        props.placement === "inline"
++          ? "relative ml-1"
++          : props.placement === "pane"
++            ? cn("absolute top-0 right-3", props.reserveNativeControls && "wco:right-(--workspace-controls-right)")
++            : "fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)]",
++      )}
+       data-workspace-titlebar-controls
+     >
+       {props.showMaximizeControl ? (

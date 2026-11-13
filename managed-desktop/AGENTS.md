@@ -72,3 +72,11 @@ PR277–279 are merged at 1140889d5a6730d336b6f1a16347d2d1d33ca82c. Source types
 browser picker/pane tests pass. Do not restore shared pane composer ownership or
 upstream displayed version/copy. Read the live delivery plan and current handoff
 for the rebuilt artifact and native acceptance; source integration is not delivery.
+
+## Split-pane header controls
+
+Window-fixed panel controls must not be reused inside each pane. Closed-panel
+controls occupy the same header flow as move/close; open-panel controls are local
+to the owning pane. Preserve top-trailing native-caption insets and explicit
+no-drag hit regions. Check actual browser hit testing across top/bottom rows and
+open/closed panels; raising z-index alone merely reverses which button is blocked.

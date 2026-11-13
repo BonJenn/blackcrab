@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/panes/PaneHeaderControls.tsx
++++ b/apps/web/src/components/panes/PaneHeaderControls.tsx
+@@ -54,7 +54,7 @@
+   };
+ 
+   return (
+-    <div className="ml-1 flex shrink-0 items-center opacity-0 transition-opacity group-focus-within/pane:opacity-100 group-hover/pane:opacity-100">
++    <div className="ml-1 flex shrink-0 items-center [-webkit-app-region:no-drag] opacity-0 transition-opacity group-focus-within/pane:opacity-100 group-hover/pane:opacity-100">
+       <Button
+         aria-label="Drag to move pane"
+         className="cursor-grab touch-none active:cursor-grabbing"

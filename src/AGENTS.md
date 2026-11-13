@@ -1,27 +1,25 @@
-# Root desktop renderer
+# Native launcher renderer
 
-Keep this file and CLAUDE.md identical. Read ../AGENTS.md and the handoff.
+Keep this file and CLAUDE.md identical. Read ../AGENTS.md and the current handoff.
 
-Preserve existing Claude/Codex views, pane identity, drafts, retained history
-and provider-specific setup while exposing managed workspaces/full desktop.
-The root renderer uses React 19.1; mobile uses a distinct React 19.3 graph.
-Use existing typed native clients and host services rather than copying domain
-mutation logic into React state or bridging arbitrary renderer paths/credentials.
+The managed Electron workspace is now the sole desktop interface. The owner
+explicitly removed the older Claude/Codex screens on 2026-11-12. Do not restore
+them, add a legacy toggle, or require an Open full desktop action at each launch.
+Root renders only automatic startup, actionable service recovery and app updates.
+The shared workspace owns projects, agents, terminals and source control.
 
-Scope asynchronous state and actions to the current window/pane/environment/run.
-Late responses cannot overwrite a replacement pane or clear its newer draft.
-Do not automatically replay uncertain sends or approvals after reconnect.
-Provider/project setup errors must not be mislabeled as a lost connection.
+workspaceStartup.ts serializes one native startup attempt. Check package metadata
+first, preserve an existing direct host, initialize only a fresh configurable
+service, and install/start only an inactive service. Bounded status polling may
+observe startup; never replay an uncertain mutation automatically. Native status
+is authoritative even when a JavaScript runtime marker is absent.
 
-Run relevant Vitest behavior tests and root typechecking/build after changes.
-Native entry wiring requires actual original Root-window acceptance in addition
-to renderer tests. Historical API fixtures and successful package extraction
-are narrower evidence. Keep the UI's loading/error/retry states actionable.
-Preserve user-facing functionality; keep QA machinery and artifact internals
-out of normal product flows unless users need them to make a decision.
+Wait for AppKit activation of the captured child before hiding Root. Keep recovery
+visible on failure. Opening service settings during startup must wait for an
+in-flight mutation to settle before exposing another action. Late completions
+after cancellation cannot hide or overwrite the replacement view.
 
-The primary Full desktop action is available in both Claude and Codex toolbars.
-ManagedDesktopDialog keeps service setup and the desktop entry together; use
-its native dialog focus/escape behavior and preserve mounted conversation owners.
-A native launch error must retain a manual retry and fixed actionable setup text,
-not misclassify a bundled app as absent. See desktop-startup-041-diagnosis.md.
+Run startup/recovery behavior tests, renderer types/build and required CI. Native
+activation/reopen/quit/service survival still require actual packaged UI evidence.
+User databases, histories and provider sessions are never deleted or migrated by
+removing a renderer. Native code for retained data compatibility is not a UI route.

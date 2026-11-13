@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/clerk/T3ConnectSidebarSignIn.tsx
++++ b/apps/web/src/components/clerk/T3ConnectSidebarSignIn.tsx
+@@ -58,7 +58,7 @@
+       <SidebarMenuItem>
+         <SidebarMenuButton onClick={openAuthPrompt}>
+           <LogInIcon />
+-          <span>Sign in to T3 Connect</span>
++          <span>Sign in to Blackcrab Connect</span>
+         </SidebarMenuButton>
+       </SidebarMenuItem>
+     </SidebarMenu>

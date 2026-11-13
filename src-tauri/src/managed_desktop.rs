@@ -853,6 +853,28 @@ pub(super) struct NativeDesktopOwner {
 }
 #[cfg(target_os = "macos")]
 impl NativeDesktopOwner {
+    /// Activate only our captured child. Hold its handle lock through the
+    /// AppKit lookup so another waiter cannot reap it and allow PID reuse.
+    pub(super) async fn activate(&self, app: &tauri::AppHandle) -> Result<bool, String> {
+        let child = self.active.lock().await.as_ref().ok_or_else(error)?.child.clone();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        app.run_on_main_thread(move || {
+            let result = (|| {
+                let mut process = child.lock().map_err(|_| error())?;
+                if process.try_wait().map_err(|_| error())?.is_some() { return Err(error()); }
+                let native = objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(process.id() as i32);
+                Ok(native.is_some_and(|native| native.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::ActivateAllWindows)))
+            })();
+            let _ = tx.send(result);
+        }).map_err(|_| error())?;
+        rx.await.map_err(|_| error())?
+    }
+    pub(super) async fn client_exit(&self) -> Result<Option<bool>, String> {
+        let active = self.active.lock().await;
+        let child = &active.as_ref().ok_or_else(error)?.child;
+        let result = child.lock().map_err(|_| error())?.try_wait().map_err(|_| error())?;
+        Ok(result.map(|status| status.success()))
+    }
     pub(super) async fn running(&self) -> Result<bool, String> {
         self.running_for_identity(DesktopIdentity::Production, None)
             .await

@@ -1,0 +1,29 @@
+--- a/apps/web/src/connection/platform.ts
++++ b/apps/web/src/connection/platform.ts
+@@ -248,7 +248,7 @@
+       }
+       return new ConnectionBlockedError({
+         reason: "configuration",
+-        detail: `${descriptor.label} runs T3 Code ${descriptor.serverVersion}, but this desktop is ${APP_VERSION}, and that server could not accept its pairing. Restart the T3 server on ${descriptor.label} so it runs ${APP_VERSION}, then retry.`,
++        detail: `${descriptor.label} runs Blackcrab ${descriptor.serverVersion}, but this desktop is ${APP_VERSION}, and that server could not accept its pairing. Restart the T3 server on ${descriptor.label} so it runs ${APP_VERSION}, then retry.`,
+       });
+     },
+   });
+@@ -338,7 +338,7 @@
+         if (session === null) {
+           return yield* new ConnectionBlockedError({
+             reason: "authentication",
+-            detail: "Sign in to T3 Connect to connect this environment.",
++            detail: "Sign in to Blackcrab Connect to connect this environment.",
+           });
+         }
+         const token = yield* session.readClerkToken().pipe(
+@@ -353,7 +353,7 @@
+         if (token === null) {
+           return yield* new ConnectionBlockedError({
+             reason: "authentication",
+-            detail: "The T3 Connect session is unavailable.",
++            detail: "The Blackcrab Connect session is unavailable.",
+           });
+         }
+         return token;

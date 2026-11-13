@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/chat/TriageDraftHero.tsx
++++ b/apps/web/src/components/chat/TriageDraftHero.tsx
+@@ -31,7 +31,7 @@
+             )}
+           </TooltipTrigger>
+           <TooltipPopup side="bottom">
+-            The agent reads T3 Code's logs and source here, and asks before it applies a fix or
++            The agent reads Blackcrab's logs and source here, and asks before it applies a fix or
+             posts anything.
+           </TooltipPopup>
+         </Tooltip>

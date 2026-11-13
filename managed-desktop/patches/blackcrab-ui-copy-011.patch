@@ -1,0 +1,29 @@
+--- a/apps/desktop/src/snapShot/KdeSnapShot.ts
++++ b/apps/desktop/src/snapShot/KdeSnapShot.ts
+@@ -33,7 +33,7 @@
+   return [
+     "[Desktop Entry]",
+     "Type=Application",
+-    "Name=T3 Code SnapShots",
++    "Name=Blackcrab SnapShots",
+     "NoDisplay=true",
+     `Exec=${escapeDesktopEntryExecArgument(executable)} check`,
+     // KService reads this custom property as a KConfig list, not an XDG ';' list.
+@@ -115,7 +115,7 @@
+       if (!bundle)
+         return {
+           status: "error",
+-          message: "The capture helper is missing from this build. Update or reinstall T3 Code.",
++          message: "The capture helper is missing from this build. Update or reinstall Blackcrab.",
+         };
+       if (!installed.equals(bundle) || entry.toString() !== kdeCaptureDesktopEntry(executable))
+         return {
+@@ -160,7 +160,7 @@
+       const bundle = await regularFile(this.paths.bundle);
+       if (!bundle)
+         throw new Error(
+-          "The capture helper is missing from this build. Update or reinstall T3 Code.",
++          "The capture helper is missing from this build. Update or reinstall Blackcrab.",
+         );
+       await NodeFSP.mkdir(directory, { recursive: true });
+       await NodeFSP.mkdir(NodePath.dirname(desktop), { recursive: true });

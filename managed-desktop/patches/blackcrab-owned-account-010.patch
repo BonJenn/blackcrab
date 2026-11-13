@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/StorageSettings.tsx
++++ b/apps/web/src/components/settings/StorageSettings.tsx
+@@ -69,7 +69,7 @@
+     <SettingsRow
+       {...searchableSetting("storage-worktrees-location")}
+       description={
+-        "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the T3 home folder."
++        "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the Blackcrab data folder."
+       }
+       serverScoped
+       settingKeys={["worktreesDirectory"]}

@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/DiagnosticsSettings.tsx
++++ b/apps/web/src/components/settings/DiagnosticsSettings.tsx
+@@ -998,7 +998,7 @@
+           <StatBlock
+             label="CPU Time"
+             value={resourceData ? formatCpuTime(resourceData.totalCpuSecondsApprox) : "..."}
+-            tooltip="Approximate active CPU time for the T3 server root process and its descendants during the selected window. It grows only while sampled processes use CPU and older samples leave as the window moves."
++            tooltip="Approximate active CPU time for the Blackcrab server process and its descendants during the selected window. It grows only while sampled processes use CPU and older samples leave as the window moves."
+           />
+           <StatBlock
+             label="Samples"

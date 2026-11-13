@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/SecretsSettings.tsx
++++ b/apps/web/src/components/settings/SecretsSettings.tsx
+@@ -44,7 +44,7 @@
+       environment.serverConfig.secretProviderSettings !== true ? (
+         <SettingsSection {...searchableSetting("secret-providers")}>
+           <p className="px-4 py-3 text-sm text-muted-foreground">
+-            Update T3 Code on {environment.label} to manage its secret providers.
++            Update Blackcrab on {environment.label} to manage its secret providers.
+           </p>
+         </SettingsSection>
+       ) : connected ? (

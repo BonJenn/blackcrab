@@ -1,0 +1,62 @@
+--- a/apps/web/src/components/settings/LabsSettingsPanel.tsx
++++ b/apps/web/src/components/settings/LabsSettingsPanel.tsx
+@@ -25,7 +25,7 @@
+         <BoringSidebarRow />
+         <BoringSidebarMultilineRow />
+         <ToolCallVisibilityRow />
+-        {/* Clerk is only mounted when this build has T3 Connect. */}
++        {/* Clerk is only mounted when this build has Blackcrab Connect. */}
+         {hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />}
+         <LinkedEnvironmentsRow />
+         <SimlockHostsRow />
+@@ -116,7 +116,7 @@
+   );
+ }
+ 
+-/** Signed out of T3 Connect, the row offers to sign in instead of its switch. */
++/** Signed out of Blackcrab Connect, the row offers to sign in instead of its switch. */
+ function GuestLinksRowWithSignIn() {
+   const { isSignedIn } = useAuth();
+   const { openAuthPrompt } = useT3ConnectAuthPrompt();
+@@ -125,7 +125,7 @@
+   return (
+     <SettingsRow
+       {...searchableSetting("guest-links")}
+-      description="Share a thread with a guest who watches it live in a browser and sends messages you approve. Sign in to T3 Connect to use guest links."
++      description="Share a thread with a guest who watches it live in a browser and sends messages you approve. Sign in to Blackcrab Connect to use guest links."
+       control={
+         <Button size="sm" variant="outline" onClick={openAuthPrompt}>
+           Sign in
+@@ -140,7 +140,7 @@
+   const updateSettings = useUpdateScopedSettings();
+   const scope = useOptionalSettingsScope();
+   const primaryPolicy = usePrimaryManagedPolicy();
+-  // Guests arrive through T3 Connect, so a policy that turns Connect off turns this off too.
++  // Guests arrive through Blackcrab Connect, so a policy that turns Connect off turns this off too.
+   const connectDenial = firstManagedDenial(
+     scope
+       ? scope.connectedEnvironments.map((environment) => environment.serverConfig?.managedPolicy)
+@@ -152,12 +152,12 @@
+       serverScoped
+       {...searchableSetting("guest-links")}
+       settingKeys={["guestSharingEnabled"]}
+-      // Turning guest links off still works without T3 Connect.
++      // Turning guest links off still works without Blackcrab Connect.
+       managed={settings.guestSharingEnabled ? undefined : connectDenial}
+       description={
+         <>
+           Share a thread with a guest who watches it live in a browser and sends messages you
+-          approve. Needs T3 Connect: sign in and link this machine in{" "}
++          approve. Needs Blackcrab Connect: sign in and link this machine in{" "}
+           <Link to="/settings/access" className="underline underline-offset-2">
+             Sharing & access
+           </Link>
+@@ -231,7 +231,7 @@
+           <Link to="/settings/devices" className="underline underline-offset-2">
+             Devices
+           </Link>
+-          . An alpha that may change or break. T3 Code never installs Simlock.
++          . An alpha that may change or break. Blackcrab never installs Simlock.
+         </>
+       }
+       control={

@@ -1,5 +1,16 @@
 # Blackcrab full parity scenario ledger
 
+## Current desktop direction — sole workspace
+
+The owner explicitly removed the older desktop interface. The current 0.4.2
+candidate launches the managed workspace automatically, retains native recovery
+and updates, and removes upstream account/subscription branding. The earlier
+button-based 0.4.2 draft is superseded and must not be published. User data stays
+on disk; old renderer acceptance does not certify the new startup path. See the
+[current handoff](agent-handoff.md) for source checks and remaining signed/native
+acceptance. Historical increments below retain their original evidence scope.
+
+
 Status: NOT a certification of parity. Prepared 2026-11-07 from the pinned T3 user documentation and contracts. Reference target: [BonJenn/t3code at `7f02de2eb8e253e0ec23f005b3cfff8e2c963be8`](https://github.com/BonJenn/t3code/tree/7f02de2eb8e253e0ec23f005b3cfff8e2c963be8). Audit inventory covers every one of 47 user documents (5,775 lines), not only already shipped Blackcrab features.
 
 The workflow descriptions and contract inventories are derived from the upstream [user documentation](https://github.com/BonJenn/t3code/tree/7f02de2eb8e253e0ec23f005b3cfff8e2c963be8/docs/user), contracts, provider drivers and MCP toolkits at that revision. This ledger summarizes acceptance obligations; upstream source and license notices remain authoritative. Blackcrab implementation evidence comes from [the delivery plan](t3-parity-plan.md) and [the iOS plan](mobile-ios-parity-plan.md), with the merge updates explicitly recorded below.

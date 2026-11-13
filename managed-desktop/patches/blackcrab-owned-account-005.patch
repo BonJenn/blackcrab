@@ -1,0 +1,22 @@
+--- a/apps/web/src/components/cloud/ConnectOnboardingDialog.tsx
++++ b/apps/web/src/components/cloud/ConnectOnboardingDialog.tsx
+@@ -14,7 +14,6 @@
+   ConnectOnboardingOptOutSchema,
+   EMPTY_CONNECT_ONBOARDING_OPT_OUT_STATE,
+ } from "~/cloud/connectOnboarding";
+-import { useManagedTunnelUsage } from "~/cloud/managedRelayState";
+ import { hasCloudPublicConfig } from "~/cloud/publicConfig";
+ import { useCloudLinkController } from "~/cloud/useCloudLinkController";
+ import { useLocalStorage } from "~/hooks/useLocalStorage";
+@@ -362,11 +361,8 @@
+ }: {
+   readonly onOpenAccountPage: ((page: T3ConnectAccountPageUrl) => void) | null;
+ }) {
+-  const { upgrade } = useManagedTunnelUsage();
+   return (
+     <TunnelLimitAlert
+-      upgrade={upgrade}
+-      onLinkT3Chat={onOpenAccountPage ? () => onOpenAccountPage("t3-chat") : null}
+       onManageTunnels={onOpenAccountPage ? () => onOpenAccountPage("t3-connect") : null}
+     />
+   );

@@ -23,7 +23,9 @@ supersedes them only for the exact source, artifact, platform and scenario teste
 
 ## Architecture
 
-- Keep the Rust/Tauri root shell and existing Claude/Codex sessions working.
+- The managed Electron workspace is the only desktop UI. Root handles native startup,
+  service recovery and signed updates; do not restore the retired Claude/Codex UI.
+  Preserve existing user data on disk without starting the retired session server.
 - New managed workspaces reuse the pinned T3 host, contracts and shared clients.
   The full desktop client is packaged Electron; iOS is Expo/React Native.
 - Maintain one authoritative host/writer per managed thread. Preserve existing
@@ -187,3 +189,16 @@ a draft. Build the actual signed/notarized installer, then validate native UI an
 service lifecycle; pending evidence is never acceptance or public publication
 permission. Default validateAcceptance rejects it. Do not extend old owner-testing
 exceptions or invent successful lifecycle checks to build a candidate.
+
+## Sole desktop interface — owner instruction, 2026-11-12
+
+The owner explicitly requested: "remove the older interface entirely. we are
+building from the new interfact from now on". This supersedes earlier guidance
+to retain legacy renderer views. Launch the managed workspace automatically.
+Keep only a small startup/recovery surface in Root, hide it after native
+activation, and preserve service/workspace identity. Do not treat a button to
+open a second interface as completion. Update onboarding/environment/account
+copy and logos through the pinned producer patches, retaining upstream notices.
+The first signed 0.4.2 candidate passed package verification and opened the real
+workspace, but is a private draft superseded by this UX instruction. Rebuild and
+validate the new source before publishing; do not publish the earlier candidate.

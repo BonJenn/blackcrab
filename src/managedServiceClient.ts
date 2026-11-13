@@ -1,4 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 export type ServiceState = "notAvailable" | "notConfigured" | "direct" | "notInstalled" | "stopped" | "starting" | "running" | "unavailable";
 export type ServiceAction = "install" | "start" | "stop" | "restart" | "uninstall";
 export type ServiceStatus = { state: ServiceState; canInitialize: boolean; installed: boolean; loaded: boolean; error?: string };
@@ -18,7 +18,7 @@ export function readServiceStatus(value: unknown): ServiceStatus {
 }
 const control = async (action: ServiceAction | "status") => readServiceStatus(await invoke<unknown>("managed_service_control", { action }));
 export const managedServiceClient: ManagedServiceClient = {
-  status: () => isTauri() ? control("status") : Promise.resolve({ state: "notAvailable", canInitialize: false, installed: false, loaded: false }),
+  status: () => control("status"),
   initialize: async () => { await invoke<unknown>("managed_service_initialize"); return control("install"); },
   perform: control,
 };

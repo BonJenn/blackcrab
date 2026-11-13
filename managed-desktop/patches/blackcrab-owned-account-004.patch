@@ -1,0 +1,81 @@
+--- a/apps/web/src/components/clerk/T3ConnectUserProfilePage.tsx
++++ b/apps/web/src/components/clerk/T3ConnectUserProfilePage.tsx
+@@ -15,8 +15,8 @@
+ } from "../../cloud/managedRelayState";
+ import { relayEnvironmentDiscovery } from "../../state/relay";
+ import { useAtomCommand } from "../../state/use-atom-command";
+-import { T3CHAT_SUBSCRIPTION_URL, TunnelUsageMeter, tunnelUpgradeCopy } from "../cloud/TunnelUsage";
+-import { Button, InlineButton } from "../ui/button";
++import { TunnelUsageMeter } from "../cloud/TunnelUsage";
++import { Button } from "../ui/button";
+ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
+ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
+ import { toastManager } from "../ui/toast";
+@@ -25,7 +25,6 @@
+   ClerkUserProfileRefreshButton,
+   ClerkUserProfileRow,
+ } from "./ClerkUserProfilePage";
+-import { useT3ChatLink } from "./useT3ChatLink";
+ 
+ const linkedAtFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+ 
+@@ -116,49 +115,8 @@
+ 
+ function T3ConnectTunnelUsage() {
+   const usage = useManagedTunnelUsage();
+-  const t3Chat = useT3ChatLink();
+   if (usage.used === null || usage.limit === null) return null;
+-  return (
+-    <div className="border-t py-4">
+-      <TunnelUsageMeter used={usage.used} limit={usage.limit} />
+-      {usage.upgrade ? (
+-        <p className="mt-2 text-xs leading-4.5 text-muted-foreground">
+-          {usage.upgrade === "link" && t3Chat.linkUrl ? (
+-            <>
+-              Confirm on{" "}
+-              <a
+-                className="underline"
+-                href={t3Chat.linkUrl}
+-                target="_blank"
+-                rel="noopener noreferrer"
+-              >
+-                t3.chat
+-              </a>
+-              , then select Refresh.
+-            </>
+-          ) : (
+-            <>
+-              {tunnelUpgradeCopy(usage.upgrade)}{" "}
+-              {usage.upgrade === "link" ? (
+-                <InlineButton disabled={t3Chat.pending !== null} onClick={() => void t3Chat.link()}>
+-                  {t3Chat.pending === "link" ? "Opening…" : "Link T3 Chat"}
+-                </InlineButton>
+-              ) : (
+-                <a
+-                  className="underline"
+-                  href={T3CHAT_SUBSCRIPTION_URL}
+-                  target="_blank"
+-                  rel="noopener noreferrer"
+-                >
+-                  Upgrade on T3 Chat
+-                </a>
+-              )}
+-            </>
+-          )}
+-        </p>
+-      ) : null}
+-    </div>
+-  );
++  return <div className="border-t py-4"><TunnelUsageMeter used={usage.used} limit={usage.limit} /></div>;
+ }
+ 
+ export function T3ConnectUserProfilePage() {
+@@ -299,7 +257,7 @@
+               <EmptyHeader>
+                 <EmptyTitle>No Blackcrab Connect environments</EmptyTitle>
+                 <EmptyDescription>
+-                  Link an environment from its local Settings to make it available through T3
++                  Link an environment from its local Settings to make it available through Blackcrab
+                   Connect.
+                 </EmptyDescription>
+               </EmptyHeader>

@@ -1,0 +1,22 @@
+--- a/apps/desktop/src/permissions/MacPermissionHelper.ts
++++ b/apps/desktop/src/permissions/MacPermissionHelper.ts
+@@ -59,8 +59,8 @@
+ img { width: 32px; height: 32px; pointer-events: none; }
+ </style></head><body><main id="panel">
+ <button id="close" aria-label="Close permission helper">×</button>
+-<header>↑ Drag T3 Code into the list above</header>
+-<button id="app" draggable="true" aria-label="Drag T3 Code to System Settings, or click to reveal in Finder"><img src="${escapeHtml(icon)}" alt="" draggable="false">T3 Code</button>
++<header>↑ Drag Blackcrab into the list above</header>
++<button id="app" draggable="true" aria-label="Drag Blackcrab to System Settings, or click to reveal in Finder"><img src="${escapeHtml(icon)}" alt="" draggable="false">Blackcrab</button>
+ </main></body></html>`;
+ }
+ 
+@@ -92,7 +92,7 @@
+     const appIcon = iconPaths
+       .map((iconPath) => Electron.nativeImage.createFromPath(iconPath))
+       .find((image) => !image.isEmpty());
+-    if (!appIcon) throw new Error("The packaged T3 Code icon is missing.");
++    if (!appIcon) throw new Error("The packaged Blackcrab icon is missing.");
+     const icon = appIcon.resize({ width: 64, height: 64 });
+     const window = new Electron.BrowserWindow({
+       width: 560,

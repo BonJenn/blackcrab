@@ -12,6 +12,7 @@ mod managed_browser;
 mod managed_desktop;
 mod managed_host;
 mod managed_native_entry;
+mod managed_launcher;
 mod managed_payload;
 mod managed_service_install;
 mod pairing;
@@ -5172,11 +5173,22 @@ pub fn run() {
         .menu(blackcrab_menu)
         .on_menu_event(|app, event| {
             if event.id() == OPEN_SETTINGS_EVENT {
-                let _ = app.emit(OPEN_SETTINGS_EVENT, ());
+                managed_launcher::show(app, OPEN_SETTINGS_EVENT);
+            } else if event.id() == "blackcrab-open-workspace" {
+                managed_launcher::show(app, "blackcrab-open-workspace");
             }
         })
-        .manage(AppState::default())
-        .manage(codex_services::Service::default())
+        .manage(managed_launcher::LauncherState::default())
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    if window.state::<managed_launcher::LauncherState>().has_workspace() {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             managed_native_desktop_status,
             managed_native_desktop_open,
@@ -5185,65 +5197,10 @@ pub fn run() {
             managed_service_initialize,
             managed_service_control,
             managed_workspace_open,
+            managed_launcher::managed_launcher_handoff,
             managed_bridge::managed_native_pick_folder,
             managed_bridge::managed_native_pick_project_favicon,
-            managed_bridge::managed_native_open_external,
-            claude_preflight,
-            list_providers,
-            codex_query,
-            codex_control,
-            claude_token_status,
-            save_claude_oauth_token,
-            clear_claude_oauth_token,
-            start_session,
-            send_message,
-            execution_history,
-            execution_queue,
-            queue_message,
-            session_queue,
-            session_execution,
-            update_session_queue,
-            execution_receipt,
-            execution_provider_turn,
-            send_raw,
-            stop_session,
-            interrupt_session,
-            answer_provider_approval,
-            default_cwd,
-            list_sessions,
-            load_session,
-            list_branches,
-            switch_branch,
-            preview_navigate,
-            window_top_inset,
-            load_session_tail,
-            git_remote_url,
-            set_session_title,
-            set_session_archived,
-            delete_session,
-            write_text_file,
-            read_text_file,
-            list_session_overrides,
-            save_dropped_file,
-            list_tracked_files,
-            search_sessions,
-            terminal_spawn,
-            terminal_write,
-            terminal_resize,
-            terminal_kill,
-            remote_host_info,
-            remote_relay_url,
-            remote_transport_info,
-            set_session_read_cursor,
-            session_read_cursors,
-            mark_session_read_latest,
-            remote_notify_session_started,
-            remote_notify_action_failed,
-            pairing_start,
-            pairing_accept,
-            pairing_cancel,
-            pairing_list_devices,
-            pairing_revoke
+            managed_bridge::managed_native_open_external
         ])
         .setup(|app| {
             let app_data = app.path().app_data_dir()?;
@@ -5258,60 +5215,18 @@ pub fn run() {
             app.manage(native_entry);
             #[cfg(feature = "managed-bridge-qa")]
             managed_bridge_qa::start(app.handle().clone()).map_err(std::io::Error::other)?;
-            // The QA app starts only its owned managed host and fixture servers.
-            #[cfg(not(feature = "managed-bridge-qa"))]
-            {
-                let execution_root = app.path().app_data_dir()?.join("execution");
-                let store =
-                    Arc::new(ExecutionStore::open(&execution_root).map_err(std::io::Error::other)?);
-                remote_queue::initialize(store.clone());
-                app.manage(store);
-                let server = transport_server();
-
-                // Spawn the remote-action consumer before starting the server so
-                // the sender is registered by the time any connection authenticates.
-                let state = app.state::<AppState>();
-                let sessions = state.sessions.clone();
-                let session_owners = state.session_owners.clone();
-                // Stash a handle so the (sync) session snapshot can tell which
-                // sessions Blackcrab owns and thus are reachable for the phone.
-                let _ = SESSION_OWNERS.set(state.session_owners.clone());
-                let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<RemoteCommand>();
-                let _ = REMOTE_CMD_TX.set(tx);
-                // Real-time host->mobile push channel (approvals); the initial
-                // receiver is dropped — connections subscribe to the sender.
-                let (bcast, _bcast_rx) = broadcast::channel::<serde_json::Value>(64);
-                let _ = REMOTE_BROADCAST.set(bcast);
-                let consumer_app = app.handle().clone();
-                tauri::async_runtime::spawn(run_remote_command_consumer(
-                    rx,
-                    sessions,
-                    session_owners,
-                    consumer_app,
-                ));
-
-                tauri::async_runtime::spawn(async move {
-                    let pairing = match pairing_service() {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("transport: pairing service unavailable: {e}");
-                            return;
-                        }
-                    };
-                    if let Err(e) = server.start(pairing, remote_hooks()).await {
-                        eprintln!("transport: failed to start: {e}");
-                    }
-                });
-
-                // Optional outbound relay client: only when both env vars are set.
-                // Lets paired phones reach this host off-LAN; the LAN server is
-                // unaffected.
-                maybe_start_relay_client();
-            }
+            // The managed host owns providers, remote access and persistence.
+            // Do not start the retired root session server or touch its data.
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                managed_launcher::show(_app, "blackcrab-open-workspace");
+            }
+        });
 }
 
 fn blackcrab_menu(app_handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
@@ -5322,15 +5237,16 @@ fn blackcrab_menu(app_handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         let settings = MenuItem::with_id(
             app_handle,
             OPEN_SETTINGS_EVENT,
-            "Settings...",
+            "Background Service and Updates…",
             true,
             Some("CmdOrCtrl+,"),
         )?;
+        let open = MenuItem::with_id(app_handle, "blackcrab-open-workspace", "Open Blackcrab", true, None::<&str>)?;
         let separator = PredefinedMenuItem::separator(app_handle)?;
         let items = menu.items()?;
 
         if let Some(app_menu) = items.first().and_then(|item| item.as_submenu()) {
-            app_menu.insert_items(&[&settings, &separator], 2)?;
+            app_menu.insert_items(&[&open, &settings, &separator], 2)?;
         }
     }
 

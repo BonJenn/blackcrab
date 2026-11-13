@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/sidebar/updateEverythingRun.tsx
++++ b/apps/web/src/components/sidebar/updateEverythingRun.tsx
+@@ -342,7 +342,7 @@
+         stackedThreadToast({
+           type: "error",
+           title: "Update did not apply",
+-          description: `T3 Code is still on ${APP_VERSION}. Install ${notAppliedVersion} again from the update button.`,
++          description: `Blackcrab is still on ${APP_VERSION}. Install ${notAppliedVersion} again from the update button.`,
+         }),
+       );
+     },

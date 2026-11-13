@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/clerk/T3ConnectAccountPages.tsx
++++ b/apps/web/src/components/clerk/T3ConnectAccountPages.tsx
+@@ -15,7 +15,7 @@
+     content: <MobileClientsUserProfilePage />,
+   },
+   {
+-    label: "T3 Connect",
++    label: "Blackcrab Connect",
+     url: "t3-connect",
+     icon: <ServerIcon className="size-4" />,
+     content: <T3ConnectUserProfilePage />,

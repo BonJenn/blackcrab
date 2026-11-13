@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/promptLinks/NewThreadLinkView.tsx
++++ b/apps/web/src/components/promptLinks/NewThreadLinkView.tsx
+@@ -141,7 +141,7 @@
+       replace: true,
+     }).catch(() => null);
+     if (opened === null) {
+-      setState({ status: "failed", message: "T3 Code could not open a new thread." });
++      setState({ status: "failed", message: "Blackcrab could not open a new thread." });
+       return;
+     }
+     setState({ status: "opened" });
+@@ -208,7 +208,7 @@
+       setState({
+         status: "failed",
+         message:
+-          "This machine cannot clone from a link. Update T3 Code on it, or clone the repository from the command palette.",
++          "This machine cannot clone from a link. Update Blackcrab on it, or clone the repository from the command palette.",
+       });
+       return;
+     }

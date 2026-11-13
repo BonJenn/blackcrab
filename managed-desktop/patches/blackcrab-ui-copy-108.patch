@@ -1,0 +1,11 @@
+--- a/apps/web/src/shortcuts/chatRouteCommands.ts
++++ b/apps/web/src/shortcuts/chatRouteCommands.ts
+@@ -150,7 +150,7 @@
+             stackedThreadToast({
+               type: "info",
+               title: "Preview is desktop-only",
+-              description: "Open T3 Code in the desktop app to use the in-app preview.",
++              description: "Open Blackcrab in the desktop app to use the in-app preview.",
+             }),
+           );
+           return;

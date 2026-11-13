@@ -1,0 +1,11 @@
+--- a/apps/web/src/versionSkew.ts
++++ b/apps/web/src/versionSkew.ts
+@@ -73,7 +73,7 @@
+   return {
+     clientVersion: normalizedClientVersion,
+     serverVersion: normalizedServerVersion,
+-    hint: "Version mismatch. Try syncing the client and server to the same T3 Code version.",
++    hint: "Version mismatch. Try syncing the client and server to the same Blackcrab version.",
+   };
+ }
+ 

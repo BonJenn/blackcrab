@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/EnvironmentRow.tsx
++++ b/apps/web/src/components/settings/EnvironmentRow.tsx
+@@ -37,7 +37,7 @@
+       ? connectionRouteLabel(routes[0]!)
+       : `via ${connectionRouteLabel(active)}`;
+   }
+-  if (environment.relayManaged) return "T3 Connect";
++  if (environment.relayManaged) return "Blackcrab Connect";
+   if (isDesktopLocalConnectionTarget(entry.target)) return "WSL";
+   if (
+     entry.target._tag === "SshConnectionTarget" &&

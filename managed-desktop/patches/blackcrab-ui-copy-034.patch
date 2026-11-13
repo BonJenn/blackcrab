@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/ServerUpdateAction.tsx
++++ b/apps/web/src/components/ServerUpdateAction.tsx
+@@ -201,7 +201,7 @@
+       if (desktopTargets.length > 0) {
+         const confirmed =
+           (await requestConfirmDialog(
+-            `Update the T3 Code desktop apps on ${desktopTargets.map((target) => target.serverLabel).join(", ")}? They will close and relaunch on those machines.`,
++            `Update the Blackcrab desktop apps on ${desktopTargets.map((target) => target.serverLabel).join(", ")}? They will close and relaunch on those machines.`,
+           )) ?? true;
+         if (!confirmed) return;
+       }
+@@ -307,7 +307,7 @@
+     if (isDesktopAppUpdate) {
+       const confirmed =
+         (await requestConfirmDialog(
+-          `Update the T3 Code desktop app that runs the ${serverLabel}? It will close and relaunch on that machine.`,
++          `Update the Blackcrab desktop app that runs the ${serverLabel}? It will close and relaunch on that machine.`,
+         )) ?? true;
+       if (!confirmed) {
+         return;

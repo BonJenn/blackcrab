@@ -1,0 +1,11 @@
+--- a/apps/web/src/cloud/cloudLinkState.ts
++++ b/apps/web/src/cloud/cloudLinkState.ts
+@@ -54,7 +54,7 @@
+   let error: string | null = null;
+   if (result._tag === "Failure") {
+     const cause = Cause.squash(result.cause);
+-    error = cause instanceof Error ? cause.message : "Could not read T3 Connect link state.";
++    error = cause instanceof Error ? cause.message : "Could not read Blackcrab Connect link state.";
+   }
+ 
+   return {

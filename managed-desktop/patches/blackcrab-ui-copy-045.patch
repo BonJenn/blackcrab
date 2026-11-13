@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/clerk/MobileClientsUserProfilePage.logic.ts
++++ b/apps/web/src/components/clerk/MobileClientsUserProfilePage.logic.ts
+@@ -21,7 +21,7 @@
+       : device.iosMajorVersion === null
+         ? "iOS"
+         : `iOS ${device.iosMajorVersion}`;
+-  return `${platform}${device.appVersion ? ` · T3 Code ${device.appVersion}` : ""}`;
++  return `${platform}${device.appVersion ? ` · Blackcrab ${device.appVersion}` : ""}`;
+ }
+ 
+ export function mobileClientNotificationDetail(device: RelayClientDeviceRecord): string {

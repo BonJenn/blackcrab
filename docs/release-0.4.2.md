@@ -1,18 +1,18 @@
-# Blackcrab 0.4.2 — Full desktop startup
+# Blackcrab 0.4.2 — One workspace
 
-Draft release notes. The installer and end-to-end runtime validation are pending;
-these notes do not announce a published update.
+Draft release notes. The updated installer and end-to-end runtime validation are
+pending; these notes do not announce a published update.
 
-This Apple-silicon Mac update corrects background-service startup in 0.4.1.
-Blackcrab now packages a dedicated signed service helper instead of copying its
-main application executable out of the signed app bundle. An inactive service
-can update that helper while keeping the workspace configuration and identity.
+Blackcrab opens directly into its new workspace, with projects, agents, source
+control and terminals together. The older Claude/Codex interface has been removed.
+Startup prepares the background service automatically, preserves existing workspace
+identity, and shows recovery controls if the workspace cannot open. Reopening the
+app returns to the same workspace. Quitting the workspace keeps its host available.
 
-A Full desktop button in the main Claude and Codex toolbars puts background-service
-setup beside Open full desktop. Enable or start the service there, then open the
-full workspace. Setup/start failures now keep the action available for retry and
-show the relevant instructions.
+This update also corrects the signed-service-helper defect in 0.4.1 and replaces
+remaining T3 branding in onboarding, environment selection and account screens.
+A dedicated signed and notarized helper replaces the invalid standalone copy of
+the main app executable. Existing conversations and workspace data remain on disk.
 
-Existing conversations, workspace data and pairing identity are preserved. This
-release is for Apple-silicon Macs; it includes no new iOS, Windows or Linux build.
-See the public release only after its final installer and runtime checks finish.
+This release is for Apple-silicon Macs. It includes no new iOS, Windows or Linux
+build. Full desktop/mobile/hosted parity is still being validated.

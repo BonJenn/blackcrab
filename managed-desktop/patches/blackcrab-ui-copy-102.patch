@@ -1,0 +1,20 @@
+--- a/apps/web/src/connection/clientMetadata.ts
++++ b/apps/web/src/connection/clientMetadata.ts
+@@ -77,7 +77,7 @@
+ }): AuthClientPresentationMetadata {
+   if (input.desktopBridge !== undefined) {
+     return {
+-      label: "T3 Code Desktop",
++      label: "Blackcrab Desktop",
+       deviceType: "desktop",
+       os: clientOsFromElectronPlatform(input.desktopBridge.getClientPlatform()),
+       surface: "desktop",
+@@ -86,7 +86,7 @@
+   }
+ 
+   return {
+-    label: "T3 Code Web",
++    label: "Blackcrab Web",
+     deviceType: browserDeviceType(input.identity),
+     os: browserClientOs(input.identity),
+     surface: "web",

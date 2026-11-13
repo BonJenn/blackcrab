@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/KeybindingsSettings.tsx
++++ b/apps/web/src/components/settings/KeybindingsSettings.tsx
+@@ -253,7 +253,7 @@
+ 
+   return (
+     <WarningTooltipIcon label={label} focusable={focusable} className="size-4.5">
+-      T3 Code does not recognize this condition yet. It can still be saved, but it may not match
++      Blackcrab does not recognize this condition yet. It can still be saved, but it may not match
+       unless the runtime provides it.
+     </WarningTooltipIcon>
+   );

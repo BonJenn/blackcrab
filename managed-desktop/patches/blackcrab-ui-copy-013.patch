@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/snapShot/NiriCaptureShortcut.ts
++++ b/apps/desktop/src/snapShot/NiriCaptureShortcut.ts
+@@ -54,7 +54,7 @@
+       }),
+     ]);
+     if (result !== RequestNameReply.PRIMARY_OWNER)
+-      throw new Error("Another T3 Code instance already owns the capture shortcut.");
++      throw new Error("Another Blackcrab instance already owns the capture shortcut.");
+     return close;
+   } catch (error) {
+     close();

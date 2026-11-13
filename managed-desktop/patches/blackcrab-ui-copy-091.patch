@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/SnapShotSettings.tsx
++++ b/apps/web/src/components/settings/SnapShotSettings.tsx
+@@ -255,7 +255,7 @@
+   const shortcutStatus = recording
+     ? "Press your shortcut. Esc cancels."
+     : candidateConflict
+-      ? `T3 Code already uses this for "${commandLabel(candidateConflict)}".`
++      ? `Blackcrab already uses this for "${commandLabel(candidateConflict)}".`
+       : shortcutCheck.status === "checking"
+         ? "Checking shortcut…"
+         : shortcutCheck.availability

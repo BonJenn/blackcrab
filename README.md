@@ -1,209 +1,105 @@
 # Blackcrab
 
-Blackcrab is a local desktop GUI for Claude Code sessions. It wraps your local
-`claude` CLI, indexes saved conversations from `~/.claude/projects`, and gives
-you a faster interface for resuming, searching, exporting, and running multiple
-sessions side by side.
+Blackcrab is a desktop workspace for coding agents, projects, source control,
+terminals and remote access. Its managed Electron workspace is the sole desktop
+interface. Opening the app prepares the background service and opens the workspace
+automatically; the native launcher handles startup recovery and signed updates.
 
-This project is early, macOS-first, and intended for people already comfortable
-with Claude Code, Tauri, and local developer tools.
+This branch prepares the next Apple-silicon Mac release. The new startup behavior
+still needs signed installer and native lifecycle acceptance before publication.
+See [release notes](docs/release-0.4.2.md) and the
+[current delivery handoff](docs/agent-handoff.md) for verified status.
 
 ![Blackcrab logo](blackcrab_logo.png)
 
-## Features
+## Desktop experience
 
-- Resume and search local Claude Code sessions by title, project, model, date,
-  or transcript text.
-- View project-level session, token, cost, and attention summaries.
-- Run a single conversation or a grid of up to six live panels.
-- Drive routine actions from the command palette (⌘K) — switch projects,
-  rename/archive/delete/export the current conversation, back up and restore,
-  manage layouts and panels — all searchable by keyword.
-- Save named, per-project grid layouts and restore them from the command
-  palette (⌘K → "Save current layout…" / "Load layout").
-- Rename, delete, and export sessions as Markdown.
-- View tool calls, diffs, command output, thinking blocks, and permission
-  prompts in a structured transcript.
-- Open local preview URLs in a side webview.
-- Use an integrated terminal backed by a native PTY.
-- Launch an interactive Claude Code computer-use session from Blackcrab.
-- Attach dropped files to messages.
-- Queue follow-ups during a turn in single or grid panels; edit, remove, reorder,
-  pause and explicitly resume held messages. See [`docs/follow-up-queues.md`](docs/follow-up-queues.md).
-- Track context and output-token usage per session.
-- Keep durable turn receipts with duplicate-command protection and explicit
-  interrupted/uncertain delivery states. See [`docs/execution-store.md`](docs/execution-store.md).
-- Export and restore a local backup of settings, layout, usage history, drafts,
-  and per-session titles/archived state. See [`docs/backup-restore.md`](docs/backup-restore.md).
+- Manage coding-agent threads and projects in the shared workspace.
+- Work with source control, terminals, previews, approvals and queued follow-ups.
+- Connect the Blackcrab Remote iOS app to a managed environment.
+- Keep the independently owned background service available when the workspace
+  closes; reopen the app to return to it.
+- Recover startup failures and manage the background service or updates through
+  the native **Blackcrab → Background Service and Updates…** menu.
 
-## Requirements
+The older Claude/Codex interface and its legacy remote-session server are retired.
+Removing those screens does not delete existing conversations or app data. Legacy
+files are not automatically imported into the new workspace by this change.
 
-- macOS for the currently tested desktop experience.
-- Node.js 20 or newer.
-- Rust stable and Cargo.
-- The Claude Code CLI installed and authenticated.
-- Tauri 2 system dependencies for your target platform.
-
-Install and authenticate Claude Code first:
-
-```sh
-npm install -g @anthropic-ai/claude-code
-claude auth login --claudeai
-```
-
-API-billing users can use the Claude Code console login flow instead.
+The shared client and host reuse the pinned T3 source with reviewed Blackcrab
+adapters, branding and owned service configuration. Imported source and passing
+builds do not establish complete parity; the [scenario ledger](docs/t3-parity-ledger.md)
+tracks outstanding desktop, mobile and cloud acceptance.
 
 ## Development
+
+Use Node 26.12.1, npm 12.2.2, Rust stable and Tauri 2 system dependencies. The
+pinned shared-source producer uses pnpm 12.14.0. Do not flatten the root React 19.1
+and mobile/shared-client React 19.3 dependency graphs.
 
 ```sh
 npm ci
 npm run typecheck
+npm test
+npm run build
 cargo check --manifest-path src-tauri/Cargo.toml --locked
 npm run dev
 ```
 
-Other useful commands:
+`npm run dev` runs the native launcher. A launcher without verified managed
+payloads displays recovery; it does not contain another desktop interface.
+`npm run dev:web` runs only the launcher renderer for UI development.
+
+The full workspace is produced through `managed-desktop/build.mjs` and the
+background service through the managed-host producer. Native packaging consumes
+verified artifacts:
 
 ```sh
-npm run dev:web
-npm run build
-npm run build:native
-npm run build:native:signed
-npm run smoke
-npm run smoke:native
-npm run check
-npm run dev:desktop
-npm run tauri -- build
+npm run build:native -- --managed-desktop /absolute/path/to/desktop-artifact \
+  --managed-service-host /absolute/path/to/service-artifact
 ```
 
-`npm run dev` starts the Tauri desktop app. `npm run dev:web` starts only the
-Vite frontend in a browser, primarily for browser-only UI debugging. The dev
-desktop script picks an open port between 1420 and 1520 and passes it to both
-Tauri and Vite.
+Read [managed desktop guidance](managed-desktop/AGENTS.md),
+[native integration guidance](src-tauri/AGENTS.md) and [RELEASE.md](RELEASE.md)
+before packaging. An ad-hoc local build is not a signed/notarized release.
 
-Use `npm run build:native` for local `.app` / `.dmg` packaging. It disables
-Tauri updater artifacts so it does not require the private updater signing key.
-Use `npm run build:native:signed` for release-style builds; it requires
-`TAURI_SIGNING_PRIVATE_KEY` and produces updater artifacts.
+## Downloads and updates
 
-Use `npm run smoke` before opening a PR. Use `npm run smoke:native` before
-shipping a local desktop build; it includes the native `.app` and `.dmg`
-artifact check.
+Download published installers from [blackcrab.app](https://www.blackcrab.app)
+or [GitHub Releases](https://github.com/BonJenn/blackcrab/releases).
+The root launcher retains the signed Tauri updater. Signed release builds require
+the existing updater key and produce the updater artifacts and `latest.json`.
+Never replace public release assets with an unvalidated candidate.
 
-## Downloads and Updates
+## Repository map
 
-Release installers are published through GitHub Releases. The landing site can
-link to `https://github.com/BonJenn/blackcrab/releases/latest`, or to its own
-stable redirect route such as `/download/macos`.
+- `src/App.tsx`, `workspaceStartup.ts`: automatic startup, recovery and service coordination.
+- `src-tauri/src/managed_launcher.rs`: activation, reopen and workspace lifecycle.
+- `src-tauri/src/managed_native_entry.rs`: verified desktop/host attachment.
+- `managed-desktop/`: pinned Electron source patches, branding, producer and verification.
+- `managed-host/`, `fork-integration/`: independent host ownership and service integration.
+- `managed-cloud/`: Blackcrab-owned remote-service and client configuration.
+- `apps/mobile/`: Expo/React Native Blackcrab Remote iOS application.
+- `docs/agent-handoff.md`: current source, evidence, delivery state and remaining work.
+- `docs/t3-parity-plan.md`, `docs/t3-parity-ledger.md`: implementation and acceptance scope.
+- `docs/hosted-service-plan.md`: free local/self-hosted use and paid hosted-service rollout.
 
-Blackcrab is wired for Tauri's updater plugin. Release builds generate updater
-artifacts and `latest.json` when `TAURI_SIGNING_PRIVATE_KEY` is available to
-the build environment. The app checks the latest release endpoint:
+Historical docs describing the retired panels remain implementation history, not
+instructions for navigating the current application.
 
-```text
-https://github.com/BonJenn/blackcrab/releases/latest/download/latest.json
-```
+## Privacy and security
 
-See `RELEASE.md` for the full release, signing, notarization, and download
-tracking workflow.
+Local coding providers, tools and MCP servers use the credentials and access
+configured for them. Remote access additionally uses the configured hosted or
+self-hosted service. Official Blackcrab builds use Blackcrab-owned services;
+forking the source does not grant access to hosted accounts or subscriptions.
 
-Blackcrab can send anonymous app and updater events to the landing site's
-analytics endpoint so release health can be measured by version. Events include
-app launch, update checks, update starts, update completions, and update
-failures. The install identifier is generated locally and hashed by the server
-before storage. Users can turn this off in Settings.
+Blackcrab coordinates powerful local development tools and is not a sandbox.
+See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md) and the hosted-service plan
+for further context. Report vulnerabilities privately.
 
-Release writeups live in `docs/blog/`, including the
-`0.1.3` post about steadier sessions and cleaner transcripts.
+## Contributing and license
 
-## How It Works
-
-The frontend is React and Vite. The desktop shell and native commands are Tauri
-2 with a Rust backend.
-
-Blackcrab starts `claude -p` subprocesses with stream-json input/output. Each
-live panel owns one subprocess, and the Rust backend enforces one active writer
-per Claude session file so two panels do not append to the same JSONL at once.
-
-Claude Code computer use currently requires an interactive Claude Code session,
-so Blackcrab launches it through the PTY terminal instead of the structured
-`claude -p` transcript path. Use the Computer Use button or command palette
-entry, then use the terminal banner's `open /mcp` action to enable the built-in
-`computer-use` MCP server if needed. The composer `GUI` action runs a hidden
-interactive computer-use sidecar and streams it back into the main chat, with
-inline controls for `/mcp`, menu navigation, and replies. Browser/search
-handoffs tell Claude to prefer WebSearch or Claude-in-Chrome because Safari is
-read-only for computer-use mouse and keyboard control.
-
-Saved sessions are discovered from Claude Code's local JSONL files under
-`~/.claude/projects`. Blackcrab reads those files to build the sidebar, search
-history, render transcript tails quickly, and export conversations.
-
-## Repository Map
-
-Provider launch behavior and the capability API are documented in
-[`docs/providers.md`](docs/providers.md). Claude Code is the currently
-implemented provider.
-
-- `src/App.tsx`: main application state, transcript UI, sidebar, command
-  palette, grid mode, preview panel, and top-level Claude event handling.
-- `src/LivePanel.tsx`: self-contained grid panel with its own subprocess,
-  composer, transcript, and permission state.
-- `src/Terminal.tsx`: xterm.js wrapper for the Rust PTY backend.
-- `src/markdown.ts`: Markdown rendering, syntax highlighting, and PR
-  linkification.
-- `src-tauri/src/execution.rs`: durable thread mappings, turn receipts, and
-  host recovery leases.
-- `src-tauri/src/codex_rpc.rs`, `codex_runtime.rs`, `codex_host.rs` and
-  `codex_services.rs`: app-server transport, journal-backed runtime, native host
-  routing and bounded account/model/history reads. The **Codex** panel includes a
-  dedicated conversation preview and CLI history/account/catalog browsing.
-  General single/grid provider selection remains Claude-only. See
-  [`docs/codex-provider.md`](docs/codex-provider.md).
-- `src/codexLive.ts`, `CodexConversation.tsx` and `codexWorkspace.ts`: guarded live
-  state, recovery, workspace UI and persistent drafts. Native visual/real-turn
-  scenarios and general provider readiness remain unverified.
-- `src-tauri/src/execution/queue.rs`: durable follow-up queue state and native
-  command support, with shared desktop controls in `src/QueueControls.tsx`.
-- `src-tauri/src/provider.rs`: provider launch validation, capability metadata,
-  and message framing.
-- `src-tauri/src/lib.rs`: Tauri commands for Claude process management,
-  session indexing/search, git helpers, native preview navigation, and PTY I/O.
-- `apps/mobile/`: experimental Expo/React Native scaffold for the future mobile
-  remote companion. Not connected to a host yet.
-- `packages/remote-protocol/`: typed protocol definitions shared between the
-  desktop host and the future mobile companion.
-- `docs/mobile-remote.md`: intended architecture and non-goals for the mobile
-  remote.
-- `ROADMAP.md`: current stability and feature priorities.
-
-## Privacy
-
-Blackcrab is a local app. It does not proxy Claude traffic, ask for Anthropic
-credentials, or run its own hosted backend.
-
-It does read local Claude Code session files and pass messages to your local
-`claude` CLI. Network requests to Anthropic, MCP servers, websites, package
-registries, or other services come from the Claude CLI, tools it runs, opened
-URLs, or commands you execute locally.
-
-See `PRIVACY.md` for more detail.
-
-## Security
-
-Blackcrab intentionally coordinates powerful local tools: shells, Claude Code,
-file paths, webviews, and git commands. Treat it like a developer tool with
-local machine access, not a sandbox.
-
-Please report vulnerabilities privately. See `SECURITY.md`.
-
-## Contributing
-
-Issues and pull requests are welcome, especially for stability, packaging,
-documentation, tests, and focused UX improvements. Start with
-`CONTRIBUTING.md`, and open an issue before large behavior or architecture
-changes.
-
-## License
-
-Apache-2.0. See `LICENSE`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the nearest `AGENTS.md` for contributor
+guidance. Blackcrab is Apache-2.0 licensed; see [LICENSE](LICENSE). Reused upstream
+source and packaged dependencies retain their licenses and notices.

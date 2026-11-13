@@ -48,3 +48,15 @@ and source, never PASSED. The owner will perform UI/lifecycle and upgrade testin
 after publication. Keep signing, notarization, payload integrity and updater
 signature checks. Publish the verified Apple-silicon release and then update the
 website to its real downloads. No additional publication confirmation is needed.
+
+
+## Notarization authentication selection
+
+The managed tauri-cli wrapper selects one complete notarization method before
+spawning the native build. Prefer the explicit App Store Connect key ID, issuer
+and key file path, as the workflow preflight and final DMG step do. Remove
+APPLE_ID and APPLE_PASSWORD from the child environment when using API auth;
+empty strings are not sufficient because Tauri checks presence and prefers
+Apple ID first. Preserve signing identity/team and updater credentials. Never
+log the environment. The original API preflight passed while the mixed-auth
+Tauri build failed with Apple ID HTTP401; no key rotation is needed for that bug.

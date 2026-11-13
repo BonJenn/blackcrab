@@ -1,51 +1,42 @@
 # Copyable continuation prompt
 
-Continue the authorized Mac 0.4.0 release and website publication. Read AGENTS.md
-and the latest docs/agent-handoff.md checkpoint before acting. The owner will test
-Mac UI/service/upgrade behavior after publication; no extra publication approval
-or native capture is required. Keep signing/notary/payload/updater checks and do
-not claim full parity or passing manual acceptance.
+Continue the authorized Mac 0.4.0 release, website, blog and release notes. Read
+AGENTS.md and the latest docs/agent-handoff.md checkpoint. The owner will test UI,
+service lifecycle and upgrade behavior AFTER publication; do not restore capture
+or approval gates. Still verify actual signatures/notarization/updater/payloads.
 
-P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-REL=P/mac-release-040-v2llrqsa. Active checkout REL/tauri-version-fix, branch
-release/0.4.0-tauri-version-alignment. Read REL/tauri-fix-pr.json for exact head/PR/CI
-and REL/plan.json for current command handles/release state.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes;
+REL=P/mac-release-040-v2llrqsa. Read REL/plan.json and REL/notary-auth-fix-pr.json.
+Active checkout REL/notary-auth-fix, branch release/0.4.0-notarization-auth.
+PR267 already merged to stage cbf167200b740fab7fc34bb125b99dd95bf3c826 and unwatched.
+Its npm/Rust version fix worked: run 43333392902 compiled and signed 0.4.0, but
+notarization failed HTTP 401. API preflight passed; Tauri preferred the stale Apple
+ID/password also supplied. Monitor 38476 is settled. No app or service is running.
 
-PR #265 already merged after nine passed checks to stage 2dee535dce3398d360c61f729f6890cd864f4a15.
-Draft v0.4.0 targets that source but is NOT PUBLIC. Release run 43328470434 failed
-before compilation on six npm/Rust Tauri version mismatches. Signing credentials,
-notarized payloads and keychain setup passed. Watcher 89307 settled; do not rerun it.
+The new managed wrapper selects complete API credentials and REMOVES Apple
+ID/password from its child env (empty values still trigger Tauri's priority).
+Complete Apple ID-only config is supported. Five new tests pass; combined focused
+suite 33 pass / 3 opt-in skips. No native code or dependency graph changed. Finish
+PR/link/checks/review/merge to stage. For required PR waits watch and end, no polling.
 
-Fix: exact npm pins api 2.11.1, opener 2.5.4, notification 2.3.3, updater 2.10.1,
-dialog 2.7.1, process 2.3.1; Rust lock and unrelated resolutions unchanged. New
-check-tauri-versions guard in CI/release/native packaging catches the original
-failed lock and passes corrected lock. Portable tests 28 pass / 3 opt-in skips;
-actionlint passes; fresh owned npm ci passed. Root TypeScript/Vite build and actual Tauri CLI info passed without package
-mismatches; all local validation handles are settled. Read REL/plan.json for the
-latest PR and release state. Finish correction PR, link next
-after push/create, pass required CI and merge stage. For PR waits, watch and end;
-never poll or bypass failed checks.
+After merge prepare a NEW exact-source OWNER_TESTING_AUTHORIZED ZIP and update
+the owned draft v0.4.0 target/input/hash, then dispatch corrected release.yml.
+Do not rerun old 43333392902 or reuse its source-bound ZIP. Signed/notarized inner
+payloads are unchanged at /private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/{desktop,service-host}.
+The root's unchanged updater key/verifier are at REL/updater-verifier.
+Update SOURCE/workflow ID in REL/verify-final-artifacts.py and sourceRevision in
+REL/artifact-verification-plan.json, then verify actual release assets. The script
+only downloads/verifies/read-only mounts, never launches or installs. Do not
+claim its prepared checks passed. Publish GitHub stable/latest only after success.
 
-After merge: clean corrected stage source; NEW exact-source OWNER_TESTING_AUTHORIZED
-record and release-input archive under REL/release-inputs-<source>. Original
-REL/release-inputs zip is bound to failed 2dee535 and must not be reused. Reuse
-unchanged notarized inner payloads:
-/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/{desktop,service-host}.
-Update the owned DRAFT v0.4.0 target and replace its input zip/hash, then dispatch
-release.yml managed-apple-silicon with the new hash at corrected stage. Verify
-actual app/DMG/updater and publish stable/latest only when artifact checks pass.
-See REL/artifact-verification-plan.json and REL/updater-verifier. Existing public
-key matches v0.3.0; no real 0.4 updater verification yet. Never export private keys.
+Then merge website PR12 https://github.com/BonJenn/blackcrab-landing/pull/12,
+checkout REL/website, head 45074e77ae990e71983a0d0f657461bed76eca03. Tests/types/lint/
+build and Vercel checks passed. It stays draft pending actual Mac release. Use
+existing blackcrab-landing Vercel project/team bonjenns-projects for www.blackcrab.app
+(not hosted app.blackcrab.app). Verify home/blog/changelog/releases and actual Mac
+download plus previous-platform fallback. All preview tabs/access links are closed.
 
-Website PR #12 https://github.com/BonJenn/blackcrab-landing/pull/12 is draft until
-Mac artifacts are public. Checkout REL/website, head 45074e77ae990e71983a0d0f657461bed76eca03.
-Local tests/types/lint/build passed; home/blog/changelog preview inspected before
-metadata-only follow-up. Merge/deploy to blackcrab-landing Vercel project on
-bonjenns-projects, www.blackcrab.app; verify public pages and actual Mac download,
-plus prior Windows/Linux fallback. Hosted agent app at app.blackcrab.app is separate.
-Browser tab closed and temporary access revoked.
-
-No public 0.4, normal app installation, or local native app/host/simulator is running.
-Keep main checkout/index/shared caches unchanged. Keep handoffs and changed guide
-pairs identical. TestFlight 1.0.0 (4) is available; newer branded Hermes export remains
-unpublished. Mobile retention/remote/APNs acceptance and complete parity remain.
+Do not touch main dirty checkout/index, shared caches or installed app incidentally.
+TestFlight 1.0.0 (4) is available; newer branded mobile export is unpublished and
+remote/APNs/retention acceptance still remains. Full parity is not complete.
+Keep handoffs and all changed AGENTS/CLAUDE pairs current and byte-identical.

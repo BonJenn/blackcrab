@@ -28,3 +28,15 @@ This branch is stacked on fix/imported-task-notifications to keep their registry
 and guide updates together; merge the notification PR first, then retarget this
 PR to stage and verify its current checks/base. Do not squash into a feature branch
 and mistake that for stage integration.
+
+The parent CI correction pins the browser job to Ubuntu 24.04 for the frozen
+Playwright 1.60 graph. This child separately pins its complete 346-record desktop
+registry (f68b16b2…) in the native-keychain QA recipe. All 337 baseline records and
+the parent's four notification records are unchanged; the five pane additions
+authenticate and leave every QA identity target untouched. The seven source
+predecessors still match the prepared actual source; no identity fixture or
+service build freeze changed. Review evidence:
+REL/imported-task-notifications-validation/ci-registry-review-pane-toolbar-placement.json.
+The corrected recipe plus all managed desktop/cloud Node suites pass on this
+combined branch: 104 tests, zero failures or skips. CI must validate the corrected
+Linux browser installation before either UI PR merges.

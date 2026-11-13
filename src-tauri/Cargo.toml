@@ -1,6 +1,6 @@
 [package]
 name = "blackcrab"
-version = "0.4.2"
+version = "0.4.3"
 description = "A desktop workspace for coding agents, projects and remote access."
 authors = ["Jonathan Benn"]
 license = "Apache-2.0"

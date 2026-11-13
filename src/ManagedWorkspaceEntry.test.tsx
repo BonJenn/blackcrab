@@ -18,8 +18,9 @@ function surface(api: ManagedHostClient) {
   const root = createRoot(element);
   const render = (value = api) => act(() => root.render(<ManagedWorkspaceEntry client={value} />));
   const button = (text: string) => Array.from(element.querySelectorAll("button")).find(item => item.textContent === text)!;
+  const workspace = () => element.querySelector('section[aria-label="Managed workspaces"]')!;
   const dispose = () => { act(() => root.unmount()); element.remove(); };
-  return { element, render, button, dispose };
+  return { element, workspace, render, button, dispose };
 }
 
 it("waits for startup status and prevents duplicate starts while the selected runtime starts", async () => {
@@ -62,15 +63,20 @@ it("keeps actionable failures visible and lets the user retry selection and open
   try {
     await act(async () => view.render());
     await act(async () => view.button("Choose workspace runtime").click());
-    expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Runtime integrity check failed.");
+    expect(view.workspace().querySelector('[role="alert"]')?.textContent).toBe("Runtime integrity check failed.");
+    // The native bridge is absent in this browser fixture. Its sibling error
+    // must stay separate from the workspace operation's error and retry state.
+    const desktopAlert = view.element.querySelector('section[aria-label="Full desktop"] [role="alert"]');
+    expect(desktopAlert).not.toBeNull();
     await act(async () => view.button("Choose workspace runtime").click());
-    expect(view.element.querySelector('[role="alert"]')).toBeNull();
+    expect(view.workspace().querySelector('[role="alert"]')).toBeNull();
+    expect(desktopAlert?.isConnected).toBe(true);
     await act(async () => view.button("Open workspace").click());
-    expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Workspace window could not open.");
+    expect(view.workspace().querySelector('[role="alert"]')?.textContent).toBe("Workspace window could not open.");
     vi.mocked(api.status).mockResolvedValue({ state: "running", artifactPath: "/runtime" });
     await act(async () => view.button("Open workspace").click());
     expect(view.element.textContent).toContain("Workspace window opened.");
-    expect(view.element.querySelector('[role="alert"]')).toBeNull();
+    expect(view.workspace().querySelector('[role="alert"]')).toBeNull();
   } finally { view.dispose(); }
 });
 
@@ -101,7 +107,7 @@ it("distinguishes an opened window from a subsequent status refresh failure", as
     await act(async () => view.render());
     await act(async () => view.button("Open workspace").click());
     expect(view.element.textContent).toContain("Workspace window opened.");
-    expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Status refresh unavailable.");
+    expect(view.workspace().querySelector('[role="alert"]')?.textContent).toBe("Status refresh unavailable.");
     expect(view.button("Open workspace").disabled).toBe(false);
   } finally { view.dispose(); }
 });
@@ -111,10 +117,10 @@ it("offers refresh after a startup failure and surfaces an unavailable host's ex
   const view = surface(api);
   try {
     await act(async () => view.render());
-    expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Host status unavailable.");
+    expect(view.workspace().querySelector('[role="alert"]')?.textContent).toBe("Host status unavailable.");
     await act(async () => view.button("Refresh status").click());
     expect(view.element.textContent).toContain("Workspace service is unavailable");
-    expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Configured runtime was moved.");
+    expect(view.workspace().querySelector('[role="alert"]')?.textContent).toBe("Configured runtime was moved.");
     expect(view.button("Change workspace runtime").disabled).toBe(false);
   } finally { view.dispose(); }
 });

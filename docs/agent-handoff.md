@@ -28,6 +28,14 @@ Validation: 21 payload tests pass, three opt-in skips; six entry tests and seven
 renderer/client tests pass. The read-only report passes 20 checks on an isolated
 fixture with byte/mode equality. See private diagnostic evidence for exact logs.
 
+CI on 89bb45e failed three ManagedWorkspaceEntry assertions because they read
+the first alert across all Settings sections. Full desktop now correctly reports
+an absent native bridge in the browser fixture. Assertions are scoped to the
+Managed workspaces section, and retry coverage verifies that its sibling desktop
+alert remains intact. No product code was changed for this correction. The full
+frontend suite now passes all 186 tests in 34 files; TypeScript and Vite production
+build also pass. Required CI must pass on the subsequent pushed head.
+
 Native capture returned cgWindowNotFound even for Finder. No released app or
 host was launched for this attempt. No production data, permissions, caches or
 installation was repaired/changed. Full parity remains incomplete. Complete CI,

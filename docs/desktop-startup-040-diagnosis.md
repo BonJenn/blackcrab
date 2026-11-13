@@ -81,6 +81,14 @@ native-entry tests pass and seven renderer/client tests pass. Required CI must
 run on the updated PR head. Finder inspection currently returns cgWindowNotFound;
 no released app/host was launched and no UI acceptance is claimed.
 
+CI on 89bb45e failed three ManagedWorkspaceEntry assertions because they read
+the first alert across all Settings sections. Full desktop now correctly reports
+an absent native bridge in the browser fixture. Assertions are scoped to the
+Managed workspaces section, and retry coverage verifies that its sibling desktop
+alert remains intact. No product code was changed for this correction. The full
+frontend suite now passes all 186 tests in 34 files; TypeScript and Vite production
+build also pass. Required CI must pass on the subsequent pushed head.
+
 ## Continuation
 
 Private evidence is under

@@ -23,6 +23,10 @@ again fails for Finder; no actual released app was launched in this investigatio
 Check REL/desktop-startup-fix-plan.json for latest head/CI/handles, then finish
 review/merge and deliver a verified new patch artifact. Verify ordinary launch;
 do not call the candidate correction a confirmed owner fix or full parity.
+The 89bb45e CI failure was three unscoped workspace test alerts reading the
+sibling desktop error. The test-only correction scopes assertions and preserves
+both errors. Full frontend validation now passes 186 tests, TypeScript and Vite;
+wait for required CI on the new head rather than using older successes.
 
 Public release: https://github.com/BonJenn/blackcrab/releases/tag/v0.4.0
 Source/tag: caf57b6fab1b4391836c6635882a15a88edfac0d, after merged PR267/268,

@@ -13,11 +13,21 @@ managed workspace derives its displayed and packaged version from them.
 Active release worktree: REL/workspace-release-043, branch
 release/0.4.3-workspace-fixes. Delivery directory: REL/workspace-043-delivery;
 live state: REL/workspace-043-plan.json. Read that state before starting/resuming
-commands. Keep the unchanged c04c4d44… production service artifact. Build and
-notarize the new desktop, package a private draft installer, verify actual assets
-and native behavior before publication; do not fabricate acceptance or reuse the
-old 0.4.2 authorization as a blanket waiver. Update the website after publication.
-The current owner instruction authorizes preparing and delivering this update.
+commands. Keep the unchanged c04c4d44… production service artifact. Desktop producer
+7a3a642d94bc4fe6224e2f5b373ecf6727631764 completed build/types/inventory verification;
+PR286 merged as 81f5d0172b4d4e42c8d73d135ca74d40e5858917 with all nine checks passed.
+Signing/notarization is running under captured shell handle 76314; read the live
+plan/report before resuming. The website download, lint, types and production
+build checks passed; its prepared changes remain unpublished.
+
+The current update request continues the owner's previously requested manual-test
+release workflow. The narrow 0.4.3 policy records both current request and original
+manual-testing instruction, exact final source and immutable published 0.4.2
+baseline; no lifecycle check is asserted. Verify signing/notarization, downloaded
+installer/helper/payloads and updater cryptography before publication. Update the
+website only after public assets are verified. Frozen producer B must not change
+while signing runs. The policy worktree is REL/workspace-043-release-source on
+release/0.4.3-owner-update; use a new clean final source after it merges.
 
 Windows/Linux status: shared source and compile checks exist, but the managed
 producer, native launch/transport and persistent service remain Mac-specific.

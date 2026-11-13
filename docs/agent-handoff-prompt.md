@@ -1,3 +1,10 @@
+Current 0.4.3 checkpoint: desktop producer 7a3a642 completed; signing handle 76314
+is owned by this delivery. Website checks pass, unpublished. Policy branch
+release/0.4.3-owner-update records the current update request plus the existing
+manual-testing preference, tied to public 0.4.2 cb586b1f…. It never marks native
+lifecycle tests PASSED. Read REL/workspace-043-plan.json and the current handoff
+before resuming or starting a process. Do not mutate the frozen desktop producer.
+
 Current owner instruction: continue and deliver the update. Mac 0.4.3 is being
 prepared in REL/workspace-release-043 (release/0.4.3-workspace-fixes), based on
 stage 9a265383072f9b69a9e7f95cb8c94a8447f35f63. PR283/284/285 are all merged and

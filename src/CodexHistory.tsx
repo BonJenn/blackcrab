@@ -97,7 +97,7 @@ function Account() {
     <p>Configure login and account changes in the Codex CLI.</p><button type="button" className="btn btn-secondary" disabled={state.loading} onClick={() => setRevision(value => value + 1)}>Refresh account</button>
   </section>;
 }
-export default function CodexHistory({ onClose, open = true, defaultCwd = "", onActivity, presentation = "dialog", saveError }: { onClose: () => void; open?: boolean; defaultCwd?: string; onActivity?: (activity: CodexActivity) => void; presentation?: "dialog" | "workspace"; saveError?: string | null }) {
+export default function CodexHistory({ onClose, open = true, defaultCwd = "", onActivity, presentation = "dialog", saveError, onOpenDesktop }: { onClose: () => void; open?: boolean; defaultCwd?: string; onActivity?: (activity: CodexActivity) => void; presentation?: "dialog" | "workspace"; saveError?: string | null; onOpenDesktop?: () => void }) {
   const [tab, setTab] = useState<Tab>("history");
   const [conversationLoaded, setConversationLoaded] = useState(false);
   const [requestedThread, setRequestedThread] = useState<CodexThread>();
@@ -114,7 +114,7 @@ export default function CodexHistory({ onClose, open = true, defaultCwd = "", on
     return () => { if (dialog.current?.open) dialog.current.close(); if (previous?.isConnected) previous.focus(); };
   }, [open, presentation]);
   const content = <>
-    <header><h2 id={title}>{presentation === "workspace" ? "Blackcrab · Codex" : "Codex"}</h2>{presentation === "workspace" ? <ProviderSwitcher provider="codex" onChange={value => { if (value === "claude") onClose(); }} error={saveError} /> : <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>}</header>
+    <header><h2 id={title}>{presentation === "workspace" ? "Blackcrab · Codex" : "Codex"}</h2>{presentation === "workspace" ? <ProviderSwitcher provider="codex" onChange={value => { if (value === "claude") onClose(); }} error={saveError} /> : <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>}{onOpenDesktop && <button type="button" className="btn btn-primary" onClick={onOpenDesktop}>Full desktop</button>}</header>
     <p>Read your CLI history, models and account, or open a conversation preview.</p>
     <nav aria-label="Codex sections">{(["history", "models", "account", "conversation"] as const).map(value => <button key={value} type="button" className="btn btn-secondary" aria-pressed={tab === value} onClick={() => { if (value === "conversation") setConversationLoaded(true); setTab(value); }}>{value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
     <div className="codex-history-body">{tab === "history" ? <HistoryBrowser onChoose={chooseThread} /> : tab === "models" ? <Models /> : tab === "account" ? <Account /> : null}

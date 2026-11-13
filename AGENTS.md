@@ -167,3 +167,13 @@ real platform download redirects were verified. Preserve its public tag/assets.
 The owner still needs to confirm Full desktop on their work Mac; publication is
 not runtime acceptance or full parity. Read the current handoff checkpoint before
 its explicitly historical sections, and do not restart old build handles.
+
+## 0.4.1 signed-helper startup defect
+
+The owner failure is now reproduced. Read the current handoff before historical
+startup notes. A signed app executable cannot simply be copied as a standalone
+service issuer: its external signed Info.plist is lost and macOS kills it. Use
+the separately built/signed/notarized CLI helper embedded in Root. Preserve
+existing service configuration/generation during an explicitly stopped upgrade.
+Signature verification, real helper readiness and actual app UI acceptance are
+different checks; do not label the whole delivery complete from the first two.

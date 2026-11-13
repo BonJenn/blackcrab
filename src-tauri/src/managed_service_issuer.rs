@@ -542,60 +542,57 @@ pub(super) struct InstalledIssuer {
     pub(super) executable: PathBuf,
     pub(super) generation: u64,
 }
+/// Bytes are built and signed as a standalone CLI before Root is signed. Root's
+/// signature seals these bytes; copying Root itself loses its signed Info.plist.
+fn bundled_issuer_source() -> Result<&'static [u8]> {
+    #[cfg(blackcrab_bundled_service_issuer)]
+    { Ok(include_bytes!(env!("BLACKCRAB_SERVICE_ISSUER_PATH"))) }
+    #[cfg(not(blackcrab_bundled_service_issuer))]
+    { Err("This build is missing its standalone background-service helper".into()) }
+}
 /// Publication neither migrates Direct ownership nor enables an OS unit.
-/// Actual current_exe and compiled Host pin are the only executable/artifact inputs.
 pub(super) fn publish_current_issuer(host: &ManagedHost) -> Result<InstalledIssuer> {
     let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256").ok_or_else(invalid)?;
-    let executable = std::env::current_exe().map_err(|_| invalid())?;
-    publish_verified_current(host, &executable, expected)
+    publish_verified_source(host, bundled_issuer_source()?, expected)
 }
-fn publish_verified_current(
-    host: &ManagedHost,
-    actual_executable: &Path,
-    expected: &str,
-) -> Result<InstalledIssuer> {
-    // Private implementation receives current_exe only; not exposed to renderer/CLI.
-    if !hex_digest(expected) {
+#[cfg(test)]
+fn publish_verified_current(host: &ManagedHost, actual_executable: &Path, expected: &str) -> Result<InstalledIssuer> {
+    let source = private_or_public_regular(actual_executable, 256 * 1024 * 1024)?;
+    publish_verified_source(host, &source, expected)
+}
+fn publish_verified_source(host: &ManagedHost, source: &[u8], expected: &str) -> Result<InstalledIssuer> {
+    if !hex_digest(expected) || source.is_empty() || source.len() > 256 * 1024 * 1024 {
         return Err(invalid());
     }
     managed_payload::private_dir(&host.root).map_err(|_| invalid())?;
     if host.root.canonicalize().map_err(|_| invalid())? != host.root
         || private_bytes(&host.root.join(".blackcrab-managed-host"), 64)? != MARKER.as_bytes()
-    {
-        return Err(invalid());
-    }
-    let _service = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true)
-        .map_err(|_| invalid())?;
-    let _transaction = managed_payload::owned_lock(&host.root.join("launcher.lock"), true)
-        .map_err(|_| invalid())?;
-    if fs::symlink_metadata(host.root.join(BINDING)).is_ok() {
-        return Err(invalid());
-    }
+    { return Err(invalid()); }
+    let _service = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true).map_err(|_| invalid())?;
+    let _transaction = managed_payload::owned_lock(&host.root.join("launcher.lock"), true).map_err(|_| invalid())?;
+    if fs::symlink_metadata(host.root.join(BINDING)).is_ok() { return Err(invalid()); }
     let config = host.read_config()?.ok_or_else(invalid)?;
-    // Never convert a Direct config, even if its runtime record looks stopped.
-    if config.ownership != OwnershipMode::Service || config.manifest_digest != expected {
-        return Err(invalid());
-    }
-    let source = private_or_public_regular(actual_executable, 256 * 1024 * 1024)?;
-    let self_sha = format!("{:x}", Sha256::digest(&source));
+    if config.ownership != OwnershipMode::Service || config.manifest_digest != expected { return Err(invalid()); }
+    let self_sha = format!("{:x}", Sha256::digest(source));
     let mut entropy = [0u8; 8];
     getrandom::getrandom(&mut entropy).map_err(|_| invalid())?;
     let generation = generation_from_entropy(entropy);
-    let binding = Binding {
-        schema: 1,
-        self_sha256: self_sha.clone(),
-        manifest_sha256: expected.into(),
-        generation,
-        environment_id: config.environment_id.clone().ok_or_else(invalid)?,
-        version: "0.1.7".into(),
-    };
+    let binding = Binding { schema: 1, self_sha256: self_sha.clone(), manifest_sha256: expected.into(),
+        generation, environment_id: config.environment_id.clone().ok_or_else(invalid)?, version: "0.1.7".into() };
     verify_payload_config(host, &binding)?;
+    let installed = install_issuer_copy(host, source, &self_sha)?;
+    verify_payload_config(host, &binding)?;
+    verify_installed_copy(installed.parent().ok_or_else(invalid)?, &installed, &self_sha)?;
+    publish_binding(host, &binding, false)?;
+    Ok(InstalledIssuer { executable: installed, generation })
+}
+fn install_issuer_copy(host: &ManagedHost, source: &[u8], self_sha: &str) -> Result<PathBuf> {
     let issuer = host.root.join("issuer");
     private_directory_new_or_existing(&issuer)?;
-    let target = issuer.join(&self_sha);
+    let target = issuer.join(self_sha);
     let installed = target.join("blackcrab-issuer");
     if fs::symlink_metadata(&target).is_ok() {
-        verify_installed_copy(&target, &installed, &self_sha)?;
+        verify_installed_copy(&target, &installed, self_sha)?;
     } else {
         let stage = issuer.join(format!(".native-issuer-{}", super::random_secret()?));
         fs::DirBuilder::new()
@@ -610,10 +607,10 @@ fn publish_verified_current(
                 .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
                 .open(stage.join("blackcrab-issuer"))
                 .map_err(|_| invalid())?;
-            file.write_all(&source)
+            file.write_all(source)
                 .and_then(|_| file.sync_all())
                 .map_err(|_| invalid())?;
-            verify_installed_copy(&stage, &stage.join("blackcrab-issuer"), &self_sha)?;
+            verify_installed_copy(&stage, &stage.join("blackcrab-issuer"), self_sha)?;
             File::open(&stage)
                 .and_then(|f| f.sync_all())
                 .map_err(|_| invalid())?;
@@ -627,28 +624,43 @@ fn publish_verified_current(
         }
         outcome?;
     }
-    // Reverify payload/config immediately before no-overwrite binding publication.
-    verify_payload_config(host, &binding)?;
-    verify_installed_copy(&target, &installed, &self_sha)?;
-    let temp = host
-        .root
-        .join(format!(".issuer-binding-{}", super::random_secret()?));
-    super::write_new(&temp, &serde_json::to_vec(&binding).map_err(|_| invalid())?)?;
+    Ok(installed)
+}
+fn publish_binding(host: &ManagedHost, binding: &Binding, replace: bool) -> Result<()> {
+    let temp = host.root.join(format!(".issuer-binding-{}", super::random_secret()?));
+    super::write_new(&temp, &serde_json::to_vec(binding).map_err(|_| invalid())?)?;
     let outcome = (|| {
-        managed_payload::publish_no_replace(&temp, &host.root.join(BINDING))
-            .map_err(|_| invalid())?;
-        File::open(&host.root)
-            .and_then(|f| f.sync_all())
-            .map_err(|_| invalid())
+        if replace {
+            fs::rename(&temp, host.root.join(BINDING)).map_err(|_| invalid())?;
+        } else {
+            managed_payload::publish_no_replace(&temp, &host.root.join(BINDING)).map_err(|_| invalid())?;
+        }
+        File::open(&host.root).and_then(|f| f.sync_all()).map_err(|_| invalid())
     })();
-    if temp.exists() {
-        let _ = fs::remove_file(&temp);
+    if temp.exists() { let _ = fs::remove_file(&temp); }
+    outcome
+}
+/// Called only by explicit install/start/restart after launchd confirms stopped.
+/// Keep the selected environment, generation, service unit and journal unchanged.
+/// Never repair an active or uncertain same-boot session, or migrate Direct data.
+pub(super) fn refresh_bundled_issuer(host: &ManagedHost, config: &Configuration) -> Result<()> {
+    #[cfg(not(blackcrab_bundled_service_issuer))]
+    { let _ = (host, config); return Ok(()); }
+    #[cfg(blackcrab_bundled_service_issuer)]
+    {
+        let source = bundled_issuer_source()?;
+        let _service = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true).map_err(|_| invalid())?;
+        let _transaction = managed_payload::owned_lock(&host.root.join("launcher.lock"), true).map_err(|_| invalid())?;
+        let mut binding = attachment_binding(host, config)?;
+        stopped_control_journal(read_journal(&host.root)?.as_ref(), binding.generation, &boot_session::read_boot_session_id()?)?;
+        let next_sha = format!("{:x}", Sha256::digest(source));
+        if binding.self_sha256 == next_sha { return Ok(()); }
+        let installed = install_issuer_copy(host, source, &next_sha)?;
+        verify_selection(host, &binding)?;
+        verify_installed_copy(installed.parent().ok_or_else(invalid)?, &installed, &next_sha)?;
+        binding.self_sha256 = next_sha;
+        publish_binding(host, &binding, true)
     }
-    outcome?;
-    Ok(InstalledIssuer {
-        executable: installed,
-        generation,
-    })
 }
 fn private_directory_new_or_existing(path: &Path) -> Result<()> {
     match fs::symlink_metadata(path) {
@@ -1497,6 +1509,68 @@ mod tests {
             Some(Instant::now() - Duration::from_secs(1))
         )
         .is_err());
+    }
+    #[cfg(all(target_os = "macos", blackcrab_bundled_service_issuer))]
+    #[tokio::test]
+    #[ignore = "requires signed standalone helper, real bundled host archive and a fresh private test root; no OS service activation"]
+    async fn production_standalone_helper_and_stopped_upgrade() {
+        use std::process::{Command, Stdio};
+        let root = PathBuf::from(std::env::var_os("BLACKCRAB_SERVICE_ISSUER_TEST_ROOT").unwrap());
+        assert_eq!(root.canonicalize().unwrap(), root);
+        managed_payload::private_dir(&root).unwrap();
+        assert!(fs::read_dir(&root).unwrap().next().is_none());
+        let archive = PathBuf::from(std::env::var_os("BLACKCRAB_TEST_HOST_ARCHIVE").unwrap());
+        let payload = managed_payload::EmbeddedPayload::new(managed_payload::PayloadRole::Host,
+            archive, std::env::var("BLACKCRAB_TEST_HOST_ARCHIVE_SHA256").unwrap(),
+            option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256").unwrap().into(), root.join("cache")).unwrap();
+        let host = ManagedHost::new(root.join("owner")).with_bundled_payload(payload);
+        host.initialize_service().await.unwrap();
+        let config = host.read_config().unwrap().unwrap();
+        let config_bytes = fs::read(host.root.join("configuration.json")).unwrap();
+        let original = attachment_binding(&host, &config).unwrap();
+        assert!(!host.root.join(JOURNAL).exists());
+        // Reproduce the exact 0.4.1 copied app-binary layout in isolated data.
+        let old_root = PathBuf::from(std::env::var_os("BLACKCRAB_TEST_LEGACY_ROOT_EXECUTABLE").unwrap());
+        let old_bytes = private_or_public_regular(&old_root, 256 * 1024 * 1024).unwrap();
+        let old_sha = format!("{:x}", Sha256::digest(&old_bytes));
+        let old_file = install_issuer_copy(&host, &old_bytes, &old_sha).unwrap();
+        let mut old = original; old.self_sha256 = old_sha;
+        publish_binding(&host, &old, true).unwrap();
+        let old_binding_bytes = fs::read(host.root.join(BINDING)).unwrap();
+        let active_lease = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true).unwrap();
+        assert!(refresh_bundled_issuer(&host, &config).is_err());
+        assert_eq!(fs::read(host.root.join(BINDING)).unwrap(), old_binding_bytes);
+        drop(active_lease);
+        refresh_bundled_issuer(&host, &config).unwrap();
+        let updated = attachment_binding(&host, &config).unwrap();
+        assert_ne!(updated.self_sha256, old.self_sha256);
+        assert_eq!(updated.generation, old.generation);
+        assert_eq!(updated.environment_id, old.environment_id);
+        assert_eq!(fs::read(host.root.join("configuration.json")).unwrap(), config_bytes);
+        assert_eq!(fs::read(old_file).unwrap(), old_bytes);
+        assert!(!host.root.join(JOURNAL).exists());
+        let executable = host.root.join("issuer").join(&updated.self_sha256).join("blackcrab-issuer");
+        assert!(Command::new("/usr/bin/codesign").args(["--verify", "--strict"]).arg(&executable).status().unwrap().success());
+        let mut child = Command::new(&executable).arg("__blackcrab-service-issuer-v1")
+            .env_clear().env("PATH", "/usr/bin:/bin").current_dir(&host.root)
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+        // The private protocol requires pipes/sockets; close our captured input
+        // pipe for clean EOF rather than substituting /dev/null (a character device).
+        drop(child.stdin.take());
+        let deadline = Instant::now() + Duration::from_secs(150);
+        loop {
+            if child.try_wait().unwrap().is_some() { break; }
+            if Instant::now() >= deadline { child.kill().unwrap(); child.wait().unwrap(); panic!("Captured issuer preflight timed out"); }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        let output = child.wait_with_output().unwrap();
+        assert!(output.status.success(), "Captured standalone issuer did not exit cleanly");
+        let ready: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(ready["type"], "ready");
+        assert_eq!(ready["generation"], updated.generation);
+        assert!(output.stderr.is_empty());
+        assert!(!host.root.join(JOURNAL).exists());
+        println!("Standalone Developer ID helper passed real private readiness and clean EOF; stopped upgrade retained configuration/generation; zero auth requests or provider commands");
     }
     #[test]
     fn native_binding_publication_never_migrates_direct_or_replaces_binding() {

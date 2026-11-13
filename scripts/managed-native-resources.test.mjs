@@ -34,7 +34,7 @@ test('resource flags are consumed without changing ordinary Tauri arguments',()=
  for(const args of [['--managed-host'],['--managed-desktop','--signed'],['--managed-host','a','--managed-host','b']])assert.throws(()=>parseManagedResourceArgs(args));
 });
 test('absent flags clear inherited trust hashes while preserving unrelated environment',async()=>{
- const result=await prepareManagedNativeResources({env:{KEEP:'yes',BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256:'stale',BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256:'stale',BLACKCRAB_EMBEDDED_DESKTOP_ARCHIVE_SHA256:'stale',BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256:'stale'}});
+ const result=await prepareManagedNativeResources({env:{KEEP:'yes',BLACKCRAB_SERVICE_ISSUER_PATH:'/stale/helper',BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256:'stale',BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256:'stale',BLACKCRAB_EMBEDDED_DESKTOP_ARCHIVE_SHA256:'stale',BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256:'stale'}});
  assert.deepEqual(result.env,{KEEP:'yes'});assert.deepEqual(result.config.bundle.resources,{});
 });
 test('verified host mapping pins actual manifest bytes and rejects content/source tampering',async t=>{

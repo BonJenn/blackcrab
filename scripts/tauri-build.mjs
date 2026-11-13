@@ -6,6 +6,7 @@ import path from "node:path";
 import { parseManagedResourceArgs, prepareManagedNativeResources } from "./managed-native-resources.mjs";
 import { verifyManagedReleasePayloads } from "./macos-release/verify-payloads.mjs";
 import { checkTauriVersions } from "./check-tauri-versions.mjs";
+import { prepareServiceIssuer } from "./prepare-service-issuer.mjs";
 
 const managed = parseManagedResourceArgs(process.argv.slice(2));
 const rawArgs = managed.args;
@@ -174,6 +175,19 @@ const embedded = await prepareManagedNativeResources({
 if (managed.desktop !== undefined || managed.host !== undefined || managed.serviceHost !== undefined) {
   tauriArgs.push("--config", JSON.stringify(embedded.config));
 }
+let issuer;
+try {
+  if (managed.serviceHost !== undefined) {
+    issuer = await prepareServiceIssuer({env: embedded.env, target: buildTarget, signed: mode === "signed"});
+    embedded.env.BLACKCRAB_SERVICE_ISSUER_PATH = issuer.path;
+    console.log(JSON.stringify({step: "standalone-service-helper", sha256: issuer.sha256,
+      notarizationSubmissionId: issuer.notarizationSubmissionId, signed: mode === "signed"}));
+  }
+} catch (error) {
+  await embedded.cleanup();
+  throw error;
+}
+const cleanup = async () => { await issuer?.cleanup(); await embedded.cleanup(); };
 const bin = process.platform === "win32" ? "npx.cmd" : "npx";
 const child = spawn(bin, tauriArgs, {
   stdio: "inherit",
@@ -192,14 +206,14 @@ function stopForwardingSignals() {
 
 child.on("error", async (err) => {
   stopForwardingSignals();
-  await embedded.cleanup();
+  await cleanup();
   console.error(`failed to run ${bin}: ${err.message}`);
   process.exit(1);
 });
 
 child.on("exit", async (code, signal) => {
   stopForwardingSignals();
-  await embedded.cleanup();
+  await cleanup();
   if (signal) {
     process.kill(process.pid, signal);
     return;

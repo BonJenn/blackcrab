@@ -3,7 +3,7 @@ import { managedNativeDesktopClient, type ManagedNativeDesktopClient, type Manag
 import "./ManagedWorkspaceEntry.css";
 const labels: Record<ManagedNativeDesktopStatus["state"], string> = {
   notBundled: "Full desktop is unavailable in this installation.",
-  ready: "Full desktop is ready to open.", running: "Full desktop is running.",
+  ready: "Full desktop is ready to open. Enable or start the background service first if it is not running.", running: "Full desktop is running.",
   unsupported: "Full desktop is unavailable on this platform.", unavailable: "Full desktop is unavailable.",
 };
 function errorText(error: unknown): string {

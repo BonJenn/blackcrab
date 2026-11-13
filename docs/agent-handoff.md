@@ -1,10 +1,67 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.1 and website published, owner test pending
+## Current checkpoint — 0.4.1 failure reproduced; standalone service helper fix
 
-This checkpoint controls continuation. Everything under Historical checkpoints
-below preserves earlier evidence; its old statements about active PRs, shell
-handles, pending authorizations and next steps are not current instructions.
+The owner reports 0.4.1 still cannot open Full desktop. Native CUA reproduced it
+in the actual 0.4.1 DMG app on this Mac: Refresh makes desktop ready; Open returns
+unavailable. The packaged desktop passed real native extraction/verification.
+The fresh host had no configuration. Full desktop swallowed the instruction to
+enable the background service. Enabling it through the actual app then exposed a
+second failure: the service launcher repeatedly reported bootstrap unavailable.
+
+The installed issuer was an exact copy of Root's signed app executable outside
+its app bundle. `codesign --verify --strict` reports invalid Info.plist; an owned
+preflight child exited by SIGKILL before emitting anything. This is a concrete
+signed-package defect, not a missing archive or a cache-permission guess.
+
+Worktree: REL/desktop-launch-041-fix, branch fix/native-desktop-launch-041,
+base stage 0606456e2d9cb3274901266e5b89d6d70ad34047. REL means
+/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Live evidence/handles: REL/desktop-launch-041-diagnosis/plan.json. Read it before
+resuming anything. The main checkout/index and the published source are untouched.
+
+The candidate adds a dedicated CLI helper, signs/notarizes it independently,
+and embeds those signed bytes into Root. Root's signature protects the embedded
+helper; the installed standalone copy no longer depends on an app Info.plist.
+Explicit install/start/restart may refresh an inactive owned helper while keeping
+configuration, environment, generation and journal. Active/uncertain sessions
+and Direct ownership remain protected. The native Open response keeps retry
+available and gives fixed service setup/start instructions. A primary toolbar
+button opens a modal containing service setup and Full desktop together.
+
+The new 2.3 MB standalone helper passes Developer ID verification and executes
+its CLI argument validation. The corrected opt-in native regression also PASSED:
+fresh real runtime setup, old-helper replacement, active-owner refusal, unchanged
+configuration/generation, strict relocated signature, real readiness and clean EOF.
+It sent zero authorization frames/provider commands and installed no OS service.
+See standalone-acceptance-result.json and standalone-acceptance.log. The standalone
+helper still needs production notarization in the release pipeline; full Root UI
+acceptance is separate. No corrected release has been published. Preserve v0.4.0/v0.4.1 tags/assets and website history.
+
+During diagnosis the fresh service was enabled through UI, then stopped through
+UI after its repeated failure. Its stopped/unloaded LaunchAgent was verified and
+archived outside LaunchAgents to prevent another broken retry at login. The
+workspace/configuration remain intact for the product upgrade path. See
+service-test-cleanup.json; no discovered PID was killed. Native CUA later returned
+cgWindowNotFound again. Do not infer that the app closed or that UI passed.
+
+Final local checks passed: 34 native unit tests (7 entry, 21 issuer, 6 service
+control), 16 Node tests (3 native opt-ins explicitly skipped), the 12 focused
+renderer tests, TypeScript and the production web build. The real native opt-in
+readiness/upgrade regression passed separately. No build or test handle remains
+active. Inspect plan.json for the corrective PR/head after publication.
+
+Next: commit/create the corrective PR, inspect/merge it after CI, deliver a new
+signed and notarized patch, and verify actual service startup + Full desktop opening. Then
+continue the parity ledger. Finish line remains validated parity, a normal usable
+installed Mac app and owner TestFlight availability. TestFlight 1.0.0 (4) exists;
+mobile/hosted runtime acceptance and commercial-service work are still pending.
+
+## Historical checkpoint — 0.4.1 publication before owner failure
+
+This historical checkpoint preserves the earlier publication evidence. Its old
+statements about active PRs, shell handles, pending authorizations and next steps
+are not current instructions. The Current checkpoint above controls continuation.
 
 PR270 (native availability detection/startup diagnostics) and PR271 (0.4.1
 preparation) each passed nine checks, merged into stage and were unwatched.

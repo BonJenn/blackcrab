@@ -57,6 +57,7 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
  delete nextEnv.BLACKCRAB_EMBEDDED_DESKTOP_ARCHIVE_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE;
+ delete nextEnv.BLACKCRAB_SERVICE_ISSUER_PATH;
  const resources={};
  let stage;
  const cleanup=async()=>{if(stage)await fs.rm(stage,{recursive:true,force:true});};

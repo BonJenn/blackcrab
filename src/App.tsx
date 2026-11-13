@@ -35,6 +35,7 @@ import { usePanelQueue } from "./usePanelQueue";
 import type { CodexActivity } from "./CodexConversation";
 import { DesktopProviderViews } from "./DesktopProviderViews";
 import { ManagedWorkspaceEntry } from "./ManagedWorkspaceEntry";
+import { ManagedDesktopDialog } from "./ManagedDesktopDialog";
 import { ProviderSwitcher } from "./ProviderSwitcher";
 import { readDesktopProvider, saveDesktopProvider, type DesktopProvider } from "./desktopProvider";
 import {
@@ -1332,6 +1333,7 @@ function App() {
   );
   const appLaunchTrackedRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [desktopEntryOpen, setDesktopEntryOpen] = useState(false);
   const [cwd, setCwd] = useState<string>(() => appSettings.startupCwd);
   const [desktopProvider, setDesktopProvider] = useState<DesktopProvider>(() => readDesktopProvider(localStorage));
   const [providerSaveError, setProviderSaveError] = useState<string | null>(null);
@@ -5824,6 +5826,7 @@ function App() {
           ]}
         />
       )}
+      {desktopEntryOpen && <ManagedDesktopDialog onClose={() => setDesktopEntryOpen(false)} />}
       {settingsOpen && (
         <SettingsModal
           settings={appSettings}
@@ -5985,7 +5988,7 @@ function App() {
           onCancel={() => setRenamePrompt(null)}
         />
       )}
-      <DesktopProviderViews provider={desktopProvider} defaultCwd={cwd} onChange={chooseDesktopProvider} onCodexActivity={setCodexActivity} error={providerSaveError}>
+      <DesktopProviderViews provider={desktopProvider} defaultCwd={cwd} onChange={chooseDesktopProvider} onCodexActivity={setCodexActivity} onOpenDesktop={() => setDesktopEntryOpen(true)} error={providerSaveError}>
       <Sidebar
         sessions={sessions}
         activeId={sidebarActiveId}
@@ -6020,6 +6023,9 @@ function App() {
             <img className="brand-logo" src={blackcrabLogo} alt="" aria-hidden="true" />
             <span>Blackcrab</span>
           </div>
+          <button type="button" className="btn btn-primary" onClick={() => setDesktopEntryOpen(true)}>
+            Full desktop
+          </button>
           <button
             type="button"
             className="command-chip"

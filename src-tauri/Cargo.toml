@@ -8,10 +8,17 @@ repository = "https://github.com/BonJenn/blackcrab"
 homepage = "https://github.com/BonJenn/blackcrab"
 readme = "../README.md"
 edition = "2021"
+default-run = "blackcrab"
 
 [features]
 managed-bridge-qa = []
 managed-entry-qa = []
+service-issuer = []
+
+[[bin]]
+name = "blackcrab-service-issuer"
+path = "src/service_issuer_main.rs"
+required-features = ["service-issuer"]
 
 [lib]
 name = "blackcrab_lib"

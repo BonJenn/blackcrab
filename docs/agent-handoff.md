@@ -21,8 +21,15 @@ source tests do not establish native prompt acceptance. Public 0.4.2 is unchange
 
 Active owned worktree: REL/macos-native-identity; base stage 20bea615 (PR282 merged,
 all nine checks passed, watch removed). Evidence: REL/macos-native-identity-validation.
-Both native/frontend test processes completed; no build or native app is running
-from this work. Next: finish separate imported-notification rendering, validate
+Both native/frontend test processes completed. Notification and pane follow-ups
+are implemented in REL/imported-task-notifications and REL/pane-toolbar-placement.
+Their combined pinned source passed full web/desktop types, 17 focused checks,
+and 4 Chromium behavior cases (2 notifications, 2 six-pane hit-area scenarios).
+All 346 patch records / 301 final targets were verified; 40 unrelated timeline
+cases were filtered out. Browser setup initially failed on relocated CommonJS
+cache shims; putting the unchanged copies under owned node_modules resolved it.
+All local processes completed; no app/provider was launched against user data.
+Next: finish separate imported-notification rendering, validate
 and merge coherent PRs, then implement cross-platform full-workspace packaging.
 Do not ship a root-only Windows/Linux app or claim the old 0.3.0 downloads are parity.
 

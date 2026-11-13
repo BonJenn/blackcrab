@@ -26,6 +26,23 @@ test('mobile links point to owned product information, never another app store l
  assert.match(s,/https:\/\/www\.blackcrab\.app\/docs/);
  assert.doesNotMatch(s,/t3-code-remote|com\.t3tools|Google Play|store: "App Store"/);
 });
+test('GitHub keeps CLI/token authentication without offering an unowned GitHub app',()=>{
+ const source=finalSource('packages/source-control-github/src/shared/definition.ts');
+ const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2023,module:ts.ModuleKind.CommonJS}}).outputText;
+ const exports={};
+ const fallback=new Proxy({}, {get:()=>()=>undefined});
+ new Function('exports','require',code)(exports,name=>{
+  if(name==='@t3tools/contracts')return {SourceControlProviderKind:{make:value=>value},makeProviderSettingsSchema:()=>({})};
+  if(name==='@t3tools/source-control-core/shared/definition')return new Proxy({defineSourceControl:value=>value},{get:(value,key)=>key in value?value[key]:fallback[key]});
+  return fallback;
+ });
+ const credentials=exports.definition.credentials;
+ assert.equal(credentials.loginCommand,'gh auth login');
+ assert.equal(credentials.tokenEnvVar,'GH_TOKEN');
+ assert.equal(credentials.newTokenUrl('github.com'),'https://github.com/settings/personal-access-tokens/new');
+ assert.equal(credentials.appSignIn,undefined);
+ assert.doesNotMatch(source,/T3 Code|t3-code-for-github/);
+});
 test('remaining UI copy changes retain executable identifiers except reviewed behavioral deltas',()=>{
  const structural=new Set(['apps/web/src/components/auth/ConnectAgentSurface.tsx','packages/client-runtime/src/relay/errorPresentation.ts','apps/web/src/components/settings/MobileAppSettingsRow.tsx','apps/web/src/components/HostedEmptyState.tsx']);
  const identifiers=s=>{const t=ts.createSourceFile('copy.tsx',s,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),a=[];function visit(n){if(ts.isIdentifier(n))a.push(n.text);ts.forEachChild(n,visit);}visit(t);return a;};

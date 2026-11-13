@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { prepareSource } from './source.mjs';
 import { readBlackcrabVersion } from './release-version.mjs';
+import { assertOwnedRendererCopy } from './renderer-branding.mjs';
 import { linkDependencyCache,stageRuntimeDependencies,collectDependencyNotices } from './dependencies.mjs';
 import { ELECTRON,UPSTREAM,MANIFEST,fileDigest,writeManifest,verifyArtifact,writeNativeKeychainQaManifest,verifyNativeKeychainQaArtifact } from './artifact.mjs';
 import { NAMESPACE } from './descriptor.mjs';
@@ -33,6 +34,7 @@ export async function buildManagedDesktop({archive,cacheDir,output,node,pnpm,ele
  const effectRuntime=await assertCanonicalEffect(source);
  for(const app of ['desktop','web'])await step(app+'-typecheck',node,[path.join(source,'node_modules/@effect/tsgo/dist/effect-tsgo.cjs'),'tsrs','--noEmit'],path.join(source,'apps',app));
  if(!await restoreWebCache(source,cacheDir,{cloud,appVersion})){await step('web',node,[path.join(source,'node_modules/vite-plus/bin/vp'),'build'],path.join(source,'apps/web'));await saveWebCache(source,cacheDir,{cloud,appVersion});}
+ await assertOwnedRendererCopy(path.join(source,'apps/web/dist'));
  const effectWeb=await assertBundleEffectSingleton(path.join(source,'apps/web/dist'),effectRuntime.root);
  await step('annotation-css',node,[path.join(source,'apps/desktop/scripts/build-preview-annotation-css.mjs')],path.join(source,'apps/desktop'));
  await step('desktop',node,[path.join(source,'node_modules/vite-plus/bin/vp'),'pack'],path.join(source,'apps/desktop'));

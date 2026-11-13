@@ -59,6 +59,13 @@ release and include it in web cache provenance. Each pane owns its composer ref;
 only the focused pane registers global commands. Folder locations must use the
 selected environment's filesystem, never assume the browser's host is the target.
 
+Audit the compiled renderer as well as component source: provider settings derive
+labels from shared schemas. renderer-branding.mjs runs on fresh and cached builds
+and on hosted web output. Keep GitHub CLI/token authentication; do not offer T3's
+GitHub app as if Blackcrab owned it. Historical profile names and CLI ownership
+markers are compatibility data. Host-generated status and agent instructions need
+their own service source audit; changing the client alone does not change them.
+
 ## Polished 0.4.2 source integrated
 
 PR277–279 are merged at 1140889d5a6730d336b6f1a16347d2d1d33ca82c. Source types and

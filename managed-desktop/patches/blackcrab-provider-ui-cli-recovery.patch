@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/app/DesktopCliShim.ts
++++ b/apps/desktop/src/app/DesktopCliShim.ts
+@@ -18,7 +18,7 @@
+ const cmdText = (value: string) => value.replaceAll("%", "%%");
+ const cmdWord = (value: string) => `"${cmdText(value)}"`;
+ 
+-const MOVED = "T3 Code has moved or been removed. Open the app once to update this command.";
++const MOVED = "Blackcrab has moved or been removed. Open the app once to update this command.";
+ 
+ export type CliShimTarget =
+   | { readonly kind: "appimage"; readonly appImage: string; readonly executableName: string }

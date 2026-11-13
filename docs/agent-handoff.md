@@ -1,5 +1,23 @@
 # Blackcrab parity and release handoff
 
+## Owner's first 0.4.0 test — desktop entry is not discoverable
+
+The owner updated, then deleted/redownloaded the app, and reports that Settings
+shows version 0.4 but the app looks like the previous version. Inspection of the
+published caf57b6 source confirms that startup still opens the original Root
+interface. The new native desktop is reached only through Settings, below Claude:
+Full desktop → Open full desktop. Background-service controls are immediately
+above it. This is an integration/discoverability issue; reinstalling does not
+change the default entry. Do not misdiagnose it as an old download based on looks.
+
+The published artifact contains both verified desktop and service payloads, but
+their presence does not establish that the new workspace opens on the owner's
+Mac. No successful Full desktop launch, service setup or upgrade-retention result
+has yet been reported by the owner. Explain the actual entry path, investigate
+any launch error, and make the managed desktop accessible from the primary app
+experience while preserving legacy sessions. Any code fix needs a new release;
+do not replace the public 0.4.0 assets or mark full parity complete.
+
 ## Current continuation checkpoint — Mac 0.4.0 and website published
 
 On November 12, 2026 Pacific (November 13 UTC), the authorized Apple-silicon

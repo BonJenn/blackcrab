@@ -5,6 +5,14 @@ docs/agent-handoff.md (current checkpoint first), the parity plan and ledger.
 The owner authorized publication before their manual Mac UI/service/upgrade tests.
 Do not repeat release setup or claim full parity/manual acceptance/installation.
 
+Latest owner feedback: an update and fresh download both show version 0.4 in
+Settings but look unchanged. Published source confirms the old Root UI remains
+the startup screen; the new client is only under Settings, below Claude, at
+Full desktop → Open full desktop, with Background service just above it. This
+entry is not discoverable. Explain it and prioritize the primary entry/launch
+integration. A successful new-workspace launch on the owner's Mac is not yet
+reported. Do not equate verified bundled payloads with accepted runtime behavior.
+
 Public release: https://github.com/BonJenn/blackcrab/releases/tag/v0.4.0
 Source/tag: caf57b6fab1b4391836c6635882a15a88edfac0d, after merged PR267/268,
 each with nine passed checks. Workflow 43337173131 succeeded. Actual app/DMG

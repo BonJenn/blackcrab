@@ -40,6 +40,15 @@ because the reviewed dependency cache uses workspace symlinks; no UI logic is
 replaced by that harness. The actual palette integration test is also being run;
 see the live plan for its final result and PR number.
 
+External volumes are in PR278 (branch fix/workspace-volume-picker-042, head
+1bf69d86c8d971fa342143a4df1fbe106fa4f43e), based on stage. Pane fix branch:
+fix/workspace-pane-attachments-042, stacked on PR278. Each ChatView now owns its
+composer handle and provides it to its descendants; only the focused pane registers
+for global commands. File drops focus their destination and stop bubbling. Full
+web types, the existing two transfer-splitting tests and the real-browser three-pane
+regression pass, including focus changes and unmount cleanup. Keep the original
+production service artifact/pin when rebuilding; these are client-only changes.
+
 Next: finish and validate these three fixes in separate coherent PRs, merge to
 stage, rebuild the exact source, then complete native lifecycle/installation and
 publish Mac/website updates. Full parity is not certified. TestFlight 1.0.0 (4)

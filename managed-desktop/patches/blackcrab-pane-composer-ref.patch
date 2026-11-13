@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/chat/ChatComposer.tsx
++++ b/apps/web/src/components/chat/ChatComposer.tsx
+@@ -458,7 +458,7 @@
+   composerImagesRef: React.RefObject<ComposerImageAttachment[]>;
+   composerFilesRef: React.RefObject<ComposerFileAttachment[]>;
+   composerTerminalContextsRef: React.RefObject<TerminalContextDraft[]>;
+-  composerRef: React.RefObject<ChatComposerHandle | null>;
++  composerRef: React.Ref<ChatComposerHandle>;
+   onPageScrollKeyDown: (key: "PageUp" | "PageDown") => void;
+   onPageScrollKeyUp: (key: string) => void;
+   onPageScrollRelease: () => void;

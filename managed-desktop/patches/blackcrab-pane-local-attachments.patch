@@ -1,0 +1,54 @@
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -348,7 +348,8 @@
+   shouldRefocusComposerOnWindowFocus,
+ } from "./ChatView.logic";
+ import { useLocalStorage } from "~/hooks/useLocalStorage";
+-import { useComposerHandleContext } from "../composerHandleContext";
++import { ComposerHandleContext } from "../composerHandleContext";
++import { useScopedComposerHandle } from "./chat/useScopedComposerHandle";
+ import { clampFileAttachmentUploadBytes } from "@t3tools/client-runtime/state/attachments";
+ import { appAtomRegistry } from "../rpc/atomRegistry";
+ import { assetEnvironment } from "../state/assets";
+@@ -503,8 +504,7 @@
+           lastVisitedAt: fallbackLastVisitedAt,
+         });
+   const promptRef = useRef("");
+-  const localComposerRef = useRef<ChatComposerHandle | null>(null);
+-  const composerRef = useComposerHandleContext() ?? localComposerRef;
++  const { composerRef, setComposerHandle } = useScopedComposerHandle(!globalQuiet);
+   const queuedRunEdit = useQueuedRunEdit({
+     environmentId,
+     routeThreadRef,
+@@ -3635,7 +3635,7 @@
+                                     .requiredWorktreeBootstrap === true
+                                 }
+                                 onMultipleModelSelectionsChange={setMultipleModelSelectionsStable}
+-                                composerRef={composerRef}
++                                composerRef={setComposerHandle}
+                                 composerDraftTarget={composerDraftTarget}
+                                 environmentId={environmentId}
+                                 attachmentUploadsCapabilityKnown={attachmentUploadsCapabilityKnown}
+@@ -4072,13 +4072,15 @@
+     </div>
+   );
+   return (
+-    <FileMetadataThreadProvider
+-      threadRef={activeThreadRef}
+-      cwd={activeWorkspaceRoot}
+-      checkpoints={serverProjection?.checkpoints}
+-    >
+-      {content}
+-    </FileMetadataThreadProvider>
++    <ComposerHandleContext value={composerRef}>
++      <FileMetadataThreadProvider
++        threadRef={activeThreadRef}
++        cwd={activeWorkspaceRoot}
++        checkpoints={serverProjection?.checkpoints}
++      >
++        {content}
++      </FileMetadataThreadProvider>
++    </ComposerHandleContext>
+   );
+ }
+ 

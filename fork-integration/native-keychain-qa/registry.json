@@ -5,7 +5,7 @@
     "repository": "BonJenn/t3code",
     "commit": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8"
   },
-  "productionDesktopRegistrySha256": "c475696d2922dcc0edf4b6b5a92adc2d2d8ee63bbfaa7c26a8420c09813b4125",
+  "productionDesktopRegistrySha256": "ca25e8c8df724165cde0557bcc7ce0970024cee1f0b573aaf002369cc057a799",
   "stagePredicate": {
     "fixture": "fixtures/updateChannels.before.ts",
     "sha256": "6d3892b81e5622234ab6948b138648e207b1b5a6837df726196a11697e5b3a44"

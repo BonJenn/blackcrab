@@ -1,0 +1,59 @@
+import { StrictMode, useImperativeHandle, useState } from "react";
+import { describe, expect, it, vi } from "vite-plus/test";
+import { render } from "../../../test/render";
+import { ComposerHandleContext, type ComposerHandleRef } from "../../composerHandleContext";
+import type { ChatComposerHandle } from "./ChatComposer";
+import { useScopedComposerHandle } from "./useScopedComposerHandle";
+import { makeWorkspaceFileDropHandlers } from "./workspaceFileDrop";
+
+function Pane(props: { id: string; active: boolean; receive: (files: File[]) => void }) {
+  const { composerRef, setComposerHandle } = useScopedComposerHandle(props.active);
+  useImperativeHandle(setComposerHandle, () => ({ addDroppedFiles: props.receive }) as ChatComposerHandle, [props.receive]);
+  const [dragging, setDragging] = useState(false);
+  const handlers = makeWorkspaceFileDropHandlers({
+    setDragActive: setDragging,
+    addFiles: files => composerRef.current?.addDroppedFiles(files),
+    addFolders: () => {},
+  });
+  return <div data-testid={props.id} data-dragging={dragging} {...handlers}>{props.id}</div>;
+}
+
+function imageDrop(element: Element, name: string) {
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(["test image"], name, { type: "image/png" }));
+  element.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+}
+
+describe("pane-local file drops", () => {
+  it("keeps drops in each of three panes, regardless of focus or mount order", async () => {
+    const global: ComposerHandleRef = { current: null };
+    const receive = [vi.fn(), vi.fn(), vi.fn()];
+    const outerDrop = vi.fn();
+    const view = (active: number, showRight = true) => <StrictMode><ComposerHandleContext value={global}>
+      <div onDrop={outerDrop}>
+        {receive.map((fn, index) => index === 2 && !showRight ? null :
+          <Pane key={index} id={`pane-${index}`} active={index === active} receive={fn} />)}
+      </div>
+    </ComposerHandleContext></StrictMode>;
+    const screen = await render(view(0));
+    for (const index of [0, 1, 2]) {
+      imageDrop(screen.getByTestId(`pane-${index}`).element(), `pane-${index}.png`);
+      expect(receive[index]).toHaveBeenCalledTimes(1);
+      expect(receive[index]!.mock.calls[0]![0][0].name).toBe(`pane-${index}.png`);
+    }
+    expect(outerDrop).not.toHaveBeenCalled();
+    global.current?.addDroppedFiles([new File([], "global-left.png")]);
+    expect(receive[0]).toHaveBeenCalledTimes(2);
+    expect(receive[2]).toHaveBeenCalledTimes(1);
+    await screen.rerender(view(1));
+    global.current?.addDroppedFiles([new File([], "global-middle.png")]);
+    expect(receive[1]).toHaveBeenCalledTimes(2);
+    await screen.rerender(view(1, false));
+    global.current?.addDroppedFiles([new File([], "after-right-unmount.png")]);
+    expect(receive[1]).toHaveBeenCalledTimes(3);
+    imageDrop(screen.getByTestId("pane-0").element(), "left-after-focus.png");
+    expect(receive[0]).toHaveBeenCalledTimes(3);
+    await screen.unmount();
+    expect(global.current).toBeNull();
+  });
+});

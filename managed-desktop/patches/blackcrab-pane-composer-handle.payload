@@ -1,0 +1,18 @@
+import { useCallback, useRef } from "react";
+import { useComposerHandleContext } from "../../composerHandleContext";
+import type { ChatComposerHandle } from "./ChatComposer";
+
+/** Every view owns attachment insertion; only the focused view owns global commands. */
+export function useScopedComposerHandle(active: boolean) {
+  const shared = useComposerHandleContext();
+  const composerRef = useRef<ChatComposerHandle | null>(null);
+  // A callback ref also re-registers on focus changes and composer remounts.
+  const setComposerHandle = useCallback((handle: ChatComposerHandle | null) => {
+    const previous = composerRef.current;
+    composerRef.current = handle;
+    if (!shared) return;
+    if (handle !== null && active) shared.current = handle;
+    else if (handle === null && shared.current === previous) shared.current = null;
+  }, [active, shared]);
+  return { composerRef, setComposerHandle };
+}

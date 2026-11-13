@@ -1,0 +1,19 @@
+import { describe, expect, it } from "vite-plus/test";
+import { folderLocations } from "./folderLocations";
+
+describe("folder location shortcuts", () => {
+  it("makes mounted Mac volumes discoverable without knowing their mount path", () => {
+    for (const platform of ["MacIntel", "darwin"]) {
+      expect(folderLocations(platform)).toEqual([
+        { label: "Home", path: "~/" },
+        { label: "External drives", path: "/Volumes/" },
+        { label: "Computer", path: "/" },
+      ]);
+    }
+  });
+  it("uses the target machine's platform rather than the browser's platform", () => {
+    expect(folderLocations("Linux").map(x => x.path)).toEqual(["~/", "/media/", "/mnt/", "/"]);
+    expect(folderLocations("Win32")).toEqual([{ label: "Home", path: "~/" }]);
+    expect(folderLocations("")).toEqual([{ label: "Home", path: "~/" }]);
+  });
+});

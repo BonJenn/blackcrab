@@ -8,7 +8,7 @@ image drops. Live work and handles: /Volumes/G-DRIVE PRO/Programming/.blackcrab-
 Current worktree is its sibling workspace-polish-042; prepared pinned source and
 validation are in workspace-polish-042-validation. Keep source deltas in the
 managed producer registry and test fresh application plus hosted patch layering.
-PR276 is merged/unwatched. Preserve the dirty main checkout and existing user data.
+PR276 and branding/version PR277 are merged; PR277 passed nine checks. Preserve the dirty main checkout and existing user data.
 The prior candidate and snapshots are in sole-workspace-042-delivery; first-launch
 identity/catalog hashes match. Native capture became available, then coordinate
 input lost its window; the owner is using the app. No provider commands were sent.

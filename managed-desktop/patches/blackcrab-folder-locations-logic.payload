@@ -1,0 +1,16 @@
+export interface FolderLocation {
+  readonly label: string;
+  readonly path: string;
+}
+
+/** Locations belong to the chosen environment, which may be a remote computer. */
+export function folderLocations(platform: string): ReadonlyArray<FolderLocation> {
+  const home = { label: "Home", path: "~/" };
+  if (/mac|darwin/i.test(platform)) {
+    return [home, { label: "External drives", path: "/Volumes/" }, { label: "Computer", path: "/" }];
+  }
+  if (/linux/i.test(platform)) {
+    return [home, { label: "Removable drives", path: "/media/" }, { label: "Mounted volumes", path: "/mnt/" }, { label: "Computer", path: "/" }];
+  }
+  return [home];
+}

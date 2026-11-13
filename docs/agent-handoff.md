@@ -27,6 +27,19 @@ each pane and register only the focused composer for global palette commands.
 The folder picker should expose Home, External drives (/Volumes on the selected
 Mac environment) and filesystem locations without typing hidden mount paths.
 
+Branding/version PR277 merged after all nine CI checks at
+cc2232b88d9077c06a18b4132d994bdfc6e148fc. The workspace producer now takes the
+Blackcrab release version for renderer/package/native metadata and web-cache identity.
+The external-volume change adds visible location shortcuts to the actual project
+picker and an explicit choose-folder action when creating a project. It preserves
+selected-environment routing and existing folder creation/conversation behavior.
+Local validation: 38 folder/palette logic tests, six patch-registry tests and full
+web types pass. The two real-browser shortcut tests pass. The browser harness needs
+explicit prebundling of both use-sync-external-store selector import spellings
+because the reviewed dependency cache uses workspace symlinks; no UI logic is
+replaced by that harness. The actual palette integration test is also being run;
+see the live plan for its final result and PR number.
+
 Next: finish and validate these three fixes in separate coherent PRs, merge to
 stage, rebuild the exact source, then complete native lifecycle/installation and
 publish Mac/website updates. Full parity is not certified. TestFlight 1.0.0 (4)

@@ -1,0 +1,72 @@
+--- a/apps/web/src/components/CommandPalette.tsx
++++ b/apps/web/src/components/CommandPalette.tsx
+@@ -1,3 +1,4 @@
++import { FolderLocationShortcuts } from "./FolderLocationShortcuts";
+ import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
+ import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
+ 
+@@ -2192,6 +2193,18 @@
+     );
+   };
+ 
++  const browseLocation = async (directory: string): Promise<void> => {
++    const nextQuery = getCloneDestinationPath(directory, pinnedCloneDirectoryName);
++    await browseNavigation.run(
++      () => prefetchBrowsePath(directory),
++      () => {
++        setHighlightedItemValue(null);
++        setQuery(nextQuery);
++        setBrowseGeneration(generation => generation + 1);
++      },
++    );
++  };
++
+   const browseUp = async (): Promise<void> => {
+     const parentPath = browsePath.parentPath;
+     if (parentPath === null) {
+@@ -2292,6 +2305,20 @@
+           value: "new-project-existing",
+           label: "",
+           items: [
++            {
++              kind: "action",
++              value: "new-project:choose-folder",
++              searchTerms: ["folder", "location", "external", "drive", "volume"],
++              title: "Choose a folder or external drive",
++              description: "Open a folder, or type a new folder name inside it",
++              icon: <FolderIcon className={ITEM_ICON_CLASS} />,
++              keepOpen: true,
++              run: async () => {
++                const environmentId = newProjectFlow.environmentId;
++                setNewProjectFlow(null);
++                await startAddProjectBrowse(environmentId);
++              },
++            },
+             {
+               kind: "action",
+               value: "new-project:existing",
+@@ -2821,7 +2848,7 @@
+         void handleOpenProjectFromFileManager();
+       }}
+     >
+-      {`Open in ${fileManagerName}`}
++      {`Choose folder in ${fileManagerName}…`}
+     </CommandFooterAction>
+   ) : isThreadSearchPending && !isLinkedThreadSearch && !isBrowsing ? (
+     // In the footer, so the list keeps its height while message results may
+@@ -2884,6 +2911,15 @@
+       showBackHint={isSubmenu}
+       value={query}
+     >
++      {isBrowsing && !relativePathNeedsActiveProject ? <FolderLocationShortcuts
++        platform={browseEnvironmentPlatform}
++        disabled={!canCreateProjectInEnvironment(browseEnvironment?.connection.phase) || isRemoteProjectPending}
++        onBrowse={directory => {
++          void browseLocation(directory).catch((error: unknown) => toastManager.add(stackedThreadToast({
++            type: "error", title: "Could not open location", description: errorMessage(error),
++          })));
++        }}
++      /> : null}
+       {newProjectPathPreview !== null ? (
+         <NewProjectSummary
+           name={newProjectName}

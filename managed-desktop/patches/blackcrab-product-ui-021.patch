@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/connection/compatibility.ts
++++ b/packages/client-runtime/src/connection/compatibility.ts
+@@ -23,7 +23,7 @@
+       })
+     : new ConnectionBlockedError({
+         reason: "unsupported",
+-        detail: `This client requires a newer server. Update T3 Code on ${descriptor.label} to connect.`,
++        detail: `This client requires a newer server. Update Blackcrab on ${descriptor.label} to connect.`,
+         ...(canSelfUpdate(descriptor) ? { serverUpdateRequired: true } : {}),
+       });
+ }

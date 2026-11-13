@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/app/DesktopCliCommand.test.ts
++++ b/apps/desktop/src/app/DesktopCliCommand.test.ts
+@@ -24,7 +24,7 @@
+     homeDirectory: input.home,
+     baseDir: input.baseDir,
+     stateDir: path.join(input.baseDir, "userdata"),
+-    serverRoot: "/opt/T3 Code/resources/app.asar",
++    serverRoot: "/opt/Blackcrab/resources/app.asar",
+     appImagePath: Option.none(),
+   } as unknown as DesktopEnvironment.DesktopEnvironment["Service"]);
+ 

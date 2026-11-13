@@ -48,3 +48,13 @@ existing adapters. Internal protocols, package names and upstream license notice
 retain their original identity. Do not rename compatibility keys as cosmetic work.
 Onboarding must direct users to Blackcrab Settings → Sharing & access rather than
 download/run the upstream T3 service. Assets use the already-owned packaged icon.
+
+## Owner workspace polish — 2026-11-13
+
+Audit visible strings in shared packages as well as desktop/web components. The
+Appearance theme label and About version escaped the first pass. Preserve saved
+IDs and legal attribution; remove upstream product/store links and subscription
+upsells. Derive renderer/package/native workspace version from the Blackcrab
+release and include it in web cache provenance. Each pane owns its composer ref;
+only the focused pane registers global commands. Folder locations must use the
+selected environment's filesystem, never assume the browser's host is the target.

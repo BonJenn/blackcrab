@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/updates/DesktopUpdates.test.ts
++++ b/apps/desktop/src/updates/DesktopUpdates.test.ts
+@@ -966,7 +966,7 @@
+ });
+ 
+ describe("DesktopUpdates under a managed policy", () => {
+-  const message = "Example Corp manages T3 Code updates.";
++  const message = "Example Corp manages Blackcrab updates.";
+   const managed = (
+     policy: Partial<DesktopUpdatePolicy.UpdatePolicy>,
+   ): DesktopUpdatePolicy.UpdatePolicy => ({

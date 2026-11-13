@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/settingsScopeNavigation.test.ts
++++ b/apps/web/src/components/settings/settingsScopeNavigation.test.ts
+@@ -16,7 +16,7 @@
+ const checkoutSearch = {
+   project: "repository:t3code",
+   machine: "remote-server",
+-  checkout: "remote-server:/home/user/T3 Code",
++  checkout: "remote-server:/home/user/Blackcrab",
+ };
+ 
+ function createSettingsRouter(initialEntry = "/settings/general") {

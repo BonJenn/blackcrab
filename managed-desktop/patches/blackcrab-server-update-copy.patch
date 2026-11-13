@@ -1,0 +1,31 @@
+--- a/apps/web/src/components/ServerUpdateAction.tsx
++++ b/apps/web/src/components/ServerUpdateAction.tsx
+@@ -162,7 +162,7 @@
+         description:
+           selfUpdate === "desktop-managed"
+             ? `Desktop app relaunched on ${result.value.targetVersion}.`
+-            : `Reconnected on t3@${result.value.targetVersion}.`,
++            : `Reconnected on server version ${result.value.targetVersion}.`,
+       });
+     }
+     return { status: "updated" };
+@@ -284,8 +284,8 @@
+           installation?.kind === "npm-global" ? "Update command copied" : "Relaunch command copied",
+         description:
+           installation?.kind === "npm-global"
+-            ? `Run \`${command}\` on ${serverLabel}, then restart t3 with your usual options.`
+-            : `Stop t3 on ${serverLabel}, then relaunch with \`${command}\` using the same subcommand and options. This does not update an installed t3 command.`,
++            ? `Run \`${command}\` on ${serverLabel}, then restart the server with your usual options.`
++            : `Stop the server on ${serverLabel}, then relaunch with \`${command}\` using the same subcommand and options. This does not update an installed command-line launcher.`,
+       });
+     },
+     onError: (error) => {
+@@ -431,7 +431,7 @@
+     toastManager.add({
+       type: "success",
+       title: `${serverLabel} updated`,
+-      description: `Reconnected on t3@${result.value.targetVersion}.`,
++      description: `Reconnected on server version ${result.value.targetVersion}.`,
+     });
+   };
+   if (fromVersion !== undefined && crossesReleaseTrack(fromVersion, targetVersion)) {

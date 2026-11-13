@@ -1,0 +1,47 @@
+--- a/apps/web/src/components/settings/settingsSearch.ts
++++ b/apps/web/src/components/settings/settingsSearch.ts
+@@ -481,7 +481,7 @@
+     title: "Guest links",
+     to: "/settings/labs",
+     scope: "environment",
+-    searchTerms: ["beta share guest invite link teammate watch t3 connect tunnel"],
++    searchTerms: ["beta share guest invite link teammate watch blackcrab connect tunnel"],
+   },
+   {
+     id: "linked-environments-beta",
+@@ -823,7 +823,7 @@
+   },
+   {
+     id: "cli-command",
+-    title: "t3 command",
++    title: "Command-line launcher",
+     to: "/settings/about",
+     searchTerms: ["cli terminal shell path install command line"],
+     desktopOnly: true,
+@@ -1217,7 +1217,7 @@
+     title: "Blackcrab Connect",
+     to: "/settings/access",
+     targetId: "connections-environment",
+-    searchTerms: ["managed tunnel cloud other devices remote tunnels limit t3 chat"],
++    searchTerms: ["managed tunnel cloud other devices remote tunnels limit account"],
+     desktopOnly: true,
+     cloudOnly: true,
+   },
+@@ -1227,7 +1227,7 @@
+     title: "Hold webhooks while offline",
+     to: "/settings/access",
+     targetId: "connections-environment",
+-    searchTerms: ["webhook automations offline queue mailbox t3 connect"],
++    searchTerms: ["webhook automations offline queue mailbox blackcrab connect"],
+     cloudOnly: true,
+     managedTunnelOnly: true,
+   },
+@@ -1260,7 +1260,7 @@
+     id: "remote-environments",
+     title: "Environments",
+     to: "/settings/connections",
+-    searchTerms: ["add pair backend host code ssh config agent tunnel saved t3 connect"],
++    searchTerms: ["add pair backend host code ssh config agent tunnel saved blackcrab connect"],
+   },
+   {
+     id: "load-balancing",

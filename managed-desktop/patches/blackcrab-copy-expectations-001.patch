@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/CommandPalette.logic.test.ts
++++ b/apps/web/src/components/CommandPalette.logic.test.ts
+@@ -646,7 +646,7 @@
+     });
+     const items = buildThreadActionItems({
+       threads: [idThread, titleThread],
+-      projectByKey: new Map([[`${LOCAL_ENVIRONMENT_ID}:${PROJECT_ID}`, { title: "T3 Code" }]]),
++      projectByKey: new Map([[`${LOCAL_ENVIRONMENT_ID}:${PROJECT_ID}`, { title: "Blackcrab" }]]),
+       icon: null,
+       runThread: async (_thread) => undefined,
+     });

@@ -1,0 +1,29 @@
+--- a/packages/client-runtime/src/authorization/layer.test.ts
++++ b/packages/client-runtime/src/authorization/layer.test.ts
+@@ -215,7 +215,7 @@
+           ClientCapabilities.ClientPresentation,
+           ClientCapabilities.ClientPresentation.of({
+             metadata: {
+-              label: "T3 Code Test",
++              label: "Blackcrab Test",
+               deviceType: "mobile",
+               os: "test",
+             },
+@@ -418,7 +418,7 @@
+     }),
+   );
+ 
+-  it.effect("uses the T3 Connect token on a learned direct address without the relay", () =>
++  it.effect("uses the Blackcrab Connect token on a learned direct address without the relay", () =>
+     Effect.gen(function* () {
+       const cached = new TokenStore.RemoteDpopAccessToken({
+         environmentId: ENVIRONMENT_ID,
+@@ -594,7 +594,7 @@
+         for (const [, init] of exchanges) {
+           expect(Object.fromEntries(tokenFields(init))).toMatchObject({
+             subject_token: BOOTSTRAP.credential,
+-            client_label: "T3 Code Test",
++            client_label: "Blackcrab Test",
+             client_device_type: "mobile",
+             client_os: "test",
+           });

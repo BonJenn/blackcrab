@@ -1,0 +1,11 @@
+--- a/packages/shared/src/speech.test.ts
++++ b/packages/shared/src/speech.test.ts
+@@ -63,7 +63,7 @@
+     });
+     expect(resolved).toHaveLength(100);
+     expect(resolved.slice(0, 3)).toEqual([
+-      { term: "T3 Code", aliases: [] },
++      { term: "Blackcrab", aliases: [] },
+       { term: "effect", aliases: ["a fact"] },
+       { term: "word0", aliases: [] },
+     ]);

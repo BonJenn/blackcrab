@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/settings/LinkedEnvironmentsSettings.tsx
++++ b/apps/web/src/components/settings/LinkedEnvironmentsSettings.tsx
+@@ -325,7 +325,7 @@
+                   onChange={(event) => setPairingCode(event.target.value)}
+                   placeholder={
+                     machine === null
+-                      ? "From that environment's Connections, or t3 pair there"
++                      ? "From that environment’s Settings → Sharing & access"
+                       : "Paste the code"
+                   }
+                   disabled={busy}

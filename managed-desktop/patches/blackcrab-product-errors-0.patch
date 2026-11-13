@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/clerk/useT3ChatLink.ts
++++ b/apps/web/src/components/clerk/useT3ChatLink.ts
+@@ -31,7 +31,7 @@
+   });
+ }
+ 
+-/** Starts and removes the T3 Chat link that raises the Blackcrab Connect tunnel cap. */
++/** Starts and removes the subscription link that raises the Blackcrab Connect tunnel cap. */
+ export function useT3ChatLink() {
+   const linkState = useManagedRelayT3ChatLink();
+   const createLinkRequest = useAtomCommand(createManagedRelayT3ChatLinkRequestCommand, {
+@@ -67,7 +67,7 @@
+       setLinkUrl(null);
+       linkState.refresh();
+     } else if (!isAtomCommandInterrupted(result)) {
+-      reportFailure("Could not unlink T3 Chat", squashAtomCommandFailure(result));
++      reportFailure("Could not unlink subscription", squashAtomCommandFailure(result));
+     }
+     setPending(null);
+   };

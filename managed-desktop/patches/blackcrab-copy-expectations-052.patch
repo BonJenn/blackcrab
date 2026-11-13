@@ -1,0 +1,13 @@
+--- a/packages/client-runtime/src/userMessage.test.ts
++++ b/packages/client-runtime/src/userMessage.test.ts
+@@ -200,8 +200,8 @@
+     ).toEqual({ text: "Why?", attribution: "guest", scheduledTaskId: undefined, guestName: "Sam" });
+   });
+ 
+-  it("attributes older server-sent restart continuations to T3 Code, not another agent", () => {
+-    const text = "Note: the T3 server restarted.";
++  it("attributes older server-sent restart continuations to Blackcrab, not another agent", () => {
++    const text = "Note: the Blackcrab server restarted.";
+     expect(
+       resolveUserMessagePresentation({
+         role: "user",

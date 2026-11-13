@@ -1,0 +1,11 @@
+--- a/packages/shared/src/threadLinks.ts
++++ b/packages/shared/src/threadLinks.ts
+@@ -131,7 +131,7 @@
+   return cleaned ? `[${cleaned}](${threadLinkHref(ref)})` : `<${threadLinkHref(ref)}>`;
+ }
+ 
+-/** What a person copies out of T3 Code: a Markdown link that opens the thread anywhere. */
++/** What a person copies out of Blackcrab: a Markdown link that opens the thread anywhere. */
+ export function formatHostedThreadLink(
+   ref: ScopedThreadRef,
+   label: string,

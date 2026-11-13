@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/settings/ProjectSettingsPanel.logic.test.ts
++++ b/apps/web/src/components/settings/ProjectSettingsPanel.logic.test.ts
+@@ -43,7 +43,7 @@
+     });
+     expect(plan.projectThreads).toHaveLength(3);
+     expect(plan.confirmationMessage).toBe(
+-      'Remove checkout "Repo" and delete its 1 thread?\nPath: /work/repo\nEnvironment: Local\nThose threads and any archived threads are deleted from T3 Code. Provider sessions are kept.\nOther entries in this grouped project are unaffected.\nThis action cannot be undone.',
++      'Remove checkout "Repo" and delete its 1 thread?\nPath: /work/repo\nEnvironment: Local\nThose threads and any archived threads are deleted from Blackcrab. Provider sessions are kept.\nOther entries in this grouped project are unaffected.\nThis action cannot be undone.',
+     );
+   });
+ 
+@@ -61,7 +61,7 @@
+       "Other entries in this grouped project are unaffected.",
+     );
+     expect(plan.confirmationMessage).toContain(
+-      "Any archived threads are deleted from T3 Code. Provider sessions are kept.",
++      "Any archived threads are deleted from Blackcrab. Provider sessions are kept.",
+     );
+   });
+ 

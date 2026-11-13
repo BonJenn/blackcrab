@@ -1,0 +1,20 @@
+--- a/packages/client-runtime/src/connection/onboarding.test.ts
++++ b/packages/client-runtime/src/connection/onboarding.test.ts
+@@ -45,7 +45,7 @@
+   ClientCapabilities.ClientPresentation,
+   ClientCapabilities.ClientPresentation.of({
+     metadata: {
+-      label: "T3 Code Test",
++      label: "Blackcrab Test",
+       deviceType: "desktop",
+       os: "Test OS",
+     },
+@@ -274,7 +274,7 @@
+       const tokenParams = new URLSearchParams(tokenBody);
+       expect(tokenParams.get("subject_token")).toBe("pairing-token");
+       expect(tokenParams.has("scope")).toBe(false);
+-      expect(tokenParams.get("client_label")).toBe("T3 Code Test");
++      expect(tokenParams.get("client_label")).toBe("Blackcrab Test");
+       expect(tokenParams.get("client_device_type")).toBe("desktop");
+       expect(tokenParams.get("client_os")).toBe("Test OS");
+     }),

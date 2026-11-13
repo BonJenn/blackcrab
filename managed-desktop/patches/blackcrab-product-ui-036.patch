@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/state/environmentHttpAuth.ts
++++ b/packages/client-runtime/src/state/environmentHttpAuth.ts
+@@ -91,7 +91,7 @@
+ );
+ 
+ /**
+- * A DPoP request is T3 Connect work, so its span starts an exported trace that
++ * A DPoP request is Blackcrab Connect work, so its span starts an exported trace that
+  * the environment continues; its local caller's span would leave that trace
+  * without a root.
+  */

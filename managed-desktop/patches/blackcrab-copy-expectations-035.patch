@@ -1,0 +1,11 @@
+--- a/apps/desktop/src/wsl/DesktopWslBackend.test.ts
++++ b/apps/desktop/src/wsl/DesktopWslBackend.test.ts
+@@ -149,7 +149,7 @@
+ 
+       yield* recordOwnershipFailure();
+       const refusal = yield* backend.lastPreflightError;
+-      assert.include(Option.getOrThrow(refusal), "Another T3 Code server");
++      assert.include(Option.getOrThrow(refusal), "Another Blackcrab server");
+       yield* backend.reconcile;
+       assert.equal(startCount, 1);
+       assert.deepEqual(yield* backend.lastPreflightError, refusal);

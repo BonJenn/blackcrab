@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/settings/SavedEnvironmentRows.tsx
++++ b/apps/web/src/components/settings/SavedEnvironmentRows.tsx
+@@ -152,7 +152,7 @@
+       toastManager.add({
+         type: "success",
+         title: "MCP URL copied",
+-        description: `Add it to an agent, e.g. claude mcp add --transport http t3 ${url}`,
++        description: `Add it to an agent, e.g. claude mcp add --transport http blackcrab ${url}`,
+       });
+     },
+     onError: (error) => {
+@@ -685,7 +685,7 @@
+       ) : linkRevoked ? (
+         <SettingsRow
+           title={searchableSetting("t3-connect").title}
+-          description="This environment was removed from Blackcrab Connect. Run `t3 connect link` on the host to link it again."
++          description="This environment was removed from Blackcrab Connect. Open Settings → Sharing & access on the host to link it again."
+         />
+       ) : null}
+       {signedOut && isElectron ? null : (

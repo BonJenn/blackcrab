@@ -1,0 +1,8 @@
+--- a/packages/client-runtime/src/state/device.ts
++++ b/packages/client-runtime/src/state/device.ts
+@@ -117,4 +117,4 @@
+     : "Required tools are installed automatically when needed. Checking versions does not install or start anything.";
+ }
+ export const deviceToolUpdateOwnership =
+-  "This environment's T3 server chooses device tool versions for itself and its SSH hosts. Update that server to receive newer tool versions; updating only your browser or mobile app does not update a remote server.";
++  "This environment's Blackcrab server chooses device tool versions for itself and its SSH hosts. Update that server to receive newer tool versions; updating only your browser or mobile app does not update a remote server.";

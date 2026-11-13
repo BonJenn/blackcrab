@@ -1,0 +1,14 @@
+--- a/apps/desktop/src/app/DesktopEnvironment.test.ts
++++ b/apps/desktop/src/app/DesktopEnvironment.test.ts
+@@ -13,9 +13,9 @@
+   platform: "darwin",
+   processArch: "arm64",
+   appVersion: "0.0.22",
+-  appPath: "/Applications/T3 Code.app/Contents/Resources/app.asar",
++  appPath: "/Applications/Blackcrab.app/Contents/Resources/app.asar",
+   isPackaged: false,
+-  resourcesPath: "/Applications/T3 Code.app/Contents/Resources",
++  resourcesPath: "/Applications/Blackcrab.app/Contents/Resources",
+   runningUnderArm64Translation: false,
+ } satisfies DesktopEnvironment.MakeDesktopEnvironmentInput;
+ 

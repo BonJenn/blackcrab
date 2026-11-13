@@ -20,7 +20,7 @@ const config: Manager.DesktopBackendStartConfig = {
  bootstrap: { mode: "desktop", noBrowser: true, host: "127.0.0.1", port: Number(new URL(descriptor.owner.origin).port), t3Home: root, desktopBootstrapToken: "", shellEnvironmentPrepared: true, tailscaleServeEnabled: false, tailscaleServePort: 443 },
 };
 export const layerConfiguration = Layer.succeed(Configuration.DesktopBackendConfiguration, Configuration.DesktopBackendConfiguration.of({ resolvePrimary: Effect.succeed(config), resolveWsl: Effect.fn("Configuration.DesktopBackendConfiguration.resolveWsl")(() => Effect.die("OwnerControl unavailable: WSL ownership")), resolvePrimaryLabel: Effect.succeed("Blackcrab managed host"), currentBootstrapToken: Effect.die("Use original secret-authenticated DesktopLocalEnvironmentAuth") }));
-export const layerUpdatePolicy = Layer.succeed(UpdatePolicy.DesktopUpdatePolicy, { mode: "off", feedUrl: undefined, allowNightly: false, message: "Blackcrab distribution/update owner control is not configured." });
+export const layerUpdatePolicy = Layer.succeed(UpdatePolicy.DesktopUpdatePolicy, { mode: "off", feedUrl: undefined, allowNightly: false, message: "Blackcrab’s launcher manages updates for this installation." });
 export const layerPool = Layer.effect(Pool.DesktopBackendPool, Effect.gen(function* () {
  const window = yield* Window.DesktopWindow, state = yield* State.DesktopState;
  const browser=yield* ManagedBrowser.make;

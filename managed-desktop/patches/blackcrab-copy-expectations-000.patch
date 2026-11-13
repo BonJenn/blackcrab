@@ -1,0 +1,11 @@
+--- a/apps/web/src/authBootstrap.test.ts
++++ b/apps/web/src/authBootstrap.test.ts
+@@ -71,7 +71,7 @@
+   };
+ 
+   vi.stubGlobal("window", testWindow);
+-  vi.stubGlobal("document", { title: "T3 Code" });
++  vi.stubGlobal("document", { title: "Blackcrab" });
+ 
+   return testWindow;
+ }

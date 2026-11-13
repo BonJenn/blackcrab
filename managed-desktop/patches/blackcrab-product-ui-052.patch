@@ -1,0 +1,42 @@
+--- a/packages/contracts/src/relay.ts
++++ b/packages/contracts/src/relay.ts
+@@ -330,7 +330,7 @@
+   notificationsEnabled: Schema.Boolean,
+   liveActivitiesEnabled: Schema.Boolean,
+   managedTunnelsEnabled: Schema.Boolean,
+-}).annotate({ description: "Links an authenticated cloud user to a T3 environment." });
++}).annotate({ description: "Links an authenticated cloud user to a Blackcrab environment." });
+ export type RelayEnvironmentLinkRequest = typeof RelayEnvironmentLinkRequest.Type;
+ 
+ export const RelayEnvironmentLinkResponse = Schema.Struct({
+@@ -381,7 +381,7 @@
+ /**
+  * Which part of the path from the relay to the environment failed. `tunnel_down`
+  * means Cloudflare has no live connector for the tunnel; `origin_unreachable`
+- * means the tunnel answered but T3 Code behind it did not. Optional on the wire
++ * means the tunnel answered but Blackcrab behind it did not. Optional on the wire
+  * so old relays and old clients keep working.
+  */
+ export const RelayEnvironmentEndpointFailure = Schema.Literals([
+@@ -670,7 +670,7 @@
+ const RelayClientBearerAuthorization = HttpApiSecurity.http({ scheme: "bearer" }).pipe(
+   HttpApiSecurity.annotate(
+     OpenApi.Description,
+-    "Clerk session or OAuth bearer token for the signed-in T3 Connect user.",
++    "Clerk session or OAuth bearer token for the signed-in Blackcrab Connect user.",
+   ),
+ );
+ 
+@@ -1320,10 +1320,10 @@
+     RelayHooksGroup,
+     RelayMobileTelemetryGroup,
+   )
+-  .annotate(OpenApi.Title, "T3 Code Relay API")
++  .annotate(OpenApi.Title, "Blackcrab Relay API")
+   .annotate(OpenApi.Version, "1.0.0")
+   .annotate(
+     OpenApi.Description,
+-    "Control-plane API for linking T3 environments, connecting authorized clients, and publishing agent activity.",
++    "Control-plane API for linking Blackcrab environments, connecting authorized clients, and publishing agent activity.",
+   );
+ export type RelayApi = typeof RelayApi;

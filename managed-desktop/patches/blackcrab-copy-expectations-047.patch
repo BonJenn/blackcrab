@@ -1,0 +1,11 @@
+--- a/packages/client-runtime/src/connection/resolver.test.ts
++++ b/packages/client-runtime/src/connection/resolver.test.ts
+@@ -182,7 +182,7 @@
+       const error = yield* Effect.flip(broker.prepare(catalogEntry(target)));
+ 
+       expect(error).toMatchObject({ reason: "unsupported" });
+-      expect(error.message).toContain("Update T3 Code on Compatible environment");
++      expect(error.message).toContain("Update Blackcrab on Compatible environment");
+     }),
+   );
+ 

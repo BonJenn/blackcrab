@@ -84,3 +84,17 @@ a draft. Build the actual signed/notarized installer, then validate native UI an
 service lifecycle; pending evidence is never acceptance or public publication
 permission. Default validateAcceptance rejects it. Do not extend old owner-testing
 exceptions or invent successful lifecycle checks to build a candidate.
+
+## Renewed 0.4.2 publication instruction — 2026-11-13
+
+After testing the working private workspace and requesting branding/picker/pane
+polish, the owner explicitly said: "you have plenty of usage get this published".
+Publish the verified 0.4.2 follow-up with OWNER_TESTING_AUTHORIZED, that exact
+authorization, the final source, followUpOf v0.4.1 and followUpSourceRevision
+62ef3868d65252ba062bbee0200d6cb74a27ea6f. Keep lifecycle checks deferred unless
+actually completed; never substitute PASSED. This current instruction supersedes
+the earlier 0.4.2 publication hold. Signing, notarization, payload inventories and
+updater cryptographic verification remain mandatory. It does not authorize later
+versions or certify full parity. Retain the current production service artifact:
+the separate host-copy branch needs a data-preserving manifest upgrade before
+changing the installed service. Publish website notes only after the installer.

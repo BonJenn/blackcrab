@@ -28,3 +28,8 @@ and the processed TestFlight app/build/tester state.
 Guidance files are paired per directory, not identical across different areas.
 Do not add instructions inside immutable vendor trees, generated resources,
 node_modules, build artifacts or private credential directories.
+
+Read the Current checkpoint before historical sections. Older active-handle,
+open-PR and next-step statements are evidence of their time, not instructions
+to restart work. Keep the copyable prompt focused on the current checkpoint;
+retain historical provenance behind an explicit divider in the main handoff.

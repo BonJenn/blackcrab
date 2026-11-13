@@ -1,6 +1,121 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.1 corrective release preparation
+## Current checkpoint — 0.4.1 and website published, owner test pending
+
+This checkpoint controls continuation. Everything under Historical checkpoints
+below preserves earlier evidence; its old statements about active PRs, shell
+handles, pending authorizations and next steps are not current instructions.
+
+PR270 (native availability detection/startup diagnostics) and PR271 (0.4.1
+preparation) each passed nine checks, merged into stage and were unwatched.
+The release source is 62ef3868d65252ba062bbee0200d6cb74a27ea6f. Mac 0.4.1 is
+PUBLIC and stable/latest after successful workflow 43355513074 and verification
+of the actual downloaded files. The website announcement and download are also
+live. The owner authorized testing the 0.4 release after publication; native
+acceptance remains deferred, not PASSED.
+The owner's work-Mac failure is not yet confirmed resolved.
+
+### Authoritative local state
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+REL=P/mac-release-040-v2llrqsa. Temporary /private/tmp paths may eventually expire.
+
+- REL/desktop-patch-041-plan.json: current source, build, publication and handles.
+- REL/desktop-patch-041: frozen release worktree, clean at the source above.
+- REL/patch-041-delivery: source-bound payload ZIP, native-acceptance record,
+  artifact verification plan/script and results. ZIP SHA256 is
+  f3045ce005b2187d74a53ab7188b6ab58aef0c4f0d006bafc8ca38afd8719f0c.
+- REL/website-patch-041: clean branch release/0.4.1-website at
+  03d923c554d0c20c5048e0a62a632d93d493b2fe. Download tests, typecheck, lint and
+  production build passed. Vercel preview dpl_Ht6YAxaK4t2oyoTaxy9bvCbUoXNV is
+  READY; authenticated HTTP checks of home/blog/changelog passed. Website PR13
+  merged to main 5db4f74ca9c13a83e7a16988def991250ee080f7 and was unwatched.
+  Production deployment dpl_9R2eAnezPdPpNpStmHZb6YcthpY8 is READY; live home,
+  blog, changelog, releases and actual platform downloads passed verification.
+- REL/patch-041-handoff: this documentation worktree. Check the plan for its
+  final PR/head, rather than assuming an earlier checkpoint's PR is active.
+- REL/desktop-patch-041-continuation.md: copyable local live-state prompt.
+
+All shell/build/verification handles have completed. No app, host, service,
+simulator, mounted image or browser is owned/running. The verifier ejected its
+captured read-only DMG mount. Do not redispatch completed builds or restart old
+handles. The main dirty checkout/index, shared caches and installed Mac app
+were untouched. The work Mac is still only confirmed installed at 0.4.0.
+
+### Confirmed scope and acceptance boundary
+
+The owner has verified the public 0.4.0 arm64 executable and both bundled payload
+hashes on their work Mac at /Applications/Blackcrab.app. Cache/path/ownership/lock
+checks passed, and quit/reopen did not help. Full desktop was disabled with one
+unavailable line. Do not ask for another reinstall or repeat those diagnostics.
+
+0.4.1 queries native availability directly, rather than assuming notBundled when
+a JavaScript runtime marker is absent. Regression tests reproduce that client
+misclassification. It also preserves specific native package/storage/lock errors.
+This is a tested candidate correction and better diagnostics, not proof of the
+owner's original cause. No user data or cache permissions were repaired/deleted.
+See desktop-startup-040-diagnosis.md and the private diagnostic report directory.
+
+The unchanged notarized inner desktop/service payloads are reused. Root app
+identity, data locations and the existing updater key are preserved. Public
+v0.4.0 source caf57b6fab1b4391836c6635882a15a88edfac0d and assets are immutable.
+The readonly diagnose-macos-040.pl report is pinned to 0.4.0 hashes; do not ask
+someone with a newer app to use it as a current-version integrity check.
+
+### Published artifacts and evidence
+
+- Release: https://github.com/BonJenn/blackcrab/releases/tag/v0.4.1
+- Installer: https://github.com/BonJenn/blackcrab/releases/download/v0.4.1/Blackcrab_0.4.1_aarch64.dmg
+- Website notes: https://www.blackcrab.app/blog/blackcrab-0-4-1-desktop-startup
+- Successful workflow: https://github.com/BonJenn/blackcrab/actions/runs/43355513074
+- Actual artifact report: REL/patch-041-delivery/final-artifact-verification-_pmt61l7/result.json,
+  state RELEASE_ARTIFACTS_VERIFIED. Checks include GitHub file hashes, unchanged-key
+  updater cryptography, arm64/version/bundle identity, hardened Developer ID and
+  notarization, embedded archive/manifest pins, inner inventories/signatures,
+  DMG signature/ticket and exact app equality between DMG and updater.
+- Public updater manifest exactly matches the verified draft artifact; the public
+  installer returns HTTP 200. Site /download/macos redirects to the 0.4.1 arm64
+  DMG. Windows and Linux continue to their 0.3.0 installers. Internal payload ZIPs
+  remain excluded from site installer cards. See public-release-receipt.json,
+  public-download-verification.json and website-publication-verification.json in
+  REL/patch-041-delivery.
+- DMG SHA256: 6c7cb2b0c018951e91473ea42d7953432234027ac47b7cf767065b96cbde75b3.
+- Updater archive SHA256: 0719bd6ebc11bde0b58bb652e87810298ffbda5533b6287e9de70b9610565c70.
+- Root executable SHA256: e957f32e4715761c01d10e316b648e446be8963c011d154039695b7b4e97e375.
+
+### Next actions and remaining finish line
+
+1. Finish this delivery-handoff PR to stage after its required checks/review.
+   Read REL/desktop-patch-041-plan.json for its exact URL and head. Preserve the
+   public release/tag and website; they are already published and verified.
+2. Ask the owner to try Settings → Full desktop → Open full desktop on 0.4.1.
+   If unavailable, obtain the complete new status/error text. If it opens, record
+   the tested scope and continue service enable/start, desktop reuse, quit/reopen,
+   restart, stop/start and retained data checks. Preserve existing user sessions.
+3. Make the full desktop discoverable from the primary app experience. Startup
+   still opens the original Root UI; publishing the bundled workspace did not
+   make it the default UI. Do not describe this entry work as completed.
+4. Continue the parity ledger's actual desktop/mobile agent workflows and hosted
+   remote validation. TestFlight 1.0.0 (4) is available to the owner; no new iOS
+   build is part of 0.4.1. Newer branding export/OTA publication, physical-device
+   retention/reconnect, off-LAN operation/APNs and hosted billing/signup/policies
+   remain broader-plan work; validate latest evidence before changing them.
+
+Finish line remains validated T3 parity, an ordinarily usable installed Mac app,
+and owner TestFlight availability. Artifact publication, green CI or PR count
+alone do not finish it. Do not invent a completion percentage. Existing cloud
+credentials and the smaller backend budget are authorized; do not request those
+approvals again. Keep the main dirty checkout/index and shared caches intact.
+For PR checks, finish changes, link/watch as required and end the turn. Never
+poll PRs. Keep all changed AGENTS.md/CLAUDE.md pairs byte-for-byte identical.
+
+## Historical checkpoints — evidence only
+
+The following records are retained for provenance. Their former active handles,
+open PRs and next-step lists are superseded by the current checkpoint above.
+
+
+### Historical — 0.4.1 corrective release preparation
 
 PR270 passed all nine checks at 7054c3b62a353344aae01419c1eb607d75eeb093,
 merged to stage 1af8e72562afda52d0891c64d666d2be914d360a and was unwatched.

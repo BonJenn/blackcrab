@@ -1,5 +1,16 @@
 # Copyable continuation prompt
 
+Prepare and deliver the 0.4.1 corrective Mac patch from REL/desktop-patch-041,
+branch release/0.4.1-desktop-startup. Read REL/desktop-patch-041-plan.json for
+current PR/head and docs/agent-handoff.md for the new checkpoint. PR270 merged
+with nine passing checks to stage 1af8e72562afda52d0891c64d666d2be914d360a and
+was unwatched. The older investigation details below remain evidence, not an
+instruction to reopen that PR. No patch build/publication has occurred yet.
+Version and release-input changes are preparation; full native/UI acceptance is
+still deferred to the owner's 0.4 delivery test, explicitly recorded as such.
+Reuse unchanged notarized payloads and preserve signature/updater checks. Never
+overwrite public v0.4.0; never label the owner failure fixed until verified.
+
 Continue Blackcrab/T3 parity from the PUBLISHED Mac 0.4.0 release. Read AGENTS.md,
 docs/agent-handoff.md (current checkpoint first), the parity plan and ledger.
 The owner authorized publication before their manual Mac UI/service/upgrade tests.

@@ -8,9 +8,13 @@ For v0.4.0, the owner explicitly requested publication and will perform the
 manual Mac UI and upgrade tests afterward. Use a source-bound record with
 `state: "OWNER_TESTING_AUTHORIZED"`, `tag: "v0.4.0"`, the exact owner instruction
 exported as `ownerTestingAuthorization`, and `deferredChecks: lifecycleChecks`.
-Do not add a `checks` object or claim these tests passed. The exception applies
-only to this release; signatures, notarization, payload and updater verification
-remain required. Website downloads, release notes and the blog are also authorized.
+Do not add a `checks` object or claim these tests passed. The corrective 0.4.1
+follow-up for the owner's reported startup failure uses the same deferred manual
+test workflow, but additionally requires `followUpOf: "v0.4.0"` and
+`followUpSourceRevision: "caf57b6fab1b4391836c6635882a15a88edfac0d"`. Bind it to
+the exact new source and `tag: "v0.4.1"`; later versions are not allowed by this
+exception. Signatures, notarization, payload and updater verification remain
+required. Website downloads, release notes and the blog are also authorized.
 
 1. Normally complete native lifecycle acceptance for the reviewed source. Record schema 1,
    `state: "PASSED"`, its exact `sourceRevision`, and true checks for `firstLaunch`,

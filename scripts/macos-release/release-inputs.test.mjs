@@ -3,11 +3,20 @@ import assert from 'node:assert/strict';
 import {lifecycleChecks,ownerTestingAuthorization,validateAcceptance,validateReleaseInputs} from './release-inputs.mjs';
 const options={revision:'a'.repeat(40),tag:'v0.4.0',version:'0.4.0',identity:'Developer ID Application: Example (ABCDEFGHIJ)',teamId:'ABCDEFGHIJ'};
 const acceptance={schema:1,state:'PASSED',sourceRevision:options.revision,checks:Object.fromEntries(lifecycleChecks.map(key=>[key,true]))};
-test('explicit owner testing is source-bound, limited to 0.4.0, and never records passing checks',()=>{
+test('explicit owner testing is source-bound, limited to the initial release without follow-up evidence, and never records passing checks',()=>{
  const value={schema:1,state:'OWNER_TESTING_AUTHORIZED',sourceRevision:options.revision,tag:options.tag,authorization:ownerTestingAuthorization,deferredChecks:[...lifecycleChecks]};
  assert.equal(validateAcceptance(value,options.revision,options),'OWNER_TESTING_AUTHORIZED');
  for(const mutation of [{schema:2},{sourceRevision:'b'.repeat(40)},{tag:'v0.5.0'},{authorization:null},{checks:acceptance.checks},{deferredChecks:[]},{deferredChecks:lifecycleChecks.slice(1)}])assert.throws(()=>validateAcceptance({...value,...mutation},options.revision,options));
  for(const context of [{},{...options,tag:'v0.5.0',version:'0.5.0'},{...options,version:'0.3.0'}])assert.throws(()=>validateAcceptance(value,options.revision,context));
+});
+test('0.4.1 corrective delivery binds the published baseline and keeps lifecycle tests deferred',()=>{
+ const patch={...options,tag:'v0.4.1',version:'0.4.1'};
+ const value={schema:1,state:'OWNER_TESTING_AUTHORIZED',sourceRevision:patch.revision,tag:patch.tag,
+  authorization:ownerTestingAuthorization,deferredChecks:[...lifecycleChecks],
+  followUpOf:'v0.4.0',followUpSourceRevision:'caf57b6fab1b4391836c6635882a15a88edfac0d'};
+ assert.equal(validateAcceptance(value,patch.revision,patch),'OWNER_TESTING_AUTHORIZED');
+ for(const mutation of [{followUpOf:undefined},{followUpOf:'v0.3.0'},{followUpSourceRevision:undefined},{followUpSourceRevision:'b'.repeat(40)},{checks:acceptance.checks},{sourceRevision:'b'.repeat(40)},{deferredChecks:[]}])assert.throws(()=>validateAcceptance({...value,...mutation},patch.revision,patch));
+ for(const version of ['0.4.2','0.5.0','0.4.1-beta.1'])assert.throws(()=>validateAcceptance({...value,tag:`v${version}`},patch.revision,{...patch,tag:`v${version}`,version}));
 });
 test('release preparation rejects blocked, partial or stale native lifecycle evidence',()=>{
  validateAcceptance(acceptance,options.revision);

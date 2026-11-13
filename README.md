@@ -5,8 +5,9 @@ terminals and remote access. Its managed Electron workspace is the sole desktop
 interface. Opening the app prepares the background service and opens the workspace
 automatically; the native launcher handles startup recovery and signed updates.
 
-This branch prepares the next Apple-silicon Mac release. The new startup behavior
-still needs signed installer and native lifecycle acceptance before publication.
+[Blackcrab 0.4.2 for Apple-silicon Macs](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.2)
+is published with a signed and notarized installer. Owner UI/lifecycle testing and
+full desktop/mobile/hosted parity validation remain ongoing.
 See [release notes](docs/release-0.4.2.md) and the
 [current delivery handoff](docs/agent-handoff.md) for verified status.
 

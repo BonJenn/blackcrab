@@ -1,6 +1,97 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 2026-11-13: publish the workspace fixes now
+## Current checkpoint — 2026-11-13: Mac 0.4.2 published
+
+Mac [v0.4.2](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.2) is public,
+stable/latest, from `cb586b1f4832714e624c4a328b777ef321670fd3` (PR281 merged after
+nine passing checks). Release workflow
+[43488304042](https://github.com/BonJenn/blackcrab/actions/runs/43488304042) passed.
+Actual downloaded installer/updater files passed all twelve verification groups:
+asset digests, updater cryptographic signature, Root identity/arm64/signature and
+notarization, embedded standalone helper, both payload archive/manifest pins,
+complete payload inventory/signing/notarization, Electron/native/package version
+0.4.2, DMG signature/notarization, DMG/updater app equality, and owned unmount.
+Anonymous public DMG/updater requests returned 200 and metadata/signature bytes
+match the verified downloads. Preserve this public tag and its assets.
+
+The owner authorized publication with “you have plenty of usage get this published”.
+`native-acceptance.json` is OWNER_TESTING_AUTHORIZED for this exact source and the
+immutable 0.4.1 baseline. It does not claim PASSED lifecycle acceptance. The owner
+confirmed the preceding private sole-workspace candidate works; final polish was
+validated with focused tests, types and browser pane/picker tests. Current final
+Mac UI/lifecycle/upgrade acceptance remains separate from artifact verification.
+This turn did not replace or quit the owner's running private candidate, change
+user data or send provider prompts. If that candidate already says 0.4.2, use the
+public DMG to replace it rather than relying on a higher-version update prompt.
+
+The shipped changes remove the retired interface, open the workspace directly,
+correct the signed helper startup defect, show Blackcrab 0.4.2, remove the reviewed
+workspace/provider product labels and unowned GitHub app action, add Home/External
+drives/Computer picker shortcuts, and route split-pane image drops to the target
+conversation. Saved compatible IDs and upstream notices remain intact.
+
+Website PR14 is merged at `7b4cf8594001ff0b236508bcbf911446f0523051` after its two
+checks passed. Production deployment `dpl_GmaW6yasnWX5PmwCWWMvG9eoeemi` is READY and verified.
+Anonymous home/blog/changelog/releases/docs requests passed. The Mac route serves
+the actual 0.4.2 DMG; Windows/Linux retain working 0.3.0 downloads. The apex domain
+also reaches the verified www site. Evidence: `D/website-production-verification.json`. The announcement, changelog, docs and downloads are in
+BonJenn/blackcrab-landing; www.blackcrab.app is separate from app.blackcrab.app.
+TestFlight 1.0.0 (4) is unchanged; no new mobile build or full parity is claimed.
+
+### Authoritative paths and completed work
+
+REL=`/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa`.
+D=`REL/workspace-final-042-delivery`.
+Live delivery state: `REL/workspace-polish-042-plan.json`.
+Publication: `D/publication-result.json`; public downloads:
+`D/public-download-verification.json`; final package evidence:
+`D/final-artifact-verification-bvan3ly0/result.json`.
+The exact installer is in that verification directory's `downloads` subdirectory.
+DMG SHA-256: `66680b6b0047e092b37622da456443348faa8dd3d271d5588afacb338d7ce9b3`.
+
+Frozen release source: `REL/workspace-publish-042`, clean detached cb586b1.
+Desktop was built from a62414a; `D/desktop-producer-equivalence.json` proves the
+complete relevant desktop inputs equal the final merged source. Do not relabel
+that producer revision. Apple accepted inner notarization submission
+`d3a133e3-923e-45d5-9160-8d7e17bbcc80`; final desktop manifest is
+`79c5c68d51b0592d39131aa2d5e3820cd53beee9ed98f9313a685a38bc6a26b5`.
+All build/sign/package/dispatch/verification/publication handles for this release
+have completed. No native build is running; do not restart old handles.
+Check the live plan for any later documentation/deployment work.
+
+### Remaining service branding and safe upgrade work
+
+The release deliberately retains the ORIGINAL production host at the temporary
+path `/private/tmp/blackcrab-parity-work-i5v1q577/Root-QA/desktop-delivery-notarized-31e0815b/payloads/service-host`,
+manifest `c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83`.
+Some host-generated diagnostics still contain upstream terminology; the public
+notes disclose this. Do not replace it with the unused re-signed host copy.
+
+Local-only follow-up: `REL/workspace-polish-042`, branch
+`fix/host-product-copy-042`, commit a62414a7219a9506b5d022564c2d29cb4f59f312.
+It adds 159 exact product-copy patches, service profile wiring and a 256-record
+manifest bound (257 rejected). Thirty-three focused source/artifact tests passed;
+the new Rust test has not run locally and this branch has no PR. Host build 69082
+was cooperatively cancelled; its terminal audit is FAILED_NO_ADOPTION with no
+output and preserved reference/metadata/cargo-seed inputs. No host was activated.
+Do not refresh its source freeze without a successful real build.
+
+Next implementation: inspect `attachment_binding`, `verify_payload_config` and
+`refresh_bundled_issuer` in `src-tauri/src/managed_service_issuer.rs` and the selected
+runtime directory rules. Existing attachment binds the compiled host manifest and
+fixed version directory; swapping the artifact breaks existing installations.
+Implement and test an explicit stopped-service migration preserving environment,
+identity, credentials, catalog and generation before shipping a rebuilt host.
+Use owned fixtures, never the user's existing service for a migration experiment.
+
+Then continue the scenario ledger for desktop/mobile/cloud behavior, native
+acceptance, current normal Mac installation and TestFlight availability. Those are
+the finish line; merged PRs and publication are not full parity. Keep the main
+checkout's unrelated dirty files and all public release assets intact.
+
+---
+
+## Historical checkpoint — 2026-11-13: publish the workspace fixes now
 
 The owner explicitly renewed publication. Release branch release/0.4.2-owner-publication
 in REL/workspace-publish-042 starts from merged c0e9fbd (PR280 passed nine checks).
@@ -27,7 +118,7 @@ publish GitHub and then the website. Keep service-message cleanup as an explicit
 remaining follow-up. Do not claim every host message or full parity is complete.
 
 
-## Current checkpoint — 2026-11-13: compiled audit caught provider branding; release held
+## Historical checkpoint — 2026-11-13: compiled audit caught provider branding; release held
 
 The 1140889 desktop build completed, but an audit of its actual JavaScript found
 T3 product copy in shared schemas: OpenCode's server setting and GitHub app metadata.

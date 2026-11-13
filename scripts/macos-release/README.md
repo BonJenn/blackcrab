@@ -57,11 +57,14 @@ and mismatched signatures. It does not replace cryptographic client verification
 or an actual installation/update test. Private keys are never exported from
 GitHub. Build receipts and UI gates are separate from notarization.
 
-As of the current handoff, inner signing/notarization and the real payload
-archive roundtrip passed. Native Root capture remains unavailable, and the owner
-explicitly authorized v0.4.0 publication before their manual tests. The new
-workflow has portable validation but has not produced a final release. See the
-current handoff for publication state; do not infer it from prepared notes.
+Version [0.4.0](https://github.com/BonJenn/blackcrab/releases/tag/v0.4.0) is now
+public from source caf57b6fab1b4391836c6635882a15a88edfac0d. Release workflow
+43337173131 passed; actual downloaded app, DMG, embedded payloads and updater
+signature passed delivery verification. The read-only DMG app matched the updater
+app. The owner still performs manual installation, UI, lifecycle and upgrade tests.
+Never overwrite that public tag for later fixes; choose a new release version.
+The website, blog, changelog and actual download buttons were also verified.
+See docs/agent-handoff.md for exact evidence and remaining parity work.
 
 References: [Tauri updater](https://v2.tauri.app/plugin/updater/),
 [Tauri action](https://github.com/tauri-apps/tauri-action/tree/v0.6.2),

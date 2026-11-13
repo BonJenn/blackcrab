@@ -19,9 +19,14 @@ both the managed workspace and hosted web producer receive it. Mobile's separate
 consumer graph is not changed by this PR and is not claimed as validated here.
 
 Validation: ten focused presentation/source tests passed. Actual upstream web
-and desktop TypeScript passed on the combined notification/pane source. The
-Chromium timeline regression is included in required CI; local runs encountered
-CommonJS loading of relocated dependency-cache shims before tests ran. A direct
-runner retry is in progress in the owned fresh source under
-REL/imported-task-notifications-validation. Record their terminal results before
-merging. Existing public 0.4.2 is unchanged; a new client build is needed to deliver.
+and desktop TypeScript passed on the combined notification/pane source. Chromium
+passed both notification cases (collapse/inspect original and new pasted XML),
+alongside two pane geometry cases; the other 40 timeline cases were filtered out,
+not claimed as tested. The required client CI now installs its pinned browser and
+runs this regression. Local read-only dependency-cache copies needed relocation
+under the owned validation node_modules for Vite's normal CommonJS optimizer;
+no production dependency bytes or test assertions were changed for this.
+Evidence: REL/imported-task-notifications-validation, including final-source-
+verification.json (346 records, 301 final targets), type logs and browser log.
+All local test processes completed. Public 0.4.2 is unchanged; a new client build
+is needed to deliver this fix.

@@ -1,4 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 export type ManagedNativeDesktopStatus = { state: "notBundled" | "ready" | "running" | "unsupported" | "unavailable"; error?: string };
 export interface ManagedNativeDesktopClient {
   status(): Promise<ManagedNativeDesktopStatus>;
@@ -13,6 +13,8 @@ export function readManagedNativeDesktopStatus(value: unknown): ManagedNativeDes
   return result as ManagedNativeDesktopStatus;
 }
 export const managedNativeDesktopClient: ManagedNativeDesktopClient = {
-  status: async () => isTauri() ? readManagedNativeDesktopStatus(await invoke<unknown>("managed_native_desktop_status")) : { state: "notBundled" },
+  // Only native bundle configuration can establish that a package is absent.
+  // A missing JavaScript runtime marker must not invent a notBundled result.
+  status: async () => readManagedNativeDesktopStatus(await invoke<unknown>("managed_native_desktop_status")),
   open: async () => readManagedNativeDesktopStatus(await invoke<unknown>("managed_native_desktop_open")),
 };

@@ -1,6 +1,52 @@
 # Blackcrab parity and release handoff
 
-## Owner's first 0.4.0 test — desktop entry is not discoverable
+## Current checkpoint — published 0.4.0 Full desktop is disabled
+
+The owner installed the correct signed arm64 release at /Applications/Blackcrab.app.
+Executable and both payload SHA256 values match the immutable public 0.4.0 files.
+Their pinned read-only report passes all 19 checks: cache ownership/modes/marker,
+no symlink ancestors and initialization lock availability. Filesystem ownership
+was unknown due to a report bug; its fix is locally validated. Full quit/reopen
+does not help. The owner confirms ONE unavailable line and previously reported
+Background service → Enable visible. No successful full desktop launch yet.
+Do not repeat reinstalls/restarts or claim that cache corruption was found.
+
+Read [the investigation](desktop-startup-040-diagnosis.md). PR270, branch
+fix/desktop-bundle-startup, worktree REL/desktop-startup-fix, is the active fix.
+REL=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/mac-release-040-v2llrqsa.
+Read REL/desktop-startup-fix-plan.json for exact head/checks/handles. It includes
+stage's merged PR269 publication handoff. The previous de86fe44 head passed nine
+checks; subsequent client/cache-diagnostic changes need fresh head checks.
+
+The client previously fabricated notBundled when the JavaScript isTauri marker
+was false. It now invokes native status unconditionally and preserves native
+string errors. Three real-API/stubbed-bridge regressions fail with the old client
+and pass with the fix. This is a candidate explanation of the owner's symptom,
+not proof of their runtime marker state. Native constructor failures now retain
+specific filesystem/cache/lock errors without disclosing paths or contents.
+Validation: 21 payload tests pass, three opt-in skips; six entry tests and seven
+renderer/client tests pass. The read-only report passes 20 checks on an isolated
+fixture with byte/mode equality. See private diagnostic evidence for exact logs.
+
+CI on 89bb45e failed three ManagedWorkspaceEntry assertions because they read
+the first alert across all Settings sections. Full desktop now correctly reports
+an absent native bridge in the browser fixture. Assertions are scoped to the
+Managed workspaces section, and retry coverage verifies that its sibling desktop
+alert remains intact. No product code was changed for this correction. The full
+frontend suite now passes all 186 tests in 34 files; TypeScript and Vite production
+build also pass. Required CI must pass on the subsequent pushed head.
+
+Native capture returned cgWindowNotFound even for Finder. No released app or
+host was launched for this attempt. No production data, permissions, caches or
+installation was repaired/changed. Full parity remains incomplete. Complete CI,
+review and merge the final PR head, then deliver a new patch release and verify
+the actual ordinary launch. Never overwrite v0.4.0 or certify native UI from
+unit tests. Keep the new desktop's primary-entry/discoverability work outstanding.
+TestFlight 1.0.0 (4) and the 0.4.0 website publication remain completed delivery
+work; do not redo them to investigate this Mac startup problem.
+
+
+## Historical first 0.4.0 test — desktop entry is not discoverable
 
 The owner updated, then deleted/redownloaded the app, and reports that Settings
 shows version 0.4 but the app looks like the previous version. Inspection of the
@@ -18,7 +64,7 @@ any launch error, and make the managed desktop accessible from the primary app
 experience while preserving legacy sessions. Any code fix needs a new release;
 do not replace the public 0.4.0 assets or mark full parity complete.
 
-## Current continuation checkpoint — Mac 0.4.0 and website published
+## Published baseline — Mac 0.4.0 and website published
 
 On November 12, 2026 Pacific (November 13 UTC), the authorized Apple-silicon
 Mac 0.4.0 release and website announcement were published and verified.

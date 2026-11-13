@@ -45,6 +45,10 @@ fn payload(
     manifest: Option<&str>,
     archive: Option<&str>,
 ) -> Result<Option<EmbeddedPayload>, String> {
+    let label = match role {
+        PayloadRole::Host => "workspace service",
+        PayloadRole::Desktop => "full desktop",
+    };
     match (manifest, archive) {
         (None, None) => Ok(None),
         (Some(manifest), Some(archive)) => {
@@ -53,9 +57,15 @@ fn payload(
                 PayloadRole::Desktop => "managed-desktop-payload.tar.gz",
             };
             let path = resources.join(name);
-            let metadata = fs::symlink_metadata(&path).map_err(|_| unavailable())?;
+            let metadata = fs::symlink_metadata(&path).map_err(|error| {
+                if error.kind() == std::io::ErrorKind::NotFound {
+                    format!("The {label} package is missing from this copy of Blackcrab. Finish installing the app, then quit and reopen it.")
+                } else {
+                    format!("Blackcrab cannot inspect the {label} package ({}).", error.kind())
+                }
+            })?;
             if !metadata.is_file() || metadata.file_type().is_symlink() {
-                return Err(unavailable());
+                return Err(format!("The {label} package is not a regular file. Install a complete copy of the Blackcrab app."));
             }
             EmbeddedPayload::new(
                 role,
@@ -65,8 +75,11 @@ fn payload(
                 cache.to_path_buf(),
             )
             .map(Some)
+            .map_err(|reason| format!("Blackcrab could not initialize the {label}. {reason}"))
         }
-        _ => Err(unavailable()),
+        _ => Err(format!(
+            "This Blackcrab build has incomplete verification information for the {label} package."
+        )),
     }
 }
 impl ManagedNativeEntry {
@@ -101,8 +114,11 @@ impl ManagedNativeEntry {
             return entry;
         }
         let cache = app_data.join("managed-payloads-v1");
-        if fs::create_dir_all(app_data).is_err() {
-            entry.error = Some(unavailable());
+        if let Err(error) = fs::create_dir_all(app_data) {
+            entry.error = Some(format!(
+                "Blackcrab cannot create its application-data folder ({}).",
+                error.kind()
+            ));
             return entry;
         }
         // Host packaging is independent: a missing bundled default never overrides a selected runtime.
@@ -129,7 +145,7 @@ impl ManagedNativeEntry {
                 }
                 entry.desktop = value;
             }
-            Err(_) => entry.error = Some(unavailable()),
+            Err(error) => entry.error = Some(error),
         }
         entry
     }
@@ -355,5 +371,63 @@ mod tests {
             assert_eq!(desktop_only.status().await.state, "ready");
         }
         fs::remove_dir_all(base).unwrap();
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[tokio::test]
+    async fn initialization_reports_missing_package_and_cache_failure_without_adopting_data() {
+        let mut nonce = [0u8; 16];
+        getrandom::getrandom(&mut nonce).unwrap();
+        let base = std::env::temp_dir().canonicalize().unwrap().join(format!(
+            "blackcrab-entry-diagnostics-{:x}",
+            u128::from_le_bytes(nonce)
+        ));
+        fs::create_dir(&base).unwrap();
+        let app_data = base.join("app-data");
+        let digest = "a".repeat(64);
+        let pins = Pins {
+            desktop_manifest: Some(&digest),
+            desktop_archive: Some(&digest),
+            ..Pins::default()
+        };
+        let missing = ManagedNativeEntry::from_inputs(&base, &app_data, pins);
+        let result = missing.status().await;
+        assert_eq!(result.state, "unavailable");
+        assert!(result.error.unwrap().contains("package is missing"));
+        assert!(!app_data.join("managed-payloads-v1").exists());
+
+        fs::write(
+            base.join("managed-desktop-payload.tar.gz"),
+            b"metadata only",
+        )
+        .unwrap();
+        let cache = app_data.join("managed-payloads-v1");
+        fs::create_dir(&cache).unwrap();
+        fs::write(cache.join("existing-data"), b"retain me").unwrap();
+        let blocked = ManagedNativeEntry::from_inputs(&base, &app_data, pins);
+        let result = blocked.status().await;
+        assert_eq!(result.state, "unavailable");
+        let error = result.error.unwrap();
+        assert!(error.contains("could not initialize the full desktop"));
+        assert!(!error.contains(base.to_str().unwrap()));
+        assert_eq!(fs::read(cache.join("existing-data")).unwrap(), b"retain me");
+        assert!(!cache.join(".blackcrab-managed-payload-cache-v1").exists());
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn partial_verification_information_has_a_distinct_error() {
+        let path = Path::new("/blackcrab-diagnostic-do-not-create");
+        let error = payload(
+            PayloadRole::Desktop,
+            path,
+            path,
+            Some(&"a".repeat(64)),
+            None,
+        )
+        .err()
+        .unwrap();
+        assert!(error.contains("incomplete verification information"));
+        assert!(!path.exists());
     }
 }

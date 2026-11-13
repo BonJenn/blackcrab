@@ -60,13 +60,14 @@ impl EmbeddedPayload {
         manifest_sha256: String,
         cache_root: PathBuf,
     ) -> Result<Self, String> {
-        if !cfg!(unix)
-            || !digest_ok(&archive_sha256)
-            || !digest_ok(&manifest_sha256)
-            || !archive.is_absolute()
-            || !cache_root.is_absolute()
-        {
-            return Err(invalid());
+        if !cfg!(unix) {
+            return Err("Bundled workspaces require a supported Unix platform.".into());
+        }
+        if !digest_ok(&archive_sha256) || !digest_ok(&manifest_sha256) {
+            return Err("The bundled workspace verification information is invalid.".into());
+        }
+        if !archive.is_absolute() || !cache_root.is_absolute() {
+            return Err("The bundled workspace or cache location is not an absolute path.".into());
         }
         #[cfg(unix)]
         {
@@ -254,6 +255,14 @@ fn regular(path: &Path) -> Result<File, String> {
 fn regular(_path: &Path) -> Result<File, String> {
     Err(invalid())
 }
+// Only error kinds and OS numbers are included; never paths or file contents.
+#[cfg(unix)]
+fn cache_io(operation: &str, error: std::io::Error) -> String {
+    match error.raw_os_error() {
+        Some(code) => format!("{operation} ({}; OS error {code}).", error.kind()),
+        None => format!("{operation} ({}).", error.kind()),
+    }
+}
 // POSIX UID/mode bits do not establish a private cache on a macOS volume
 // mounted with ownership ignored. Archive resources may live there; executable
 // cache state and its initialization lease must live on an ownership-aware volume.
@@ -264,15 +273,18 @@ pub(super) fn ownership_filesystem(path: &Path) -> Result<(), String> {
         .read(true)
         .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
         .open(path)
-        .map_err(|_| invalid())?;
+        .map_err(|e| cache_io("Cannot open the workspace cache filesystem", e))?;
     let mut information = std::mem::MaybeUninit::<libc::statfs>::uninit();
     if unsafe { libc::fstatfs(directory.as_raw_fd(), information.as_mut_ptr()) } != 0 {
-        return Err(invalid());
+        return Err(cache_io(
+            "Cannot inspect workspace cache filesystem ownership",
+            std::io::Error::last_os_error(),
+        ));
     }
     // Public Darwin sys/mount.h: MNT_IGNORE_OWNERSHIP (MNT_UNKNOWNPERMISSIONS).
     const IGNORE_OWNERSHIP: u32 = 0x0020_0000;
     if unsafe { information.assume_init() }.f_flags & IGNORE_OWNERSHIP != 0 {
-        return Err(invalid());
+        return Err("The workspace cache volume ignores file ownership.".into());
     }
     Ok(())
 }
@@ -283,13 +295,16 @@ pub(super) fn ownership_filesystem(_path: &Path) -> Result<(), String> {
 #[cfg(unix)]
 pub(super) fn private_dir(path: &Path) -> Result<(), String> {
     ownership_filesystem(path)?;
-    let m = fs::symlink_metadata(path).map_err(|_| invalid())?;
-    if !m.is_dir()
-        || m.file_type().is_symlink()
-        || m.uid() != unsafe { libc::geteuid() }
-        || m.mode() & 0o077 != 0
-    {
-        return Err(invalid());
+    let m = fs::symlink_metadata(path)
+        .map_err(|e| cache_io("Cannot inspect the workspace cache directory", e))?;
+    if !m.is_dir() || m.file_type().is_symlink() {
+        return Err("The workspace cache is not a regular directory.".into());
+    }
+    if m.uid() != unsafe { libc::geteuid() } {
+        return Err("The workspace cache belongs to a different user.".into());
+    }
+    if m.mode() & 0o077 != 0 {
+        return Err("The workspace cache permissions are not private.".into());
     }
     Ok(())
 }
@@ -314,10 +329,10 @@ fn bounded_lock(file: &File) -> Result<(), String> {
             error.raw_os_error(),
             Some(libc::EWOULDBLOCK) | Some(libc::EINTR)
         ) {
-            return Err(invalid());
+            return Err(cache_io("Cannot acquire the workspace cache lock", error));
         }
         if std::time::Instant::now() >= deadline {
-            return Err(invalid());
+            return Err("The workspace cache lock is busy after waiting five seconds.".into());
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
@@ -331,22 +346,32 @@ pub(super) fn owned_lock(path: &Path, create: bool) -> Result<File, String> {
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
         .open(path)
-        .map_err(|_| invalid())?;
-    let meta = file.metadata().map_err(|_| invalid())?;
+        .map_err(|e| {
+            cache_io(
+                "Cannot open the workspace cache lock for reading and writing",
+                e,
+            )
+        })?;
+    let meta = file
+        .metadata()
+        .map_err(|e| cache_io("Cannot inspect the workspace cache lock", e))?;
     if !meta.is_file()
         || meta.nlink() != 1
         || meta.uid() != unsafe { libc::geteuid() }
         || meta.mode() & 0o777 != 0o600
     {
-        return Err(invalid());
+        return Err(
+            "The workspace cache lock has incompatible ownership, permissions or links.".into(),
+        );
     }
     bounded_lock(&file)?;
-    let current = fs::symlink_metadata(path).map_err(|_| invalid())?;
+    let current = fs::symlink_metadata(path)
+        .map_err(|e| cache_io("Cannot recheck the workspace cache lock", e))?;
     if current.file_type().is_symlink()
         || current.dev() != meta.dev()
         || current.ino() != meta.ino()
     {
-        return Err(invalid());
+        return Err("The workspace cache lock changed while being acquired.".into());
     }
     Ok(file)
 }
@@ -355,23 +380,29 @@ fn initialize_cache_root(root: &Path) -> Result<(), String> {
     let mut prefix = PathBuf::new();
     for component in root.components() {
         if matches!(component, Component::ParentDir | Component::CurDir) {
-            return Err(invalid());
+            return Err("The workspace cache path contains a relative component.".into());
         }
         prefix.push(component.as_os_str());
         if let Ok(meta) = fs::symlink_metadata(&prefix) {
             if meta.file_type().is_symlink() {
-                return Err(invalid());
+                return Err("The workspace cache path contains a symbolic link.".into());
             }
         }
     }
-    let parent = root.parent().ok_or_else(invalid)?;
+    let parent = root
+        .parent()
+        .ok_or("The workspace cache has no parent directory.")?;
     ownership_filesystem(parent)?;
-    let parent_meta = fs::symlink_metadata(parent).map_err(|_| invalid())?;
-    if !parent_meta.is_dir()
-        || parent_meta.uid() != unsafe { libc::geteuid() }
-        || parent_meta.mode() & 0o022 != 0
-    {
-        return Err(invalid());
+    let parent_meta = fs::symlink_metadata(parent)
+        .map_err(|e| cache_io("Cannot inspect the application-data directory", e))?;
+    if !parent_meta.is_dir() {
+        return Err("The application-data location is not a directory.".into());
+    }
+    if parent_meta.uid() != unsafe { libc::geteuid() } {
+        return Err("The application-data directory belongs to a different user.".into());
+    }
+    if parent_meta.mode() & 0o022 != 0 {
+        return Err("The application-data directory allows other users to write.".into());
     }
     if fs::symlink_metadata(root).is_ok() {
         private_dir(root)?;
@@ -380,7 +411,11 @@ fn initialize_cache_root(root: &Path) -> Result<(), String> {
     use std::os::unix::ffi::OsStrExt;
     let key = format!(
         "{:x}",
-        Sha256::digest(root.file_name().ok_or_else(invalid)?.as_bytes())
+        Sha256::digest(
+            root.file_name()
+                .ok_or("The workspace cache has no directory name.")?
+                .as_bytes()
+        )
     );
     let _initialization = owned_lock(
         &parent.join(format!(".blackcrab-payload-init-{}.lock", &key[..24])),
@@ -393,10 +428,11 @@ fn initialize_cache_root(root: &Path) -> Result<(), String> {
             return Ok(());
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(_) => return Err(invalid()),
+        Err(e) => return Err(cache_io("Cannot recheck the workspace cache directory", e)),
     }
     let mut nonce = [0u8; 16];
-    getrandom::getrandom(&mut nonce).map_err(|_| invalid())?;
+    getrandom::getrandom(&mut nonce)
+        .map_err(|_| "Cannot generate a unique workspace cache directory.")?;
     let stage = parent.join(format!(
         ".payload-cache-init-{}",
         nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
@@ -404,7 +440,7 @@ fn initialize_cache_root(root: &Path) -> Result<(), String> {
     fs::DirBuilder::new()
         .mode(0o700)
         .create(&stage)
-        .map_err(|_| invalid())?;
+        .map_err(|e| cache_io("Cannot create a private workspace cache directory", e))?;
     let mut guard = Staging(Some(stage.clone()));
     let mut marker = OpenOptions::new()
         .write(true)
@@ -412,20 +448,24 @@ fn initialize_cache_root(root: &Path) -> Result<(), String> {
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW)
         .open(stage.join(MARKER))
-        .map_err(|_| invalid())?;
+        .map_err(|e| cache_io("Cannot create the workspace cache marker", e))?;
     marker
         .write_all(b"blackcrab-payload-cache-v1\n")
         .and_then(|_| marker.sync_all())
-        .map_err(|_| invalid())?;
+        .map_err(|e| cache_io("Cannot save the workspace cache marker", e))?;
     drop(owned_lock(&stage.join(".lease"), true)?);
     File::open(&stage)
         .and_then(|f| f.sync_all())
-        .map_err(|_| invalid())?;
-    publish_no_replace(&stage, root)?;
+        .map_err(|e| cache_io("Cannot save the new workspace cache directory", e))?;
+    publish_no_replace(&stage, root)
+        .map_err(|_| "Cannot publish the new workspace cache without replacing existing data.")?;
     guard.0 = None;
-    File::open(parent)
-        .and_then(|f| f.sync_all())
-        .map_err(|_| invalid())?;
+    File::open(parent).and_then(|f| f.sync_all()).map_err(|e| {
+        cache_io(
+            "Cannot save the application-data directory after cache creation",
+            e,
+        )
+    })?;
     private_dir(root)?;
     verify_marker(root)
 }
@@ -472,18 +512,27 @@ pub(super) fn publish_no_replace(from: &Path, to: &Path) -> Result<(), String> {
 }
 #[cfg(unix)]
 fn verify_marker(root: &Path) -> Result<(), String> {
-    let mut f = regular(&root.join(MARKER))?;
-    let m = f.metadata().map_err(|_| invalid())?;
+    let mut f = regular(&root.join(MARKER)).map_err(|_| {
+        "The workspace cache marker is missing, unreadable or not a regular single-link file."
+    })?;
+    let m = f
+        .metadata()
+        .map_err(|e| cache_io("Cannot inspect the workspace cache marker", e))?;
     if m.uid() != unsafe { libc::geteuid() }
         || m.mode() & 0o077 != 0
         || m.len() != b"blackcrab-payload-cache-v1\n".len() as u64
     {
-        return Err(invalid());
+        return Err(
+            "The workspace cache marker has incompatible ownership, permissions or size.".into(),
+        );
     }
     let mut b = String::new();
-    f.read_to_string(&mut b).map_err(|_| invalid())?;
+    f.read_to_string(&mut b)
+        .map_err(|e| cache_io("Cannot read the workspace cache marker", e))?;
     if b != "blackcrab-payload-cache-v1\n" {
-        return Err(invalid());
+        return Err(
+            "The workspace cache marker is not recognized; existing data was preserved.".into(),
+        );
     }
     Ok(())
 }
@@ -1365,6 +1414,60 @@ mod tests {
         )
         .is_err());
     }
+    #[test]
+    fn startup_errors_identify_rejected_cache_without_mutation_or_data_disclosure() {
+        let f = Fixture::new();
+        let p = f.archive(vec![("file", b'0', "content")]);
+        let marker = p.cache_root.join(MARKER);
+        let original = fs::read(&marker).unwrap();
+        let original_mode = fs::metadata(&p.cache_root).unwrap().mode();
+
+        fs::set_permissions(&p.cache_root, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(initialize_cache_root(&p.cache_root)
+            .unwrap_err()
+            .contains("permissions are not private"));
+        assert_eq!(fs::read(&marker).unwrap(), original);
+        assert_eq!(fs::metadata(&p.cache_root).unwrap().mode() & 0o777, 0o755);
+        fs::set_permissions(&p.cache_root, fs::Permissions::from_mode(original_mode)).unwrap();
+
+        let unrecognized = vec![b'x'; original.len()];
+        fs::write(&marker, &unrecognized).unwrap();
+        let failure = initialize_cache_root(&p.cache_root).unwrap_err();
+        assert!(failure.contains("marker is not recognized"));
+        assert!(!failure.contains(f.root.to_str().unwrap()));
+        assert!(!failure.contains(std::str::from_utf8(&unrecognized).unwrap()));
+        assert_eq!(fs::read(&marker).unwrap(), unrecognized);
+        fs::write(&marker, &original).unwrap();
+
+        let key = format!("{:x}", Sha256::digest(b"cache"));
+        let lock = f
+            .root
+            .join(format!(".blackcrab-payload-init-{}.lock", &key[..24]));
+        fs::set_permissions(&lock, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(initialize_cache_root(&p.cache_root)
+            .unwrap_err()
+            .contains("lock has incompatible"));
+        assert_eq!(fs::metadata(&lock).unwrap().mode() & 0o777, 0o644);
+        fs::set_permissions(&lock, fs::Permissions::from_mode(0o600)).unwrap();
+        initialize_cache_root(&p.cache_root).unwrap();
+    }
+
+    #[test]
+    fn startup_io_diagnostics_do_not_include_custom_error_contents() {
+        let error = std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "/private/user-path-and-contents",
+        );
+        let message = cache_io("Cannot open the workspace cache", error);
+        assert!(message.contains("permission denied"));
+        assert!(!message.contains("user-path"));
+        assert!(cache_io(
+            "Cannot open the workspace cache",
+            std::io::Error::from_raw_os_error(libc::EACCES)
+        )
+        .contains("OS error"));
+    }
+
     #[test]
     fn concurrent_virgin_constructors_publish_one_marked_root() {
         let f = Fixture::new();

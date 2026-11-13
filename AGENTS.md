@@ -133,3 +133,14 @@ publication and real download buttons also passed. Preserve the public tag and
 release assets; future fixes need a new version. Publication does not establish
 manual Mac installation/UI/service/upgrade acceptance or full parity. Start at
 the latest docs/agent-handoff.md checkpoint; older checkpoints are historical.
+
+## Current Mac startup investigation
+
+For the owner's disabled Full desktop in verified 0.4.0, read
+`docs/desktop-startup-040-diagnosis.md` before asking for diagnostics. All 19
+owner-reported file/cache/lock checks passed and a full restart did not help.
+One unavailable line points toward notBundled. Only native status should decide
+whether a desktop package is bundled; a JavaScript runtime marker is not package
+metadata. Preserve the distinction between a reproduced client misclassification
+and confirmation of the owner's actual failure. Do not delete/repair data from
+speculation or claim that unit tests establish GUI acceptance.

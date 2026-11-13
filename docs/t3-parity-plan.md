@@ -1,17 +1,19 @@
 # T3 functionality parity delivery plan
 
-## Current desktop direction — sole workspace
+## Current desktop direction — published sole workspace
 
-PR275 is merged at d9b5601d424e9808ee2c8dcac5bf42f8cf97d137 with all nine CI checks passed. The replacement signed installer passed final artifact verification. Actual runtime validation is blocked by the locked build Mac; publication and installation remain pending in the current handoff. No parity acceptance is implied.
+Mac 0.4.2 is published from cb586b1f4832714e624c4a328b777ef321670fd3 after actual
+signed/notarized installer, helper, payload, version and updater verification.
+The owner confirmed the earlier private workspace works and explicitly requested
+publication of the final branding/version, external-drive picker and pane-drop
+polish. Final UI/lifecycle and full parity acceptance remain separate and ongoing.
 
-The owner explicitly removed the older desktop interface. The current 0.4.2
-candidate launches the managed workspace automatically, retains native recovery
-and updates, and removes upstream account/subscription branding. The earlier
-button-based 0.4.2 draft is superseded and must not be published. User data stays
-on disk; old renderer acceptance does not certify the new startup path. See the
-[current handoff](agent-handoff.md) for source checks and remaining signed/native
-acceptance. Historical increments below retain their original evidence scope.
-
+The managed workspace is the only desktop interface. Native startup/recovery and
+signed updates remain; the retired interface must not return. Existing data stays
+on disk. The unchanged production host is retained because changing its pinned
+manifest requires a stopped-service migration; some host diagnostic copy remains.
+See the [current handoff](agent-handoff.md) for source/artifact evidence and next
+implementation. Historical increments retain their original evidence scope.
 
 Full remote iOS control is an explicit delivery requirement, including all applicable
 T3 mobile workflows. The app lives in `apps/mobile`; see the

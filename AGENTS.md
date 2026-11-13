@@ -216,3 +216,15 @@ updater cryptographic verification remain mandatory. It does not authorize later
 versions or certify full parity. Retain the current production service artifact:
 the separate host-copy branch needs a data-preserving manifest upgrade before
 changing the installed service. Publish website notes only after the installer.
+
+## Published 0.4.2 workspace — 2026-11-13
+
+Mac v0.4.2 is public from cb586b1f4832714e624c4a328b777ef321670fd3. Actual installer,
+helper, payload, version, notarization and updater verification passed; anonymous
+public downloads passed. Preserve the public tag/assets. Read the current handoff
+before historical build/publishing instructions; all release build handles have
+completed. The release uses OWNER_TESTING_AUTHORIZED, not PASSED native lifecycle
+acceptance. The owner's private candidate was not replaced by this publication.
+Some host diagnostic copy remains: preserve the production c04c4d44… manifest until
+an explicitly stopped, data-preserving host migration is implemented and tested.
+Full parity and final user installation/runtime acceptance remain separate work.

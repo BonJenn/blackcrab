@@ -13,6 +13,8 @@ mod managed_desktop;
 mod managed_host;
 mod managed_native_entry;
 mod managed_launcher;
+#[cfg(any(target_os = "macos", all(test, unix)))]
+mod macos_updater;
 mod managed_updates;
 mod managed_payload;
 mod managed_service_install;

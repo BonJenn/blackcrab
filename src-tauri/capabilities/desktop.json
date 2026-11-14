@@ -9,7 +9,6 @@
     "main"
   ],
   "permissions": [
-    "process:default",
-    "updater:default"
+    "process:default"
   ]
 }

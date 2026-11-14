@@ -32,12 +32,12 @@ pub(crate) async fn managed_launcher_handoff(
     window: tauri::WebviewWindow, app: tauri::AppHandle,
 ) -> Result<(), String> {
     crate::require_main_window(&window)?;
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     {
         let view_epoch = app.state::<LauncherState>().view_epoch.load(Ordering::SeqCst);
         let entry = app.state::<crate::managed_native_entry::ManagedNativeEntry>();
-        // A live process is not yet a window. Give AppKit time to register it;
-        // keep recovery visible if activation never becomes possible.
+        // A live process is not yet a window. Wait for native activation on
+        // Mac or an acknowledgement from the captured Linux workspace.
         let mut activated = false;
         for _ in 0..60 {
             if entry.activate(&app).await? { activated = true; break; }
@@ -80,6 +80,6 @@ pub(crate) async fn managed_launcher_handoff(
         }
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
-    { let _ = app; Err("This workspace is currently available on Apple-silicon Macs.".into()) }
+    #[cfg(not(unix))]
+    { let _ = app; Err("This workspace is not available on this platform yet.".into()) }
 }

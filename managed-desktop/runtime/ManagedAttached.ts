@@ -8,6 +8,7 @@ import * as Configuration from "../backend/DesktopBackendConfiguration.ts";
 import * as Window from "../window/DesktopWindow.ts";
 import * as State from "./DesktopState.ts";
 import * as UpdatePolicy from "../updates/DesktopUpdatePolicy.ts";
+import { openLifecycle } from "./managed-desktop/lifecycle.mjs";
 import { createAttachment } from "./managed-desktop/attachment.mjs";
 
 import * as ManagedBrowser from "./ManagedBrowser.ts";
@@ -26,6 +27,18 @@ export const layerPool = Layer.effect(Pool.DesktopBackendPool, Effect.gen(functi
  const browser=yield* ManagedBrowser.make;
  const context = yield* Effect.context<Window.DesktopWindow | State.DesktopState>();
  const run = Effect.runPromiseWith(context);
+ let ready = false;
+ const lifecycle = openLifecycle(descriptor, async () => {
+  if (!ready || !attachment.ready) return false;
+  const main = await run(window.revealOrCreateMain);
+  if (!ready || !attachment.ready || main.isDestroyed() || main.webContents.isDestroyed()) return false;
+  if (!main.isVisible() || main.webContents.isLoadingMainFrame()) return false;
+  const href = main.webContents.getURL();
+  if (!href) return false;
+  const url = new URL(href);
+  return url.protocol === "blackcrab:" && url.hostname === "app";
+ });
+ yield* Effect.addFinalizer(() => Effect.sync(() => lifecycle.close()));
  const attachment = createAttachment({ verify: async () => {
   // @effect-diagnostics-next-line globalFetch:off - This JS attachment boundary requires manual redirects and a bounded Node request.
   const response = await fetch(new URL(".well-known/t3/environment", descriptor.owner.origin), { redirect: "manual", signal: AbortSignal.timeout(10000) });
@@ -35,7 +48,7 @@ export const layerPool = Layer.effect(Pool.DesktopBackendPool, Effect.gen(functi
   // @effect-diagnostics-next-line globalFetch:off - Preserve the explicit renderer-origin preflight without following redirects.
   const cors = await fetch(new URL("oauth/token", descriptor.owner.origin), { method: "OPTIONS", headers: { Origin: "blackcrab://app", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" }, redirect: "manual", signal: AbortSignal.timeout(10000) });
   if (!cors.ok || cors.headers.get("access-control-allow-origin") !== "blackcrab://app") throw Error("Managed host does not permit the Blackcrab renderer origin");
- }, onDetach:()=>browser.stop(), onReady: async () => { browser.start(); try { await run(window.handleBackendReady(config.httpBaseUrl)); await run(SubscriptionRef.set(state.primaryBackendStartup, { _tag: "Ready" })); } catch(error) { browser.stop(); throw error; } } });
+ }, onDetach:()=>{ ready = false; browser.stop(); }, onReady: async () => { browser.start(); try { await run(window.handleBackendReady(config.httpBaseUrl)); await run(SubscriptionRef.set(state.primaryBackendStartup, { _tag: "Ready" })); ready = true; } catch(error) { browser.stop(); throw error; } } });
  const primary: Pool.DesktopBackendInstance = { id: Manager.PRIMARY_INSTANCE_ID, label: Effect.succeed("Blackcrab managed host (attached)"), start: Effect.promise(() => attachment.start()), stop: () => Effect.sync(() => attachment.stop()), currentConfig: Effect.succeedSome(config), snapshot: Effect.sync(() => ({ desiredRunning: attachment.ready, ready: attachment.ready, activePid: Option.none(), restartAttempt: 0, restartScheduled: false })), waitForReady: () => Effect.sync(() => attachment.ready) };
  return Pool.DesktopBackendPool.of({ primary: Effect.succeed(primary), list: Effect.succeed([primary]), get: Effect.fn("Pool.DesktopBackendPool.get")((id: Pool.BackendInstanceId) => Effect.succeed(id === primary.id ? Option.some(primary) : Option.none())), register: Effect.fn("Pool.DesktopBackendPool.register")(() => Effect.die("OwnerControl unavailable: additional backend ownership")), unregister: Effect.fn("Pool.DesktopBackendPool.unregister")(() => Effect.die("OwnerControl unavailable: backend ownership")) });
 }));

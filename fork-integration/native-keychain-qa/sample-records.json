@@ -34,8 +34,8 @@
     {
       "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
       "phase": "source",
-      "beforeSha256": "33730523f36e2ae6867d2e1451d6b9eb370e558f91048d4b8fb180ae151ec263",
-      "afterSha256": "7c7deb89345987473a07bcc3429f4c4f0917f3f1f0f17d456d5c5fe59f808ee8",
+      "beforeSha256": "b74d350edf8af154f178e1d77eef40064821619ec03dc2085ea4507b2e8fa68f",
+      "afterSha256": "ea1fd3f0fede8c9ccd2aeaaddde841c0caa2274091031c6beb653f06bdabd8c4",
       "changed": true,
       "afterFixture": "fixtures/sample-after/descriptor.after.mjs"
     },

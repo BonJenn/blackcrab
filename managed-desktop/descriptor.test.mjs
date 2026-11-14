@@ -24,3 +24,8 @@ test('launcher updates require exact private FD5 and publish only the capability
  const parsed=parseDescriptor(JSON.stringify(d));assert.equal(parsed.control.fd,5);assert.equal(publicIdentity(parsed).control,'launcher-updates-fd-v1');assert.equal(Object.hasOwn(publicIdentity(parsed),'fd'),false);
  for(const control of [{kind:'launcher-updates-fd-v1',fd:4},{kind:'launcher-updates-fd-v1',fd:5,url:'http://127.0.0.1/'},{kind:'launcher-updates-fd-v1'}]){assert.throws(()=>parseDescriptor(JSON.stringify({...d,control})));}
 });
+test('optional lifecycle channel is isolated from update and pairing authority',()=>{
+ const d=descriptor();d.lifecycle={kind:'launcher-lifecycle-fd-v1',fd:6};
+ const parsed=parseDescriptor(JSON.stringify(d));assert.deepEqual(parsed.lifecycle,d.lifecycle);assert.ok(Object.isFrozen(parsed.lifecycle));assert.equal(Object.hasOwn(publicIdentity(parsed),'lifecycle'),false);
+ for(const lifecycle of [null,{kind:'launcher-lifecycle-fd-v1',fd:5},{kind:'launcher-lifecycle-fd-v1',fd:6,pid:1},{kind:'arbitrary-command',fd:6}])assert.throws(()=>parseDescriptor(JSON.stringify({...d,lifecycle})));
+});

@@ -1,58 +1,82 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — actual portable builds passed; native verifier underway
+## Current checkpoint — portable verifier merged; Unix launcher in validation
 
-Integration update: PR300 is merged at stage 77e84aa. The owner authorized its
-inactive IDE source on stage; the release producer does not import this recipe and
-VITE_BLACKCRAB_IDE_MODE remains unset. This supersedes earlier instructions to keep
-its branch draft, but does not enable IDE mode in 0.4.4. Preserve its source and
-validation history below; coordinate activation separately for 0.4.5.
-PR302 passed all 12 checks on a301d8c, including the actual native Rust verifier
-reading both freshly compiled Windows/Linux artifacts. The only new conflict was
-this shared handoff. Current merge resolution must pass CI before merging PR302.
+The owner requires downloadable 0.4.4 for Mac, Windows and Linux, followed by full
+parity. Latest instruction: merge to stage, then launcher integration and installers.
+Keep working after intermediate merges. CI waits use PR watching and automatic
+resumption. Publication is authorized; no routine confirmation is needed.
+**0.4.4 is not published.** Public versions remain Mac0.4.3 and Windows/Linux0.3.0.
+Blackcrab Remote1.0.0(5) is already available to the existing owner in TestFlight.
 
-Latest integration: PR301 merged at 52a29b2cdb0ef304631a195c0d1635ca7fdb7687,
-head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3,10 checks passed/no reviews/unwatched
-per its owner. This branch includes it together with PR297. Read
-docs/desktop-browser-reboot-recovery.md. No installed payload/helper/service changed;
-the temporary owner-Mac repair remains limited to the missing runtime directory.
-The older 'await PR301' statements below are superseded by this integration.
-
-Owner requires downloadable 0.4.4 on Mac/Windows/Linux and tested stage→main release.
-PR299 merged/unwatched at c1763cda63e8b2dec9c6d433d7849a5d9a632f9d after 12 checks passed
-on cca450fa3d672e8acfa649a1afbb10e05e8dd2d5, no review/comments. Actual full workspace
-builds passed: Linux job132363825854,2812 files, manifest 2273236a1de5d6e7cf7170cdf634b80fc8a8829e67b0966716b747942710c1a2;
-Windows job132363825631,2818 files, manifest 32d74328479fd13482d12ca5f45276abf7c42fb21873c2b4ed941a671271cfec.
-These are real compiled payloads, unlike earlier synthetic runtime CI. No UI or
-service was launched; no installers or0.4.4 were published. Artifact version is
-still0.4.3 until the coordinated release bump. Default production targets stay gated.
+PR302 merged to stage at 5ec76354669b335cec3a9be5fdb6ccc01e5d4471 after all12 checks
+passed on59080a2aaf0c74a27c9c3646003008bb3503b40d. No reviews/comments; unwatched.
+Its native Rust verifier accepted the ACTUAL complete Windows/Linux workspace
+builds. PR299's producers compile pinned desktop/web source, full types, native
+metadata, physical dependencies, notices and complete inventories. Neither proof
+establishes UI/service/installers. Do not republish old root-only installers.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Active P/desktop-portable-native-verifier-044, branch feat/desktop-portable-native-verifier,
-base c1763cda63e8b2dec9c6d433d7849a5d9a632f9d. Adjacent -plan.json has exact head/PR.
-managed_desktop.rs now selects manifest/layout/native header by compiled OS/arch,
-retains Mac format1/QA, verifies portable format2/provenance/boot/notices, normalizes
-filesystem separators and checks all hashes. Windows reparse points/hardlinks,
-reserved names and case aliases are rejected. Native tests read the actual newly
-built workspace artifact with its exact trusted manifest pin, never launch it.
-Local actual crate: 17 tests passed, one explicitly ignored native portable artifact
-case (not runnable on Mac; CI runs it with --ignored on Windows/Linux). JS shared
-contracts: 6 passed. Logs P/desktop-portable-native-verifier-rust-final.log and
-P/desktop-portable-native-verifier-contract.log. No local process is running;
-owned incremental target is /private/tmp/blackcrab-native-verifier-044-target.
-Next inspect native artifact-verifier CI, merge only after passes, then implement
-Root launch/transport, per-user services and verified installers. Never substitute
-root-only installers or compilation for full product delivery.
+Active worktree P/desktop-unix-launcher-044, branch feat/desktop-unix-launcher,
+base5ec76354669b335cec3a9be5fdb6ccc01e5d4471. Adjacent -plan.json records the final
+commit/PR/watch state. No PR has been opened for this increment yet. Next finish
+review, commit explicit paths, push/create/link PR, then watch required CI and end
+the turn. On wake inspect final checks/reviews/current base, merge and continue.
 
-Separately owned PR301 (reported head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3) fixes
-reboot loss of private browser capability directory and exposes native error strings;
-its owner controls CI/review/merge. It also explicitly sets updater temp staging0700.
-Do not duplicate edits or alter production c04c4d44… service/helper/configuration/data.
-Include its merge when reported. The owner Mac0.4.3 currently works after guarded
-missing-temp-directory restoration and normal Retry with existing threads; another
-reboot may need repair until updated Root ships. PR297 updater fix is already inbase.
-IDE 0.4.5 source is merged but remains inactive in 0.4.4. TestFlight 1.0.0(5) remains delivered.
-Preserve dirty main checkout, existing releases/data and production service identity.
+Implemented in this branch:
+- Shared Unix captured-child launcher, original FD3 bootstrap/FD4 renewal and FD5
+  updater; Linux gets an independent optional FD6 lifecycle channel. No TCP/PID
+  discovery, renderer-supplied command or second host is introduced.
+- Linux activation waits for the actual owned Electron workspace to report its
+  loaded, visible blackcrab://app window. Reopen uses the existing window service.
+  Root hides only after activation and observes normal exit/crash; update install
+  first closes the captured workspace. Mac keeps its existing AppKit activation.
+- Linux inherits only named display/session/locale variables; HOME is obtained
+  from the OS account, not ambient input. Profile directories are private at create.
+- Bounded messages, request IDs, deadlines, malformed/foreign replies and closed
+  channels are handled explicitly. A reproduced Darwin setsockopt-after-peer-close
+  race is fixed with deadline-bound poll/read that drains the final buffered reply.
+- Production source registry and Mac QA descriptor predecessor/sample pins are
+  updated together after reviewing the exact three changed/two new payload records.
+  Original identity/storage policy is preserved. Complete build provenance includes
+  the new lifecycle source. Platform production producers remain build-only until
+  service/installer integration; Linux Root now understands a correctly bundled
+  workspace but still needs the independent per-user service implementation.
+
+Validation:
+- Actual Mac Rust crate managed_* suite:173 passed,0 failed,10 explicit ignored
+  artifact/native acceptance cases (not claimed as passed). Earlier suite exposed
+  the socket race; final reviewed run passed. Log P/desktop-unix-launcher-native-reviewed.log.
+- JS desktop/QA/resource suite:148 passed,0 failed,3 explicit ignored real
+  packaging/service fixture cases. Log P/desktop-unix-launcher-contracts.log.
+- Shared Rust/JS descriptor contracts:6 passed,0 skipped.
+- Fresh pinned upstream archive extracted, all production patches applied, cached
+  dependencies linked read-only. FULL desktop Effect types and actual desktop
+  bundle pass. P/desktop-unix-launcher-validation/result.json and logs hold evidence.
+- Captured Rust/Node child tests cover FD6 with/without FD5, readiness/reopen,
+  malformed/oversize replies, timeout and late reply rejection. This is process/
+  protocol evidence, not actual Linux GUI or end-to-end service acceptance.
+No local build or child test is still running. Test processes were captured/reaped;
+no installed app, user service/data or provider run was touched. Reusable Cargo
+output: /private/tmp/blackcrab-native-verifier-044-target. No old shell handle needs
+restarting. A broad read-only archive search was cancelled; it was not a build.
+
+Next after this PR: Linux user-service ownership/install/start/stop/attachment,
+Windows native private channels + ACLs + per-user lifecycle, actual bundled launch
+acceptance, platform installers and signed update metadata. Bump0.4.4 coherently,
+promote tested stage→main, build/verify draft installers, publish all three actual
+platform downloads. Preserve one writer, existing pairing/history and owned cleanup.
+
+PR297 (Mac destination-local updater) and PR301 (missing temporary browser-directory
+recovery) are already merged and included. Their owner has completed/unwatched them;
+do not duplicate. Preserve production Mac host manifest
+c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 and helper/config/data
+until a reviewed stopped, data-preserving migration. PR300 IDE source is merged
+by owner authorization but remains opt-in/inactive for0.4.4; do not enable it.
+Preserve dirty main checkout and all public releases. Website redesign is separately
+owned; its Vercel Hobby quota blocker is recorded in the copyable prompt. Keep the
+broader parity/Mac installation/real device acceptance finish line distinct from CI.
+
 
 ---
 

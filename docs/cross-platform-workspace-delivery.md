@@ -142,3 +142,13 @@ Native CI checks Windows VersionInfo through the OS, validates Linux's desktop
 entry with desktop-file-validate and launches the edited native runtime. Read final
 CI results before claiming acceptance. Producer orchestration, Root transport,
 services and installers remain next. Mac production packaging stays unchanged.
+
+
+## Actual workspace producer candidate
+
+PR298 native runtime/metadata checks passed and merged at426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d.
+The next candidate extends the shared build recipe to native Windows/Linux with an
+explicit buildOnlyTarget. It builds real source and verifies complete target-aware
+artifacts; managed-desktop-build CI must pass before treating compilation as done.
+Default production targets remain disabled while Root launch/transport and service
+lifecycle are unfinished. Candidate build success is not installer delivery.

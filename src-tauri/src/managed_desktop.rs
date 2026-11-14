@@ -1015,43 +1015,6 @@ async fn launch_for_identity(
     launch_verified(host, package).await
 }
 #[cfg(unix)]
-fn workspace_tmp(profile: &Path) -> Result<PathBuf, String> {
-    // Chromium binds its single-instance socket beneath TMPDIR and aborts when
-    // that path exceeds sockaddr_un's 108 bytes. The private profile temp
-    // directory sits too deep under the account's data directory for that, so
-    // on Linux prefer a private directory in the short per-user runtime one.
-    #[cfg(target_os = "linux")]
-    if let Some(short) = runtime_tmp(std::env::var_os("XDG_RUNTIME_DIR"))? {
-        return Ok(short);
-    }
-    Ok(profile.join("tmp"))
-}
-#[cfg(any(target_os = "linux", all(test, unix)))]
-fn runtime_tmp(base: Option<std::ffi::OsString>) -> Result<Option<PathBuf>, String> {
-    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
-    let private = |path: &Path| {
-        fs::symlink_metadata(path).is_ok_and(|m| {
-            m.is_dir() && m.uid() == unsafe { libc::geteuid() } && m.mode() & 0o077 == 0
-        })
-    };
-    let Some(base) = base.map(PathBuf::from) else { return Ok(None) };
-    // Leave room for Chromium's own directory and socket names.
-    if !base.is_absolute() || base.as_os_str().len() > 40 || !private(&base) {
-        return Ok(None);
-    }
-    let directory = base.join("blackcrab-workspace-tmp");
-    match fs::DirBuilder::new().mode(0o700).create(&directory) {
-        Ok(()) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(_) => return Err(error()),
-    }
-    // An existing entry we do not privately own is refused, never adopted.
-    if !private(&directory) {
-        return Err(error());
-    }
-    Ok(Some(directory))
-}
-#[cfg(unix)]
 async fn launch_verified(
     host: ManagedHost,
     package: VerifiedDesktop,
@@ -1073,7 +1036,7 @@ async fn launch_verified(
         .env_clear()
         .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
         .env("HOME", &os_home)
-        .env("TMPDIR", workspace_tmp(&profile)?)
+        .env("TMPDIR", profile.join("tmp"))
         .env("OTEL_SDK_DISABLED", "true")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -1294,28 +1257,6 @@ fn serve_broker(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(unix)]
-    #[test]
-    fn linux_workspace_temp_is_short_private_and_never_adopts_a_shared_directory() {
-        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-        assert_eq!(runtime_tmp(None).unwrap(), None);
-        assert_eq!(runtime_tmp(Some("relative".into())).unwrap(), None);
-        let base = PathBuf::from(format!("/tmp/bc-rt-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&base);
-        fs::DirBuilder::new().mode(0o755).create(&base).unwrap();
-        fs::set_permissions(&base, fs::Permissions::from_mode(0o755)).unwrap();
-        assert_eq!(runtime_tmp(Some(base.clone().into())).unwrap(), None);
-        fs::set_permissions(&base, fs::Permissions::from_mode(0o700)).unwrap();
-        let directory = runtime_tmp(Some(base.clone().into())).unwrap().unwrap();
-        assert_eq!(directory, base.join("blackcrab-workspace-tmp"));
-        assert_eq!(fs::metadata(&directory).unwrap().permissions().mode() & 0o777, 0o700);
-        // Chromium appends "/.org.chromium.Chromium.XXXXXX/SingletonSocket".
-        assert!(directory.as_os_str().len() + 46 < 108);
-        assert_eq!(runtime_tmp(Some(base.clone().into())).unwrap().unwrap(), directory);
-        fs::set_permissions(&directory, fs::Permissions::from_mode(0o770)).unwrap();
-        assert!(runtime_tmp(Some(base.clone().into())).is_err());
-        fs::remove_dir_all(&base).unwrap();
-    }
     #[test]
     fn native_regular_file_rejects_directories_and_bounded_overreads() {
         let root=tempfile::tempdir().unwrap();

@@ -134,6 +134,25 @@ now starts the workspace as Root does (environment, working directory and
 descriptors3,4 and6) with a correctly shaped descriptor carrying a made-up
 credential and an unused port, and keeps what it prints.
 
+## Correction: the runtime temp directory broke the workspace's own contract
+
+Run43639683994's probe printed the startup error: `Managed environment
+authority differs`, from `captureManagedShellAuthority` in
+`native-os-home-environment.mjs`. The workspace requires `TMPDIR` to equal
+`<profile>/tmp` and sets Electron's own temp path there. The runtime temp
+directory introduced above violated that, so runs from43629474947 on stalled
+at this check; they did not show that the short path fixes the core dump, as
+the workspace never reached the single-instance lock. That change is reverted
+and `managed_desktop.rs` is identical to `stage` again.
+
+The open product defect is therefore the core dump from run43627224742, with
+the contract-correct `TMPDIR`. The socket-length explanation is still the
+leading hypothesis but is unconfirmed. If confirmed, the fix belongs in the
+workspace environment contract (a registered, pinned payload module shared with
+Mac), not in Root alone. The probe now launches with the contract-correct
+`TMPDIR`, so the next run records Chromium's own fatal message and
+`coredumpctl info`.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

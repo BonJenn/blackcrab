@@ -42,6 +42,10 @@ Enable **Native API** for the exact Blackcrab production instance in
 [Clerk → Native applications](https://dashboard.clerk.com/~/native-applications).
 Clerk requires this for native clients, independently of browser sign-in and the
 JWT template. See the [Expo setup](https://clerk.com/docs/expo/getting-started/quickstart).
+Blackcrab's application is in the `bonjenns-projects` Vercel Marketplace workspace.
+Use `vercel integration open clerk blackcrab --scope bonjenns-projects` to enter
+that workspace, then choose **Production**. A separate personal Clerk login may
+not show this application; do not create a duplicate instance.
 A successful ordinary `/v1/environment` browser response does not establish this
 setting: the same endpoint with `_is_native=1` can return `native_api_disabled`.
 
@@ -57,6 +61,8 @@ bounds the request to ten seconds, and reports only a public hostname, HTTP stat
 and fixed failure category. It sends no user credentials and never signs in.
 An enabled native environment is a prerequisite, not proof of successful login,
 relay discovery or remote agent control.
+The successful response contains `auth_config` and `user_settings` objects at the
+top level; it does not require an `object: "environment"` discriminator.
 
 The account and Connect sign-in entries remain tappable while Clerk initializes.
 After fifteen seconds, an unfinished connection shows an actionable unavailable
@@ -85,10 +91,15 @@ The production OAuth callback for web providers is
 GitHub and Apple applications with that callback and only necessary identity/email
 scopes. Apple hosted OAuth also needs its Services ID, key and team configuration.
 The existing iOS profile includes Sign in with Apple, but capability alone does not
-enable a Clerk connection. Production Clerk rejected Apple activation without
-custom credentials during setup; do not claim native or hosted login works until
-configuration and a real callback/session are verified. Current provider progress
-and account-owner sign-in blockers are recorded in the handoff.
+enable a Clerk connection. Production Apple setup is now saved under the verified
+Jonathan Benn team YF28W3NGG6, Services ID `app.blackcrab.connect`, and a dedicated
+Sign in with Apple key scoped to `dev.blackcrab.remote`. Verify the Apple team
+before mutations: the dashboard can default to another organization. GitHub and
+Apple sign-up/sign-in are enabled in Clerk; Google awaits owner account access.
+The exact Clerk private-relay sender is registered with Apple and its SPF check
+passes. Configuration is not proof of native/hosted login, a completed callback
+or email delivery. Current provider progress and remaining acceptance are in the
+handoff.
 
 ## Deployment and acceptance still required
 

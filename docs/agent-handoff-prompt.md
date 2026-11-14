@@ -1,48 +1,51 @@
-Continue Blackcrab parity and the authorized 0.4.4 release for all three desktop platforms.
-Read AGENTS.md and the current checkpoint of docs/agent-handoff.md first. Keep the
-extensively dirty main checkout untouched and paired AGENTS.md/CLAUDE.md identical.
+Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
+Read AGENTS.md and the current checkpoint in docs/agent-handoff.md first. Preserve
+the extensively dirty main checkout and paired AGENTS.md/CLAUDE.md files.
 
-The immediate owner task adds Google/GitHub/Apple sign-in, removes the extra mobile
-Blackcrab/Legacy hosts header, delivers Blackcrab account branding, and adds bottom
-button haptics. Worktree P/mobile-account-recovery-e49g7nr9/source is on
-feat/mobile-connect-polish; P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Read parent mobile-connect-plan.json and mobile-connect-export-result.json for
-latest head, running handles, PR and validation. The extra header is removed;
-retained paired hosts are in Settings using the existing voice/root ownership
-guard. Tab/compose haptics use native user events and cannot block navigation.
-Physical full mobile types, 100 source/activation tests, 11 root/navigation tests,
-consumer and native resource verification passed. Hermes export is running under
-session43178 from /private/tmp/blackcrab-ios-dXRCWc/repo; inspect the parent reviewed
-export report. Actual update delivery/retention acceptance remains distinct.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Owned worktree P/mobile-account-recovery-e49g7nr9/source is now on
+fix/native-account-preflight-shape (PR292), merged with current stage41935585….
+Read parent mobile-connect-plan.json for exact head/checks. PR293's header removal,
+Settings paired-host access and bottom-button haptics merged at
+41935585301936192105d631cbf2aaa79bc95674 after nine checks; it is unwatched.
+PR292's native readiness fix has refreshed docs and remains watched awaiting its
+new checks; don't poll/relink/watch again on a wake. Merge after actual acceptance.
 
-Native API is ENABLED in the verified Blackcrab Clerk production instance. PR291
-merged at 0b305bc3079b0568370f3c0836f2a4c3f48331bb and is unwatched. PR292 is watched,
-head dc9d179dc7fe44703e53d45cbb9637d50628b13d, and fixes the preflight response shape.
-Do not relink/watch it again on its wake, or re-ask for Native API activation.
-The handoff records the correct Marketplace app/instance, GitHub OAuth app and
-redirect URI. GitHub verification and credential setup completed; sign-up/sign-in is enabled,
-but no real user callback/session has been accepted. Google sign-in is pending.
-Apple is signed in but its preview remains under human control; await release. Use Clerk's existing AuthView, finish
-provider/native registration, and never expose secrets. Native iOS registration and dev.blackcrab.remote://callback allowlisting are done.
-The shipped ClerkKit uses browser OAuth for Google/GitHub and native Apple. Clerk
-rejected Apple activation without production custom credentials; it stays disabled.
-Do not require a new Google native SDK based only on newer generic documentation.
+All mobile source validation passed: full physical types, 100 source/activation
+tests, 11 root/navigation tests, consumer/native resource checks. Hermes export
+COMPLETED; no local build is running. Authoritative parent report:
+mobile-connect-export-reviewed-result.json. Candidate export is
+/private/tmp/blackcrab-ios-dXRCWc/artifacts/mobile-connect-export, code935b6346…,
+runtime2cbb84d9fbdb180f1af5bfe3e049108c47d628cb matching TestFlight1.0.0(4).
+The bundle has no T3 Account/account/Connect strings. It is NOT PUBLISHED. Validate
+installed update/retention/reconnect/rollback, then deliver through owned Expo
+project33fb14fd-4b87-4e85-920c-b6d4204e4567, production channel. Do not publish the
+superseded toolbar/account-only exports or force a runtime fingerprint.
 
-The earlier account-only branded export at /private/tmp/blackcrab-ios-yP6Wlk is
-unpublished and superseded by current polish once verified. Installed TestFlight
-is 1.0.0 (4), runtime 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb. Verify retention,
-reconnect, update and rollback before production delivery. Don’t claim source
-exports or provider switches establish sign-in/remote access on the owner's phone.
+Native API and native iOS registration/redirect are complete in the existing
+Blackcrab Vercel Marketplace Clerk production app. GitHub and Apple sign-up/sign-in
+are ENABLED. Actual user login/session acceptance remains pending. The handoff
+records public app/client IDs and callbacks. Provider secrets stay outside source,
+logs, bundle and chat. The shipped ClerkKit uses browser OAuth for Google/GitHub
+and native Apple; don't invent a native SDK migration from newer generic docs.
 
-Updater PR290 is merged and unwatched; its existing validation/producer in
-P/mac-release-040-v2llrqsa/workspace-044-validation is complete. Mac 0.4.3 and
-Windows/Linux 0.3.0 remain public; 0.4.4 is not built or published. Implement the
-remaining Windows/Linux native package/service/transport, validate real installers
-and signed updater behavior, publish, then update website/blog/release notes.
-Preserve Mac service manifest c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83
-pending a stopped data-preserving migration. No extra publication permission is needed.
+APPLE TEAM MUST BE **Jonathan Benn — YF28W3NGG6**, matching the shipped IPA. The
+owner corrected the initial wrong default team, Between The Lines LLC, before any
+resource/settings mutation there. All new Apple setup is in Jonathan Benn:
+Services ID app.blackcrab.connect, primary dev.blackcrab.remote, scoped Sign in
+with Apple keyQLVW98S6TC, Clerk callback, and private-relay sender with SPF check.
+Verify the current team before future mutations. Key backup is private0600 outside
+Git; do not print it or ask the owner to repeat completed configuration.
 
-Full Connect two-computer+iOS sign-in/discovery/off-LAN agent control/revocation/push
-remains open. Free local/self-hosted plus paid hosted beta is the accepted model.
-Finish with validated parity, a current normal Mac installation, a working available
-TestFlight app and the Windows/Linux delivery. Keep this handoff current.
+Google is owner-deferred ("I'll do it later"): preview rejected the browser as
+insecure; await owner sign-in in normal Chrome. Keep Google disabled until its
+own credentials/configuration are completed. Don't repeat expired login requests.
+
+UpdaterPR290 is merged; Mac0.4.3 and Windows/Linux0.3.0 remain public. 0.4.4 is not
+built/published. Continue actual Windows/Linux native package producers, launch/
+transport/service and native checks, then build/verify/publish all installers and
+update website/blog/release notes. Preserve Mac host manifest
+c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 pending a stopped,
+data-preserving migration. Full Connect two-computer+iOS off-LAN control/revoke/
+push and hosted beta entitlements remain separate. Finish with real builds and
+working delivered apps, not merely green PRs. Keep the handoffs current.

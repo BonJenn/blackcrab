@@ -23,7 +23,9 @@ export async function checkNativeAccount(publishableKey, request = fetch) {
       reason: body?.errors?.some(error => error.code === 'native_api_disabled')
         ? 'native_api_disabled' : 'sign_in_service_rejected_request',
     };
-    const ready = body?.object === 'environment' && typeof body.user_settings === 'object' && body.user_settings !== null;
+    // The Frontend API returns configuration directly, without an `object` tag.
+    const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const ready = isRecord(body?.auth_config) && isRecord(body?.user_settings);
     return { ready, host, status: response.status, reason: ready ? 'native_environment_ready' : 'unexpected_response' };
   } catch {
     return { ready: false, host, reason: 'sign_in_service_unreachable' };

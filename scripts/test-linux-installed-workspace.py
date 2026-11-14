@@ -6,6 +6,7 @@ account is used. WebDriver reads rendered startup status; xdotool sends normal Q
 """
 import argparse
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -90,17 +91,21 @@ def request(method, route, data=None):
 
 
 def await_driver(child):
-    deadline = time.monotonic() + 20
+    # The proxy listens before its native WebKit driver does, and drops early
+    # connections without a response; retry any transport failure until ready.
+    deadline = time.monotonic() + 60
+    last = "no response"
     while time.monotonic() < deadline:
         if child.poll() is not None:
             raise RuntimeError("Owned WebDriver exited before startup")
         try:
             if request("GET", "/status").get("ready"):
                 return
-        except (urllib.error.URLError, DriverFailure):
-            pass
+            last = "not ready"
+        except (OSError, http.client.HTTPException, DriverFailure, ValueError) as error:
+            last = type(error).__name__
         time.sleep(0.2)
-    raise RuntimeError("Owned WebDriver did not become ready")
+    raise RuntimeError("Owned WebDriver did not become ready: " + last)
 
 
 def await_workspace(session):
@@ -252,9 +257,10 @@ def main(report_path):
              "--server-args=-screen 0 1440x1000x24 -nolisten tcp", "/usr/bin/python3", str(QA_HOME / "test.py"), "--inside"], timeout=600)
     finally:
         cleanup_errors = []
-        def cleanup(args):
+        def cleanup(args, accepted=(0,)):
             try:
-                run(args)
+                if subprocess.run(args, timeout=60).returncode not in accepted:
+                    cleanup_errors.append(args[1])
             except Exception:
                 cleanup_errors.append(args[1])
 
@@ -264,8 +270,11 @@ def main(report_path):
             for name in ["result.json", "deb-workspace.png", "appimage-workspace.png"]:
                 if (QA_HOME / name).is_file():
                     cleanup(["sudo", "install", "-o", str(os.getuid()), "-m", "0600", str(QA_HOME / name), str(output / name)])
-            cleanup(["sudo", "loginctl", "terminate-user", NAME])
+            # The account has a systemd manager but no logind session, so there
+            # is nothing for loginctl to terminate. Stop its manager, then end
+            # anything still owned by this run's fresh UID (1 = none remained).
             cleanup(["sudo", "systemctl", "stop", f"user@{UID}.service"])
+            cleanup(["sudo", "pkill", "-KILL", "-U", str(UID)], accepted=(0, 1))
             cleanup(["sudo", "systemctl", "stop", f"user-runtime-dir@{UID}.service"])
             cleanup(["sudo", "userdel", "--remove", NAME])
         if installed:

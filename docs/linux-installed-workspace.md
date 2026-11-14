@@ -46,8 +46,12 @@ provide independent window evidence. The test sends the normal Linux Quit
 shortcut, checks Root closes while the service remains active, then reopens via
 the actual AppImage and compares the same persistent configuration/environment.
 
-Only the newly created account, captured graphical processes and newly installed
-package are retired. Cleanup attempts continue after an individual cleanup
+Only the newly created account, its processes and the newly installed package
+are retired. Run43613716955 passed installer verification for both packages
+and then failed at driver startup: the WebDriver proxy drops connections until
+its native driver listens, and cleanup called `loginctl terminate-user` on an
+account with no logind session. Startup now retries transport failures and
+cleanup stops the account's systemd manager and any remaining processes. Cleanup attempts continue after an individual cleanup
 failure; cleanup errors fail acceptance. Reports and empty-workspace screenshots
 are retained. Driver logs, service configuration and authentication state are not
 uploaded. No provider prompt, production credentials or existing user data is used.

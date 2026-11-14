@@ -1,6 +1,84 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Apple/GitHub enabled, mobile polish merged, 2026-11-13
+## Current checkpoint — TestFlight upload received; native platform CI next, 2026-11-13 Pacific
+
+The owner requested mobile delivery to TestFlight first, then desktop 0.4.4 for
+Mac, Windows and Linux. PR292 is now merged at
+93edbe827fb52c4011cbbe52d5b954dc5de15111 after all nine checks passed on
+279ff925f05e9f538124325b743beb6f8a97bb0f; it is unwatched. PR293 is merged and
+unwatched too. No PR is currently waiting on CI. The owned source below is clean
+apart from this current handoff update; the main dirty checkout remains untouched.
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Active delivery directory D=P/mobile-testflight-polish-xn2t7paa; the pointer is
+P/mobile-testflight-polish-latest.json. D/plan.json and D/build-report.json are
+authoritative for current progress. Source is the exact stage revision above.
+The new standalone binary is Blackcrab Remote 1.0.0 (5), app6780360079,
+bundle dev.blackcrab.remote, **Jonathan Benn team YF28W3NGG6**. It uses the existing
+production channel and app groups. No OTA has been published. Do not reupload
+build4 or create another app/team/project.
+
+The original build session27067 failed during CocoaPods because the dependency
+donor was a JS-only export without the native RaTeX framework. The pinned native
+postinstall restored the missing framework and grammars; native features were
+not removed. The resumed controller D/resume-testflight.mjs COMPLETED successfully; captured
+exec session78178 is finished. Physical stage /private/tmp/blackcrab-ios-Zgmgz1,
+DerivedData P/blackcrab-ios-polish-derived-cdK0rD. The distribution IPA has SHA256
+38759e70456df516bdd285d383fd88a51110add4b32dbfa2a437258411e18e77 and is at
+/private/tmp/blackcrab-ios-Zgmgz1/artifacts/export/BlackcrabRemote.ipa. All three
+targets have build5, expected identities, preserved entitlements and the expected
+distribution certificate. Actual Hermes has Blackcrab Account/Connect, zero T3
+Account/Connect strings and Previously paired hosts. D/build-attempt-1-report.json
+preserves the failed preparation attempt. Do not restart the completed archive.
+
+D/submit-testflight.mjs is RUNNING through captured exec session75457. Apple
+validation passed and Apple reported UPLOAD SUCCEEDED at 01:59:33 UTC, delivery
+UUID8e31043e-b547-4264-9c27-d312772e7bdc. The uploader --wait process is still active;
+resume that original handle, never run another upload. D/apple-submission-result.json
+records its phase. D/verify-and-deliver.cjs ran at02:02:24 UTC and returned
+WAITING_FOR_APPLE_PROCESSING (build5 not yet listed). Re-run that verifier after
+processing; it adds the VALID build to the existing Blackcrab Internal Release
+group and verifies owner membership/IN_BETA_TESTING. It is NOT available yet. Do
+not claim availability from upload alone, or installed retention/haptics/login
+acceptance from availability.
+Apple/GitHub are configured; Google remains explicitly owner-deferred.
+
+The owner asked whether 0.4.2 users are stuck. Their broken workspace updater may
+leave them there; document one manual 0.4.4 download/app replacement on the website
+and release notes, keeping app data. Future checks, notifications and installation
+progress are implemented in merged PR290 but are not yet shipped. Mac0.4.3 and
+Windows/Linux0.3.0 remain public. Finish mobile delivery, then implement/verify
+native Windows/Linux workspace/service/transport and publish the authorized 0.4.4
+installers. Root-only packages are not full workspace parity. Preserve the exact
+Mac production service manifest c04c4d44… and user data. Update this checkpoint
+with the TestFlight delivery result and next active release handle.
+
+Independent desktop preparation is in P/desktop-portable-packaging-044, branch
+feat/portable-desktop-packaging, commit f74fce06d16e0ad81877afe354c85f53f20b3340.
+It extracts exact runtimes into the Mac/Windows/Linux layouts, keeps the Mac
+producer's remaining signing/manifests, and adds native Windows/Linux execution
+checks. All 90 local managed-desktop tests and 11 QA recipe tests passed; six
+focused tests passed after final extraction cleanup handling. Actual three-platform
+archive extraction/layout checks passed. No Windows/Linux workspace or installer
+was launched and no producer gate was enabled.
+P/desktop-portable-packaging-044-plan.json records the latest PR/head/check state.
+While Apple processes the received upload, this branch is being submitted for CI.
+On the CI wake, first finish TestFlight delivery if Apple has processed build5,
+then inspect/review/merge the runtime PR and continue native platform work.
+
+The owner also explicitly requested a NEW SESSION for a major website redesign
+using their attached reference. It is running independently in
+<t3-thread://v2/95c98c5c-276e-4ac8-b422-c5d8447bafe7/mcp:launch:52c478392d53de435662458de3e6d1957fa5cc9fe7cdab0af947fe25ae477d77>.
+Website project root is now /Volumes/G-DRIVE PRO/Programming/blackcrab-landing;
+its separate worktree is /Users/jonathanbenn/.t3/worktrees/blackcrab-landing/design-blackcrab-product-site.
+Read P/website-redesign-session.json. Do not duplicate that redesign or overwrite
+its branch while updating release information. Its brief preserves current real
+download versions, beta availability and existing routes. Original app work was
+not paused or cancelled by the new-session request.
+
+---
+
+## Previous checkpoint — Apple/GitHub enabled, mobile polish merged
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
 Current owned worktree: P/mobile-account-recovery-e49g7nr9/source, branch

@@ -45,3 +45,23 @@ root-only installer or change `producerImplemented` to bypass those missing part
 0.4.2 and 0.4.3 cannot gain this fix through their broken workspace control. Users
 can use the outer launcher's updater or install the verified 0.4.4 download once
 it is public. Preserve their existing data and published older release assets.
+
+## Getting older installations onto the fixed updater
+
+Do not rely on an in-app notification to reach people running 0.4.2 or 0.4.3.
+The download page and 0.4.4 release notes must give them a manual upgrade path
+after the new installer is published:
+
+1. Download the current Blackcrab installer for the computer's platform from the
+   official download page. Before publication, do not label an older link 0.4.4.
+2. Quit the Blackcrab desktop app. Keep its application data, conversations and
+   settings; do not use an app cleaner or uninstall the background service.
+3. On Mac, open the downloaded disk image and replace Blackcrab in Applications.
+   For Windows/Linux, use the tested upgrade instructions for the final installer
+   format; those packages are still being implemented.
+4. Reopen Blackcrab and verify 0.4.4 in About. This installation supplies the fixed
+   update checks, availability notification and download/install progress for
+   subsequent releases.
+
+Manual replacement is the fallback when the old update control is unavailable.
+It is not necessary to delete or recreate an environment to update the app.

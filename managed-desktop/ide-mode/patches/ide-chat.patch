@@ -1,0 +1,33 @@
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -1,4 +1,5 @@
+ import { ChildThreadApprovals } from "./chat/ChildThreadApprovals";
++import IdePanel from "./ide/IdePanel";
+ import { workspaceAreaProps } from "../lib/workspaceFocus";
+ import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+ import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
+@@ -700,6 +701,8 @@
+   const prefersPlanSidebarSheet =
+     useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY) || pane !== null;
+   const isMobileViewport = useMediaQuery("max-sm");
++  const [ideMode, setIdeMode] = useState(false);
++  const ideEnabled = import.meta.env.VITE_BLACKCRAB_IDE_MODE === "1" && !embedded;
+   const [workspaceLayoutElement, setWorkspaceLayoutElement] = useState<HTMLDivElement | null>(null);
+   const threadPanelPopoverAnchorRef = useRef<HTMLElement | null>(null);
+   const [terminalUiLaunchContext, setTerminalUiLaunchContext] =
+@@ -3393,6 +3396,7 @@
+                 : {})}
+               {...(threadFindEnabled ? { onFindInThread: openThreadFindStable } : {})}
+             />
++            {ideEnabled ? <button type="button" className="shrink-0 rounded border px-2 py-1 text-xs [-webkit-app-region:no-drag]" aria-pressed={ideMode} onClick={() => setIdeMode(!ideMode)}>{ideMode ? "Chat mode" : "IDE mode"}</button> : null}
+             {pane ? <PaneHeaderControls index={pane.index} onClose={pane.onClose} /> : null}
+             {pane !== null && inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
+             {pane !== null && !rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
+@@ -3400,6 +3404,7 @@
+         )}
+ 
+         <div className="relative flex min-h-0 min-w-0 flex-1">
++          {ideEnabled && ideMode && activeWorkspaceRoot ? <IdePanel key={`${activeThreadKey}:${environmentId}:${activeWorkspaceRoot}`} environmentId={environmentId} cwd={activeWorkspaceRoot} projectName={activeProject?.title ?? "Workspace"} composerDraftTarget={composerDraftTarget} items={serverVisibleTurnItems} workspaceMutationId={workspaceMutationId} /> : null}
+           <ThreadFindCanvas
+             findOptions={{
+               skills: timelineSkills,

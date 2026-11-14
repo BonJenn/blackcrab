@@ -1,0 +1,157 @@
+[
+  {
+    "id": "ide-contract",
+    "target": "packages/contracts/src/project.ts",
+    "file": "patches/ide-contract.patch",
+    "sha256": "39fff1837c7648a171583d24431ce256943af58d585d9f7d76634e5a9799652b",
+    "beforeSha256": "2aa9a4ae236beb65de35aaead9552cf3dabfc283149431db4c5791d6aa2ac374",
+    "afterSha256": "7cb151d04f6cec71e3568b5f2adba49312705a37f4ef36bab2991024c8837dc9",
+    "replacements": [
+      {
+        "before": "export const ProjectReadFileInput = Schema.Struct({",
+        "after": "export const ProjectReadFileInput = Schema.Struct({\n  ideGuardedRead: Schema.optional(Schema.Boolean),"
+      },
+      {
+        "before": "  // Omitted by older servers; false only for an absent optional file.",
+        "after": "  ideSafeWrite: Schema.optional(Schema.Boolean),\n  // Omitted by older servers; false only for an absent optional file."
+      },
+      {
+        "before": "export const ProjectWriteFileInput = Schema.Struct({\n  cwd: TrimmedNonEmptyString,",
+        "after": "export const ProjectWriteFileInput = Schema.Struct({\n  ideExpectedContents: Schema.optional(Schema.String),\n  cwd: TrimmedNonEmptyString,"
+      },
+      {
+        "before": "export const ProjectWriteFileResult = Schema.Struct({\n  relativePath: TrimmedNonEmptyString,",
+        "after": "export const ProjectWriteFileResult = Schema.Struct({\n  ideConflict: Schema.optional(Schema.Boolean),\n  ideRecoveryPath: Schema.optional(Schema.String),\n  relativePath: TrimmedNonEmptyString,"
+      }
+    ]
+  },
+  {
+    "id": "ide-host",
+    "target": "apps/server/src/workspace/WorkspaceFileSystem.ts",
+    "file": "patches/ide-host.patch",
+    "sha256": "6c940c2971b3b712d79530e9f984f37c3e21d1643c69f1972fb36c7ee90807eb",
+    "beforeSha256": "bb542579d00dd18022880f3823e5b9a76cc58d37b1ce4204c829541e1bcd9caf",
+    "afterSha256": "8b4cbf221325592459d705b724f98258dd768de692e35e38128418b3cb21ec14",
+    "replacements": [
+      {
+        "before": "import * as NodeFSP from \"node:fs/promises\";",
+        "after": "import * as NodeFSP from \"node:fs/promises\";\nimport { ideWriteFile } from \"./ideGuardedWrite.ts\";"
+      },
+      {
+        "before": "            byteLength: stat.size,\n            truncated,",
+        "after": "            byteLength: stat.size,\n            ...(input.ideGuardedRead ? { ideSafeWrite: true } : {}),\n            truncated,"
+      },
+      {
+        "before": "    yield* Effect.tryPromise({\n      // A symlink swapped in after the check is not followed. Windows lacks O_NOFOLLOW.\n      try: () =>\n        NodeFSP.writeFile(realTargetPath, input.contents, {\n          flag:\n            NodeFS.constants.O_WRONLY |\n            NodeFS.constants.O_CREAT |\n            NodeFS.constants.O_TRUNC |\n            (NodeFS.constants.O_NOFOLLOW ?? 0),\n        }),",
+        "after": "    const ideResult = yield* Effect.tryPromise({\n      try: () => ideWriteFile(realTargetPath, input.contents, input.ideExpectedContents),"
+      },
+      {
+        "before": "    return { relativePath: target.relativePath };",
+        "after": "    return { relativePath: target.relativePath, ideConflict: ideResult.conflict, ideRecoveryPath: ideResult.recoveryPath };"
+      }
+    ]
+  },
+  {
+    "id": "ide-editor-helper",
+    "target": "apps/web/src/components/files/FilePreviewPanel.tsx",
+    "file": "patches/ide-editor-helper.patch",
+    "sha256": "40a24930efcd126c131fe779c488e133c476c62e05a08a62a74d39f16643842a",
+    "beforeSha256": "36e423d02ae1be32594e55d039f1b817fecc5cbd9025e26d1bda6cbb49376424",
+    "afterSha256": "3d2e46ade1c4203a5666bca061eb48f3c92741316215aa4a18eab59a680f99a2",
+    "replacements": [
+      {
+        "before": "function useEditableAfterHighlight(file: FileContents)",
+        "after": "export function useEditableAfterHighlight(file: FileContents)"
+      }
+    ]
+  },
+  {
+    "id": "ide-chat",
+    "target": "apps/web/src/components/ChatView.tsx",
+    "file": "patches/ide-chat.patch",
+    "sha256": "96e2714d5667a37a98c6469223f1f3045ea000e9d5fb1607b043268c19f0913b",
+    "beforeSha256": "e20c9def039f5d096373482390496bbd1b33dd5ab1922d44773710fabd8cf912",
+    "afterSha256": "9055198ff83077951cc5c507d0fd981ff8869b9a27ec2207f54b740e44e50eef",
+    "replacements": [
+      {
+        "before": "import { workspaceAreaProps }",
+        "after": "import IdePanel from \"./ide/IdePanel\";\nimport { workspaceAreaProps }"
+      },
+      {
+        "before": "  const [workspaceLayoutElement, setWorkspaceLayoutElement]",
+        "after": "  const [ideMode, setIdeMode] = useState(false);\n  const ideEnabled = import.meta.env.VITE_BLACKCRAB_IDE_MODE === \"1\" && !embedded;\n  const [workspaceLayoutElement, setWorkspaceLayoutElement]"
+      },
+      {
+        "before": "            {pane ? <PaneHeaderControls",
+        "after": "            {ideEnabled ? <button type=\"button\" className=\"shrink-0 rounded border px-2 py-1 text-xs [-webkit-app-region:no-drag]\" aria-pressed={ideMode} onClick={() => setIdeMode(!ideMode)}>{ideMode ? \"Chat mode\" : \"IDE mode\"}</button> : null}\n            {pane ? <PaneHeaderControls"
+      },
+      {
+        "before": "        <div className=\"relative flex min-h-0 min-w-0 flex-1\">\n          <ThreadFindCanvas",
+        "after": "        <div className=\"relative flex min-h-0 min-w-0 flex-1\">\n          {ideEnabled && ideMode && activeWorkspaceRoot ? <IdePanel key={`${activeThreadKey}:${environmentId}:${activeWorkspaceRoot}`} environmentId={environmentId} cwd={activeWorkspaceRoot} projectName={activeProject?.title ?? \"Workspace\"} composerDraftTarget={composerDraftTarget} items={serverVisibleTurnItems} workspaceMutationId={workspaceMutationId} /> : null}\n          <ThreadFindCanvas"
+      }
+    ]
+  },
+  {
+    "id": "ide-IdePanel-tsx",
+    "target": "apps/web/src/components/ide/IdePanel.tsx",
+    "kind": "payload",
+    "file": "payloads/IdePanel.tsx",
+    "sha256": "5b4a9948d6512d31e274723a188fc7246660c3c01b54a576b59dc0b980fdc60a",
+    "beforeSha256": null,
+    "afterSha256": "5b4a9948d6512d31e274723a188fc7246660c3c01b54a576b59dc0b980fdc60a"
+  },
+  {
+    "id": "ide-ideState-ts",
+    "target": "apps/web/src/components/ide/ideState.ts",
+    "kind": "payload",
+    "file": "payloads/ideState.ts",
+    "sha256": "b799724573d423aa20c5f894ac3755bf82e028d422e409d2ec59bc4709aa0718",
+    "beforeSha256": null,
+    "afterSha256": "b799724573d423aa20c5f894ac3755bf82e028d422e409d2ec59bc4709aa0718"
+  },
+  {
+    "id": "ide-ide-mode-css",
+    "target": "apps/web/src/components/ide/ide-mode.css",
+    "kind": "payload",
+    "file": "payloads/ide-mode.css",
+    "sha256": "7de1789afab7048f45543e0f0ddfc0e30c12c927bf9201dd1143828896fbc2a3",
+    "beforeSha256": null,
+    "afterSha256": "7de1789afab7048f45543e0f0ddfc0e30c12c927bf9201dd1143828896fbc2a3"
+  },
+  {
+    "id": "ide-IdePanel-browser-test-tsx",
+    "target": "apps/web/src/components/ide/IdePanel.browser.test.tsx",
+    "kind": "payload",
+    "file": "payloads/IdePanel.browser.test.tsx",
+    "sha256": "21d0f8ecac3b18cccdaabf78ac19bd7b14c233d79de3cf489cba06c008c6072e",
+    "beforeSha256": null,
+    "afterSha256": "21d0f8ecac3b18cccdaabf78ac19bd7b14c233d79de3cf489cba06c008c6072e"
+  },
+  {
+    "id": "ide-ideGuardedWrite-ts",
+    "target": "apps/server/src/workspace/ideGuardedWrite.ts",
+    "kind": "payload",
+    "file": "payloads/ideGuardedWrite.ts",
+    "sha256": "e257ba51f293c741f93fb9555961142f76b32cc4529673c50ab68977cd787abb",
+    "beforeSha256": null,
+    "afterSha256": "e257ba51f293c741f93fb9555961142f76b32cc4529673c50ab68977cd787abb"
+  },
+  {
+    "id": "ide-IdeWorkspaceFileSystem-test-ts",
+    "target": "apps/server/src/workspace/IdeWorkspaceFileSystem.test.ts",
+    "kind": "payload",
+    "file": "payloads/IdeWorkspaceFileSystem.test.ts",
+    "sha256": "8db971b9edcc82dd52eedf6127e1692c92d2185aa944dc7be9f141252322fc67",
+    "beforeSha256": null,
+    "afterSha256": "8db971b9edcc82dd52eedf6127e1692c92d2185aa944dc7be9f141252322fc67"
+  },
+  {
+    "id": "ide-editor-browser-test",
+    "kind": "payload",
+    "target": "apps/web/src/components/ide/IdeCodeEditor.browser.test.tsx",
+    "file": "payloads/IdeCodeEditor.browser.test.tsx",
+    "sha256": "c8ccb6123820629f2dfd006786952144417883cf1886deaaec22d73717626143",
+    "afterSha256": "c8ccb6123820629f2dfd006786952144417883cf1886deaaec22d73717626143",
+    "beforeSha256": null
+  }
+]

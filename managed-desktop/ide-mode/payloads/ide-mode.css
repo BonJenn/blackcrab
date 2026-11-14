@@ -1,0 +1,8 @@
+.blackcrab-ide { display:flex; flex-direction:column; width:68%; min-width:0; flex-shrink:0; border-right:1px solid var(--border); animation:blackcrab-ide-open 220ms ease-out; }
+.blackcrab-ide button { cursor:pointer; border-radius:4px; padding:3px 5px; }
+.blackcrab-ide button:hover { background:var(--muted); }
+.blackcrab-ide button:disabled { opacity:.45; cursor:default; }
+.blackcrab-ide button:focus-visible { outline:2px solid var(--ring); }
+@keyframes blackcrab-ide-open { from { transform:translateX(-24px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .blackcrab-ide { animation:none; } }
+@media (max-width:800px) { .blackcrab-ide { width:55%; } .blackcrab-ide aside { width:7rem; } }

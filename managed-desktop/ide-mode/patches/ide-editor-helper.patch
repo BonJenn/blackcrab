@@ -1,0 +1,11 @@
+--- a/apps/web/src/components/files/FilePreviewPanel.tsx
++++ b/apps/web/src/components/files/FilePreviewPanel.tsx
+@@ -629,7 +629,7 @@
+ 
+ /** Enable editing only after worker highlighting renders; active edit sessions highlight on the main
+  * thread. */
+-function useEditableAfterHighlight(file: FileContents) {
++export function useEditableAfterHighlight(file: FileContents) {
+   const workerPool = useWorkerPool();
+   const [highlightedFile, setHighlightedFile] = useState<FileContents | null>(null);
+   const needsHighlight = needsWorkerHighlight(workerPool, file);

@@ -19,7 +19,8 @@ Modes:
   --local    Build local app/installers without updater artifacts. Default.
   --signed   Build release app/installers with updater artifacts and signing.
   --managed-desktop <directory>  Bundle a verified full desktop package.
-  --managed-host <directory>     Bundle a verified workspace runtime.
+  --managed-host <directory>     Bundle a verified direct workspace runtime.
+  --managed-service-host <directory>  Bundle the verified background-service profile.
 
 Local builds do not require TAURI_SIGNING_PRIVATE_KEY. Signed builds require it.`);
 }
@@ -154,7 +155,7 @@ function createLocalDmg() {
   });
 }
 
-const embedded = await prepareManagedNativeResources({ desktop: managed.desktop, host: managed.host, target: buildTarget });
+const embedded = await prepareManagedNativeResources({ desktop: managed.desktop, host: managed.host, serviceHost: managed.serviceHost, target: buildTarget });
 if (managed.desktop !== undefined || managed.host !== undefined) {
   tauriArgs.push("--config", JSON.stringify(embedded.config));
 }

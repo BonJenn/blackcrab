@@ -101,3 +101,24 @@ test('actual Tauri bundle-only keeps both opaque resource archives byte-identica
  }
  t.diagnostic(JSON.stringify({blobs,trust:prepared.env,log:result.stderr}));
 });
+
+test('background service selection is explicit and mutually exclusive with the direct host',()=>{
+ assert.deepEqual(parseManagedResourceArgs(['--managed-service-host','/service','--local']),{args:['--local'],desktop:undefined,host:undefined,serviceHost:'/service'});
+ for(const args of [['--managed-service-host'],['--managed-service-host','a','--managed-service-host','b'],['--managed-host','a','--managed-service-host','b']])assert.throws(()=>parseManagedResourceArgs(args));
+});
+test('service resources reject mixed ownership, unsupported targets and direct-only artifacts',async t=>{
+ await assert.rejects(prepareManagedNativeResources({host:'/a',serviceHost:'/b'}),/either/);
+ await assert.rejects(prepareManagedNativeResources({serviceHost:'/unused',target:'x86_64-apple-darwin'}),/darwin-arm64/);
+ const {root}=await fixture(t,'host');await assert.rejects(prepareManagedNativeResources({serviceHost:root,platform:'darwin',arch:'arm64'}));
+});
+test('ambient service profile is cleared without verified service selection',async()=>{
+ const result=await prepareManagedNativeResources({env:{BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE:'blackcrab-local-service-layout-v1'}});
+ try{assert.equal(result.env.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE,undefined);}finally{await result.cleanup();}
+});
+test('real verified service artifact roundtrips through the explicit native resource path',{skip:!process.env.BLACKCRAB_TEST_SERVICE_RESOURCE_ARTIFACT},async t=>{
+ const result=await prepareManagedNativeResources({serviceHost:process.env.BLACKCRAB_TEST_SERVICE_RESOURCE_ARTIFACT,env:{}});t.after(result.cleanup);
+ assert.equal(result.env.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE,'blackcrab-local-service-layout-v1');
+ assert.match(result.env.BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256,/^[a-f0-9]{64}$/);
+ assert.match(result.env.BLACKCRAB_EMBEDDED_HOST_ARCHIVE_SHA256,/^[a-f0-9]{64}$/);
+ assert.equal(Object.values(result.config.bundle.resources)[0],'managed-host-payload.tar.gz');
+});

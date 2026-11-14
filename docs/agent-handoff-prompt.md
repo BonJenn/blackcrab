@@ -13,8 +13,16 @@ job132390531684/run43576064552; captured producer groups settled, zero prompts.
 Active P/linux-workspace-delivery-044, branch feat/linux-workspace-delivery, same
 base as above. Read adjacent linux-workspace-delivery-044-plan.json for current
 PR/head/watch, and docs/linux-installed-workspace.md for exact acceptance boundaries.
-PR307 is open/linked: https://github.com/BonJenn/blackcrab/pull/307
-Implementation1001a69927a12cb2d4828c17d1b51b72669d693f, then this handoff checkpoint.
+PR307: https://github.com/BonJenn/blackcrab/pull/307. Its native Linux job PASSED on
+188b2162bf9c26a1f7ea3ca0a115cd62c21d5f50 (run43647348987, all13 checks): real deb and
+AppImage, workspace window open and attached, window close ends Root, service
+survives, identity retained, cleanup passed, screenshots inspected. Three
+Linux-only product fixes landed (umask002 application data, short profile at
+~/.blackcrab/desktop for Chromium's108-byte socket limit,60s first lifecycle
+reply). Open: Ctrl+Q did not quit (window close did), startup errors are
+invisible because Root discards workspace stderr, title reads "Blackcrab (Beta)".
+The CURRENT checkpoint in docs/agent-handoff.md supersedes the paragraph below.
+The owner asked on2026-11-14 to be consulted before any tag or publication.
 
 The extended Linux workflow now builds both real payloads and normal Debian and
 AppImage candidates on Ubuntu22.04, verifies actual package bytes/inventories and

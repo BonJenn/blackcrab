@@ -195,10 +195,45 @@ after a short settle so it shows the loaded window instead of the splash.
 
 ## Acceptance and remaining release work
 
-Local checks pass: three controller/input regressions, eighteen startup/renderer
-tests and root TypeScript. The Linux graphical job is pending; do not record UI
-acceptance until both actual installed package sessions and cleanup pass, and
-inspect the resulting screenshots. Local tests cannot replace native evidence.
+PR307's native Linux job passed on188b2162bf9c26a1f7ea3ca0a115cd62c21d5f50
+(run43647348987; all13 checks). From the real Debian package and then the real
+AppImage, in a fresh OS account: Root set up the service, paired and handed off;
+the workspace window opened and showed onboarding with the local service
+Connected; closing the window ended Root while the service stayed active; the
+AppImage reopened with the same configuration and environment identity; cleanup
+passed. Both screenshots were inspected. Zero provider prompts.
+
+Three product defects were found and fixed in this PR, all Linux-only:
+1. `managed_native_entry.rs`: the application-data directory was created
+   group-writable under umask002 (Ubuntu/Fedora default) and then refused.
+2. `managed_desktop.rs`: Chromium aborts with "Socket path too long" when
+   `<profile>/tmp` plus its singleton socket directory exceeds108 bytes; the
+   workspace fixes TMPDIR to `<profile>/tmp`, so the Linux profile now lives at
+   `~/.blackcrab/desktop`. No payload module changed; Mac bytes are unchanged.
+3. `managed_desktop_lifecycle.rs`: the first lifecycle reply may take up to60s
+   (was3s); later requests keep3s. Precautionary; not shown to be required.
+A runtime-directory TMPDIR was tried and reverted: it violates the workspace's
+environment contract (`Managed environment authority differs`).
+
+Open Linux findings, not fixed:
+- `Ctrl+Q` did not close the workspace in either session; the window manager's
+  close request did (`normalQuit: "window-close"`). Undetermined whether the key
+  is not delivered under Xvfb or the workspace ignores it. Check on a real desktop.
+- A workspace startup error before Electron is ready is written only to stderr,
+  which Root discards, so the user sees "The workspace window did not respond"
+  with no cause. Root should retain that output on Linux.
+- The workspace window title is "Blackcrab (Beta)"; confirm that is intended.
+- Only Ubuntu22.04 under Xvfb/Openbox is covered. Ubuntu24.04 sandbox policy,
+  Wayland, other distributions and any real use of the workspace are untested.
+
+The sections above record sixteen runs in order, including two wrong turns (the
+whole-file launcher digest and the runtime TMPDIR); read them as history. The
+failure-only evidence collectors remain in the test: process timeline, screen
+and window titles, process roles and state, redacted log tails, `coredumpctl
+info`, and a Root-shaped launch with a made-up credential. They relax the
+runner's ptrace scope and are not part of acceptance. Local checks: four
+controller/input tests, eighteen startup/renderer tests, root TypeScript, and
+the Rust launcher, lifecycle and entry tests.
 
 The unchanged source version is still0.4.3; these are unpublished integration
 candidates for the coordinated0.4.4 delivery. Windows IPC/ACL/service integration,

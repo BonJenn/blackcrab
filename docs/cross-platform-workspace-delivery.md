@@ -206,6 +206,9 @@ It is merged at4ac132512eb65f39d46cfd88b6dfdba96db52c74 and unwatched. This supe
 the earlier pending Linux service implementation notes for that tested scope.
 See [installed Linux workspace acceptance](linux-installed-workspace.md) for the
 next normal Debian/AppImage candidates, graphical startup/quit/reopen and retained
-service identity. Native graphical CI is pending; public downloads are unchanged.
+service identity. That native graphical job passed on PR307 head
+188b2162bf9c26a1f7ea3ca0a115cd62c21d5f50 (run43647348987) for both packages on
+Ubuntu22.04, after three Linux-only launcher fixes; `Ctrl+Q` quit and wider
+distribution coverage remain open there. Public downloads are unchanged.
 Windows private IPC/ACL/service and actual installers still remain, followed by
 coherent0.4.4 release signing, tested stage-to-main and public delivery.

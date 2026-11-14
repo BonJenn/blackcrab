@@ -1,0 +1,3 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+export async function packageRoot(name,from){if(!/^(?:@[A-Za-z0-9._-]+\/)?[A-Za-z0-9._-]+$/.test(name)||name==='..')throw Error('Unsafe runtime dependency name');let current=from;for(;;){try{const root=await fs.realpath(path.join(current,'node_modules',name)),value=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));if(!/^[0-9A-Za-z.+_-]{1,128}$/.test(value.version))throw Error('Unsafe dependency version');return {root,value};}catch(error){if(!['ENOENT','ENOTDIR'].includes(error.code))throw error;}const parent=path.dirname(current);if(parent===current)throw Object.assign(Error('Cannot locate runtime dependency '+name),{code:'BLACKCRAB_DEPENDENCY_ABSENT'});current=parent;}}

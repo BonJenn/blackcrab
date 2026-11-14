@@ -1,0 +1,10 @@
+--- a/apps/web/src/components/chat/ChatComposer.tsx
++++ b/apps/web/src/components/chat/ChatComposer.tsx
+@@ -2426,6 +2426,7 @@
+       : expandedControlsIconOnlyBlockCount;
+   const composerControls = (
+     <ComposerControlsBar
++      composerDraftTarget={composerDraftTarget}
+       environmentId={environmentId}
+       routeKind={routeKind}
+       routeThreadRef={routeThreadRef}

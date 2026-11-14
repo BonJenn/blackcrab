@@ -1,0 +1,10 @@
+--- a/apps/server/src/environment/ServerEnvironment.ts
++++ b/apps/server/src/environment/ServerEnvironment.ts
+@@ -271,6 +271,7 @@
+       triage: true,
+       oneTimeSchedules: true,
+       freshContext: true,
++      pairedModels: true,
+       scheduledTaskThreadModes: true,
+       npmReleaseLookup: true,
+       voiceTranscription: isSpeechPlatformSupported(hostPlatform, hostArchitecture, hostLibc),

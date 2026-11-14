@@ -1,0 +1,61 @@
+{
+  "status": "DRAFT_SOURCE_VALIDATED_NOT_NATIVE_ACCEPTANCE",
+  "targetVersion": "0.4.5",
+  "integrationBase": "5ec76354669b335cec3a9be5fdb6ccc01e5d4471",
+  "upstream": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "registrySha256": {
+    "desktop": "922f0d81932891bd727d7da1c122a109e99a8153513c8315bc07a2ba9de384a9",
+    "host": "15c3b827a593aa164a733f87ed88fa69e7f597238ef42d2f503c2c652d9b85d3"
+  },
+  "productionRecipesChanged": false,
+  "productionServiceManifest": "c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83",
+  "results": {
+    "hostTests": {
+      "passed": 102,
+      "skipped": 0,
+      "note": "Repeated on freshly prepared actual service source; nine paired cases include in-flight Stop and queueing behind prior work."
+    },
+    "composerDraftTests": {
+      "passed": 78,
+      "skipped": 0
+    },
+    "chromiumPickerTests": {
+      "passed": 2,
+      "skipped": 0
+    },
+    "featureRecipeAndFreezeTests": {
+      "passed": 6,
+      "skipped": 0
+    },
+    "existingSourceIntegrityTests": {
+      "passed": 38,
+      "skipped": 0
+    },
+    "webTypes": "PASS",
+    "serverTypes": "PASS",
+    "electronTypes": "PASS",
+    "featureRendererBuild": "PASS",
+    "actualArchivePreparation": "PASS; both profiles match validated feature source byte-for-byte; releaseEligible false"
+  },
+  "notEstablished": [
+    "real authenticated two-model task",
+    "native packaged UI/layout and lifecycle",
+    "data-preserving production host migration",
+    "installer/upgrade acceptance",
+    "release producer integration and publication"
+  ],
+  "processes": "No build/test remains active. Zero real provider runs or installed service mutations.",
+  "logsRoot": ".local/two-model-045",
+  "logs": [
+    "pair-final-host-tests.log",
+    "pair-store-tests.log",
+    "pair-browser-focused.log",
+    "pair-isolation-tests.log",
+    "pair-registry-tests.log",
+    "pair-web-types.log",
+    "pair-final-host-types.log",
+    "pair-desktop-types.log",
+    "pair-web-build.log",
+    "isolated-final-sources.json"
+  ]
+}

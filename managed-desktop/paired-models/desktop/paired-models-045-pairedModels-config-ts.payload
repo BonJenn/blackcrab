@@ -1,0 +1,29 @@
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite-plus";
+import { playwright } from "vite-plus/test/browser-playwright";
+import webConfig from "../vite.config";
+
+export default defineConfig(async (env) => {
+  const base = typeof webConfig === "function" ? await webConfig(env) : await webConfig;
+  return {
+    resolve: base.resolve ?? {},
+    define: base.define ?? {},
+    plugins: [react({ compiler: true })],
+    server: { ...base.server, host: "127.0.0.1", warmup: { clientFiles: [] } },
+    // Restrict prebundling to this feature; office/PDF editors are not imported by the picker.
+    optimizeDeps: {
+      entries: ["src/components/chat/PairedModelPicker.browser.test.tsx"],
+      include: ["react", "react-dom/client", "vite-plus/test/browser"],
+    },
+    test: {
+      api: { host: "127.0.0.1", port: 0, strictPort: false },
+      include: ["src/components/chat/PairedModelPicker.browser.test.tsx"],
+      browser: {
+        enabled: true,
+        headless: true,
+        provider: playwright(),
+        instances: [{ browser: "chromium" }],
+      },
+    },
+  };
+});

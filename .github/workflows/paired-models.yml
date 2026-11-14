@@ -1,0 +1,89 @@
+name: paired models 0.4.5
+
+on:
+  pull_request:
+  push:
+    branches: [stage, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paired-models-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paired-models:
+    name: paired models (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [desktop, host]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "26.12.1"
+      - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      - name: prepare authenticated experimental source
+        id: source
+        env:
+          PAIRED_PROFILE: ${{ matrix.profile }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs/promises';
+          import {createWriteStream} from 'node:fs';
+          import path from 'node:path';
+          import {Readable} from 'node:stream';
+          import {pipeline} from 'node:stream/promises';
+          import {UPSTREAM} from './managed-host/artifact.mjs';
+          import {preparePairedModelsSource} from './managed-desktop/paired-models/prepare.mjs';
+          const parent = await fs.mkdtemp(path.join(process.env.RUNNER_TEMP, 'blackcrab-paired-'));
+          const archive = path.join(parent, 'source.tar.gz');
+          const response = await fetch(`https://api.github.com/repos/${UPSTREAM.repository}/tarball/${UPSTREAM.commit}`);
+          if (!response.ok || !response.body) throw Error(`Source download failed: ${response.status}`);
+          await pipeline(Readable.fromWeb(response.body), createWriteStream(archive, {flags: 'wx'}));
+          const result = await preparePairedModelsSource({profile: process.env.PAIRED_PROFILE, archive, cacheDir: parent});
+          if (result.releaseEligible !== false) throw Error('Experimental source must not be release eligible');
+          await fs.appendFile(process.env.GITHUB_OUTPUT, `root=${result.root}\n`);
+          JS
+      - name: install frozen source dependencies
+        working-directory: ${{ steps.source.outputs.root }}
+        run: pnpm --filter '@t3tools/desktop...' --filter '@t3tools/web...' --filter 't3...' --filter '@t3tools/scripts...' --filter . install --prod=false --frozen-lockfile --ignore-scripts
+      - name: host types, shared context, queued work and Stop
+        if: matrix.profile == 'host'
+        working-directory: ${{ steps.source.outputs.root }}/apps/server
+        run: |
+          node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit
+          node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run src/orchestration-v2/testkit/ProviderSwitch.integration.test.ts src/orchestration-v2/ThreadStop.test.ts --maxWorkers 2
+      - name: complete desktop types
+        if: matrix.profile == 'desktop'
+        working-directory: ${{ steps.source.outputs.root }}/apps/desktop
+        run: node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit
+      - name: renderer types and saved composer state
+        if: matrix.profile == 'desktop'
+        working-directory: ${{ steps.source.outputs.root }}/apps/web
+        run: |
+          node ../../node_modules/@effect/tsgo/dist/effect-tsgo.cjs tsrs --noEmit
+          node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run src/composerDraftStore.test.ts --project unit
+      - name: install pinned test browser
+        if: matrix.profile == 'desktop'
+        working-directory: ${{ steps.source.outputs.root }}/apps/web
+        run: |
+          node --input-type=module <<'JS'
+          import {createRequire} from 'node:module';
+          import path from 'node:path';
+          import {spawnSync} from 'node:child_process';
+          const require = createRequire(path.join(process.cwd(), 'package.json'));
+          const provider = createRequire(require.resolve('@vitest/browser-playwright'));
+          const cli = path.join(path.dirname(provider.resolve('playwright/package.json')), 'cli.js');
+          const result = spawnSync(process.execPath, [cli, 'install', '--with-deps', 'chromium-headless-shell'], {stdio: 'inherit'});
+          if (result.error) throw result.error;
+          process.exit(result.status ?? 1);
+          JS
+      - name: picker interactions in Chromium
+        if: matrix.profile == 'desktop'
+        working-directory: ${{ steps.source.outputs.root }}/apps/web
+        run: node --no-experimental-webstorage ../../node_modules/vite-plus/bin/vp test run --config test/pairedModels.config.ts --maxWorkers 1

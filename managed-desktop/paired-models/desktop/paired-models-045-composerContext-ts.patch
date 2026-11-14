@@ -1,0 +1,27 @@
+--- a/packages/contracts/src/composerContext.ts
++++ b/packages/contracts/src/composerContext.ts
+@@ -1,7 +1,9 @@
+ import * as Schema from "effect/Schema";
++import { ModelSelection } from "./modelSelection.ts";
+ 
+ import {
+   EnvironmentId,
++  MessageId,
+   ForwardCompatibleArray,
+   GuestMessageId,
+   GuestShareId,
+@@ -284,6 +286,14 @@
+ export const OrchestrationMessageContext = Schema.Struct({
+   version: Schema.Literal(1),
+   guest: Schema.optional(GuestMessageAttribution),
++  pairedModel: Schema.optional(ModelSelection),
++  pairedPass: Schema.optional(
++    Schema.Struct({
++      rootMessageId: MessageId,
++      previousMessageId: MessageId,
++      phase: Schema.Literals(["review", "resolve"]),
++    }),
++  ),
+   records: Schema.Array(Schema.Unknown)
+     .check(
+       Schema.isMaxLength(COMPOSER_CONTEXT_MAX_RECORDS),

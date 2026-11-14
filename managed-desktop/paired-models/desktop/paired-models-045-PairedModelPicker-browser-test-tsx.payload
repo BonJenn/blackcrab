@@ -1,0 +1,72 @@
+import { ProviderDriverKind, ProviderInstanceId, type ModelSelection } from "@t3tools/contracts";
+import { useState } from "react";
+import { expect, it } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
+import { render } from "../../../test/render";
+import { deriveProviderInstanceEntries } from "../../providerInstances";
+import { PairedModelPicker } from "./PairedModelPicker";
+
+const entries = deriveProviderInstanceEntries([
+  {
+    instanceId: ProviderInstanceId.make("codex"),
+    driver: ProviderDriverKind.make("codex"),
+    enabled: true,
+    installed: true,
+    version: null,
+    status: "ready",
+    auth: { status: "authenticated" },
+    checkedAt: "2026-01-01T00:00:00.000Z",
+    slashCommands: [],
+    skills: [],
+    models: [
+      { slug: "lead-model", name: "Lead model", isCustom: false, capabilities: {} },
+      { slug: "partner-model", name: "Partner model", isCustom: false, capabilities: {} },
+      { slug: "replacement-model", name: "Replacement model", isCustom: false, capabilities: {} },
+    ],
+  },
+]);
+const lead = { instanceId: entries[0]!.instanceId, model: "lead-model" };
+const options = new Map(entries.map((entry) => [entry.instanceId, entry.models]));
+
+function ComposerPair({ supported = true }: { supported?: boolean }) {
+  const [partner, setPartner] = useState<ModelSelection>();
+  return (
+    <PairedModelPicker
+      environmentId={null}
+      lead={lead}
+      partner={partner}
+      supported={supported}
+      disabled={false}
+      instanceEntries={entries}
+      modelOptionsByInstance={options}
+      onChange={setPartner}
+    />
+  );
+}
+
+it("adds, changes and removes a second model without changing the lead", async () => {
+  await using screen = await render(<ComposerPair />);
+  await screen.getByRole("button", { name: /^Add a second model/ }).click();
+  await expect
+    .element(page.getByRole("option", { name: /Lead model/ }))
+    .toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("option", { name: /Partner model/ }).click();
+  await expect
+    .element(screen.getByRole("button", { name: /^Second model: partner-model/ }))
+    .toBeVisible();
+  await screen.getByRole("button", { name: /^Second model: partner-model/ }).click();
+  await page.getByPlaceholder("Search models...").fill("Replacement");
+  await userEvent.keyboard("{ArrowDown}{Enter}");
+  await expect
+    .element(screen.getByRole("button", { name: /^Second model: replacement-model/ }))
+    .toBeVisible();
+  await screen.getByRole("button", { name: /^Second model: replacement-model/ }).click();
+  await userEvent.keyboard("{Escape}");
+  await screen.getByRole("button", { name: "Remove second model" }).click();
+  await expect.element(screen.getByRole("button", { name: /^Add a second model/ })).toBeVisible();
+});
+
+it("requires the host capability before offering paired execution", async () => {
+  await using screen = await render(<ComposerPair supported={false} />);
+  await expect.element(screen.getByRole("button", { name: /^Add a second model/ })).toBeDisabled();
+});

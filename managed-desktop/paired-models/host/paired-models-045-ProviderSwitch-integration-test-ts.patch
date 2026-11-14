@@ -1,0 +1,223 @@
+--- a/apps/server/src/orchestration-v2/testkit/ProviderSwitch.integration.test.ts
++++ b/apps/server/src/orchestration-v2/testkit/ProviderSwitch.integration.test.ts
+@@ -3787,3 +3787,220 @@
+     () => importedFailureScenario(true),
+   );
+ });
++
++it.effect.each([
++  "complete",
++  "lead-fails",
++  "review-fails",
++  "duplicate",
++  "same-provider",
++  "stop",
++  "queued",
++  "same-model",
++  "unknown-model-provider",
++] as const)("paired models share context and serialize all passes: %s", (scenario) =>
++  Effect.scoped(
++    Effect.gen(function* () {
++      const cwd = yield* checkpointWorkspace(`paired-${scenario}`);
++      const capturedTurns = yield* Ref.make<ReadonlyArray<CapturedTurn>>([]);
++      const firstStarted = yield* Deferred.make<void>();
++      const releaseFirst = yield* Deferred.make<void>();
++      const offset = scenario === "queued" ? 1 : 0;
++      const partner =
++        scenario === "same-provider"
++          ? { ...CODEX_MODEL_SELECTION, model: "second-codex-model" }
++          : CLAUDE_MODEL_SELECTION;
++      const fail = scenario === "lead-fails" || scenario === "review-fails";
++      const registry = ProviderAdapterRegistry.layerFromAdapters([
++        makeTestAdapter({
++          instanceId: CODEX_MODEL_SELECTION.instanceId,
++          driver: CODEX_DRIVER,
++          capabilities: CodexProviderCapabilitiesV2,
++          modelSelection: CODEX_MODEL_SELECTION,
++          responseByRunOrdinal: {
++            [1 + offset]: "LEAD_IMPLEMENTATION",
++            [2 + offset]: "PARTNER_REVIEW",
++            [3 + offset]: "VERIFIED_RESULT",
++          },
++          ...(scenario === "stop" || scenario === "queued" ? { holdFirstTurn: firstStarted } : {}),
++          ...(scenario === "queued" ? { releaseFirstTurn: releaseFirst } : {}),
++          failedRunOrdinals: new Set(scenario === "lead-fails" ? [1] : []),
++          capturedTurns,
++        }),
++        makeTestAdapter({
++          instanceId: CLAUDE_MODEL_SELECTION.instanceId,
++          driver: CLAUDE_DRIVER,
++          capabilities: ClaudeProviderCapabilitiesV2,
++          modelSelection: CLAUDE_MODEL_SELECTION,
++          responseByRunOrdinal: { [2 + offset]: "PARTNER_REVIEW" },
++          failedRunOrdinals: new Set(scenario === "review-fails" ? [2] : []),
++          capturedTurns,
++        }),
++      ]);
++      yield* Effect.gen(function* () {
++        const orchestrator = yield* Orchestrator.OrchestratorV2;
++        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
++        yield* orchestrator.dispatch({
++          type: "thread.create",
++          commandId: CommandId.make("paired:create"),
++          threadId,
++          projectId,
++          title: "Paired task",
++          modelSelection: CODEX_MODEL_SELECTION,
++          runtimeMode: "approval-required",
++          interactionMode: "default",
++          branch: null,
++          worktreePath: null,
++          createdBy: "user",
++          creationSource: "web",
++        });
++        const command = {
++          type: "message.dispatch" as const,
++          commandId: CommandId.make("paired:send"),
++          threadId,
++          messageId: MessageId.make("paired:task"),
++          text: "ORIGINAL_TASK preserve existing behavior",
++          attachments: [],
++          context: { version: 1 as const, records: [], pairedModel: partner },
++          modelSelection: CODEX_MODEL_SELECTION,
++          createdBy: "user" as const,
++          creationSource: "web" as const,
++          dispatchMode: { type: "start_immediately" as const },
++        };
++        if (scenario === "same-model" || scenario === "unknown-model-provider") {
++          const result = yield* Effect.exit(
++            orchestrator.dispatch({
++              ...command,
++              context: {
++                ...command.context,
++                pairedModel:
++                  scenario === "same-model"
++                    ? CODEX_MODEL_SELECTION
++                    : { instanceId: ProviderInstanceId.make("missing-provider"), model: "missing" },
++              },
++            }),
++          );
++          assert.equal(result._tag, "Failure");
++          assert.lengthOf((yield* orchestrator.getThreadProjection(threadId)).runs, 0);
++          assert.lengthOf(yield* Ref.get(capturedTurns), 0);
++          return;
++        }
++        if (scenario === "queued") {
++          yield* orchestrator.dispatch({
++            ...command,
++            commandId: CommandId.make("paired:previous-task"),
++            messageId: MessageId.make("paired:previous-task"),
++            text: "Prior task already running",
++            context: { version: 1, records: [] },
++          });
++          yield* Deferred.await(firstStarted);
++        }
++        yield* orchestrator.dispatch(command);
++        if (scenario === "queued") {
++          const queued = yield* orchestrator.getThreadProjection(threadId);
++          assert.lengthOf(queued.runs, 4);
++          assert.equal(
++            queued.runs.slice(1).every((run) => run.status === "queued"),
++            true,
++          );
++          assert.lengthOf(yield* Ref.get(capturedTurns), 1);
++          yield* Deferred.succeed(releaseFirst, undefined);
++        }
++        if (scenario === "stop") {
++          yield* Deferred.await(firstStarted);
++          yield* orchestrator.streamStoredEvents.pipe(
++            Stream.filter(
++              ({ event }) => event.type === "run.updated" && event.payload.status === "running",
++            ),
++            Stream.runHead,
++          );
++          yield* orchestrator.dispatch({
++            type: "thread.stop",
++            commandId: CommandId.make("paired:stop"),
++            threadId,
++          });
++          yield* worker.drain();
++          const stopped = yield* orchestrator.getThreadProjection(threadId);
++          assert.lengthOf(stopped.runs, 3);
++          const waiting = stopped.runs.filter((run) => run.status === "queued");
++          assert.lengthOf(waiting, 2);
++          assert.equal(
++            waiting.every((run) => run.queueHeld === true),
++            true,
++          );
++          assert.lengthOf(yield* Ref.get(capturedTurns), 1);
++          return;
++        }
++        if (scenario === "duplicate") yield* orchestrator.dispatch(command);
++        const lastOrdinal =
++          scenario === "lead-fails" ? 1 : scenario === "review-fails" ? 2 : 3 + offset;
++        yield* orchestrator.streamStoredEvents.pipe(
++          Stream.filter(
++            ({ event }) =>
++              event.type === "run.updated" &&
++              event.payload.ordinal === lastOrdinal &&
++              event.payload.status === (fail ? "failed" : "completed"),
++          ),
++          Stream.runHead,
++        );
++        if (fail)
++          yield* orchestrator.streamStoredEvents.pipe(
++            Stream.filter(
++              ({ event }) =>
++                event.type === "run.updated" &&
++                event.payload.status === "queued" &&
++                event.payload.queueHeld === true,
++            ),
++            Stream.runHead,
++          );
++        yield* worker.drain();
++        const projection = yield* orchestrator.getThreadProjection(threadId);
++        assert.lengthOf(projection.runs, 3 + offset);
++        assert.deepEqual(
++          projection.runs.slice(offset).map((run) => run.modelSelection),
++          [CODEX_MODEL_SELECTION, partner, CODEX_MODEL_SELECTION],
++        );
++        const allTurns = yield* Ref.get(capturedTurns);
++        assert.lengthOf(allTurns, lastOrdinal);
++        const turns = allTurns.slice(offset);
++        if (lastOrdinal >= 2 && scenario !== "same-provider") {
++          assert.include(turns[1]!.text, "ORIGINAL_TASK");
++          assert.include(turns[1]!.text, "LEAD_IMPLEMENTATION");
++        }
++        if (!fail) {
++          if (scenario === "same-provider")
++            assert.equal(turns[2]!.nativeThreadId, turns[0]!.nativeThreadId);
++          else assert.include(turns[2]!.text, "PARTNER_REVIEW");
++          assert.equal(
++            projection.runs.every((run) => run.status === "completed"),
++            true,
++          );
++        } else {
++          assert.deepEqual(
++            projection.runs.map((run) => ({ status: run.status, held: run.queueHeld })),
++            Array.from({ length: 3 }, (_, i) =>
++              i < lastOrdinal
++                ? { status: i === lastOrdinal - 1 ? "failed" : "completed", held: undefined }
++                : { status: "queued", held: true },
++            ),
++          );
++        }
++        assert.equal(projection.thread.runtimeMode, "approval-required");
++      }).pipe(
++        Effect.provide(
++          ProviderReplayHarness.layerWithRegistry(
++            {
++              name: `paired-${scenario}`,
++              runtimePolicyOverride: {
++                cwd,
++                approvalPolicy: "never",
++                sandboxPolicy: { type: "readOnly" },
++              },
++            },
++            registry,
++          ),
++        ),
++      );
++    }),
++  ),
++);

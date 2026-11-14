@@ -1,6 +1,78 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 2026-11-13: mobile account stuck on Checking
+## Current checkpoint — mobile navigation polish and social sign-in, 2026-11-13
+
+Current owned worktree: P/mobile-account-recovery-e49g7nr9/source, branch
+feat/mobile-connect-polish, based on stage 0b305bc3079b0568370f3c0836f2a4c3f48331bb.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes. Read the parent
+mobile-connect-plan.json and mobile-connect-export-result.json for exact current
+source, process handles and validation. The dirty main checkout is untouched.
+
+The owner requested Google, GitHub and Apple sign-up/sign-in, removal of the mobile
+Blackcrab/Legacy hosts header, correction of T3 Account, and haptics on bottom
+navigation buttons. The source removes the extra header, retains older pairings
+under Settings → Connections → Previously paired hosts through the same guarded
+root lifecycle, and adds selection/light-impact feedback to actual native tab and
+compose events. Programmatic iOS tab events stay silent; haptic failures cannot
+block navigation. The full managed app and storage owners remain alive. Focused
+navigation/root tests passed (11 tests); physical mobile typecheck, all 100 source
+and activation tests, the consumer verifier (23 packages/3170 files) and all 13
+native resource checks passed at 935b634628fb161bdea111741b82328bf21af181. The
+physical source is /private/tmp/blackcrab-ios-dXRCWc/repo. Its Hermes export is
+running under captured exec session 43178; read mobile-connect-export-reviewed-result.json.
+Earlier icon-type and compiler original-only expectation failures were fixed.
+The compiler still verifies immutable originals and exact recorded adaptations.
+The product branding patches already exist but are still not delivered to build4.
+
+Clerk Native API is now ENABLED in the actual Blackcrab production instance and
+the live native endpoint returns 200. Do not ask the owner to enable it again.
+PR291 merged at 0b305bc3079b0568370f3c0836f2a4c3f48331bb after nine passing checks
+and is unwatched. PR292 (fix/native-account-preflight-shape), head
+dc9d179dc7fe44703e53d45cbb9637d50628b13d, is open and watched; its fix accepts the
+actual enabled response shape. Handle its CI wake, reviews and merge separately.
+The current polish branch does not include PR292 yet. Its existing local
+preflight implementation must not be mistaken for evidence that Native API is off.
+
+Social sign-in uses the existing Clerk native AuthView and hosted sign-in screen;
+configured providers appear there automatically. No custom fake buttons or second
+account owner is needed. The production instance is ins_3Lxx0IT1GVzmRLAWkPZLtQ6vCKk
+in application app_3Lxx0HOT2YePJBXeoWQl82HUFfh, Vercel bonjenns-projects Marketplace.
+All three requested social connections were initially absent. A GitHub OAuth app
+named Blackcrab Connect was created at https://github.com/settings/applications/4019324,
+client ID Ov23lijAU07Se2R9l3Q8, homepage https://blackcrab.app and callback
+https://clerk.app.blackcrab.app/v1/oauth_callback. The owner completed GitHub verification. Its generated client secret was supplied
+privately to Clerk and cleared from transient agent storage; GitHub is ENABLED
+for sign-up/sign-in. No actual user OAuth callback has been tested yet. Google
+Cloud sign-in is pending. Apple sign-in reached developer.apple.com/account;
+the preview remains under human control and the owner was asked to release it. Existing private
+API authorizations are preserved; never ask for passwords or print credentials.
+Native iOS registration is now complete: verified final IPA profile app identifier
+YF28W3NGG6.dev.blackcrab.remote and Apple sign-in entitlement, registered that app
+in Clerk, and confirmed dev.blackcrab.remote://callback in the redirect allowlist.
+The installed ClerkKit source/bridge uses that callback and browser OAuth for
+Google/GitHub, native Apple for Apple. Do not require an unnecessary Google native
+SDK rebuild based only on newer online docs. Production Clerk rejected Apple
+activation without custom credentials; the unsaved form was reset. Its connection
+remains disabled. None of these social logins is accepted end-to-end yet.
+
+The compatible account-only export /private/tmp/blackcrab-ios-yP6Wlk/artifacts/account-export
+(runtime 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb, source d6a3a6e...) is unpublished
+and superseded by this newer polish candidate once validated. Do not publish the
+older toolbar-containing candidate. TestFlight remains 1.0.0 (4); no new mobile
+update or binary is delivered. Validate retention/reconnect and update behavior
+before production publication. Keep full Connect cross-computer/off-LAN acceptance
+separate from provider configuration and source tests.
+
+The 0.4.4 updater is merged in PR290; Mac 0.4.3 and Windows/Linux 0.3.0 are still
+public. Three-platform native packaging/publication remains open. Preserve the
+production c04c4d44… service artifact and all data. The finish line remains parity,
+a current normal Mac installation and a working TestFlight app, plus the requested
+Windows/Linux release. The owner has authorized publication; do not ask again.
+
+---
+
+## Historical account-recovery checkpoint (superseded where noted above)
+
 
 The owner reports “T3 Account / Checking” greyed out in TestFlight. The exact
 production Clerk native request returned HTTP 400 / native_api_disabled, while

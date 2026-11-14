@@ -1,53 +1,48 @@
-Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
-Read AGENTS.md, the latest docs/agent-handoff.md checkpoint, docs/desktop-updates.md,
-docs/mobile-cloud-configuration.md and docs/cross-platform-workspace-delivery.md.
-Preserve the extensively dirty main checkout. Use only owned worktrees.
+Continue Blackcrab parity and the authorized 0.4.4 release for all three desktop platforms.
+Read AGENTS.md and the current checkpoint of docs/agent-handoff.md first. Keep the
+extensively dirty main checkout untouched and paired AGENTS.md/CLAUDE.md identical.
 
-P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Mobile fix: P/mobile-account-recovery-e49g7nr9/source, branch fix/mobile-account-loading,
-PR291. Read its parent plan.json for the current head and CI state. The production
-Clerk native environment returned native_api_disabled, despite browser HTTP 200.
-The owner did not see Blackcrab in a direct Clerk login; the existing app belongs
-to the Vercel bonjenns-projects Marketplace workspace. The handoff records verified
-team/application IDs and the CLI command for its correct SSO link. Await/verify
-Native API activation there. Do not create a duplicate app, print keys or repeat
-earlier account authorization. The personal Clerk login email is not known.
+The immediate owner task adds Google/GitHub/Apple sign-in, removes the extra mobile
+Blackcrab/Legacy hosts header, delivers Blackcrab account branding, and adds bottom
+button haptics. Worktree P/mobile-account-recovery-e49g7nr9/source is on
+feat/mobile-connect-polish; P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Read parent mobile-connect-plan.json and mobile-connect-export-result.json for
+latest head, running handles, PR and validation. The extra header is removed;
+retained paired hosts are in Settings using the existing voice/root ownership
+guard. Tab/compose haptics use native user events and cannot block navigation.
+Physical full mobile types, 100 source/activation tests, 11 root/navigation tests,
+consumer and native resource verification passed. Hermes export is running under
+session43178 from /private/tmp/blackcrab-ios-dXRCWc/repo; inspect the parent reviewed
+export report. Actual update delivery/retention acceptance remains distinct.
 
-Mobile account/Connect entry points stay tappable, time out to useful recovery,
-and retain the original auth/storage owners. The physical source passed full
-mobile types and 94 experience/activation tests. Its source-bound Hermes export
-at /private/tmp/blackcrab-ios-yP6Wlk/artifacts/account-export contains the recovery
-UI and no T3 Account/account/Connect strings. Runtime 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb
-matches TestFlight 1.0.0 (4). Read account-export-result.json and bundle-audit.json.
-This export is NOT published. Validate installed OTA retention/reconnect, then
-publish through the owned production channel; do not fake runtime compatibility.
-The older branding-only export is superseded. No local process remains running.
+Native API is ENABLED in the verified Blackcrab Clerk production instance. PR291
+merged at 0b305bc3079b0568370f3c0836f2a4c3f48331bb and is unwatched. PR292 is watched,
+head dc9d179dc7fe44703e53d45cbb9637d50628b13d, and fixes the preflight response shape.
+Do not relink/watch it again on its wake, or re-ask for Native API activation.
+The handoff records the correct Marketplace app/instance, GitHub OAuth app and
+redirect URI. GitHub verification and credential setup completed; sign-up/sign-in is enabled,
+but no real user callback/session has been accepted. Google sign-in is pending.
+Apple is signed in but its preview remains under human control; await release. Use Clerk's existing AuthView, finish
+provider/native registration, and never expose secrets. Native iOS registration and dev.blackcrab.remote://callback allowlisting are done.
+The shipped ClerkKit uses browser OAuth for Google/GitHub and native Apple. Clerk
+rejected Apple activation without production custom credentials; it stays disabled.
+Do not require a new Google native SDK based only on newer generic documentation.
 
-Updater PR290 merged to stage at a2d753a5e0a37dc7954902d9bede6ff82660b95f after
-all nine checks passed on e20672a773960580bc4757dcf9c3d449c6479f6e. The actual Chromium
-notification regression passed in run 43526316952/job 132232854479. PR290 is
-unwatched; do not re-create, link or poll it. Its completed producer/validation is
-P/mac-release-040-v2llrqsa/workspace-044-validation; do not repeat preparation.
-The mobile branch integrates that stage merge; preserve both handoffs. PR291's
-current CI and review still determine whether its source may merge.
+The earlier account-only branded export at /private/tmp/blackcrab-ios-yP6Wlk is
+unpublished and superseded by current polish once verified. Installed TestFlight
+is 1.0.0 (4), runtime 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb. Verify retention,
+reconnect, update and rollback before production delivery. Don’t claim source
+exports or provider switches establish sign-in/remote access on the owner's phone.
 
-The updater connects the Electron workspace to the signed outer-app updater over
-private FD5, keeps FD3/FD4 pairing intact, restores notices and real progress,
-and preserves the independent service. Signed native installation/restart and
-retained-service acceptance remain open. Windows/Linux still require actual
-native package producers, launch/transport, per-user services and native checks;
-never toggle producerImplemented or publish root-only installers as full parity.
+Updater PR290 is merged and unwatched; its existing validation/producer in
+P/mac-release-040-v2llrqsa/workspace-044-validation is complete. Mac 0.4.3 and
+Windows/Linux 0.3.0 remain public; 0.4.4 is not built or published. Implement the
+remaining Windows/Linux native package/service/transport, validate real installers
+and signed updater behavior, publish, then update website/blog/release notes.
+Preserve Mac service manifest c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83
+pending a stopped data-preserving migration. No extra publication permission is needed.
 
-Mac 0.4.3 and Windows/Linux 0.3.0 remain public. 0.4.4 is not built or published.
-Keep the production Mac host manifest
-c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83
-until a stopped, data-preserving migration is implemented. Build/verify the real
-0.4.4 installers and updater signatures, publish all three targets, then update
-website downloads/blog/release notes. Publication is authorized; do not ask again.
-
-Connect's complete two-computer+iOS sign-in, discovery, off-network agent control,
-reconnect/revocation and push are not accepted yet. Keep free local/self-hosted
-and paid hosted service plans, with billing/entitlement enforcement as separate
-work. The finish line remains validated parity, a current normal Mac installation,
-a working available TestFlight app, and the requested Windows/Linux release.
-Keep paired AGENTS.md/CLAUDE.md files identical and all handoffs current.
+Full Connect two-computer+iOS sign-in/discovery/off-LAN agent control/revocation/push
+remains open. Free local/self-hosted plus paid hosted beta is the accepted model.
+Finish with validated parity, a current normal Mac installation, a working available
+TestFlight app and the Windows/Linux delivery. Keep this handoff current.

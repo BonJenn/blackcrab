@@ -159,6 +159,11 @@ jobs:
       - name: Signed download action and version gates
         working-directory: src-tauri
         run: cargo test --locked --lib managed_updates
+      - name: Reboot-cleared browser channel recovery
+        working-directory: src-tauri
+        run: cargo test --locked --lib browser
+      - name: Guarded recovery utility fixtures
+        run: python3 -B scripts/recover-macos-browser-channel.test.py
 
   # The release builds for Windows too, but the Linux job above can't catch
   # Windows-only compile breaks (e.g. platform-specific libc APIs). A cheap

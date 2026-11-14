@@ -26,6 +26,17 @@ describe("new-workspace application", () => {
   const retry = [...host.querySelectorAll('button')].find(x => x.textContent === 'Try again')!;
   await act(() => retry.click()); expect(api.desktop.open).toHaveBeenCalledTimes(2); expect(api.handoff).toHaveBeenCalledOnce();
  });
+ it("shows a native string refusal and retries the recovered service on request", async () => {
+  const api = client();
+  vi.mocked(api.service.status).mockRejectedValueOnce("Private native browser capability was refused");
+  await act(() => root.render(<App client={api} />));
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe("Private native browser capability was refused");
+  expect(api.desktop.open).not.toHaveBeenCalled();
+  const retry = [...host.querySelectorAll('button')].find(x => x.textContent === 'Try again')!;
+  await act(() => retry.click());
+  expect(api.desktop.open).toHaveBeenCalledOnce(); expect(api.handoff).toHaveBeenCalledOnce();
+  expect(host.querySelector('[role="alert"]')).toBeNull();
+ });
  it("reopens from the native menu and exposes service settings without another launch", async () => {
   const api = client(); await act(() => root.render(<App client={api} />));
   await act(() => events.get('blackcrab-open-settings')!());

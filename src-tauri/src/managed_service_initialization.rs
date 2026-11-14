@@ -119,6 +119,43 @@ mod tests {
         fs::remove_dir_all(base).unwrap();
     }
     #[test]
+    fn browser_reboot_recovers_missing_runtime_without_rewriting_persistent_identity() {
+        use std::os::unix::fs::PermissionsExt;
+        for ownership in [OwnershipMode::Service, OwnershipMode::Direct] {
+            let base = tempfile::tempdir().unwrap();
+            let host = ManagedHost::new(base.path().canonicalize().unwrap().join("owner"));
+            host.prepare().unwrap(); host.initialize_locked().unwrap();
+            let mut config = Configuration { schema:1, ownership,
+                artifact_path:base.path().join("runtime"), manifest_digest:"a".repeat(64),
+                bootstrap_secret:"b".repeat(64), environment_id:Some(new_environment_id().unwrap()), browser:None };
+            enable_native_browser(&mut config, &host.root).unwrap();
+            host.save_config(&config).unwrap();
+            let before = fs::read(host.root.join("configuration.json")).unwrap();
+            let data = host.root.join("host/retained-history");
+            fs::write(&data, "fixture history").unwrap();
+            let cap = config.browser.as_ref().unwrap();
+            let socket = std::os::unix::net::UnixListener::bind(&cap.path).unwrap();
+            fs::set_permissions(&cap.path, fs::Permissions::from_mode(0o600)).unwrap();
+            cap.validate(&host.root).unwrap();
+            drop(socket);
+            // Model macOS clearing /private/tmp at boot, without touching the
+            // persistent owner/configuration, service identity or user data.
+            fs::remove_dir_all(cap.path.parent().unwrap()).unwrap();
+            assert_eq!(cap.validate(&host.root).unwrap_err(), "Private native browser capability was refused");
+            let restored = host.read_config().expect("reboot must recover an absent temporary channel").unwrap();
+            assert!(restored.browser == config.browser); // no credential-bearing debug output
+            assert!(restored.ownership == ownership);
+            assert!(restored.environment_id == config.environment_id);
+            assert!(fs::read(host.root.join("configuration.json")).unwrap() == before);
+            assert_eq!(fs::read_to_string(&data).unwrap(), "fixture history");
+            cap.validate(&host.root).unwrap();
+            let _socket = std::os::unix::net::UnixListener::bind(&cap.path).unwrap();
+            fs::set_permissions(&cap.path, fs::Permissions::from_mode(0o600)).unwrap();
+            host.read_config().unwrap().unwrap();
+            fs::remove_dir_all(cap.path.parent().unwrap()).unwrap();
+        }
+    }
+    #[test]
     fn fresh_identity_uses_v4_uuid_without_changing_request_id_policy() {
         let id = new_environment_id().unwrap();
         assert!(desktop_policy::uuid(&id));

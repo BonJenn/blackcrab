@@ -154,7 +154,7 @@ mobile_app_name_files = {
 account_recovery = {
  'src/features/settings/SettingsRouteScreen.tsx': [
   ('import { Platform, View } from "react-native";', 'import { Alert, Keyboard, Platform, View } from "react-native";\nimport { managedRootLifecycle } from "../../../../../owned-root-lifecycle.mjs";', 1),
-  ('{ title: "Connections", rows: props.connections }', '{ title: "Connections", rows: [...props.connections, { id: "previousHosts", icon: "externaldrive" as const, label: "Previously paired hosts", onPress: () => {\n      if (managedRootLifecycle.requestLegacy()) Keyboard.dismiss();\n      else Alert.alert("Voice input is active", "Finish or cancel voice input before opening previously paired hosts.");\n    } }] }', 1),
+  ('{ title: "Connections", rows: props.connections }', '{ title: "Connections", rows: [...props.connections, { id: "previousHosts", icon: "server.rack" as const, label: "Previously paired hosts", onPress: () => {\n      if (managedRootLifecycle.requestLegacy()) Keyboard.dismiss();\n      else Alert.alert("Voice input is active", "Finish or cancel voice input before opening previously paired hosts.");\n    } }] }', 1),
   ('import { useAuth, useUser } from "@clerk/expo";', 'import { useAuth, useUser } from "@clerk/expo";\nimport { useAccountConnectionStatus } from "../cloud/AccountConnectionStatus";', 1),
   ('  const accountLabel = !isLoaded\n    ? "Checking"', '  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const accountLabel = !isLoaded\n    ? (accountConnectionStatus === "unavailable" ? "Unavailable" : "Connecting…")', 1),
   ('          disabled: !isLoaded,\n', '', 1),

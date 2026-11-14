@@ -639,7 +639,7 @@
         },
         {
           "before": "{ title: \"Connections\", rows: props.connections }",
-          "after": "{ title: \"Connections\", rows: [...props.connections, { id: \"previousHosts\", icon: \"externaldrive\" as const, label: \"Previously paired hosts\", onPress: () => {\n      if (managedRootLifecycle.requestLegacy()) Keyboard.dismiss();\n      else Alert.alert(\"Voice input is active\", \"Finish or cancel voice input before opening previously paired hosts.\");\n    } }] }",
+          "after": "{ title: \"Connections\", rows: [...props.connections, { id: \"previousHosts\", icon: \"server.rack\" as const, label: \"Previously paired hosts\", onPress: () => {\n      if (managedRootLifecycle.requestLegacy()) Keyboard.dismiss();\n      else Alert.alert(\"Voice input is active\", \"Finish or cancel voice input before opening previously paired hosts.\");\n    } }] }",
           "count": 1
         },
         {
@@ -663,7 +663,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "aa9295090ba6203a23ea7a5db1be3be463a53f31c8a7a649c47e166b2509c9fd"
+      "afterSha256": "47297e83c5607763c4009adb8b5a20f1a39ad60a32a211a4aee71ac62fec81f0"
     },
     {
       "path": "src/features/settings/SettingsAuthRouteScreen.tsx",

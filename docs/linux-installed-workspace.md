@@ -14,12 +14,14 @@ entry with both opaque payloads to produce Debian and AppImage candidates.
 `build-linux-installers-ci.mjs` verifies Debian package/version/architecture,
 installer SHA-256 values, the packaged launcher, both embedded manifests and
 complete payload inventories. The payload archives must be identical across
-both installers. Tauri stamps each bundle's type into the launcher in place, so
-the compiled binary ends as the last bundle's variant. The Debian launcher must
-equal it byte for byte except the three-byte `DEB` stamp; AppImage must match
+both installers. Tauri stamps each bundle's type into the launcher it packages
+and leaves the compiled binary unstamped (`UNK`). The marker text occurs twice
+and only one occurrence is stamped. The Debian launcher must equal the compiled
+binary byte for byte except a three-byte `DEB` stamp; AppImage must match
 Tauri's post-linuxdeploy AppDir, since linuxdeploy adjusts ELF paths and strips
 symbols. The underlying compiled binary digest is also retained. Run43579045171
-failed on the earlier whole-file Debian comparison before any UI step ran.
+failed on the earlier whole-file Debian comparison, and run43611999319 on a
+check that required every marker occurrence stamped; neither reached a UI step.
 
 Ubuntu22.04 is the build baseline for WebKitGTK4.1 and older glibc compatibility.
 See [Tauri's AppImage requirements](https://v2.tauri.app/distribute/appimage/)

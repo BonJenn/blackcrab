@@ -43,7 +43,9 @@ async function bundleStampOnly(packagedFile,compiledFile){
   const read=buffer=>stamps.map(s=>buffer.subarray(s,s+3).toString('latin1'));
   const result={packaged:read(packaged),compiled:read(compiled)};
   for(const s of stamps)if(!packaged.subarray(s-marker.length,s).equals(marker))throw Error('Packaged Debian launcher lacks the bundle type marker');
-  if(!result.packaged.every(v=>v==='DEB'))throw Error('Packaged Debian launcher stamp is '+JSON.stringify(result));
+  // The marker text occurs more than once; Tauri stamps one occurrence in the
+  // packaged copy and leaves the compiled binary unstamped afterwards.
+  if(!result.packaged.includes('DEB')||!result.packaged.every((v,i)=>v==='DEB'||v===result.compiled[i]))throw Error('Packaged Debian launcher stamp is '+JSON.stringify(result));
   return result;
 }
 try{
@@ -69,9 +71,9 @@ try{
     const binary=await named(directory,'blackcrab');
     // linuxdeploy adjusts ELF library paths and strips symbols. Compare the
     // AppImage to Tauri's actual post-packaging AppDir, not the unmodified ELF.
-    // Tauri stamps each bundle's type into the launcher in place, so the
-    // compiled ELF ends as the last bundle's variant. The Debian launcher
-    // must equal it everywhere except that three-byte stamp.
+    // Tauri stamps each bundle's type into the launcher it packages, so the
+    // Debian launcher never equals the compiled ELF as a whole file. It must
+    // equal it everywhere except that three-byte stamp.
     let rootHash;
     if(kind==='deb'){
       report.debBundleStamp=await bundleStampOnly(binary,path.join(release,'blackcrab'));

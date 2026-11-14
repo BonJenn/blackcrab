@@ -168,10 +168,9 @@ def probe_workspace(environment):
     # service; this only shows what its startup prints, which Root discards.
     import fcntl
     import tempfile
-    profile = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1"
-    runtime = Path(environment.get("XDG_RUNTIME_DIR", "/nonexistent")) / "blackcrab-workspace-tmp"
+    profile = QA_HOME / ".blackcrab/desktop"
     like_root = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(QA_HOME), "OTEL_SDK_DISABLED": "true",
-                 "TMPDIR": str(runtime if runtime.is_dir() else profile / "tmp")}
+                 "TMPDIR": str(profile / "tmp")}
     like_root.update({key: environment[key] for key in ["DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR",
                                                         "DBUS_SESSION_BUS_ADDRESS", "LANG"] if key in environment})
     probe["tmpdir"] = like_root["TMPDIR"]
@@ -225,7 +224,7 @@ def probe_workspace(environment):
 def workspace_logs():
     # The workspace writes its own startup log into this fresh account's private
     # profile. Keep the newest tails, with long token-like strings removed.
-    profile = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1"
+    profile = QA_HOME / ".blackcrab/desktop"
     files = []
     for directory, _, names in os.walk(profile):
         if len(Path(directory).relative_to(profile).parts) > 6:
@@ -275,7 +274,7 @@ def workspace_state():
             except OSError as failure:
                 threads[task.name] = type(failure).__name__
         state["threads"] = threads
-    profile = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1"
+    profile = QA_HOME / ".blackcrab/desktop"
     created = []
     for directory, folders, names in os.walk(profile):
         relative = Path(directory).relative_to(profile)

@@ -153,6 +153,29 @@ Mac), not in Root alone. The probe now launches with the contract-correct
 `TMPDIR`, so the next run records Chromium's own fatal message and
 `coredumpctl info`.
 
+## Confirmed: single-instance socket path, and the Linux profile location
+
+Run43642425582 reproduced the core dump with the contract-correct `TMPDIR` and
+the probe captured Chromium's message:
+`FATAL:chrome/browser/process_singleton_posix.cc:335 Socket path too long:
+<profile>/tmp/scoped_dir…/SingletonSocket`, exit by SIGTRAP. The socket path is
+`<profile>/tmp` plus 33 bytes and must stay under `sockaddr_un`'s 108. Under
+`~/.local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1`
+it never can, for any user name.
+
+Because the workspace fixes `TMPDIR` to `<profile>/tmp`, the profile itself must
+be short. On Linux Root now uses `~/.blackcrab/desktop` (`managed_desktop.rs`,
+`workspace_profile_root`). `~/.blackcrab` is Blackcrab's existing home directory
+(pairings); Root creates it with mode0700 or makes its own existing real
+directory private, and refuses a symlink or foreign owner. A home path too long
+to fit is refused with a specific message before anything is created. Linux has
+not shipped, so no profile migration is needed. Mac keeps its profile under the
+managed host and its bytes are unchanged; no payload module was modified.
+
+The alternative is to change the workspace's environment contract so `TMPDIR`
+may be a short runtime directory. That keeps the profile under XDG but edits a
+registered payload module shared with Mac and requires Mac re-acceptance.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

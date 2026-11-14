@@ -143,3 +143,11 @@ omit nonportable POSIX execute flags. Linux retains executable permissions. Comp
 native dependency materialization is still required before enabling these producers.
 `testing/artifact-fixture.mjs` is synthetic CI payload only, never a product build.
 A native Node-mode fixture pass does not certify workspace/service/installers.
+
+## Portable dependencies
+
+Windows/Linux use physical node_modules trees, not producer-cache links/junctions.
+Preserve nearest-ancestor package resolution, nested versions, required target
+native companions, notices and file bounds. Native module loading in CI is distinct
+from actual credential/accessibility/browser/provider operations and full workspace
+acceptance. Mac's existing dependency layout remains unchanged.

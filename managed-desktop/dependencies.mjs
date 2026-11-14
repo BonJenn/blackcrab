@@ -1,5 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {packageRoot} from './package-resolution.mjs';
+import {stagePhysicalRuntimeDependencies} from './physical-dependencies.mjs';
 import { fileDigest, digest } from './artifact.mjs';
 /** Read-only producer reuse. Workspace packages always resolve to the new authenticated source. */
 export async function linkDependencyCache(source, producer, {canonicalProducer} = {}) {
@@ -60,9 +62,10 @@ export async function linkDependencyCache(source, producer, {canonicalProducer} 
  for(const relative of packages){const from=path.join(producer,relative,'node_modules');let stat;try{stat=await fs.stat(from);}catch(error){if(error.code!=='ENOENT')throw error;continue;}if(stat.isDirectory())await linkTree(from,path.join(source,relative,'node_modules'));}
  return {kind:'read-only-pinned-lockfile-cache',lockfileSha256:await fileDigest(path.join(source,'pnpm-lock.yaml'))};
 }
-async function packageRoot(name,from){if(!/^(?:@[A-Za-z0-9._-]+\/)?[A-Za-z0-9._-]+$/.test(name)||name==='..')throw Error('Unsafe runtime dependency name');let current=from;for(;;){try{const root=await fs.realpath(path.join(current,'node_modules',name)),value=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));if(!/^[0-9A-Za-z.+_-]{1,128}$/.test(value.version))throw Error('Unsafe dependency version');return {root,value};}catch(error){if(!['ENOENT','ENOTDIR'].includes(error.code))throw error;}const parent=path.dirname(current);if(parent===current)throw Object.assign(Error('Cannot locate runtime dependency '+name),{code:'BLACKCRAB_DEPENDENCY_ABSENT'});current=parent;}}
+
 /** Preserve external native packages and their complete runtime dependency closure inside artifact. */
-export async function stageRuntimeDependencies(source,appRoot){
+export async function stageRuntimeDependencies(source,appRoot,{targetId=`${process.platform}-${process.arch}`}={}){
+ if(targetId!=='darwin-arm64')return stagePhysicalRuntimeDependencies(source,appRoot,{targetId});
  const external=name=>['@napi-rs/keyring','@crowecawcaw/xa11y','@clerk/electron-passkeys','electron-webauthn','ffi-rs','@yuuang/','playwright-core'].some(p=>name.startsWith(p));
  const desktop=path.join(source,'apps/desktop'),value=JSON.parse(await fs.readFile(path.join(desktop,'package.json'),'utf8')),store=path.join(appRoot,'node_modules/.blackcrab'),seen=new Map(),missing=[],packages=[];await fs.mkdir(store,{recursive:true});
  async function stage(name,from,optional=false){let pkg;try{pkg=await packageRoot(name,from);}catch(error){if(optional&&error.code==='BLACKCRAB_DEPENDENCY_ABSENT'){missing.push({name,reason:'optional target package absent'});return null;}throw error;}if(seen.has(pkg.root))return seen.get(pkg.root);const target=path.join(store,name.replaceAll('/','_')+'-'+pkg.value.version+'-'+digest(JSON.stringify(pkg.value)).slice(0,10));seen.set(pkg.root,target);await fs.cp(pkg.root,target,{recursive:true,filter:file=>path.relative(pkg.root,file).split(path.sep)[0]!=='node_modules'});packages.push({name,version:pkg.value.version});const deps={...pkg.value.dependencies,...pkg.value.optionalDependencies};for(const dep of Object.keys(deps??{}).sort()){const child=await stage(dep,pkg.root,Object.hasOwn(pkg.value.optionalDependencies??{},dep));if(child){const link=path.join(target,'node_modules',dep);await fs.mkdir(path.dirname(link),{recursive:true});await fs.symlink(path.relative(path.dirname(link),child),link,'dir');}}return target;}

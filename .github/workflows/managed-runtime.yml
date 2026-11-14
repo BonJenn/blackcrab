@@ -14,6 +14,10 @@ on:
       - managed-desktop/testing/**
       - managed-desktop/patches/**
       - managed-desktop/assets/**
+      - managed-desktop/dependencies.mjs
+      - managed-desktop/package-resolution.mjs
+      - managed-desktop/physical-dependencies*.mjs
+      - scripts/prepare-desktop-dependency-ci.mjs
       - scripts/verify-managed-runtime.mjs
       - .github/workflows/managed-runtime.yml
   workflow_dispatch:
@@ -37,7 +41,7 @@ jobs:
           - os: windows-2022
             target: win32-x64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -47,11 +51,21 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip libgtk-3-dev libnss3 libasound2t64
+          sudo apt-get install -y unzip libgtk-3-dev libnss3 libasound2t64 libsecret-1-0 libatspi2.0-0
       - name: Test staging rejection boundaries
-        run: node --test managed-desktop/runtime-package.test.mjs managed-desktop/targets.test.mjs managed-desktop/portable-artifact.test.mjs managed-desktop/checkout-integrity.test.mjs
+        run: node --test managed-desktop/runtime-package.test.mjs managed-desktop/targets.test.mjs managed-desktop/portable-artifact.test.mjs managed-desktop/checkout-integrity.test.mjs managed-desktop/physical-dependencies.test.mjs
+      - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      - name: Authenticate native dependency source
+        id: source
+        run: node scripts/prepare-desktop-dependency-ci.mjs --root "${{ runner.temp }}/native-dependency-source"
+      - name: Install frozen native dependency graph
+        working-directory: ${{ steps.source.outputs.source }}
+        # --ignore-scripts leaves pnpm 12's extensionless placeholder in place.
+        # Run its Node entry explicitly: Windows otherwise opens a file association
+        # dialog and can return success without installing any dependencies.
+        run: node "$(npm root -g)/pnpm/bin/pnpm.mjs" --filter '@t3tools/desktop...' --filter . install --frozen-lockfile --ignore-scripts
       - name: Stage and execute the exact runtime in an isolated profile
-        run: node scripts/verify-managed-runtime.mjs --report "${{ runner.temp }}/managed-runtime-result.json"
+        run: node scripts/verify-managed-runtime.mjs --report "${{ runner.temp }}/managed-runtime-result.json" --dependencySource "${{ steps.source.outputs.source }}"
       - uses: actions/upload-artifact@v6
         if: always()
         with:

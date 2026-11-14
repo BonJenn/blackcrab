@@ -110,3 +110,13 @@ Electron Node mode. It never starts a real workspace or service. Do not report
 this fixture as full UI/remote/provider acceptance or publish it as an installer.
 Next complete dependency closure and platform metadata, then native Root launch,
 authenticated transport, independent service lifecycle and verified installers.
+
+## Physical dependencies
+
+Portable staging now copies package contents and dependency subtrees without links.
+It preserves nested versions and compatible ancestor cycles using Node's resolution
+rules, rejects escaping content links and missing required native companions, and
+records optional platform exclusions and attribution roots. Native CI installs the
+pinned frozen source graph and loads actual native addon packages under Electron.
+This does not yet exercise user credentials, accessibility operations or the full
+workspace. Complete app metadata, owner transport, services and installers next.

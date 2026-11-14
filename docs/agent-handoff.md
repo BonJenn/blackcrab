@@ -1,6 +1,71 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — portable manifests implemented, native CI pending
+## Current checkpoint — physical native dependencies; continue through 0.4.4 release
+
+Owner explicitly reiterated: do not stop until 0.4.4 is downloadable for Mac,
+Windows and Linux. Do not end a successful-merge wake at the milestone: continue
+implementing the next release requirement. Required CI waits still use the PR
+watch and end the turn; resume automatically on that result. Promote tested stage
+to main before publishing the release from the validated main commit, as promised.
+
+Active worktree P/desktop-portable-dependencies-044, branch
+feat/desktop-portable-dependencies, base fc7f09773dec5a724232fd9f89d889918b69ab07.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes. Read the adjacent
+P/desktop-portable-dependencies-044-plan.json for exact PR/head/CI status.
+
+Portable dependency staging now materializes physical node_modules trees without
+symlinks/junctions, preserves nested versions and ancestor cycles, retains notices,
+rejects package-content escapes and refuses missing required native companions.
+Mac staging retains its existing path. Native CI installs the authenticated pinned
+source's frozen graph and loads real keyring/accessibility/FFI/passkey/Playwright
+modules under the exact Electron runtime, without invoking user operations.
+The application payload is still synthetic; full UI/service/installer work remains.
+Local tests: 114 managed-desktop/QA tests passed with zero skips, including five
+new relocation/version/cycle/missing-addon/source-escape cases. Logs are
+P/desktop-portable-dependencies-focused.log and desktop-portable-dependencies-full.log.
+No local build/test is running. Native Windows/Linux results for this increment
+remain required. Review failures and fix them; do not substitute a fixture-only
+pass for real modules. Then continue platform app metadata, actual Root launch,
+authenticated transport, per-user services and signed/verifiable installers.
+
+TestFlight Remote 1.0.0 (5) is delivered. 0.4.4 is NOT published. Keep existing
+public assets, user data and the Mac production service manifest unchanged until
+the reviewed upgrade. Main checkout remains untouched. Website redesign is
+separate and its Vercel quota issue must be resolved before site publication.
+
+PR296 native CI follow-up: Linux successfully loaded the actual keyring,
+accessibility, FFI, passkey wrappers and Playwright dependency closure under
+Electron 44.10.1 / Node 24.22.1 (job 132338945611). Windows job 132338945845
+passed all 16 staging/manifest tests but installed no dependencies: pnpm 12's
+extensionless placeholder remains when installed with --ignore-scripts, causing
+Windows OpenWith rather than execution. Invoke its shipped bin/pnpm.mjs explicitly
+through Node on both runners; keep dependency lifecycle scripts disabled and the
+frozen lockfile. The missing-dependency check correctly failed, and was not relaxed.
+PR296: https://github.com/BonJenn/blackcrab/pull/296. Native Windows verification of
+the correction remains required before merge; then continue the next product step.
+
+---
+
+## Previous checkpoint — PR295 merged; native artifact checks passed
+
+PR295 merged to stage fc7f09773dec5a724232fd9f89d889918b69ab07 after all 11 checks
+passed on 0f1d72a6d30d44258917a1e1556ce294a48e2afb. No reviews, review threads or
+comments remained; PR295 is unwatched. Native Windows job 132311565283 and Linux
+job 132311565494 verified the complete format-2 runtime artifact (454/453 entries),
+loaded the synthetic payload in Electron 44.10.1 / Node 24.22.1 and cleaned up.
+The Windows CRLF checkout defect is fixed without changing trusted hashes.
+This is synthetic payload/runtime acceptance, not full workspace or service UI.
+
+Next start an owned branch from the stage merge for physical Windows dependency
+closure, platform metadata, native Root launch/transport and service lifecycle,
+then actual 0.4.4 installers. Producers remain disabled and 0.4.4 is not published.
+No local build is running. TestFlight build 5 is already available. Preserve the
+main dirty checkout, the Mac production service and all user data. Exact plan:
+/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/desktop-portable-manifests-044-plan.json.
+
+---
+
+## Previous checkpoint — portable manifests implementation and CI correction
 
 Continue the authorized Windows/Linux 0.4.4 work. Active source:
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes;

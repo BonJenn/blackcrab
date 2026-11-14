@@ -1,3 +1,9 @@
+Current owner instruction: "merge it to stage". Complete PR #300's merge into
+stage after CI/review checks pass. This supersedes the earlier draft merge hold
+in the historical checkpoint below. Do not activate IDE mode in production,
+publish/tag a release, replace the production service, or claim native acceptance.
+The feature remains an opt-in 0.4.5 source experiment after integration.
+
 Continue the isolated Blackcrab 0.4.5 IDE-mode draft, not the parallel 0.4.4 release.
 Read AGENTS.md, the current docs/agent-handoff.md checkpoint and
 managed-desktop/ide-mode/README.md first. Work only in the thread-bound

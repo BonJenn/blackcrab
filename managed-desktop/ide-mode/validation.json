@@ -49,5 +49,6 @@
   "publication": "NOT_REQUESTED_FOR_THIS_DRAFT",
   "processes": "No build or test remains running; no real provider runs or installed service mutations.",
   "pullRequest": "https://github.com/BonJenn/blackcrab/pull/300",
-  "integrationBase": "c1763cda63e8b2dec9c6d433d7849a5d9a632f9d"
+  "integrationBase": "c1763cda63e8b2dec9c6d433d7849a5d9a632f9d",
+  "stageMergeAuthorization": "Owner explicitly requested: merge it to stage. Merge only after required checks; production activation and publication remain unauthorized."
 }

@@ -5,9 +5,11 @@ This is an opt-in source experiment against BonJenn/t3code
 patch chain. Original upstream MIT notices and licenses remain intact.
 `registry.json` authenticates every predecessor, replacement, diff and payload.
 The production desktop/host registries, service freeze and manifest are unchanged.
-This recipe is deliberately not imported by a release producer. Do not merge or
-publish it as part of 0.4.4. Integrate its host and renderer records together only
-after coordinating the stopped, data-preserving host migration for 0.4.5.
+This recipe is deliberately not imported by a release producer. The owner has
+authorized merging this inactive experiment into stage; that does not activate
+or publish it as part of 0.4.4. Integrate its host and renderer records into the
+production producers together only after coordinating the stopped, data-preserving
+host migration for 0.4.5.
 
 Prepare a fresh disposable source with `prepareIdeSource({archive,cacheDir})` from
 `prepare.mjs`. It first authenticates the pinned archive and applies production

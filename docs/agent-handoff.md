@@ -1,6 +1,14 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — isolated 0.4.5 IDE mode draft (2026-11-13)
+## Current checkpoint — gated 0.4.5 IDE source; stage merge authorized
+
+The owner subsequently instructed: "merge it to stage". This supersedes the draft
+merge hold below for PR #300 only. Merge after required CI/review checks pass.
+Keep the source recipe opt-in and the existing production manifest unchanged;
+activation, native acceptance and publication are still separate gates. No release
+or account/key change is authorized by this stage merge request.
+
+### Implementation checkpoint (2026-11-13; original draft hold superseded)
 
 This thread is bound to `/Users/jonathanbenn/.t3/worktrees/blackcrab/feat-ide-mode-045`,
 branch `feat/ide-mode-045`, starting at `4be37291ec5038831555f04a3104eb88272e5cac`.

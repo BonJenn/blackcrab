@@ -34,6 +34,16 @@ main, or activate production recipes independently.
   its headless Chromium/dependency bundle there. The workflow now explicitly uses
   `ubuntu-24.04`, matching the existing cloud-clients browser job. Browser testing
   on the replacement CI run remains pending; no dependency pins were changed.
+- CI on `bcad8a2e497d58db8d4e457d6d952ce42bc4c554`: all 14 checks completed
+  successfully, including both paired-model profiles and the Chromium picker
+  tests on Ubuntu 24.04. (The iOS portable-guards job finished with success;
+  GitHub's check list briefly kept showing it as pending.) No reviews or comments.
+- Stage update: stage `4ac132512eb65f39d46cfd88b6dfdba96db52c74` (#303, #305, #306
+  Linux launcher/service/package) was merged into this branch without conflicts.
+  It changes the production desktop registry beneath the feature recipe, so the
+  root recipe/freeze command below was rerun on the merged tree: 44/44, zero
+  skips, with the authenticated original-source fixture. Host/web/browser suites
+  were not rerun locally after the merge; the replacement CI run covers them.
 - Documentation commits can follow the implementation commit. Obtain the exact
   current head from `git rev-parse HEAD` and the PR before reporting it.
 - No build, browser, test, provider task, or native packaging job remains active.

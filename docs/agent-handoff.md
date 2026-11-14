@@ -1,6 +1,6 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — PR296 merged; portable native identity in progress
+## Current checkpoint — PR297 integrated; PR298 native metadata CI
 
 Owner instruction remains: continue until 0.4.4 is downloadable for Mac, Windows
 and Linux. Promote tested stage to main for the coordinated release. Do not stop
@@ -14,7 +14,8 @@ artifact inventories (654/647 entries), then cleaned up. This is module/runtime
 acceptance, not the full workspace or installers.
 
 Active worktree P/desktop-portable-metadata-044, branch feat/desktop-portable-metadata,
-base 4be37291ec5038831555f04a3104eb88272e5cac.
+base now includes stage 2dd550585224c9294d0b6898d5d379e02438d331 (PR297).
+PR298: https://github.com/BonJenn/blackcrab/pull/298; linked and watched.
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes. Read adjacent
 P/desktop-portable-metadata-044-plan.json for PR/head/results/processes. New portable
 metadata handles every Windows localized version/icon resource, preserves code and
@@ -30,16 +31,17 @@ P/desktop-portable-metadata-qa-recipe.log. Native CI must pass before merging. T
 remain gated. Continue producer orchestration, Root authenticated launch/transport,
 independent service lifecycle, verified installers and release publication next.
 
-The user requested a SEPARATE updater investigation after home Mac 0.4.1→0.4.3 failed
-with EXDEV (cross-device link). It is running in
-<t3-thread://v2/95c98c5c-276e-4ac8-b422-c5d8447bafe7/mcp:launch:9f0a45035cf57a29e46162025f2b69a3c23eab736c44618d8e89ad227ecc90a0>
-with branch fix/macos-updater-cross-volume in its T3-created worktree. Read
-P/mac-updater-exdev-session.json and that thread before acting on it. It owns the
-fix/PR/stage integration, not the coordinated release; do not duplicate its edits.
-Its owner reports PR297 open at 649ac85063e45f5656d98a15e638287a8af06ebb, based on
-current stage. It owns CI/reviews/merge; do not duplicate or take over. The exact
-0.4.1 plugin backup-rename EXDEV is reproduced, and an isolated signed-archive
-replacement was tested. Read its focused docs/updater-cross-volume.md once merged.
+The separately owned Mac updater PR297 merged to stage
+2dd550585224c9294d0b6898d5d379e02438d331, final head
+649ac85063e45f5656d98a15e638287a8af06ebb. Its owner reports all 10 checks passed,
+no review comments, and it is unwatched. This branch includes that merge; preserve
+it in the coordinated 0.4.4 build. Read docs/updater-cross-volume.md for the exact
+0.4.1 backup-rename EXDEV cause and destination-local verified replacement/rollback.
+Owner reports 11 installer tests including real EXDEV and signed 0.4.3 isolated
+replacement, two update gates and four Tauri guards. A later redundant rerun lost
+its handle/log during a Mac restart and is NOT counted. No process remains and no
+installed app/service/data or release/tag/main was changed by that work.
+Do not reopen or duplicate its completed CI/review/merge ownership.
 The owner also requested a separate 0.4.5 IDE thread, branch feat/ide-mode-045;
 keep that work isolated/draft and OUT of the 0.4.4 release.
 The owner was given the verified public 0.4.3 DMG manual replacement workaround.

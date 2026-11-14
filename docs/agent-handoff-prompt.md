@@ -10,16 +10,19 @@ Read parent mobile-connect-plan.json and mobile-connect-export-result.json for
 latest head, running handles, PR and validation. The extra header is removed;
 retained paired hosts are in Settings using the existing voice/root ownership
 guard. Tab/compose haptics use native user events and cannot block navigation.
-Full physical mobile validation/export and actual update delivery are distinct.
+Physical full mobile types, 100 source/activation tests, 11 root/navigation tests,
+consumer and native resource verification passed. Hermes export is running under
+session43178 from /private/tmp/blackcrab-ios-dXRCWc/repo; inspect the parent reviewed
+export report. Actual update delivery/retention acceptance remains distinct.
 
 Native API is ENABLED in the verified Blackcrab Clerk production instance. PR291
 merged at 0b305bc3079b0568370f3c0836f2a4c3f48331bb and is unwatched. PR292 is watched,
 head dc9d179dc7fe44703e53d45cbb9637d50628b13d, and fixes the preflight response shape.
 Do not relink/watch it again on its wake, or re-ask for Native API activation.
 The handoff records the correct Marketplace app/instance, GitHub OAuth app and
-redirect URI. GitHub Confirm access verification is pending before generating its
-secret; Google Cloud and Apple Developer owner sign-ins are pending. No social
-provider has been claimed enabled or tested. Use Clerk's existing AuthView, finish
+redirect URI. GitHub verification and credential setup completed; sign-up/sign-in is enabled,
+but no real user callback/session has been accepted. Google sign-in is pending.
+Apple is signed in but its preview remains under human control; await release. Use Clerk's existing AuthView, finish
 provider/native registration, and never expose secrets. Native iOS registration and dev.blackcrab.remote://callback allowlisting are done.
 The shipped ClerkKit uses browser OAuth for Google/GitHub and native Apple. Clerk
 rejected Apple activation without production custom credentials; it stays disabled.

@@ -15,7 +15,13 @@ under Settings → Connections → Previously paired hosts through the same guar
 root lifecycle, and adds selection/light-impact feedback to actual native tab and
 compose events. Programmatic iOS tab events stay silent; haptic failures cannot
 block navigation. The full managed app and storage owners remain alive. Focused
-navigation/root tests passed (11 tests); full physical typecheck/export is next.
+navigation/root tests passed (11 tests); physical mobile typecheck, all 100 source
+and activation tests, the consumer verifier (23 packages/3170 files) and all 13
+native resource checks passed at 935b634628fb161bdea111741b82328bf21af181. The
+physical source is /private/tmp/blackcrab-ios-dXRCWc/repo. Its Hermes export is
+running under captured exec session 43178; read mobile-connect-export-reviewed-result.json.
+Earlier icon-type and compiler original-only expectation failures were fixed.
+The compiler still verifies immutable originals and exact recorded adaptations.
 The product branding patches already exist but are still not delivered to build4.
 
 Clerk Native API is now ENABLED in the actual Blackcrab production instance and
@@ -34,10 +40,11 @@ in application app_3Lxx0HOT2YePJBXeoWQl82HUFfh, Vercel bonjenns-projects Marketp
 All three requested social connections were initially absent. A GitHub OAuth app
 named Blackcrab Connect was created at https://github.com/settings/applications/4019324,
 client ID Ov23lijAU07Se2R9l3Q8, homepage https://blackcrab.app and callback
-https://clerk.app.blackcrab.app/v1/oauth_callback. Generating its client secret
-requires GitHub Confirm access (owner verification); no secret has been generated
-or installed into Clerk. The GitHub connection remains disabled. Owner sign-in
-is also pending in Google Cloud and Apple Developer preview tabs. Existing private
+https://clerk.app.blackcrab.app/v1/oauth_callback. The owner completed GitHub verification. Its generated client secret was supplied
+privately to Clerk and cleared from transient agent storage; GitHub is ENABLED
+for sign-up/sign-in. No actual user OAuth callback has been tested yet. Google
+Cloud sign-in is pending. Apple sign-in reached developer.apple.com/account;
+the preview remains under human control and the owner was asked to release it. Existing private
 API authorizations are preserved; never ask for passwords or print credentials.
 Native iOS registration is now complete: verified final IPA profile app identifier
 YF28W3NGG6.dev.blackcrab.remote and Apple sign-in entitlement, registered that app

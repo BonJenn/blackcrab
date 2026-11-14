@@ -95,6 +95,36 @@ fn payload(
         )),
     }
 }
+#[cfg(not(target_os = "linux"))]
+fn prepare_app_data(app_data: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(app_data)
+}
+// Ubuntu and Fedora accounts default to umask 002, so a plain create (here or
+// by the webview before us) leaves this directory group-writable and the
+// payload cache then refuses it. XDG asks for 0700 on creation; create it
+// that way and drop group/other write from our own existing directory.
+#[cfg(target_os = "linux")]
+fn prepare_app_data(app_data: &Path) -> std::io::Result<()> {
+    private_app_data(app_data)
+}
+#[cfg(unix)]
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn private_app_data(app_data: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
+    fs::DirBuilder::new().recursive(true).mode(0o700).create(app_data)?;
+    // A symlink or foreign owner is left untouched for the cache check to reject.
+    if let Ok(directory) = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(app_data)
+    {
+        let metadata = directory.metadata()?;
+        if metadata.uid() == unsafe { libc::geteuid() } && metadata.mode() & 0o022 != 0 {
+            directory.set_permissions(fs::Permissions::from_mode(metadata.mode() & 0o7755))?;
+        }
+    }
+    Ok(())
+}
 impl ManagedNativeEntry {
     pub(crate) fn from_bundled_paths(resources: &Path, app_data: &Path) -> Self {
         Self::from_inputs(
@@ -127,7 +157,7 @@ impl ManagedNativeEntry {
             return entry;
         }
         let cache = app_data.join("managed-payloads-v1");
-        if let Err(error) = fs::create_dir_all(app_data) {
+        if let Err(error) = prepare_app_data(app_data) {
             entry.error = Some(format!(
                 "Blackcrab cannot create its application-data folder ({}).",
                 error.kind()
@@ -295,6 +325,28 @@ mod tests {
         assert!(!super::open_failure_message("secret-token-diagnostic").contains("secret-token"));
     }
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn app_data_is_created_private_and_an_owned_shared_one_is_tightened() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let base = std::env::temp_dir().join(format!("blackcrab-app-data-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir(&base).unwrap();
+        let fresh = base.join("share/app");
+        private_app_data(&fresh).unwrap();
+        assert_eq!(fs::metadata(&fresh).unwrap().mode() & 0o022, 0);
+        let shared = base.join("shared");
+        fs::create_dir(&shared).unwrap();
+        fs::set_permissions(&shared, fs::Permissions::from_mode(0o775)).unwrap();
+        private_app_data(&shared).unwrap();
+        assert_eq!(fs::metadata(&shared).unwrap().mode() & 0o777, 0o755);
+        let link = base.join("link");
+        fs::set_permissions(&shared, fs::Permissions::from_mode(0o775)).unwrap();
+        std::os::unix::fs::symlink(&shared, &link).unwrap();
+        let _ = private_app_data(&link);
+        assert_eq!(fs::metadata(&shared).unwrap().mode() & 0o777, 0o775);
+        fs::remove_dir_all(&base).unwrap();
+    }
     #[test]
     fn absent_and_partial_trust_do_not_invent_runtime() {
         let root = std::env::temp_dir().join("blackcrab-unconfigured-entry-never-created");

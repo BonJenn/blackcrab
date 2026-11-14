@@ -56,6 +56,17 @@ failure; cleanup errors fail acceptance. Reports and empty-workspace screenshots
 are retained. Driver logs, service configuration and authentication state are not
 uploaded. No provider prompt, production credentials or existing user data is used.
 
+## Product finding: shared-write application data
+
+Run43618913721 was the first to reach the installed launcher. It refused to
+start: "The application-data directory allows other users to write." Ubuntu and
+Fedora accounts default to umask002, so the launcher's own data directory was
+created group-writable and the payload cache then rejected it. This would affect
+ordinary users, not only the test account. On Linux `managed_native_entry.rs`
+now creates that directory with mode0700, as XDG specifies, and removes
+group/other write from an existing one it owns. A symlink or foreign-owned
+directory is left untouched and still rejected. Mac behaviour is unchanged.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

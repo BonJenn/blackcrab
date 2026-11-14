@@ -63,3 +63,15 @@ account loading/error screen and original account/storage owners. A branded
 Hermes export is not delivery: distinguish the installed TestFlight build from
 unpublished compatible OTA candidates. Keep runtime fingerprint and retention/
 reconnect acceptance when publishing updates.
+
+## Workspace navigation polish
+
+Do not restore an outer Blackcrab/Legacy hosts toolbar above the managed UI.
+Previously paired hosts remain reachable in Settings → Connections, through the
+existing root lifecycle and voice-input guard; the managed app stays mounted.
+Bottom navigation feedback belongs in actual native user-event handlers, not
+selection state effects or shared programmatic navigation. Tab selection uses
+selection haptics and compose uses a light impact; unsupported/failing feedback
+must never block navigation. expo-haptics is already part of the native graph.
+Social buttons come from Clerk AuthView's configured providers. Do not add
+nonfunctional custom buttons or put provider client secrets in mobile config.

@@ -53,6 +53,70 @@
       "afterSha256": "f816161d8e1735bea7236dfc56cc9fa5a05bb2d836e2234cfbb560422e7a4b0a"
     },
     {
+      "path": "src/features/layout/workspace/WorkspaceNativeTabs.ios.tsx",
+      "beforeSha256": "7cbf5af2f31715cb438557155e116c135d853a5cc564e7d4e655941efdc72bfb",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { useSelectWorkspaceTab } from \"./useSelectWorkspaceTab\";",
+          "after": "import { useSelectWorkspaceTab } from \"./useSelectWorkspaceTab\";\nimport { navigationSelectionFeedback } from \"./navigationHaptics\";",
+          "count": 1
+        },
+        {
+          "before": "          if (tab) selectTab(tab);",
+          "after": "          if (tab) { navigationSelectionFeedback(); selectTab(tab); }",
+          "count": 1
+        }
+      ],
+      "afterSha256": "d50fcfd9a42d8d4de32bb4db431fe817b3030656ff9a680362ca815432d7196c"
+    },
+    {
+      "path": "src/features/layout/workspace/WorkspaceSidebarTabs.ios.tsx",
+      "beforeSha256": "d9bc139cf7073a59d939324bf1715f5b92f51a9c0cce0fa4ef25e78a651782d0",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { useSelectWorkspaceTab } from \"./useSelectWorkspaceTab\";",
+          "after": "import { useSelectWorkspaceTab } from \"./useSelectWorkspaceTab\";\nimport { navigationSelectionFeedback, navigationComposeFeedback } from \"./navigationHaptics\";",
+          "count": 1
+        },
+        {
+          "before": "      onCompose={() => props.onNewTask?.()}",
+          "after": "      onCompose={() => { if (props.onNewTask) { navigationComposeFeedback(); props.onNewTask(); } }}",
+          "count": 1
+        },
+        {
+          "before": "        if (tab === \"settings\") selectTab(\"settings\");\n        else if (tab) selectTab(tab);",
+          "after": "        if (tab) { navigationSelectionFeedback(); selectTab(tab); }",
+          "count": 1
+        }
+      ],
+      "afterSha256": "8e8d19fabe792b8b6d31cac7c0ad0c9dfbeca6ecabe362747667a3ab61f7f162"
+    },
+    {
+      "path": "src/features/layout/workspace/AndroidWorkspaceNavigation.android.tsx",
+      "beforeSha256": "2bebe0ff5785a6cbd08892774b3067b6cfc3c304f5a32cb2539881ae542c5328",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { selectedNavigationTab, visibleNavigationTabs } from \"./navigation-tab-order\";",
+          "after": "import { selectedNavigationTab, visibleNavigationTabs } from \"./navigation-tab-order\";\nimport { navigationSelectionFeedback, navigationComposeFeedback } from \"./navigationHaptics\";",
+          "count": 1
+        },
+        {
+          "before": "        onTabSelected={(event) => {\n          Keyboard.dismiss();",
+          "after": "        onTabSelected={(event) => {\n          navigationSelectionFeedback();\n          Keyboard.dismiss();",
+          "count": 1
+        },
+        {
+          "before": "        onNewThread={() => {\n          Keyboard.dismiss();",
+          "after": "        onNewThread={() => {\n          navigationComposeFeedback();\n          Keyboard.dismiss();",
+          "count": 1
+        }
+      ],
+      "afterSha256": "1f89862eb7a41c55bc7db839608d0bd07362eaf038c4cf376d06cf2b9c8551f2"
+    },
+    {
       "path": "src/features/cloud/publicConfig.ts",
       "beforeSha256": "a028ca14804d8e103f437505681720271c644217ac77b74c07d8ee57f212466b",
       "kind": "replace",
@@ -569,6 +633,16 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import { Platform, View } from \"react-native\";",
+          "after": "import { Alert, Keyboard, Platform, View } from \"react-native\";\nimport { managedRootLifecycle } from \"../../../../../owned-root-lifecycle.mjs\";",
+          "count": 1
+        },
+        {
+          "before": "{ title: \"Connections\", rows: props.connections }",
+          "after": "{ title: \"Connections\", rows: [...props.connections, { id: \"previousHosts\", icon: \"externaldrive\", label: \"Previously paired hosts\", onPress: () => {\n      if (managedRootLifecycle.requestLegacy()) Keyboard.dismiss();\n      else Alert.alert(\"Voice input is active\", \"Finish or cancel voice input before opening previously paired hosts.\");\n    } }] }",
+          "count": 1
+        },
+        {
           "before": "import { useAuth, useUser } from \"@clerk/expo\";",
           "after": "import { useAuth, useUser } from \"@clerk/expo\";\nimport { useAccountConnectionStatus } from \"../cloud/AccountConnectionStatus\";",
           "count": 1
@@ -589,7 +663,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "0c52de5a3d4c2599b1ef5426eb10bc3947e4cb68851f3baf32e4647c98ba21e0"
+      "afterSha256": "297d42e6fc831a994f33f1cc99181519adf4888c5a548298672f8623f47a916c"
     },
     {
       "path": "src/features/settings/SettingsAuthRouteScreen.tsx",
@@ -921,6 +995,11 @@
       "path": "src/features/cloud/AccountConnectionStatus.tsx",
       "template": "adapters/AccountConnectionStatus.tsx",
       "sha256": "b0428e3587e2333bbbb574601cc582d45570b798bf0a9153bb6fca35af2e5c31"
+    },
+    {
+      "path": "src/features/layout/workspace/navigationHaptics.ts",
+      "template": "adapters/navigationHaptics.ts",
+      "sha256": "06c79fd71513a96c1aa1cf615245d63629f59e21acf03de6ae91bb041bcac863"
     }
   ],
   "rootAdditions": [

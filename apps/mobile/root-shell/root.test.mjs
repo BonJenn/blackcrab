@@ -21,6 +21,7 @@ test('active root uses one sticky activation and retains full App while native l
  assert.match(app,/activateFullNativeUI\(\(\) => managedOwnership.claimFullRoot\(\)\)/);
  assert.match(app,/startup\.catch/);
  assert.match(app,/FullApp \? <FullApp \/>/);
+ assert.doesNotMatch(app,/styles\.toolbar|Open legacy paired hosts|>Legacy hosts</);
  assert.match(app,/<Modal visible=\{!managedVisible\} presentationStyle="fullScreen"/);
  assert.match(app,/!managedVisible && <LegacyApp \/>/);
  for(const token of ['createNativeManagedEnvironmentsClient','ManagedEnvironmentsScreen','managedClient','key: "managed"']) assert(!legacy.includes(token),token);

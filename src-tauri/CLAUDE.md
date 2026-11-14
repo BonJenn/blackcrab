@@ -84,3 +84,13 @@ app updater rather than update its extracted inner app. Windows/Linux still need
 implemented native packages and service/transport; root-only installers do not
 satisfy the request. Keep current public versions until replacement artifacts
 are actually built and verified. No extra publication confirmation is required.
+
+## Portable workspace package verification
+
+managed_desktop_target.rs selects the native format/layout from the compiled OS and
+architecture. Never let manifest fields select a foreign executable. Windows format2
+omits POSIX execute flags and rejects reparse/hardlink/alias paths; Linux requires
+ELF x64 and execute permissions. Mac format1/framework/QA identities stay intact.
+Native build CI feeds real compiled artifacts and exact pins to the read-only Rust
+verifier; this proves package acceptance only, not launcher/service lifecycle or
+installer publication. Keep production platform enablement separate until integrated.

@@ -24,7 +24,9 @@ pub(crate) fn native_account_home() -> Result<PathBuf, String> {
 const MANIFEST: &str = "blackcrab-managed-desktop.json";
 const APP_ID: &str = "com.blackcrab.desktop.managed";
 const PROFILE: &str = "blackcrab-managed-v1";
-const EXECUTABLE: &str = "Blackcrab.app/Contents/MacOS/Blackcrab";
+#[path = "managed_desktop_target.rs"]
+mod package_target;
+use package_target::Target;
 use crate::managed_host::desktop_policy::{self, Frames, MAX_FRAME};
 const MAX_ENTRIES: usize = 50_000;
 const MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024;
@@ -40,7 +42,8 @@ enum Entry {
     File {
         path: String,
         bytes: u64,
-        executable: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        executable: Option<bool>,
         sha256: String,
     },
     #[serde(rename = "directory")]
@@ -133,50 +136,40 @@ fn sha(bytes: &[u8]) -> String {
 fn relative(s: &str) -> Result<&str, String> {
     desktop_policy::relative(s).map_err(|_| error())
 }
+fn reject_windows_reparse(metadata: &fs::Metadata) -> Result<(), String> {
+    #[cfg(windows)]
+    {use std::os::windows::fs::MetadataExt;if metadata.file_attributes() & 0x400 != 0 {return Err(error());}}
+    let _ = metadata;
+    Ok(())
+}
+fn regular_file(path: &Path) -> Result<fs::File, String> {
+    let mut options=OpenOptions::new();options.read(true);
+    #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.custom_flags(libc::O_NOFOLLOW);}
+    #[cfg(windows)] {use std::os::windows::fs::OpenOptionsExt;options.custom_flags(0x00200000);}
+    let file=options.open(path).map_err(|_|error())?;
+    let metadata=file.metadata().map_err(|_|error())?;
+    reject_windows_reparse(&metadata)?;
+    if !metadata.is_file(){return Err(error());}
+    #[cfg(windows)] {
+        use std::os::windows::io::AsRawHandle;
+        #[repr(C)] struct Information {attributes:u32,creation:[u32;2],access:[u32;2],write:[u32;2],volume:u32,size_high:u32,size_low:u32,links:u32,index_high:u32,index_low:u32}
+        #[link(name="kernel32")] extern "system" {fn GetFileInformationByHandle(handle:*mut std::ffi::c_void,info:*mut Information)->i32;}
+        let mut information=std::mem::MaybeUninit::<Information>::uninit();
+        if unsafe{GetFileInformationByHandle(file.as_raw_handle(),information.as_mut_ptr())}==0 || unsafe{information.assume_init()}.links!=1 {return Err(error());}
+    }
+    Ok(file)
+}
 fn digest_file(path: &Path) -> Result<String, String> {
-    let mut options = OpenOptions::new();
-    options.read(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NOFOLLOW);
-    }
-    let mut file = options.open(path).map_err(|_| error())?;
-    if !file.metadata().map_err(|_| error())?.is_file() {
-        return Err(error());
-    }
-    let mut hash = Sha256::new();
-    let mut buffer = [0u8; 65536];
-    loop {
-        let n = file.read(&mut buffer).map_err(|_| error())?;
-        if n == 0 {
-            break;
-        }
-        hash.update(&buffer[..n]);
-    }
-    Ok(format!("{:x}", hash.finalize()))
+    let mut file=regular_file(path)?;
+    let mut hash=Sha256::new();let mut buffer=[0u8;65536];
+    loop {let n=file.read(&mut buffer).map_err(|_|error())?;if n==0 {break;}hash.update(&buffer[..n]);}
+    Ok(format!("{:x}",hash.finalize()))
 }
 fn read_bounded(path: &Path, maximum: u64) -> Result<Vec<u8>, String> {
-    let meta = fs::symlink_metadata(path).map_err(|_| error())?;
-    if !meta.is_file() || meta.len() > maximum {
-        return Err(error());
-    }
-    let mut options = OpenOptions::new();
-    options.read(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NOFOLLOW);
-    }
-    let file = options.open(path).map_err(|_| error())?;
-    let mut bytes = Vec::new();
-    file.take(maximum + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| error())?;
-    if bytes.len() as u64 > maximum {
-        return Err(error());
-    }
-    Ok(bytes)
+    let file=regular_file(path)?;
+    if file.metadata().map_err(|_|error())?.len()>maximum{return Err(error());}
+    let mut bytes=Vec::new();file.take(maximum+1).read_to_end(&mut bytes).map_err(|_|error())?;
+    if bytes.len() as u64>maximum{return Err(error());}Ok(bytes)
 }
 fn resolve_link(start: &str, entries: &BTreeMap<String, Entry>) -> Result<String, String> {
     desktop_policy::resolve_link(start, |p| {
@@ -411,6 +404,7 @@ fn verify_package_for_identity(
     expected_manifest_sha256: &str,
     identity: DesktopIdentity,
 ) -> Result<VerifiedDesktop, String> {
+    let target = Target::native()?;
     identity.check_digest(expected_manifest_sha256)?;
     if expected_manifest_sha256.len() != 64
         || !expected_manifest_sha256
@@ -423,13 +417,15 @@ fn verify_package_for_identity(
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err(error());
     }
+    reject_windows_reparse(&metadata)?;
     let root = fs::canonicalize(selected).map_err(|_| error())?;
     let bytes = read_bounded(&root.join(MANIFEST), 16 * 1024 * 1024)?;
     if sha(&bytes) != expected_manifest_sha256 {
         return Err(error());
     }
     let manifest: Value = serde_json::from_slice(&bytes).map_err(|_| error())?;
-    if manifest.get("format") != Some(&json!(1))
+    if manifest.get("format") != Some(&json!(target.format()))
+        || (if target == Target::Mac {manifest.get("target").is_some()} else {manifest.get("target") != Some(&json!(target.id()))})
         || manifest.get("kind") != Some(&json!(identity.kind()))
         || manifest.get("qaPolicy").is_some()
         || manifest.get("namespace") != Some(&identity.namespace())
@@ -437,10 +433,7 @@ fn verify_package_for_identity(
             != Some(
                 &json!({"repository":"BonJenn/t3code","commit":"7f02de2eb8e253e0ec23f005b3cfff8e2c963be8","archiveSha256":"eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6"}),
             )
-        || manifest.get("electron")
-            != Some(
-                &json!({"version":"44.10.1","platform":"darwin","arch":"arm64","archiveSha256":"687f922034f1e991ab34ed7f47c4cb4e5c5e85e974b0ce155c22ce6d6f699aa3","url":"https://github.com/electron/electron/releases/download/v44.10.1/electron-v44.10.1-darwin-arm64.zip"}),
-            )
+        || manifest.get("electron") != Some(&target.electron())
     {
         return Err(error());
     }
@@ -452,6 +445,7 @@ fn verify_package_for_identity(
     if manifest.get("sourcePatches") != Some(&json!(expected)) {
         return Err(error());
     }
+    if target == Target::Windows && manifest.get("files").and_then(Value::as_array).ok_or_else(error)?.iter().any(|e|e.get("executable").is_some()) {return Err(error());}
     let list: Vec<Entry> =
         serde_json::from_value(manifest.get("files").cloned().ok_or_else(error)?)
             .map_err(|_| error())?;
@@ -460,8 +454,15 @@ fn verify_package_for_identity(
     }
     let mut entries = BTreeMap::new();
     let mut total = 0u64;
+    let mut windows_names = HashSet::from([MANIFEST.to_lowercase()]);
     for e in list {
         relative(e.path())?;
+        if !target.valid_path(e.path()) || (target == Target::Windows && !windows_names.insert(e.path().to_lowercase())) {return Err(error());}
+        match &e {
+            Entry::File {executable,..} if executable.is_some() != (target != Target::Windows) => return Err(error()),
+            Entry::Symlink {..} if target != Target::Mac => return Err(error()),
+            _ => {}
+        }
         if e.path() == MANIFEST || e.path() == "qa-policy" || e.path().starts_with("qa-policy/") {
             return Err(error());
         }
@@ -487,6 +488,7 @@ fn verify_package_for_identity(
         entries: &BTreeMap<String, Entry>,
         found: &mut HashSet<String>,
         depth: usize,
+        target: Target,
     ) -> Result<(), String> {
         if depth > 128 {
             return Err(error());
@@ -499,16 +501,17 @@ fn verify_package_for_identity(
                 .map_err(|_| error())?
                 .to_str()
                 .ok_or_else(error)?
-                .to_owned();
+                .replace(std::path::MAIN_SEPARATOR, "/");
             if p == MANIFEST {
                 continue;
             }
             relative(&p)?;
             let expected = entries.get(&p).ok_or_else(error)?;
             let m = fs::symlink_metadata(&file).map_err(|_| error())?;
+            reject_windows_reparse(&m)?;
             match expected {
                 Entry::Directory { .. } if m.is_dir() && !m.file_type().is_symlink() => {
-                    visit(root, &file, entries, found, depth + 1)?
+                    visit(root, &file, entries, found, depth + 1, target)?
                 }
                 Entry::Symlink { target, .. } if m.file_type().is_symlink() => {
                     if fs::read_link(&file).map_err(|_| error())?.to_str() != Some(target) {
@@ -528,7 +531,7 @@ fn verify_package_for_identity(
                     #[cfg(unix)]
                     {
                         use std::os::unix::fs::MetadataExt;
-                        if m.nlink() != 1 || ((m.mode() & 0o111) != 0) != *executable {
+                        if m.nlink() != 1 || Some((m.mode() & 0o111) != 0) != *executable {
                             return Err(error());
                         }
                     }
@@ -545,50 +548,18 @@ fn verify_package_for_identity(
         }
         Ok(())
     }
-    visit(&root, &root, &entries, &mut found, 0)?;
+    visit(&root, &root, &entries, &mut found, 0, target)?;
     if found.len() != entries.len() {
         return Err(error());
     }
-    for p in [
-        EXECUTABLE,
-        "Blackcrab.app/Contents/Info.plist",
-        "Blackcrab.app/Contents/Resources/app/package.json",
-        "Blackcrab.app/Contents/Resources/app/apps/desktop/dist-electron/main.cjs",
-        "Blackcrab.app/Contents/Resources/app/apps/desktop/dist-electron/preload.cjs",
-        "Blackcrab.app/Contents/Resources/app/apps/server/dist/client/index.html",
-        "LICENSE.upstream",
-        "LICENSE.electron",
-        "BUILD-PROVENANCE.json",
-    ] {
-        if !matches!(entries.get(p), Some(Entry::File { .. })) {
-            return Err(error());
-        }
-    }
-    if !matches!(
-        entries.get(EXECUTABLE),
-        Some(Entry::File {
-            executable: true,
-            ..
-        })
-    ) {
-        return Err(error());
-    }
-    let mut native = OpenOptions::new();
-    native.read(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        native.custom_flags(libc::O_NOFOLLOW);
-    }
-    let mut header = [0u8; 32];
-    native
-        .open(root.join(EXECUTABLE))
-        .map_err(|_| error())?
-        .read_exact(&mut header)
-        .map_err(|_| error())?;
-    if !desktop_policy::arm64_macho(&header) {
-        return Err(error());
-    }
+    let mut required = vec![target.executable().to_owned(), "LICENSE.upstream".into(), "LICENSE.electron".into(), "BUILD-PROVENANCE.json".into()];
+    for name in ["package.json", "apps/desktop/dist-electron/main.cjs", "apps/desktop/dist-electron/preload.cjs", "apps/server/dist/client/index.html"] {required.push(format!("{}/{name}", target.payload()));}
+    if target == Target::Mac {required.push("Blackcrab.app/Contents/Info.plist".into());}
+    else {required.extend([format!("{}/apps/desktop/dist-electron/boot.cjs",target.payload()), "THIRD-PARTY-NOTICES.web.json".into(), "THIRD-PARTY-NOTICES.desktop.json".into()]);}
+    for p in required {if !matches!(entries.get(&p), Some(Entry::File {..})){return Err(error());}}
+    if target != Target::Windows && !matches!(entries.get(target.executable()), Some(Entry::File {executable:Some(true),..})) {return Err(error());}
+    let mut native = regular_file(&root.join(target.executable()))?;
+    if !target.valid_header(&mut native) {return Err(error());}
     for p in patches {
         verify_reviewed_patch_payload(
             &root,
@@ -599,19 +570,19 @@ fn verify_package_for_identity(
     }
     let assets: Vec<Value> = serde_json::from_str(ASSETS).map_err(|_| error())?;
     for a in assets {
-        let target = a["target"].as_str().ok_or_else(error)?;
-        relative(target)?;
+        let asset_path = a["target"].as_str().ok_or_else(error)?;
+        relative(asset_path)?;
         if digest_file(
             &root
-                .join("Blackcrab.app/Contents/Resources/app")
-                .join(target),
+                .join(target.payload())
+                .join(asset_path),
         )? != a["afterSha256"].as_str().ok_or_else(error)?
         {
             return Err(error());
         }
     }
     let package: Value = serde_json::from_slice(&read_bounded(
-        &root.join("Blackcrab.app/Contents/Resources/app/package.json"),
+        &root.join(target.payload()).join("package.json"),
         MAX_FRAME as u64,
     )?)
     .map_err(|_| error())?;
@@ -623,6 +594,7 @@ fn verify_package_for_identity(
     {
         return Err(error());
     }
+    if target == Target::Mac {
     let plist = read_bounded(
         &root.join("Blackcrab.app/Contents/Info.plist"),
         2 * 1024 * 1024,
@@ -638,12 +610,16 @@ fn verify_package_for_identity(
             return Err(error());
         }
     }
+    } else {
+        let provenance: Value = serde_json::from_slice(&read_bounded(&root.join("BUILD-PROVENANCE.json"), 4*1024*1024)?).map_err(|_|error())?;
+        if provenance.get("target")!=Some(&json!(target.id())) || provenance.get("electron")!=Some(&target.electron()) || provenance.get("upstream")!=manifest.get("upstream") || provenance.get("namespace")!=Some(&identity.namespace()) || package.get("version").and_then(Value::as_str).filter(|v|!v.is_empty()).is_none() || provenance.get("appVersion")!=package.get("version") {return Err(error());}
+    }
     #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
     if let DesktopIdentity::NativeKeychainQa(permit) = identity {
         verify_keychain_qa_identity_evidence(&root, &manifest, &entries, &package, &permit)?;
     }
     Ok(VerifiedDesktop {
-        executable: root.join(EXECUTABLE),
+        executable: root.join(target.executable()),
         root,
         manifest_digest: expected_manifest_sha256.into(),
         identity,
@@ -1245,6 +1221,41 @@ fn serve_broker(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_regular_file_rejects_directories_and_bounded_overreads() {
+        let root=tempfile::tempdir().unwrap();
+        assert!(read_bounded(root.path(),1024).is_err());
+        let file=root.path().join("data");fs::write(&file,b"abcd").unwrap();
+        assert!(read_bounded(&file,3).is_err());assert_eq!(read_bounded(&file,4).unwrap(),b"abcd");
+    }
+    #[cfg(windows)]
+    #[test]
+    fn windows_native_file_handle_rejects_hardlinks() {
+        let root=tempfile::tempdir().unwrap();let file=root.path().join("data");
+        fs::write(&file,b"test").unwrap();assert!(regular_file(&file).is_ok());
+        fs::hard_link(&file,root.path().join("alias")).unwrap();assert!(regular_file(&file).is_err());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn native_regular_file_rejects_symlink_handles() {
+        let root=tempfile::tempdir().unwrap();let file=root.path().join("data");
+        fs::write(&file,b"test").unwrap();let link=root.path().join("link");
+        std::os::unix::fs::symlink(&file,&link).unwrap();assert!(regular_file(&link).is_err());
+    }
+    #[test]
+    #[ignore = "requires an actual native workspace candidate and exact manifest pin; read-only, no launch"]
+    fn portable_native_package_accepts_actual_build() {
+        let target=Target::native().unwrap();assert_ne!(target,Target::Mac);
+        let root=PathBuf::from(std::env::var("BLACKCRAB_NATIVE_PACKAGE_ROOT").unwrap());
+        let digest=std::env::var("BLACKCRAB_NATIVE_PACKAGE_SHA256").unwrap();
+        let package=verify_package(&root,&digest).unwrap();
+        assert_eq!(package.manifest_digest,digest);
+        assert_eq!(package.executable,fs::canonicalize(&root).unwrap().join(target.executable()));
+        let provenance:Value=serde_json::from_slice(&read_bounded(&root.join("BUILD-PROVENANCE.json"),4*1024*1024).unwrap()).unwrap();
+        assert_eq!(provenance["buildOnly"],true);
+        for bundle in ["desktop","web"]{assert!(provenance["effectRuntime"][bundle]["sources"].as_u64().unwrap()>0);}
+        assert!(verify_package(&root,&"0".repeat(64)).is_err());
+    }
     fn binding() -> DesktopHostBinding {
         DesktopHostBinding {
             generation: 1,
@@ -1406,6 +1417,12 @@ mod tests {
             credential: "23456789ABCD".into(),
             expires_at: now_ms().unwrap() + 60_000,
         };
+        if cfg!(windows) {
+            // The frozen browser fixture is a Unix socket path. Windows must not
+            // accept it as a native absolute capability before transport is ported.
+            assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
+            return;
+        }
         let value: Value =
             serde_json::from_slice(&descriptor(&b, Path::new("/private/owned"), &grant).unwrap())
                 .unwrap();
@@ -1541,7 +1558,7 @@ mod tests {
                 Entry::File {
                     path: relative.clone(),
                     bytes: bytes.len() as u64,
-                    executable: false,
+                    executable: Some(false),
                     sha256: expected.clone(),
                 },
             );
@@ -1550,7 +1567,7 @@ mod tests {
                 .skip(1)
                 .filter(|p| !p.as_os_str().is_empty())
             {
-                let path = parent.to_str().unwrap().to_owned();
+                let path = parent.to_str().unwrap().replace(std::path::MAIN_SEPARATOR, "/");
                 entries.insert(path.clone(), Entry::Directory { path });
             }
             verify_reviewed_patch_payload(&root, &entries, file, &expected).unwrap();

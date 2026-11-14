@@ -35,30 +35,26 @@ Owner says do not stop until 0.4.4 is downloadable on Mac, Windows and Linux.
 After a successful merge, CONTINUE the next implementation step rather than ending
 at that milestone. Required CI waits use the existing PR-watch flow. Promote the
 tested stage to main before publishing from the validated main commit.
-Current worktree P/desktop-portable-producer-044, branch feat/desktop-portable-producer,
-base426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d. PR298 is merged/unwatched after all12
-checks passed on32ba32d. Native OS metadata, runtime/module loading and inventories
-passed, but those payloads were synthetic. Current work builds the REAL full
-workspace on Windows/Linux using shared build.mjs with explicit buildOnlyTarget.
-Read P/desktop-portable-producer-044-plan.json for tests/PR/head/active handles.
-Focused validation passed: 28 distinct tests across native QA structure, platform
-selection, isolated environments, child cancellation and portable manifests. Logs:
-P/desktop-portable-producer-focused.log and -platform.log. No local build/test is
-running. Actual Windows/Linux full build acceptance remains pending CI.
-Do not mark native UI/service/installers complete from compilation. Default portable
-production selection remains gated. Inspect real native build logs and fix failures,
-then continue Root transport/service/installers to0.4.4 publication.
+Current worktree P/desktop-portable-native-verifier-044, branch
+feat/desktop-portable-native-verifier, basec1763cda63e8b2dec9c6d433d7849a5d9a632f9d.
+PR299 merged/unwatched with12 checks: REAL Windows/Linux workspace builds and full
+inventories passed (2818/2812 files). No UI/service/installer/release acceptance.
+Current change ports native package verification; explicit OS/arch, format2, complete
+hashes, Windows paths/reparse/hardlink checks, correct ELF/PE headers. Mac retains
+format1/QA. Native CI rebuilds real artifacts and asks Rust to verify their exactpins.
+Read P/desktop-portable-native-verifier-044-plan.json for head/PR/processes.
+Local17 Rust tests and6 JS contracts pass; actual portable-artifact test is explicitly
+ignored on Mac and runs via --ignored on Windows/Linux CI. No local process active.
+Owned target /private/tmp/blackcrab-native-verifier-044-target can be reused here.
+After CI/merge continue Root transport, services and verified installers to0.4.4.
 
-Mac updater PR297 is merged and included. Its11 installer/two update/four Tauri
-tests and10CI checks passed; later interrupted redundant rerun is not counted.
-Read docs/updater-cross-volume.md. No installed app/service/data or release changes.
-The same separately owned thread is NOW fixing reboot loss of the private browser
-capability directory; it restored the missing temporary directory only and reports
-normal Retry opened existing threads. It owns managed_browser/managed_host recovery
-and native-string error UI changes, PR/CI/merge. Do not duplicate; include its
-reported merge in coordinated0.4.4. Preserve production c04c4d44… service/helper.
-A separate owner-requested IDE mode branch feat/ide-mode-045 stays isolated/draft
-and OUT of0.4.4.
+PR297 Mac updater merged and included. Separately owned PR301 adds missing private
+browser directory recovery after reboot, native errors and explicit0700 updater
+staging. Its owner handles CI/review/merge; await report and include it in0.4.4.
+Do not duplicate or change c04c4d44… production host/helper/configuration/data.
+The owner Mac0.4.3 was repaired by restoring only missing temporary directory then
+normal Retry; real retained workspace/service verified per that owner's report.
+0.4.5 IDE work stays isolated/draft OUT of0.4.4. No public0.4.4 yet.
 
 Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
 shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include

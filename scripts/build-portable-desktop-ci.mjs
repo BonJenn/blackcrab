@@ -32,6 +32,7 @@ try{
  report.artifact={format:manifest.format,files:manifest.files.length,manifestSha256,syntheticPayload:false,appVersion:provenance.appVersion};
  report.payload={};for(const name of ['apps/desktop/dist-electron/boot.cjs','apps/desktop/dist-electron/main.cjs','apps/desktop/dist-electron/preload.cjs','apps/server/dist/client/index.html'])report.payload[name]=await fileDigest(path.join(result.output,target.layout.payload,name));
  report.build=result;report.passed=true;
+ if(process.env.GITHUB_ENV)await fs.appendFile(process.env.GITHUB_ENV,`BLACKCRAB_NATIVE_PACKAGE_ROOT=${result.output}\nBLACKCRAB_NATIVE_PACKAGE_SHA256=${manifestSha256}\n`);
 }catch(error){report.error=error.message;process.exitCode=1;}
 await fs.writeFile(path.join(values.root,'result.json'),JSON.stringify(report,null,2)+'\n',{flag:'wx',mode:0o600});
 console.log(JSON.stringify(report));

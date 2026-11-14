@@ -48,6 +48,18 @@ class CandidateTests(unittest.TestCase):
             with self.assertRaisesRegex(module.DriverFailure, "^no such window$"):
                 module.request("GET", "/session/fixture/window/handles")
 
+    def test_a_script_result_is_not_mistaken_for_a_webdriver_error(self):
+        class Reply(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        for value in ({"status": "Starting", "alert": None}, {"status": None, "error": None}):
+            with patch.object(module.urllib.request, "urlopen", return_value=Reply(json.dumps({"value": value}).encode())):
+                self.assertEqual(module.request("POST", "/session/fixture/execute/sync", {}), value)
+        reply = Reply(json.dumps({"value": {"error": "no such window", "message": "m"}}).encode())
+        with patch.object(module.urllib.request, "urlopen", return_value=reply):
+            with self.assertRaisesRegex(module.DriverFailure, "^no such window$"):
+                module.request("GET", "/x")
+
 
 if __name__ == "__main__":
     unittest.main()

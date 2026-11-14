@@ -85,7 +85,9 @@ def request(method, route, data=None):
     except urllib.error.HTTPError as error:
         value = json.loads(error.read(65536)).get("value", {})
         raise DriverFailure(value.get("error", "WebDriver request failed")) from None
-    if isinstance(value, dict) and "error" in value:
+    # A WebDriver error object carries a string code and a message; a script
+    # result is a different object and is never read as a driver failure.
+    if isinstance(value, dict) and isinstance(value.get("error"), str) and "message" in value:
         raise DriverFailure(value["error"])
     return value
 
@@ -115,9 +117,9 @@ def await_workspace(session):
         # or inject a fabricated native success response.
         value = request("POST", f"/session/{session}/execute/sync", {"script":
             "return {status:document.querySelector('[role=status]')?.textContent,"
-            "error:document.querySelector('[role=alert]')?.textContent};", "args": []})
-        if value.get("error"):
-            raise RuntimeError("Installed launcher reported: " + value["error"][:400])
+            "alert:document.querySelector('[role=alert]')?.textContent};", "args": []})
+        if value.get("alert"):
+            raise RuntimeError("Installed launcher reported: " + value["alert"][:400])
         if value.get("status") == "Your workspace is open.":
             return
         time.sleep(0.5)

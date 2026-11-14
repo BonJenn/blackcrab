@@ -85,4 +85,12 @@ initialization/systemd/authenticated attachment against that archive in a new
 disposable OS account. test-linux-service-manager.py --actual-host must observe
 exactly one passing test, never a zero-match/ignored success. Preserve account
 refusal and cleanup. No provider prompt, existing service, production credentials
-or Mac payload migration belongs in this job. GUI/installer delivery is separate.
+or Mac payload migration belongs in this job.
+
+The job now also builds both actual Linux payloads into normal Debian/AppImage
+candidates on Ubuntu22.04. A fresh graphical OS account exercises normal Root
+startup, Electron activation, Quit, service survival and AppImage reopen with
+retained identity. Require both sessions and cleanup to pass; inspect screenshots.
+Keep driver/service credentials out of uploaded artifacts. This candidate job
+does not sign updater metadata, bump versions, enable production portable builds
+or publish downloads. See docs/linux-installed-workspace.md for evidence boundaries.

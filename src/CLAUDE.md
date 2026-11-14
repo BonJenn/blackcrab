@@ -14,7 +14,8 @@ service, and install/start only an inactive service. Bounded status polling may
 observe startup; never replay an uncertain mutation automatically. Native status
 is authoritative even when a JavaScript runtime marker is absent.
 
-Wait for AppKit activation of the captured child before hiding Root. Keep recovery
+Wait for native activation of the captured child before hiding Root: AppKit on
+Mac, the private loaded/visible-window lifecycle acknowledgement on Linux. Keep recovery
 visible on failure. Opening service settings during startup must wait for an
 in-flight mutation to settle before exposing another action. Late completions
 after cancellation cannot hide or overwrite the replacement view.

@@ -1014,6 +1014,57 @@ async fn launch_for_identity(
     .map_err(|_| error())??;
     launch_verified(host, package).await
 }
+// The workspace requires TMPDIR to be `<profile>/tmp`, and Chromium binds its
+// single-instance socket at `<TMPDIR>/scoped_dirXXXXXX/SingletonSocket`,
+// aborting ("Socket path too long") past sockaddr_un's 108 bytes. Under the
+// XDG data directory that path is always too long, so on Linux the profile
+// lives at the short `~/.blackcrab/desktop`. Other platforms are unchanged.
+#[cfg(unix)]
+fn workspace_profile_root(host: &ManagedHost, home: &Path) -> Result<PathBuf, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = host;
+        short_profile_root(home)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = home;
+        Ok(host.desktop_profile_root())
+    }
+}
+#[cfg(any(target_os = "linux", all(test, unix)))]
+const SINGLETON_SUFFIX: usize = "/tmp/scoped_dirXXXXXX/SingletonSocket".len();
+#[cfg(any(target_os = "linux", all(test, unix)))]
+fn short_profile_root(home: &Path) -> Result<PathBuf, String> {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
+    let base = home.join(".blackcrab");
+    let root = base.join("desktop");
+    if root.as_os_str().len() + SINGLETON_SUFFIX >= 108 {
+        return Err("Your home folder path is too long to open the workspace.".into());
+    }
+    match fs::DirBuilder::new().mode(0o700).create(&base) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(_) => return Err(error()),
+    }
+    // Blackcrab's own directory; an older build may have created it under the
+    // account's umask. Make our own real directory private, never a foreign one.
+    let directory = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&base)
+        .map_err(|_| error())?;
+    let metadata = directory.metadata().map_err(|_| error())?;
+    if metadata.uid() != unsafe { libc::geteuid() } {
+        return Err(error());
+    }
+    if metadata.mode() & 0o077 != 0 {
+        directory
+            .set_permissions(fs::Permissions::from_mode(0o700))
+            .map_err(|_| error())?;
+    }
+    Ok(root)
+}
 #[cfg(unix)]
 async fn launch_verified(
     host: ManagedHost,
@@ -1022,14 +1073,14 @@ async fn launch_verified(
     use std::os::unix::net::UnixStream;
     let verified_identity = package.identity;
     let binding = host.desktop_binding().await?;
-    let profile = prepare_profile(&host.desktop_profile_root())?;
+    let os_home = account_home::account_home()?;
+    let profile = prepare_profile(&workspace_profile_root(&host, &os_home)?)?;
     let (mut descriptor_writer, descriptor_reader) = UnixStream::pair().map_err(|_| error())?;
     let (control, client_control) = UnixStream::pair().map_err(|_| error())?;
     let update_app = if verified_identity == DesktopIdentity::Production { crate::managed_updates::bridge_app() } else { None };
     let update_pair = if update_app.is_some() { Some(UnixStream::pair().map_err(|_| error())?) } else { None };
     // Mac retains AppKit activation. Linux acknowledges its own actual window.
     let lifecycle_pair = if cfg!(target_os = "linux") { Some(UnixStream::pair().map_err(|_| error())?) } else { None };
-    let os_home = account_home::account_home()?;
     let mut command = Command::new(&package.executable);
     command
         .current_dir(&package.root)
@@ -1257,6 +1308,36 @@ fn serve_broker(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn linux_profile_root_keeps_the_singleton_socket_within_the_address_limit() {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        let home = PathBuf::from(format!("/tmp/bc-home-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&home);
+        fs::DirBuilder::new().mode(0o700).create(&home).unwrap();
+        let home = fs::canonicalize(&home).unwrap();
+        let root = short_profile_root(&home).unwrap();
+        assert_eq!(root, home.join(".blackcrab/desktop"));
+        assert!(root.as_os_str().len() + SINGLETON_SUFFIX < 108);
+        assert_eq!(fs::metadata(home.join(".blackcrab")).unwrap().permissions().mode() & 0o777, 0o700);
+        // An existing shared directory of ours is tightened and then usable as
+        // the profile's private parent.
+        fs::set_permissions(home.join(".blackcrab"), fs::Permissions::from_mode(0o775)).unwrap();
+        fs::write(home.join(".blackcrab/pairings.json"), b"{}").unwrap();
+        let profile = prepare_profile(&short_profile_root(&home).unwrap()).unwrap();
+        assert_eq!(fs::metadata(home.join(".blackcrab")).unwrap().permissions().mode() & 0o777, 0o700);
+        assert!(profile.join("tmp").is_dir());
+        assert_eq!(fs::read(home.join(".blackcrab/pairings.json")).unwrap(), b"{}");
+        // A symlinked directory is refused, and so is a home too deep to fit.
+        let other = home.join("other");
+        fs::create_dir(&other).unwrap();
+        std::os::unix::fs::symlink(&home, other.join(".blackcrab")).unwrap();
+        assert!(short_profile_root(&other).is_err());
+        let deep = home.join("x".repeat(60));
+        assert!(short_profile_root(&deep).unwrap_err().contains("too long"));
+        assert!(!deep.exists());
+        fs::remove_dir_all(&home).unwrap();
+    }
     #[test]
     fn native_regular_file_rejects_directories_and_bounded_overreads() {
         let root=tempfile::tempdir().unwrap();

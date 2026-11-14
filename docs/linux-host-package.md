@@ -51,10 +51,22 @@ Local Mac runs compile but intentionally ignore this Linux acceptance test.
 
 ## Evidence and remaining delivery
 
+PR306 merged at4ac132512eb65f39d46cfd88b6dfdba96db52c74 after eleven passing checks
+on0e53afc5145d699df6525352215265f7f96f2d28. Actual native job132390531684 in
+run43576064552 built3797 host files and passed the real service lifecycle test:
+1 passed,0 failed,0 ignored. Captured producer groups settled; no provider prompt
+was sent. The host manifest was
+ab4c4154c5a5683e25a2b60994e899efc42d18e8bcbd80fb1f3bea151c635be7,
+archive4414978755c367dc8a5ccdd3f94653c7878c5713504b8bdb1879b2eb8e957156,
+helper1afede47f4e59d3305c9193821934b51d60b4ec7247a6b3abcecd07cbe72cbb7.
+The next [installed workspace acceptance](linux-installed-workspace.md) builds
+actual Debian/AppImage candidates and checks normal graphical launch/reopen.
+
 Local native regression:181 passed,11 explicitly ignored artifact/native cases.
 Focused resource/helper checks:18 passed,3 explicitly skipped actual-artifact cases.
-The dedicated Linux job must provide actual runtime evidence; local fixture success
-is not that evidence. CI retains build reports/logs, not user data or credentials.
+These local results preceded the actual passing Linux job recorded above; local
+fixtures alone did not establish that evidence. CI retains build reports/logs,
+not user data or credentials.
 
 Linux Electron window activation, complete launcher/installer acceptance and update
 delivery remain next. Windows IPC/ACL/service integration is still unfinished.

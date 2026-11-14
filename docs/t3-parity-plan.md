@@ -1,5 +1,15 @@
 # T3 functionality parity delivery plan
 
+## Current delivery — 0.4.4 on three platforms
+
+Publication and tested stage-to-main promotion are authorized by the owner.
+0.4.4 is not yet published. Read the current [handoff](agent-handoff.md) before
+historical branch/tag holds below. PR306's actual Linux host/helper/systemd test
+passed and merged; [installed Linux workspace acceptance](linux-installed-workspace.md)
+is now in implementation/native CI. Next are verified Linux GUI/installers,
+Windows IPC/service/launcher/installers and coherent signed release/update delivery.
+Keep existing Mac service identity/data and inactive0.4.5 work unchanged.
+
 ## Immediate owner follow-ups — 2026-11-13
 
 1. Correct macOS file/local-network permission attribution using the signed app's

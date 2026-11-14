@@ -65,3 +65,11 @@ architectures. managed-native-resources selects an explicit native target and
 verifies complete archive roundtrips. The native CI builder uses the unchanged
 frozen host producer with a clean environment and captured process groups; do not
 refresh the Mac freeze from Linux or claim an installer from a package build.
+
+build-linux-installers-ci.mjs builds normal Debian/AppImage candidates with both
+real payloads. Verify opaque archives and inventories after extraction; AppImage
+ELF paths/symbols may be changed by linuxdeploy, so compare to the produced AppDir.
+test-linux-installed-workspace.py uses only a new disposable CI OS account and
+the official WebDriver for normal installed startup/quit/reopen. Do not replace
+native acceptance with DOM stubs or invoke product internals from the controller.
+Retire the new account/package on failure and require a passing cleanup report.

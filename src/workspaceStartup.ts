@@ -24,7 +24,7 @@ export async function startWorkspace(client: WorkspaceStartupClient, signal: Abo
   const desktop = await client.desktop.status(); current();
   if (!["ready", "running"].includes(desktop.state)) {
     throw new Error(desktop.error ?? (desktop.state === "unsupported"
-      ? "This Blackcrab workspace is currently available on Apple-silicon Macs."
+      ? "This Blackcrab installation does not support the workspace on this platform."
       : "The workspace package could not be loaded. Install the complete Blackcrab app or check for an update."));
   }
   // Reusing an open workspace must not undo an intentional service stop.

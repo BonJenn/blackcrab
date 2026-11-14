@@ -200,7 +200,6 @@ impl ManagedHost {
                 None => status("notConfigured", None),
             });
         };
-        config.ownership.require_direct()?;
         self.verify_configured(&config).await?;
         match self.probe(&config).await? {
             Probe::Stopped => Ok(status("stopped", Some(&config))),
@@ -627,6 +626,16 @@ impl ManagedHost {
         self.initialize_locked()?;
         let mut config = self.read_config()?;
         if let Some(existing) = &mut config {
+            if existing.ownership == OwnershipMode::Service {
+                if selected.is_some() {
+                    return Err("A background service runtime cannot be replaced by desktop attachment".into());
+                }
+                self.verify_configured(existing).await?;
+                return match self.probe(existing).await? {
+                    Probe::Attached(attached) => Ok(attached),
+                    Probe::Stopped => Err("The background service is stopped; start it through its service controls".into()),
+                };
+            }
             existing.ownership.require_direct()?;
             match self.probe(existing).await? {
                 Probe::Attached(attached) => {
@@ -801,7 +810,12 @@ impl ManagedHost {
         Ok(child)
     }
     async fn probe(&self, config: &Configuration) -> Result<Probe, String> {
-        config.ownership.require_direct()?;
+        if config.ownership == OwnershipMode::Service {
+            #[cfg(unix)]
+            service_issuer::attachment_selection(self, config)?;
+            #[cfg(not(unix))]
+            return Err("Background service attachment is unavailable on this platform".into());
+        }
         let file = self.root.join("host/userdata/server-runtime.json");
         if !file.exists() {
             return Ok(Probe::Stopped);
@@ -823,7 +837,15 @@ impl ManagedHost {
         origin: url::Url,
         starting: bool,
     ) -> Result<Option<Attached>, String> {
-        config.ownership.require_direct()?;
+        let service_selection: Option<(String, String)> = if config.ownership == OwnershipMode::Service {
+            #[cfg(unix)]
+            { Some(service_issuer::attachment_selection(self, config)?) }
+            #[cfg(not(unix))]
+            { return Err("Background service attachment is unavailable on this platform".into()); }
+        } else { None };
+        if starting && service_selection.is_some() {
+            return Err("Desktop attachment cannot start a background service".into());
+        }
         // Use reqwest's explicitly selected provider-free rustls backend.
         // Configure this client explicitly, without changing the app's global provider.
         // Its URLs are validated HTTP loopback endpoints; no TLS roots are needed.
@@ -870,19 +892,25 @@ impl ManagedHost {
             .join(".well-known/blackcrab/managed-host-proof")
             .map_err(io_error)?;
         challenge.query_pairs_mut().append_pair("nonce", &nonce);
+        if service_selection.is_some() {
+            challenge.query_pairs_mut().append_pair("version", "2");
+        }
         let proof = http
             .get(challenge)
             .send()
             .await
             .map_err(|_| HOST_PROOF_ERROR)?;
         let proof = bounded_json(proof).await.map_err(|_| HOST_PROOF_ERROR)?;
-        verify_host_proof(
-            &proof,
-            &nonce,
-            &environment_id,
-            origin.as_str(),
-            &config.bootstrap_secret,
-        )?;
+        if let Some((manifest, version)) = &service_selection {
+            service_identity::verify_service_host_proof(
+                &proof, &nonce, &environment_id, origin.as_str(),
+                &config.bootstrap_secret, manifest, version,
+            )?;
+        } else {
+            verify_host_proof(
+                &proof, &nonce, &environment_id, origin.as_str(), &config.bootstrap_secret,
+            )?;
+        }
         let credential = bootstrap_token(&config.bootstrap_secret, now_ms()?)?;
         let body = url::form_urlencoded::Serializer::new(String::new())
             .append_pair(
@@ -1313,7 +1341,7 @@ mod tests {
         assert!(serde_json::from_value::<Configuration>(unknown).is_err());
     }
     #[tokio::test]
-    async fn service_owned_stopped_host_never_selects_or_spawns_direct_runtime() {
+    async fn unverified_service_selection_never_spawns_or_sends_attachment_credentials() {
         let base = fixture();
         let host = ManagedHost::new(base.join("v1"));
         host.prepare().unwrap();
@@ -1323,40 +1351,18 @@ mod tests {
         host.save_config(&selected).unwrap();
         let original = fs::read(host.root.join("configuration.json")).unwrap();
         for path in [None, Some(base.join("nonexistent-explicit-runtime"))] {
-            let error = host.start(path).await.unwrap_err();
-            assert!(error.contains("direct startup is disabled"));
+            assert!(host.start(path).await.is_err());
         }
-        let status = host.status().await;
-        assert_eq!(status.state, "unavailable");
-        assert!(status
-            .error
-            .unwrap()
-            .contains("Service connection is unavailable"));
-        assert!(host
-            .window_url()
-            .await
-            .unwrap_err()
-            .contains("direct startup is disabled"));
-        assert!(host
-            .probe(&selected)
-            .await
-            .err()
-            .unwrap()
-            .contains("direct startup is disabled"));
-        assert!(host
-            .probe_at(&selected, loopback_origin(1).unwrap(), false)
-            .await
-            .err()
-            .unwrap()
-            .contains("direct startup is disabled"));
-        assert_eq!(
-            fs::read(host.root.join("configuration.json")).unwrap(),
-            original
-        );
-        assert_eq!(
-            host.read_config().unwrap().unwrap().ownership,
-            OwnershipMode::Service
-        );
+        assert_eq!(host.status().await.state, "unavailable");
+        assert!(host.window_url().await.is_err());
+        // A listener must receive no request from an unverified native selection.
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let origin = loopback_origin(listener.local_addr().unwrap().port()).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        assert!(host.probe_at(&selected, origin, false).await.is_err());
+        assert!(matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock));
+        assert_eq!(fs::read(host.root.join("configuration.json")).unwrap(), original);
+        assert_eq!(host.read_config().unwrap().unwrap().ownership, OwnershipMode::Service);
         assert!(!host.root.join("logs/host.log").exists());
         assert!(!host.root.join("host/userdata/server-runtime.json").exists());
         fs::remove_dir_all(base).unwrap();

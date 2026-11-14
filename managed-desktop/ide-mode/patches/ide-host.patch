@@ -1,0 +1,46 @@
+--- a/apps/server/src/workspace/WorkspaceFileSystem.ts
++++ b/apps/server/src/workspace/WorkspaceFileSystem.ts
+@@ -1,6 +1,7 @@
+ // @effect-diagnostics nodeBuiltinImport:off
+ import * as NodeFS from "node:fs";
+ import * as NodeFSP from "node:fs/promises";
++import { ideWriteFile } from "./ideGuardedWrite.ts";
+ 
+ import type {
+   FilesystemEntryMetadata,
+@@ -437,6 +438,7 @@
+             // Streaming decode drops a character the byte limit split, instead of ending in U+FFFD.
+             contents: new TextDecoder("utf-8").decode(fileBytes, { stream: truncated }),
+             byteLength: stat.size,
++            ...(input.ideGuardedRead ? { ideSafeWrite: true } : {}),
+             truncated,
+           };
+         }),
+@@ -563,16 +565,8 @@
+           }),
+       ),
+     );
+-    yield* Effect.tryPromise({
+-      // A symlink swapped in after the check is not followed. Windows lacks O_NOFOLLOW.
+-      try: () =>
+-        NodeFSP.writeFile(realTargetPath, input.contents, {
+-          flag:
+-            NodeFS.constants.O_WRONLY |
+-            NodeFS.constants.O_CREAT |
+-            NodeFS.constants.O_TRUNC |
+-            (NodeFS.constants.O_NOFOLLOW ?? 0),
+-        }),
++    const ideResult = yield* Effect.tryPromise({
++      try: () => ideWriteFile(realTargetPath, input.contents, input.ideExpectedContents),
+       catch: (cause) =>
+         new WorkspaceFileSystemOperationError({
+           workspaceRoot: input.cwd,
+@@ -589,7 +583,7 @@
+     if (!replacesFile) {
+       yield* workspaceEntries.refresh(input.cwd);
+     }
+-    return { relativePath: target.relativePath };
++    return { relativePath: target.relativePath, ideConflict: ideResult.conflict, ideRecoveryPath: ideResult.recoveryPath };
+   });
+ 
+   return WorkspaceFileSystem.of({ getMetadata, readFile, writeFile });

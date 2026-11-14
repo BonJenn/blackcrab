@@ -1,5 +1,14 @@
 Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
 
+Integration update: PR300 is merged at stage 77e84aa. The owner authorized its
+inactive IDE source on stage; the release producer does not import this recipe and
+VITE_BLACKCRAB_IDE_MODE remains unset. This supersedes earlier instructions to keep
+its branch draft, but does not enable IDE mode in 0.4.4. Preserve its source and
+validation history below; coordinate activation separately for 0.4.5.
+PR302 passed all 12 checks on a301d8c, including the actual native Rust verifier
+reading both freshly compiled Windows/Linux artifacts. The only new conflict was
+this shared handoff. Current merge resolution must pass CI before merging PR302.
+
 Latest integration: PR301 merged at 52a29b2cdb0ef304631a195c0d1635ca7fdb7687,
 head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3,10 checks passed/no reviews/unwatched
 per its owner. This branch includes it together with PR297. Read
@@ -61,7 +70,7 @@ staging. Its owner handles CI/review/merge; await report and include it in0.4.4.
 Do not duplicate or change c04c4d44… production host/helper/configuration/data.
 The owner Mac0.4.3 was repaired by restoring only missing temporary directory then
 normal Retry; real retained workspace/service verified per that owner's report.
-0.4.5 IDE work stays isolated/draft OUT of 0.4.4. No public0.4.4 yet.
+0.4.5 IDE source is merged but inactive in 0.4.4. No public0.4.4 yet.
 
 Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
 shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include

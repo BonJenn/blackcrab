@@ -28,7 +28,24 @@ export function validateLinks(entries) {
   }
  }
 }
-export async function inventory(root) {
+/** Windows paths must survive extraction without aliases, devices or reparse links. */
+export function validateTargetEntries(entries, targetId = 'darwin-arm64') {
+ const target = desktopTarget(targetId);
+ validateLinks(entries);
+ if (target.electron.platform !== 'win32') return;
+ const names = new Set([MANIFEST.toLowerCase()]);
+ for (const entry of entries) {
+  if (entry.type === 'symlink') throw Error('Windows artifact links are not portable');
+  for (const part of entry.path.split('/')) {
+   if (/[<>"|?*\x00-\x1f]/.test(part) || /[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(part)) throw Error('Unsafe Windows artifact path');
+  }
+  const key = entry.path.normalize('NFC').toLowerCase();
+  if (names.has(key)) throw Error('Windows artifact path alias');
+  names.add(key);
+ }
+}
+export async function inventory(root, {targetId = 'darwin-arm64'} = {}) {
+ const windows = desktopTarget(targetId).electron.platform === 'win32';
  const entries = []; let bytes = 0;
  async function visit(directory, prefix = '') {
   for (const name of (await fs.readdir(directory)).sort()) {
@@ -36,9 +53,9 @@ export async function inventory(root) {
    const file = path.join(directory,name), stat = await fs.lstat(file); if (entries.length >= 50000) throw Error('Desktop artifact entry bound exceeded');
    if (stat.isSymbolicLink()) entries.push({ path: relative, type: 'symlink', target: await fs.readlink(file) });
    else if (stat.isDirectory()) { entries.push({ path: relative, type: 'directory' }); await visit(file,relative); }
-   else if (stat.isFile()) { bytes += stat.size; if (bytes > 8 * 1024 ** 3) throw Error('Desktop artifact byte bound exceeded'); entries.push({ path: relative, type: 'file', bytes: stat.size, executable: Boolean(stat.mode & 0o111), sha256: await fileDigest(file) }); }
+   else if (stat.isFile()) { bytes += stat.size; if (bytes > 8 * 1024 ** 3) throw Error('Desktop artifact byte bound exceeded'); entries.push({ path: relative, type: 'file', bytes: stat.size, ...(windows ? {} : {executable: Boolean(stat.mode & 0o111)}), sha256: await fileDigest(file) }); }
    else throw Error('Unsupported desktop artifact entry');
   }
  }
- const stat = await fs.lstat(root); if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error('Desktop artifact root is not a real directory'); await visit(root); validateLinks(entries); return entries;
+ const stat = await fs.lstat(root); if (!stat.isDirectory() || stat.isSymbolicLink()) throw Error('Desktop artifact root is not a real directory'); await visit(root); validateTargetEntries(entries,targetId); return entries;
 }

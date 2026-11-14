@@ -1,6 +1,45 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — TestFlight build 5 delivered; desktop 0.4.4 continuing
+## Current checkpoint — portable manifests implemented, native CI pending
+
+Continue the authorized Windows/Linux 0.4.4 work. Active source:
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes;
+P/desktop-portable-manifests-044, branch feat/portable-desktop-manifests, base
+f22e310b9a255d69d154819b6082b4de6dd808f8 (merged/unwatched PR294).
+Read P/desktop-portable-manifests-044-plan.json for current PR/head/watch state.
+
+This increment adds target-bound format-2 Windows/Linux artifact inventories and
+verification. Mac format-1 output remains compatible. Windows inventories omit
+nonportable POSIX execute flags and reject links, case aliases and reserved paths;
+Linux requires its native entry point to be executable. Both verify pinned runtime
+identity, all files, source patches, branding, boot entry and build provenance.
+The native CI now verifies a full real-runtime inventory and loads a SYNTHETIC
+payload in Electron Node mode. This is not the real workspace, service or installer.
+Producer gates stay disabled; do not change them until actual integration works.
+
+Local focused artifact/Mac-QA checks: 22 passed. Complete managed-desktop plus
+native QA recipe suite: 108 passed, zero skips. Logs:
+P/desktop-portable-manifests-focused-2.log and desktop-portable-manifests-full.log.
+A first fixture attempt lacked referenced runtime patch files; the fixture now
+copies each exact registry source and preserves all production verifier checks.
+Actual pinned archive inventory evidence is recorded in
+P/desktop-portable-manifests-044-native-fixture.json: both actual runtime archives
+passed (Linux 453 entries, Windows 454). No native runtime was launched on the Mac.
+Native CI for
+this new source remains pending; inspect final head/checks/reviews before merging.
+Next implement physical Windows dependency materialization, native app metadata,
+Root launch/authenticated transport and per-user service lifecycle, then installers.
+Never publish the synthetic test payload. 0.4.4 is NOT released.
+
+TestFlight Blackcrab Remote 1.0.0 (5) is already AVAILABLE to the existing owner;
+no mobile build/upload is running. Do not repeat upload. Website redesign is
+implemented in its separate session but Vercel's transfer-limit pause blocks its
+publication. These facts and account identities are retained below. Keep existing
+Mac service/user data and the dirty main checkout untouched.
+
+---
+
+## Previous checkpoint — TestFlight build 5 delivered; runtime PR294 merged
 
 Updated 2026-11-13 Pacific / 2026-11-14 02:04 UTC. Blackcrab Remote **1.0.0 (5)**
 is AVAILABLE to the existing owner in TestFlight. Apple build
@@ -38,17 +77,21 @@ and full two-computer+iOS off-LAN control/revocation/push remain separate accept
 The previous checkpoint below records account IDs and setup evidence; no repeated
 owner authorization or key rotation is needed for the already completed setup.
 
-Current desktop worktree: P/desktop-portable-packaging-044, branch
-feat/portable-desktop-packaging. Code commit f74fce06d16e0ad81877afe354c85f53f20b3340
-adds shared pinned runtime extraction, preserves Mac packaging checks, and adds
-native Windows/Linux Electron Node-mode runner checks. All 90 local managed-desktop
-tests and 11 QA recipe tests passed; six focused tests passed after final cleanup
-handling. Actual Mac/Windows/Linux archive extraction/layout/notice checks passed
-in P/portable-runtime-staging-044-XEnTo0/result.json. No Windows/Linux workspace,
-service or installer was launched and no producer gate was enabled. Read
-P/desktop-portable-packaging-044-plan.json for the current PR/head/watch state;
-inspect that PR's checks/reviews on wake, merge validated work, then continue native
-metadata/dependencies/manifests, launch/transport/service and installer packaging.
+Desktop runtime PR294 MERGED into stage at
+f22e310b9a255d69d154819b6082b4de6dd808f8 after all 11 checks passed on exact head
+a32f13c39d8d695eac9c07144576184402e9bbd5. No reviews, review threads or comments
+remained. PR294 is unwatched. The actual Electron 44.10.1 / Node 24.22.1 binaries
+executed successfully on native Windows x64 and Linux x64 runners, with complete
+notices and cleanup verified (workflow 43544788701; jobs 132293452101 and
+132293451983). Six staging/target tests also passed on both native runners.
+This is runtime Node-mode acceptance only: no full workspace, service or installer
+was launched and no producer gate was enabled. Local 90 managed-desktop and 11 QA
+recipe checks also passed; three-platform archive/layout evidence is retained.
+Completed worktree P/desktop-portable-packaging-044, branch
+feat/portable-desktop-packaging. Start the next owned branch from the stage merge;
+preserve these updated handoff files for that increment. Continue platform metadata,
+dependency closure/manifests, native launch/transport/service and installer work.
+Read P/desktop-portable-packaging-044-plan.json for exact evidence and next steps.
 
 Updater PR290 is merged, but no 0.4.4 is published. Public Mac remains 0.4.3 and
 Windows/Linux 0.3.0. Preserve the exact production Mac service manifest

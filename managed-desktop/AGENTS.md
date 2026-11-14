@@ -133,3 +133,13 @@ app updater rather than update its extracted inner app. Windows/Linux still need
 implemented native packages and service/transport; root-only installers do not
 satisfy the request. Keep current public versions until replacement artifacts
 are actually built and verified. No extra publication confirmation is required.
+
+## Portable artifact format
+
+Windows/Linux structural manifests use format 2 with an explicit target. Verification
+requires the caller's expected target; default format-1 Mac behavior stays compatible.
+Windows artifacts must contain no symlinks/junctions or aliased/reserved paths, and
+omit nonportable POSIX execute flags. Linux retains executable permissions. Complete
+native dependency materialization is still required before enabling these producers.
+`testing/artifact-fixture.mjs` is synthetic CI payload only, never a product build.
+A native Node-mode fixture pass does not certify workspace/service/installers.

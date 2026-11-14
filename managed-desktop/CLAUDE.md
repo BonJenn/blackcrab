@@ -163,3 +163,14 @@ as Blackcrab signing evidence. Native CI checks OS-visible version properties an
 launches the edited runtime. Linux desktop entries must launch Root, not the inner
 workspace without owner channels. Metadata success does not enable an unfinished
 producer, service or installer. Mac metadata/signing remains on its existing path.
+
+## Native build-only candidates
+
+build.mjs accepts explicit buildOnlyTarget on the matching Windows/Linux runner.
+It compiles actual pinned desktop/web source, not the testing fixture, and preserves
+full types, Effect singleton, metadata, dependencies, notices and inventory gates.
+This is a build candidate only; default producer selection stays disabled until
+Root transport/service/installer integration is ready. Do not infer runtime or
+release acceptance from build success. pnpm's explicit Node entry and --prod=false
+are necessary for ignored install scripts and compiler dev dependencies. Keep
+Windows OS variables minimal and private build HOME/TEMP/config paths isolated.

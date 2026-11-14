@@ -1,55 +1,55 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — PR297 integrated; PR298 native metadata CI
+## Current checkpoint — PR298 merged; actual portable workspace builds underway
 
 Owner instruction remains: continue until 0.4.4 is downloadable for Mac, Windows
-and Linux. Promote tested stage to main for the coordinated release. Do not stop
-at an intermediate merge; required CI waits use watches and automatically resume.
+and Linux, then tested stage → main for release. Do not stop at intermediate merges.
+PR298 merged to stage 426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d, final head
+32ba32d056f8acca99087a5256293c1db1e37d65. All 12 checks passed, no comments/reviews;
+unwatched. Windows job132360192900 independently read owned OS VersionInfo and
+launched the edited Electron44.10.1 runtime; Linux job132360193176 validated its
+outer-launcher desktop entry and launched runtime. Both loaded real native modules,
+verified complete inventories and cleaned up. These used synthetic app payloads.
 
-PR296 merged to stage 4be37291ec5038831555f04a3104eb88272e5cac on head
-56af00918987c1bab20be0654011e7d8ea4d5de5, all 11 checks passed; no reviews/comments
-outstanding, unwatched. Windows job 132340139897 and Linux132340139534 loaded real
-native modules in Electron 44.10.1 / Node 24.22.1 and verified complete synthetic
-artifact inventories (654/647 entries), then cleaned up. This is module/runtime
-acceptance, not the full workspace or installers.
+Current worktree P/desktop-portable-producer-044, branch feat/desktop-portable-producer,
+base426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Read P/desktop-portable-producer-044-plan.json for exact head/PR/tests/active handles.
+Focused validation passed: 28 distinct tests across native QA structure, platform
+selection, isolated environments, child cancellation and portable manifests. Logs:
+P/desktop-portable-producer-focused.log and -platform.log. No local build/test is
+running. Actual Windows/Linux full build acceptance remains pending CI.
+The shared build recipe now has an explicit native buildOnlyTarget for Windows/Linux:
+real pinned source, frozen dependencies including compiler tools, complete desktop/web
+types and builds, singleton Effect checks, owned metadata, physical dependencies,
+notices and format-2 inventory. It does not enable production target selection,
+activate/install an app/service, or certify Root transport. Mac metadata/signing and
+format1 stay unchanged. Windows uses explicit pnpm.mjs through Node and a minimal
+isolated OS environment; captured children have bounded steps and cancellation.
+The new CI workflow compiles actual workspace artifacts on native Windows/Linux.
+No synthetic payload is substituted if real builds fail; inspect the retained logs.
 
-Active worktree P/desktop-portable-metadata-044, branch feat/desktop-portable-metadata,
-base now includes stage 2dd550585224c9294d0b6898d5d379e02438d331 (PR297).
-PR298: https://github.com/BonJenn/blackcrab/pull/298; linked and watched.
-P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes. Read adjacent
-P/desktop-portable-metadata-044-plan.json for PR/head/results/processes. New portable
-metadata handles every Windows localized version/icon resource, preserves code and
-loader references, and supplies a Linux outer-launcher desktop-entry template/icon.
-Frozen resedit 1.7.2 comes from upstream's existing electron-builder graph. Five
-portable filesystem/version tests and four actual-editor synthetic PE regressions
-passed. Actual official Windows Electron PE rewrite/reparse passed locally without
-execution; evidence P/desktop-portable-metadata-044-real-pe.json. The complete
-managed-desktop suite passed 108 tests, plus 11 native-QA recipe tests (119 total,
-zero skips); the separate PE-editor suite passed four tests. No local process is
-running. Logs: P/desktop-portable-metadata-full.log and
-P/desktop-portable-metadata-qa-recipe.log. Native CI must pass before merging. Target producers
-remain gated. Continue producer orchestration, Root authenticated launch/transport,
-independent service lifecycle, verified installers and release publication next.
+PR297's Mac updater fix is already in this base (merge2dd550585224c9294d0b6898d5d379e02438d331).
+Read docs/updater-cross-volume.md; keep its destination-local verified install and
+rollback in 0.4.4. Its owner reported 10 CI checks, 11 installer tests, two update
+and four Tauri gates. An interrupted redundant rerun is not counted. No user data
+or public release changed. Old0.4.1 needs official DMG app-only replacement.
 
-The separately owned Mac updater PR297 merged to stage
-2dd550585224c9294d0b6898d5d379e02438d331, final head
-649ac85063e45f5656d98a15e638287a8af06ebb. Its owner reports all 10 checks passed,
-no review comments, and it is unwatched. This branch includes that merge; preserve
-it in the coordinated 0.4.4 build. Read docs/updater-cross-volume.md for the exact
-0.4.1 backup-rename EXDEV cause and destination-local verified replacement/rollback.
-Owner reports 11 installer tests including real EXDEV and signed 0.4.3 isolated
-replacement, two update gates and four Tauri guards. A later redundant rerun lost
-its handle/log during a Mac restart and is NOT counted. No process remains and no
-installed app/service/data or release/tag/main was changed by that work.
-Do not reopen or duplicate its completed CI/review/merge ownership.
-The owner also requested a separate 0.4.5 IDE thread, branch feat/ide-mode-045;
-keep that work isolated/draft and OUT of the 0.4.4 release.
-The owner was given the verified public 0.4.3 DMG manual replacement workaround.
+NEW separately owned reboot recovery work: owner reported0.4.3 'Private native
+browser capability was refused' after this Mac rebooted. The updater thread
+confirmed missing /private/tmp capability directory with valid persistent identity
+and production c04c4d44… manifest. It reports restoring only the missing temporary
+directory with existing owner marker, then successful Retry/open of existing threads.
+It owns permanent managed_browser.ensure_runtime_directory/managed_host.read_config
+and Root native string-error fixes, focused regression, PR/CI/merge. Do not duplicate
+or change production service/helper identity. Include its reported merge in0.4.4.
 
-No 0.4.4 is published. Mac 0.4.3 and Windows/Linux 0.3.0 remain public. TestFlight
-Remote 1.0.0 (5) is delivered. Preserve production service c04c4d44…, existing data,
-public releases and the dirty main checkout. The website is a separate session
-whose Vercel quota issue remains distinct from app-download publication.
+Next: inspect actual portable build CI; fix compiler/package failures; then implement
+Root authenticated launch/transport, independent service lifecycle, verified installers,
+and coordinated release. 0.4.5 IDE branch feat/ide-mode-045 stays isolated/draft OUT
+of0.4.4. No0.4.4 is published; Mac0.4.3 and Windows/Linux0.3.0 remain public.
+TestFlight Remote1.0.0(5) is delivered. Preserve user data, c04c4d44… production host,
+public tags/assets, and dirty main checkout. Website session/quota issue is separate.
 
 ---
 

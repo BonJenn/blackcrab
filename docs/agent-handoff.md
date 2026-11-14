@@ -33,6 +33,17 @@ public assets, user data and the Mac production service manifest unchanged until
 the reviewed upgrade. Main checkout remains untouched. Website redesign is
 separate and its Vercel quota issue must be resolved before site publication.
 
+PR296 native CI follow-up: Linux successfully loaded the actual keyring,
+accessibility, FFI, passkey wrappers and Playwright dependency closure under
+Electron 44.10.1 / Node 24.22.1 (job 132338945611). Windows job 132338945845
+passed all 16 staging/manifest tests but installed no dependencies: pnpm 12's
+extensionless placeholder remains when installed with --ignore-scripts, causing
+Windows OpenWith rather than execution. Invoke its shipped bin/pnpm.mjs explicitly
+through Node on both runners; keep dependency lifecycle scripts disabled and the
+frozen lockfile. The missing-dependency check correctly failed, and was not relaxed.
+PR296: https://github.com/BonJenn/blackcrab/pull/296. Native Windows verification of
+the correction remains required before merge; then continue the next product step.
+
 ---
 
 ## Previous checkpoint — PR295 merged; native artifact checks passed

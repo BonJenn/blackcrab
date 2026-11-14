@@ -60,7 +60,10 @@ jobs:
         run: node scripts/prepare-desktop-dependency-ci.mjs --root "${{ runner.temp }}/native-dependency-source"
       - name: Install frozen native dependency graph
         working-directory: ${{ steps.source.outputs.source }}
-        run: pnpm --filter '@t3tools/desktop...' --filter . install --frozen-lockfile --ignore-scripts
+        # --ignore-scripts leaves pnpm 12's extensionless placeholder in place.
+        # Run its Node entry explicitly: Windows otherwise opens a file association
+        # dialog and can return success without installing any dependencies.
+        run: node "$(npm root -g)/pnpm/bin/pnpm.mjs" --filter '@t3tools/desktop...' --filter . install --frozen-lockfile --ignore-scripts
       - name: Stage and execute the exact runtime in an isolated profile
         run: node scripts/verify-managed-runtime.mjs --report "${{ runner.temp }}/managed-runtime-result.json" --dependencySource "${{ steps.source.outputs.source }}"
       - uses: actions/upload-artifact@v6

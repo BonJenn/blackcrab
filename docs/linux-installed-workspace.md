@@ -86,6 +86,24 @@ the user-namespace setting, unresolved shared libraries, and the bounded
 startup output of the extracted workspace binary run without Root's private
 descriptors. This is failure evidence only and is not part of acceptance.
 
+## Product finding: workspace temp path exceeds the socket limit
+
+Run43627224742's evidence: the workspace binary ran for two seconds under Root
+and then produced a core dump, while the same binary started alone (default
+`/tmp`) reached its JavaScript entry and kept running. No library was missing
+and user namespaces were available. Root sets the workspace's `TMPDIR` to the
+private profile's `tmp`, about 107 bytes for the QA account and 90 for a short
+user name. Chromium binds its single-instance socket in a directory beneath
+`TMPDIR` and aborts when the path exceeds `sockaddr_un`'s 108 bytes; the
+workspace requests that lock. This is the probable cause and would affect every
+Linux user; the crash signal was not captured in that run.
+
+On Linux `managed_desktop.rs` now uses a private `blackcrab-workspace-tmp`
+directory (mode0700) in `XDG_RUNTIME_DIR` when that directory is short, owned by
+the user and private. An existing entry that is not privately owned is refused.
+Without a usable runtime directory the profile path is kept. Mac is unchanged.
+On failure the test also saves `coredumpctl info` for the QA account.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

@@ -339,6 +339,15 @@ def main(report_path):
             for name in ["result.json", "deb-workspace.png", "appimage-workspace.png"]:
                 if (QA_HOME / name).is_file():
                     cleanup(["sudo", "install", "-o", str(os.getuid()), "-m", "0600", str(QA_HOME / name), str(output / name)])
+            # Failure evidence: signal and module-level trace of the newest core
+            # dump from this account, if any. No environment or memory contents.
+            try:
+                crash = subprocess.run(["sudo", "coredumpctl", "--no-pager", "-1", "info", f"COREDUMP_UID={UID}"],
+                                       capture_output=True, text=True, timeout=60)
+                if crash.returncode == 0 and crash.stdout:
+                    (output / "crash.txt").write_text(crash.stdout[:12000])
+            except Exception:
+                pass
             # The account has a systemd manager but no logind session, so there
             # is nothing for loginctl to terminate. Stop its manager, then end
             # anything still owned by this run's fresh UID (1 = none remained).

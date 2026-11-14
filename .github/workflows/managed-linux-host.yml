@@ -84,5 +84,6 @@ jobs:
             ${{ runner.temp }}/linux-installers/logs/*.log
             ${{ runner.temp }}/linux-installers/ui-acceptance/result.json
             ${{ runner.temp }}/linux-installers/ui-acceptance/cleanup.json
+            ${{ runner.temp }}/linux-installers/ui-acceptance/crash.txt
             ${{ runner.temp }}/linux-installers/ui-acceptance/*-workspace.png
           if-no-files-found: warn

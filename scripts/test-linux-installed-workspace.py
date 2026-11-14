@@ -195,6 +195,14 @@ def inside():
         report["passed"] = True
     except Exception as error:
         report["error"] = str(error)[:500]
+        # Read-only failure evidence: command names in this fresh account only,
+        # to tell an exited workspace from a slow one. No arguments or logs.
+        try:
+            names = subprocess.run(["/usr/bin/ps", "-u", str(UID), "-o", "comm="], capture_output=True,
+                                   text=True, timeout=10).stdout.split()
+            report["accountProcesses"] = sorted(set(names))[:60]
+        except Exception:
+            pass
         raise
     finally:
         if session:

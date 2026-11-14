@@ -23,13 +23,21 @@ pub(super) struct Channel {
     stream: UnixStream,
     next_id: u64,
     closed: bool,
+    answered: bool,
 }
+// The first request is written while the workspace is still starting and is
+// answered once it begins listening. A cold start on a slow or busy machine
+// exceeds the steady-state deadline, so allow it longer; a workspace that
+// exits closes the socket and ends the wait immediately.
+const STARTUP: Duration = Duration::from_secs(60);
+const STEADY: Duration = Duration::from_secs(3);
 impl Channel {
     pub(super) fn new(stream: UnixStream) -> Self {
         Self {
             stream,
             next_id: 1,
             closed: false,
+            answered: false,
         }
     }
     pub(super) fn close(&mut self) {
@@ -37,7 +45,7 @@ impl Channel {
         let _ = self.stream.shutdown(Shutdown::Both);
     }
     pub(super) fn activate(&mut self) -> Result<bool, String> {
-        self.request(Duration::from_secs(3))
+        self.request(if self.answered { STEADY } else { STARTUP })
     }
     fn request(&mut self, timeout: Duration) -> Result<bool, String> {
         let result = self.exchange(timeout);
@@ -45,6 +53,8 @@ impl Channel {
         // for confirmation of a subsequent activation request.
         if result.is_err() {
             self.close();
+        } else {
+            self.answered = true;
         }
         result
     }
@@ -173,6 +183,27 @@ mod tests {
             assert!(channel.activate().is_err());
             worker.join().unwrap();
         }
+    }
+    #[test]
+    fn a_slow_first_reply_is_awaited_and_an_exited_child_ends_the_wait_at_once() {
+        let (root, mut client) = UnixStream::pair().unwrap();
+        let worker = std::thread::spawn(move || {
+            std::thread::sleep(STEADY + Duration::from_millis(300));
+            request(&mut client);
+            writeln!(client, "{{\"version\":1,\"id\":1,\"visible\":false}}").unwrap();
+        });
+        let mut channel = Channel::new(root);
+        assert!(!channel.answered);
+        assert!(!channel.activate().unwrap());
+        assert!(channel.answered);
+        worker.join().unwrap();
+
+        let (root, client) = UnixStream::pair().unwrap();
+        let mut channel = Channel::new(root);
+        drop(client);
+        let before = Instant::now();
+        assert!(channel.activate().is_err());
+        assert!(before.elapsed() < Duration::from_secs(2));
     }
     #[test]
     fn a_silent_child_times_out_and_cannot_acknowledge_a_later_request() {

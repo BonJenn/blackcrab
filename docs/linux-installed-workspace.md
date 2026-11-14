@@ -67,6 +67,19 @@ now creates that directory with mode0700, as XDG specifies, and removes
 group/other write from an existing one it owns. A symlink or foreign-owned
 directory is left untouched and still rejected. Mac behaviour is unchanged.
 
+## Product finding: first lifecycle reply deadline
+
+Run43621804111 passed application-data setup, service setup and pairing, then
+reported "The workspace window did not respond." Root writes its first
+activation request while the workspace is still starting and allowed three
+seconds for any reply; a timeout retires the channel permanently. A cold start
+on a slow machine can exceed that. `managed_desktop_lifecycle.rs` now allows
+sixty seconds for the first reply only. An exited workspace closes the socket
+and still fails at once; later requests keep the three-second deadline. The
+cause is inferred, not observed: workspace output is discarded. The test now
+records command names in the QA account on failure to separate a slow
+workspace from an exited one.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

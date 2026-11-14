@@ -10,6 +10,8 @@ import {stageRuntimeDependencies} from '../managed-desktop/dependencies.mjs';
 import {requiredNativePackage} from '../managed-desktop/physical-dependencies.mjs';
 import {writeManifest,verifyArtifact,MANIFEST,fileDigest} from '../managed-desktop/artifact.mjs';
 import {stageElectronRuntime} from '../managed-desktop/runtime-package.mjs';
+import {stagePortableMetadata,verifyPortableMetadata} from '../managed-desktop/portable-metadata.mjs';
+import {readBlackcrabVersion} from '../managed-desktop/release-version.mjs';
 
 const {values} = parseArgs({options:{report:{type:'string'},dependencySource:{type:'string'}}, allowPositionals:false});
 if (!values.report || !path.isAbsolute(values.report)) throw Error('Pass --report with an absolute new output file');
@@ -39,10 +41,25 @@ try {
   for (const notice of ['LICENSE', 'LICENSES.chromium.html']) {
     if (!(await fs.stat(path.join(staging, notice))).isFile()) throw Error('Runtime notices missing');
   }
-  const fixture=await artifactFixture(staging,targetId,{runtimeAlreadyStaged:true});
+  const version=await readBlackcrabVersion();
+  const fixture=await artifactFixture(staging,targetId,{runtimeAlreadyStaged:true,appVersion:version});
   const nativeChecks=[];
   if(values.dependencySource){
     if(!path.isAbsolute(values.dependencySource))throw Error('Absolute dependency source required');
+    const metadataOptions={root:staging,targetId,version,source:values.dependencySource};
+    await stagePortableMetadata(metadataOptions);
+    report.metadata=await verifyPortableMetadata(metadataOptions);
+    if(process.platform==='win32') {
+      // Check through the OS too, independently of the PE resource editor.
+      const powershell=path.join(process.env.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe');
+      const inspection=await promisify(execFile)(powershell,['-NoProfile','-NonInteractive','-Command',"$v=(Get-Item -LiteralPath $env:BLACKCRAB_METADATA_EXECUTABLE).VersionInfo; @{ProductName=$v.ProductName;FileDescription=$v.FileDescription;ProductVersion=$v.ProductVersion;FileVersion=$v.FileVersion;OriginalFilename=$v.OriginalFilename}|ConvertTo-Json -Compress"],{env:{...process.env,BLACKCRAB_METADATA_EXECUTABLE:layout.executable},windowsHide:true,timeout:30_000,maxBuffer:4096});
+      const observed=JSON.parse(inspection.stdout.trim());
+      if(observed.ProductName!=='Blackcrab'||observed.FileDescription!=='Blackcrab'||observed.ProductVersion!==version||observed.FileVersion!==version+'.0'||observed.OriginalFilename!=='Blackcrab.exe')throw Error('Windows OS reports incorrect application identity');
+      report.metadata.osVersionInfo=observed;
+    } else {
+      await promisify(execFile)('/usr/bin/desktop-file-validate',[path.join(layout.resources,report.metadata.desktopEntry)],{timeout:10_000,maxBuffer:4096});
+      report.metadata.desktopEntryValidated=true;
+    }
     const {noticeRoots,...availability}=await stageRuntimeDependencies(values.dependencySource,layout.payload,{targetId});
     await writeManifest(staging,{targetId,sourcePatches:fixture.sourcePatches,availability});
     const roots=['@napi-rs/keyring','@crowecawcaw/xa11y','ffi-rs','@clerk/electron-passkeys','electron-webauthn','playwright-core'];

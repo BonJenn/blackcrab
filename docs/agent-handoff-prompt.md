@@ -35,27 +35,25 @@ Owner says do not stop until 0.4.4 is downloadable on Mac, Windows and Linux.
 After a successful merge, CONTINUE the next implementation step rather than ending
 at that milestone. Required CI waits use the existing PR-watch flow. Promote the
 tested stage to main before publishing from the validated main commit.
-Current worktree P/desktop-portable-dependencies-044, branch
-feat/desktop-portable-dependencies, base fc7f09773dec5a724232fd9f89d889918b69ab07.
-It implements physical portable dependency trees with correct nested versions and
-ancestor cycles, no output links, bounded package-content copying, required native
-companion enforcement and notice roots. Mac staging is unchanged. New CI installs
-the actual pinned frozen dependency graph and loads native modules under Electron.
-114 local tests passed, zero skips. No local process is running. Read the adjacent
--plan.json for exact PR/head/CI; fix native failures before merge. Then continue
-platform metadata, actual Root launch/transport/services and verified installers.
-Full workspace and installer acceptance remains outstanding; producers stay gated.
+Current worktree P/desktop-portable-metadata-044, branch feat/desktop-portable-metadata,
+base 4be37291ec5038831555f04a3104eb88272e5cac. PR296 merged with 11 passing checks and
+real native module loads on Windows/Linux; it is unwatched. The current increment
+adds Windows icon/version/name resources and Linux outer-launcher metadata. Read
+P/desktop-portable-metadata-044-plan.json for exact PR/head/test/process state.
+119 managed-desktop/native-QA tests passed (zero skips), plus four localized
+PE-editor tests. The actual Windows runtime PE rewrite/reparse passed locally;
+native OS checks still required. No local build/test is running.
+Producers remain gated. Continue producer orchestration, actual Root authenticated
+launch/transport, per-user services and verified 0.4.4 installers, not a fixture-only
+release. No 0.4.4 publication is claimed.
 
-PR296 native CI follow-up: Linux successfully loaded the actual keyring,
-accessibility, FFI, passkey wrappers and Playwright dependency closure under
-Electron 44.10.1 / Node 24.22.1 (job 132338945611). Windows job 132338945845
-passed all 16 staging/manifest tests but installed no dependencies: pnpm 12's
-extensionless placeholder remains when installed with --ignore-scripts, causing
-Windows OpenWith rather than execution. Invoke its shipped bin/pnpm.mjs explicitly
-through Node on both runners; keep dependency lifecycle scripts disabled and the
-frozen lockfile. The missing-dependency check correctly failed, and was not relaxed.
-PR296: https://github.com/BonJenn/blackcrab/pull/296. Native Windows verification of
-the correction remains required before merge; then continue the next product step.
+Separate owner-requested home-Mac EXDEV updater fix is running in
+<t3-thread://v2/95c98c5c-276e-4ac8-b422-c5d8447bafe7/mcp:launch:9f0a45035cf57a29e46162025f2b69a3c23eab736c44618d8e89ad227ecc90a0>.
+Read P/mac-updater-exdev-session.json and that thread to coordinate its fix/stage
+PR; do not duplicate edits or let it independently publish the coordinated release.
+It owns PR297 (head649ac85063e45f5656d98a15e638287a8af06ebb) including CI/review/merge.
+A separate owner-requested IDE mode branch feat/ide-mode-045 must stay isolated
+and draft out of 0.4.4; this thread continues the all-platform0.4.4 release.
 
 Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
 shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include

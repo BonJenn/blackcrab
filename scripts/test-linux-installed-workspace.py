@@ -14,6 +14,7 @@ import pwd
 import signal
 import socket
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -126,6 +127,55 @@ def await_workspace(session):
     raise RuntimeError("Installed launcher never completed the real workspace handoff")
 
 
+def sample_processes(timeline, started, finished):
+    # Failure evidence only: when each command name in this fresh account was
+    # first and last seen. Names only; no arguments, environment or output.
+    while not finished.wait(0.25):
+        try:
+            names = subprocess.run(["/usr/bin/ps", "-u", str(UID), "-o", "comm="], capture_output=True,
+                                   text=True, timeout=5).stdout.split()
+        except Exception:
+            continue
+        at = round(time.monotonic() - started, 1)
+        for name in set(names):
+            timeline.setdefault(name, [at, at])[1] = at
+
+
+def probe_workspace(environment):
+    # After a failed handoff only: can the extracted workspace binary load and
+    # start at all? It is run without Root's private descriptors, so it cannot
+    # attach to the service; only its bounded startup output is kept.
+    found = None
+    for directory, _, files in os.walk(QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-payloads-v1"):
+        if "Blackcrab" in files and "chrome-sandbox" in files:
+            found = Path(directory) / "Blackcrab"
+            break
+    if found is None:
+        return {"found": False}
+    probe = {"found": True}
+    helper = found.with_name("chrome-sandbox").stat()
+    probe["sandboxHelper"] = {"uid": helper.st_uid, "mode": oct(helper.st_mode & 0o7777)}
+    try:
+        probe["usernsClone"] = Path("/proc/sys/kernel/unprivileged_userns_clone").read_text().strip()
+    except OSError:
+        probe["usernsClone"] = "absent"
+    linked = subprocess.run(["/usr/bin/ldd", str(found)], capture_output=True, text=True, timeout=20).stdout
+    probe["missingLibraries"] = [line.strip()[:120] for line in linked.splitlines() if "not found" in line][:20]
+    keep = {key: environment[key] for key in ["HOME", "PATH", "DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR",
+                                              "DBUS_SESSION_BUS_ADDRESS", "LANG"] if key in environment}
+    child = subprocess.Popen([str(found)], cwd=found.parent, env=keep, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+    try:
+        output, _ = child.communicate(timeout=20)
+        probe["exit"] = child.returncode
+    except subprocess.TimeoutExpired:
+        os.killpg(child.pid, signal.SIGKILL)
+        output, _ = child.communicate(timeout=10)
+        probe["exit"] = "still running after 20s"
+    probe["output"] = output.decode("utf-8", "replace")[-2500:]
+    return probe
+
+
 def inside():
     if os.geteuid() != UID or Path(pwd.getpwuid(UID).pw_dir) != QA_HOME:
         raise RuntimeError("Fresh graphical QA account required")
@@ -136,6 +186,8 @@ def inside():
                        LIBGL_ALWAYS_SOFTWARE="1")
     processes, handles = [], []
     session = None
+    timeline, finished = {}, threading.Event()
+    threading.Thread(target=sample_processes, args=(timeline, time.monotonic(), finished), daemon=True).start()
     try:
         require_unused_driver_ports()
         for name, command in [("window-manager", ["/usr/bin/openbox"]),
@@ -203,6 +255,12 @@ def inside():
             report["accountProcesses"] = sorted(set(names))[:60]
         except Exception:
             pass
+        finished.set()
+        report["processTimeline"] = dict(sorted(timeline.items())[:80])
+        try:
+            report["workspaceProbe"] = probe_workspace(environment)
+        except Exception as failure:
+            report["workspaceProbe"] = {"error": type(failure).__name__}
         raise
     finally:
         if session:
@@ -210,6 +268,7 @@ def inside():
                 request("DELETE", f"/session/{session}")
             except Exception:
                 pass
+        finished.set()
         cleanup_errors = []
         for child in reversed(processes):
             try:

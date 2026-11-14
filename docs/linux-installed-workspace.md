@@ -75,10 +75,16 @@ activation request while the workspace is still starting and allowed three
 seconds for any reply; a timeout retires the channel permanently. A cold start
 on a slow machine can exceed that. `managed_desktop_lifecycle.rs` now allows
 sixty seconds for the first reply only. An exited workspace closes the socket
-and still fails at once; later requests keep the three-second deadline. The
-cause is inferred, not observed: workspace output is discarded. The test now
-records command names in the QA account on failure to separate a slow
-workspace from an exited one.
+and still fails at once; later requests keep the three-second deadline.
+
+That deadline was not the cause. Run43624488704 failed identically and as
+quickly, with no workspace process left in the QA account while Root and the
+service were running: the Linux workspace exits during startup. Root discards
+its output, so the reason is unknown. On a failed handoff the test now keeps a
+first/last-seen timeline of command names, the sandbox helper's owner and mode,
+the user-namespace setting, unresolved shared libraries, and the bounded
+startup output of the extracted workspace binary run without Root's private
+descriptors. This is failure evidence only and is not part of acceptance.
 
 ## Acceptance and remaining release work
 

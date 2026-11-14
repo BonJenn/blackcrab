@@ -60,6 +60,10 @@ tauri-plugin-updater = "2"
 # Used only by the relay-client integration test to spin up a real relay.
 blackcrab-relay = { path = "../apps/relay" }
 
+[target.'cfg(windows)'.dependencies]
+# Owner/DACL verification and private directory creation for native storage.
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "=1.8.0"
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "libc", "NSRunningApplication"] }

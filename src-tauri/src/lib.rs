@@ -17,6 +17,8 @@ mod managed_launcher;
 mod macos_updater;
 mod managed_updates;
 mod managed_payload;
+#[cfg(windows)]
+mod managed_private_windows;
 mod managed_service_install;
 mod pairing;
 mod provider;

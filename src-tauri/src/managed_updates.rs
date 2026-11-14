@@ -279,7 +279,10 @@ async fn install(app: &tauri::AppHandle) {
         (inner.update.clone().unwrap(), inner.bytes.take().unwrap())
     };
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let result = update.install(&bytes);
+        #[cfg(target_os = "macos")]
+        let result = crate::macos_updater::install(&bytes, &update.version);
+        #[cfg(not(target_os = "macos"))]
+        let result = update.install(&bytes).map_err(|error| error.to_string());
         (result, bytes)
     })
     .await;
@@ -290,16 +293,20 @@ async fn install(app: &tauri::AppHandle) {
         failure => {
             change(app, |inner| {
                 inner.snapshot.installing = false;
-                if let Ok((_, bytes)) = failure {
-                    inner.bytes = Some(bytes);
-                }
+                let detail = match failure {
+                    Ok((Err(error), bytes)) => {
+                        inner.bytes = Some(bytes);
+                        Some(error)
+                    }
+                    _ => None,
+                };
                 inner.snapshot.status = if inner.bytes.is_some() {
                     "downloaded"
                 } else {
                     "available"
                 }
                 .into();
-                inner.snapshot.message = Some("Could not install the update. Your projects are kept. Try again or download Blackcrab from blackcrab.app.".into());
+                inner.snapshot.message = Some(detail.unwrap_or_else(|| "Could not install the update. Your projects are kept. Try again or download Blackcrab from blackcrab.app.".into()));
             });
         }
     }

@@ -140,6 +140,26 @@ jobs:
         working-directory: apps/relay
         run: cargo test --locked
 
+  macos-updater:
+    name: macos updater (destination-local install)
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Mac installer transaction and signature rejection tests
+        working-directory: src-tauri
+        run: cargo test --locked --lib macos_updater
+      - name: Signed download action and version gates
+        working-directory: src-tauri
+        run: cargo test --locked --lib managed_updates
+
   # The release builds for Windows too, but the Linux job above can't catch
   # Windows-only compile breaks (e.g. platform-specific libc APIs). A cheap
   # cargo check on Windows catches them at PR time instead of at release.

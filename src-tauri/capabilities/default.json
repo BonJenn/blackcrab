@@ -22,7 +22,6 @@
       ]
     },
     "main-app-commands",
-    "updater:default",
     "process:allow-restart"
   ]
 }

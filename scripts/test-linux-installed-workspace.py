@@ -200,6 +200,48 @@ def workspace_logs():
     return result
 
 
+def workspace_state():
+    # Where the running workspace's main process is waiting: its low inherited
+    # descriptors' kinds, each thread's current system call number, and the
+    # names (not contents) of what it has created in its fresh profile.
+    state = {}
+    lines = subprocess.run(["/usr/bin/ps", "-u", str(UID), "-o", "pid=,comm=,args="], capture_output=True,
+                           text=True, timeout=10).stdout.splitlines()
+    mains = [line.split()[0] for line in lines
+             if len(line.split()) > 1 and line.split()[1] == "Blackcrab" and "--type=" not in line]
+    state["mainProcesses"] = len(mains)
+    if mains:
+        process = Path("/proc") / mains[0]
+        descriptors = {}
+        for number in range(0, 16):
+            try:
+                target = os.readlink(process / "fd" / str(number))
+                descriptors[number] = target.split(":")[0] if target.startswith(("socket:", "pipe:", "anon_inode:")) \
+                    else Path(target).name[:60]
+            except OSError:
+                descriptors[number] = None
+        state["descriptors"] = descriptors
+        threads = {}
+        for task in sorted((process / "task").iterdir())[:60]:
+            try:
+                name = (task / "comm").read_text().strip()
+                call = (task / "syscall").read_text().split()
+                threads[f"{name}:{task.name}"] = " ".join(call[:2])
+            except OSError as failure:
+                threads[task.name] = type(failure).__name__
+        state["threads"] = threads
+    profile = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1"
+    created = []
+    for directory, folders, names in os.walk(profile):
+        relative = Path(directory).relative_to(profile)
+        if len(relative.parts) >= 3:
+            folders[:] = []
+        created.extend(f"{relative / name} ({(Path(directory) / name).lstat().st_size})" for name in sorted(names)[:25])
+        created.extend(f"{relative / folder}/" for folder in sorted(folders)[:25])
+    state["profile"] = sorted(created)[:200]
+    return state
+
+
 def inside():
     if os.geteuid() != UID or Path(pwd.getpwuid(UID).pw_dir) != QA_HOME:
         raise RuntimeError("Fresh graphical QA account required")
@@ -302,6 +344,10 @@ def inside():
         except Exception as failure:
             report["screenEvidence"] = type(failure).__name__
         try:
+            report["workspaceState"] = workspace_state()
+        except Exception as failure:
+            report["workspaceState"] = {"error": type(failure).__name__}
+        try:
             report["workspaceLogs"] = workspace_logs()
         except Exception as failure:
             report["workspaceLogs"] = {"error": type(failure).__name__}
@@ -368,6 +414,9 @@ def main(report_path):
         marker.write_text("isolated-ci-only\n")
         run(["sudo", "install", "-m", "0644", str(marker), str(QA_HOME / ".blackcrab-desktop-qa")])
         run(["sudo", "systemctl", "start", f"user@{UID}.service"])
+        # Disposable runner only: let the QA account inspect its own processes'
+        # /proc state when collecting failure evidence.
+        subprocess.run(["sudo", "sysctl", "-q", "-w", "kernel.yama.ptrace_scope=0"], timeout=30)
         run(["sudo", "runuser", "-u", NAME, "--", "env", "-i", f"HOME={QA_HOME}", f"USER={NAME}", f"LOGNAME={NAME}",
              "PATH=/usr/bin:/bin", "LANG=C.UTF-8", f"XDG_RUNTIME_DIR=/run/user/{UID}",
              f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{UID}/bus", "/usr/bin/xvfb-run", "--auto-servernum",

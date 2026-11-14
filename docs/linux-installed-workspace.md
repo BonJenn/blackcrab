@@ -118,6 +118,12 @@ no window, and showed no error dialog: its startup stalls before any window is
 created. The test now also returns the tails of the workspace's own startup
 logs from the fresh profile, with long token-like strings removed.
 
+Run43634568831 found no log files in the profile, so the stall is early or the
+logs are elsewhere. The test now records the stalled main process's low
+descriptor kinds, each thread's current system call number and the names of
+what the workspace created in its profile. The runner's ptrace scope is relaxed
+for that; the QA account only inspects its own processes.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

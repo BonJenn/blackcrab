@@ -60,3 +60,25 @@ full run found a missing production-module fixture dependency; adding targets.mj
 to that isolated fixture preserved its no-QA-dependency check. No Windows/Linux
 executable was launched,
 installer produced, service installed or platform download changed.
+
+## Runtime staging and native runner checks
+
+`managed-desktop/runtime-package.mjs` stages the authenticated runtime into an
+empty owned directory, keeps the platform's resources and notices, and renames
+the executable to the descriptor's Blackcrab path. It supports the Mac bundle
+and the flat Windows/Linux layouts. The Mac producer now uses this same step;
+its bundle identity, payload construction, signature and manifest checks remain.
+Occupied destinations, directory links and mismatched archive hashes are rejected
+before extraction. The official pinned archives for all three targets passed
+real extraction, native-header, layout and notice checks on the build Mac.
+
+The `managed runtime` workflow executes the renamed, pinned Electron binary on
+Windows x64 and Linux x64 in Node mode with a fresh private profile. It checks the
+observed runtime version/architecture and cleanup. This is native runtime input
+evidence only: no workspace, provider, browser bridge or service is started. Read
+the actual workflow results before claiming either native execution passed.
+
+Windows/Linux producers remain disabled. Next implement their application metadata,
+native dependency closure and complete artifact manifests, then Root launch,
+authenticated channels, independent service lifecycle and installers. The new
+staging helper does not relax those release gates or change public downloads.

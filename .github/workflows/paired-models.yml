@@ -15,7 +15,9 @@ concurrency:
 jobs:
   paired-models:
     name: paired models (${{ matrix.profile }})
-    runs-on: ubuntu-latest
+    # The frozen graph uses Playwright 1.60, whose browser/dependency bundles
+    # support Ubuntu 24.04 rather than the current ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false

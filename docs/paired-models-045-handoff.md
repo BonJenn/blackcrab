@@ -28,6 +28,12 @@ main, or activate production recipes independently.
 - Draft PR: https://github.com/BonJenn/blackcrab/pull/304 (linked to this thread).
   CI/review is pending. Keep it draft for 0.4.5; do not recreate the PR.
   Implementation commit is above; final PR head includes this documentation update.
+- CI follow-up on `0b838c49f20e5b15c86fd622aed931aa62f89369`: the host job passed;
+  desktop types and draft tests passed, but browser installation failed because
+  `ubuntu-latest` selected Ubuntu 26.04.1 and pinned Playwright 1.60 does not provide
+  its headless Chromium/dependency bundle there. The workflow now explicitly uses
+  `ubuntu-24.04`, matching the existing cloud-clients browser job. Browser testing
+  on the replacement CI run remains pending; no dependency pins were changed.
 - Documentation commits can follow the implementation commit. Obtain the exact
   current head from `git rev-parse HEAD` and the PR before reporting it.
 - No build, browser, test, provider task, or native packaging job remains active.

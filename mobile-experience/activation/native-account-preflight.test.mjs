@@ -11,7 +11,8 @@ test('readiness uses the native request path; ordinary browser health does not c
     assert.equal(options.headers['x-mobile'], '1');
     assert.ok(options.signal instanceof AbortSignal);
     assert.equal(options.redirect, 'error');
-    return Response.json({ object: 'environment', user_settings: {} });
+    // Match the successful production native response: no `object` discriminator.
+    return Response.json({ auth_config: {}, user_settings: {}, native_app_settings: {} });
   });
   assert.equal(requests, 1); assert.equal(result.ready, true);
 });
@@ -24,7 +25,10 @@ test('disabled native API is reported without retaining backend diagnostics', as
 });
 test('network errors, HTML challenges, and unexpected JSON fail closed', async () => {
   for (const request of [async () => { throw Error('private detail'); },
-    async () => new Response('<html>challenge</html>'), async () => Response.json({})]) {
+    async () => new Response('<html>challenge</html>'),
+    ...[null, {}, { object: 'environment', user_settings: {} },
+      { auth_config: {}, user_settings: null }, { auth_config: [], user_settings: {} },
+      { auth_config: {}, user_settings: [] }].map(body => async () => Response.json(body))]) {
     const result = await checkNativeAccount(key, request);
     assert.equal(result.ready, false); assert.ok(!JSON.stringify(result).includes('private'));
   }

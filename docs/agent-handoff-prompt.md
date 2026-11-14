@@ -4,14 +4,18 @@ docs/mobile-cloud-configuration.md and docs/cross-platform-workspace-delivery.md
 Preserve the extensively dirty main checkout. Use only owned worktrees.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Mobile fix: P/mobile-account-recovery-e49g7nr9/source, branch fix/mobile-account-loading,
-PR291. Read its parent plan.json for the current head and CI state. The production
-Clerk native environment returned native_api_disabled, despite browser HTTP 200.
-The owner did not see Blackcrab in a direct Clerk login; the existing app belongs
-to the Vercel bonjenns-projects Marketplace workspace. The handoff records verified
-team/application IDs and the CLI command for its correct SSO link. Await/verify
-Native API activation there. Do not create a duplicate app, print keys or repeat
-earlier account authorization. The personal Clerk login email is not known.
+Mobile account recovery PR291 merged to stage at
+0b305bc3079b0568370f3c0836f2a4c3f48331bb after nine passing checks; it is unwatched.
+Current worktree: P/mobile-account-recovery-e49g7nr9/source, branch
+fix/native-account-preflight-shape. Read parent plan.json for the checker-fix PR.
+Production Clerk Native API is now ENABLED through the owner's Vercel-linked
+workspace, and the live native environment returns HTTP 200 / native_environment_ready.
+Do not ask the owner to enable it again. The checker was corrected to match the
+actual auth_config/user_settings response without an object discriminator; its
+four focused tests pass. Native account login, redirect/associated-app setup as
+needed, and full Connect acceptance remain separate. The handoff records the
+correct Marketplace app/production IDs and SSO command; do not create a duplicate
+app or print keys. No new account authorization was necessary.
 
 Mobile account/Connect entry points stay tappable, time out to useful recovery,
 and retain the original auth/storage owners. The physical source passed full
@@ -28,8 +32,7 @@ all nine checks passed on e20672a773960580bc4757dcf9c3d449c6479f6e. The actual C
 notification regression passed in run 43526316952/job 132232854479. PR290 is
 unwatched; do not re-create, link or poll it. Its completed producer/validation is
 P/mac-release-040-v2llrqsa/workspace-044-validation; do not repeat preparation.
-The mobile branch integrates that stage merge; preserve both handoffs. PR291's
-current CI and review still determine whether its source may merge.
+PR291 also merged and integrates that stage change; preserve both handoffs.
 
 The updater connects the Electron workspace to the signed outer-app updater over
 private FD5, keeps FD3/FD4 pairing intact, restores notices and real progress,

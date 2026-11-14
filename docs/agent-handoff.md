@@ -1,45 +1,49 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 2026-11-13: mobile account stuck on Checking
+## Current checkpoint — 2026-11-13: production Native API enabled
 
-The owner reports “T3 Account / Checking” greyed out in TestFlight. The exact
-production Clerk native request returned HTTP 400 / native_api_disabled, while
-ordinary browser environment requests return 200. This is a verified account
-configuration blocker, not a guessed connectivity problem. The owner was asked
-to enable Native API; their direct Clerk login did not show the app. Vercel CLI
-confirmed a marketplace installation owned by bonjenns-projects (team
-team_lnU3T6uVH1qWNsPuzZyybRUr), installation icfg_StWkesT4wBqXQ6OUUeYWynJ7,
-resource blackcrab / app_3Lxx0HOT2YePJBXeoWQl82HUFfh. Use
-`vercel integration open clerk blackcrab --scope team_lnU3T6uVH1qWNsPuzZyybRUr --format=json`
-to retrieve the correct SSO link. The connector's integration read lacked access;
-the existing CLI login succeeded. No fresh account or authorization is needed.
-The Clerk account email is not established. Do not create another application.
+At the owner's explicit request, Native API was enabled through Clerk's actual
+**blackcrab → Production → Native applications → Enable native applications**
+dashboard. The account is the Vercel Marketplace workspace `bonjenn's projects`,
+not a separately created personal Clerk application. Existing GitHub/Vercel SSO
+worked; no additional credentials or authorization are needed. The application is
+app_3Lxx0HOT2YePJBXeoWQl82HUFfh, production instance
+ins_3Lxx0IT1GVzmRLAWkPZLtQ6vCKk. The personal account email is not established.
+Use `vercel integration open clerk blackcrab --scope bonjenns-projects` to enter
+this workspace, then select Production. Do not create a duplicate application.
 
-Current worktree is P/mobile-account-recovery-e49g7nr9/source, branch
-fix/mobile-account-loading; P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Read its parent plan.json and validation logs for current revision/process state.
-The recorded activation adapter keeps the account/Connect entries tappable,
-replaces indefinite loading/blank auth with a bounded actionable message, and
-returns to the original Clerk sign-in/profile as soon as auth loads. No storage,
-provider identity, native dependency or authenticated command semantics change.
-The native-account-preflight is read-only and never prints credentials.
-PR291 is https://github.com/BonJenn/blackcrab/pull/291. The physical staged source
-/private/tmp/blackcrab-ios-yP6Wlk/repo passed the full mobile typecheck and all 94
-experience/activation tests with no skips; the consumer verifier also passed.
-Initial mixed dependency-overlay failures are superseded by that actual physical
-validation. Runtime/export state is in parent account-export-result.json. No
-production update or new TestFlight binary has been published by this change.
-The export completed at source d6a3a6e9ff3d8cf2d0ed2c19155574fe2ef91676:
-/private/tmp/blackcrab-ios-yP6Wlk/artifacts/account-export, native runtime
+The production native environment request now returns HTTP 200 with auth_config
+and user_settings; the previous HTTP 400 / native_api_disabled blocker is resolved.
+The dashboard now offers Disable native applications. The readiness checker was
+also corrected: successful Frontend API responses have no `object` discriminator.
+Four focused tests pass, including the actual successful response shape and
+malformed/incomplete response rejection. The corrected live preflight reports
+native_environment_ready. This proves native configuration, not actual account
+login, environment discovery or off-network agent control. No iOS applications
+or mobile SSO redirect allowlist entries were configured by this setting change;
+configure those if needed by the native sign-in/passkey flow being validated.
+
+Current owned worktree: P/mobile-account-recovery-e49g7nr9/source, branch
+fix/native-account-preflight-shape; P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Read its parent plan.json and native-account-preflight-latest.json for live evidence.
+The checker correction does not change the app bundle, runtime or stored data.
+PR291 merged to stage at 0b305bc3079b0568370f3c0836f2a4c3f48331bb after all nine
+checks passed on 0c75bfa2aac596b9d5debd267fbaa26e28e030ce; it is unwatched.
+Its activation adapter keeps account/Connect entries tappable, replaces indefinite
+loading/blank auth with bounded recovery, and retains the original auth/storage
+owners. The physical source /private/tmp/blackcrab-ios-yP6Wlk/repo passed the full
+mobile typecheck, all 94 experience/activation tests and consumer verification.
+
+The compatible export at source d6a3a6e9ff3d8cf2d0ed2c19155574fe2ef91676 is
+/private/tmp/blackcrab-ios-yP6Wlk/artifacts/account-export. Runtime
 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb matches TestFlight build4. Hermes SHA256
 099c4db00a51001f5a05079c5a05d8888683407643197ba811806c30440910f3. Byte audit found
 zero T3 Account/account/Connect strings and the new account recovery strings.
-All local processes completed; no build is running. Next: inspect current PR291
-CI/reviews on its wake, merge validated source, confirm native readiness after
-the owner's dashboard change, then validate installed OTA retention/reconnect
-and publish through the owned production channel. Do not publish the older
-branding-only export or change the runtime hash to force compatibility. The
-corrected bundle is compatible, but installed update acceptance is still pending.
+This update is NOT PUBLISHED; no new TestFlight binary or installed app is claimed.
+Next: validate installed OTA retention/reconnect and actual native sign-in, then
+publish through the owned production channel. Do not publish the superseded
+branding-only export or change the runtime hash to force compatibility. No local
+build/test processes remain running; the dashboard tab opened for this task closed.
 
 Branding source changes from PR264/266 already merged, but their compatible
 Hermes export was NEVER PUBLISHED. TestFlight 1.0.0 (4) still contains older copy.
@@ -116,7 +120,7 @@ its existing result handler otherwise treats any such message as an error toast.
 Next actions:
 1. Updater PR290 is merged at a2d753a5e0a37dc7954902d9bede6ff82660b95f.
    Preserve that integrated source and the compatible mobile candidate described
-   above. PR291 still needs current CI/review acceptance before merging.
+   above. PR291 is merged; native API is enabled as recorded above.
 2. Implement Windows/Linux native package layouts/dependency closure/manifests,
    Root launch, authenticated transport and per-user background-service lifecycle.
    Start at docs/cross-platform-workspace-delivery.md and managed-desktop/targets.mjs.

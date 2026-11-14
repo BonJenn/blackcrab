@@ -1,4 +1,11 @@
 Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
+
+Latest integration: PR301 merged at 52a29b2cdb0ef304631a195c0d1635ca7fdb7687,
+head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3,10 checks passed/no reviews/unwatched
+per its owner. This branch includes it together with PR297. Read
+docs/desktop-browser-reboot-recovery.md. No installed payload/helper/service changed;
+the temporary owner-Mac repair remains limited to the missing runtime directory.
+The older 'await PR301' statements below are superseded by this integration.
 Read AGENTS.md and the CURRENT checkpoint in docs/agent-handoff.md first. Preserve
 the dirty main checkout and paired AGENTS.md/CLAUDE.md files. The user wants mobile
 updates delivered to TestFlight first, then desktop 0.4.4 on all three platforms.
@@ -37,7 +44,7 @@ at that milestone. Required CI waits use the existing PR-watch flow. Promote the
 tested stage to main before publishing from the validated main commit.
 Current worktree P/desktop-portable-native-verifier-044, branch
 feat/desktop-portable-native-verifier, basec1763cda63e8b2dec9c6d433d7849a5d9a632f9d.
-PR299 merged/unwatched with12 checks: REAL Windows/Linux workspace builds and full
+PR299 merged/unwatched with 12 checks: REAL Windows/Linux workspace builds and full
 inventories passed (2818/2812 files). No UI/service/installer/release acceptance.
 Current change ports native package verification; explicit OS/arch, format2, complete
 hashes, Windows paths/reparse/hardlink checks, correct ELF/PE headers. Mac retains
@@ -54,7 +61,7 @@ staging. Its owner handles CI/review/merge; await report and include it in0.4.4.
 Do not duplicate or change c04c4d44… production host/helper/configuration/data.
 The owner Mac0.4.3 was repaired by restoring only missing temporary directory then
 normal Retry; real retained workspace/service verified per that owner's report.
-0.4.5 IDE work stays isolated/draft OUT of0.4.4. No public0.4.4 yet.
+0.4.5 IDE work stays isolated/draft OUT of 0.4.4. No public0.4.4 yet.
 
 Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
 shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include

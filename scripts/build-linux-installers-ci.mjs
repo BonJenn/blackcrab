@@ -29,6 +29,23 @@ async function named(directory,name){
   async function visit(dir){for(const item of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,item.name);if(item.isDirectory())await visit(file);else if(item.isFile()&&item.name===name)found.push(file);}}
   await visit(directory);if(found.length!==1)throw Error('Installer does not contain exactly one '+name);return found[0];
 }
+// Returns the stamps when two launchers differ only inside Tauri's bundle-type
+// marker suffix; any other difference (or a missing/wrong stamp) is rejected.
+async function bundleStampOnly(packagedFile,compiledFile){
+  const [packaged,compiled]=await Promise.all([fs.readFile(packagedFile),fs.readFile(compiledFile)]);
+  if(packaged.length!==compiled.length)throw Error('Packaged Debian launcher size differs from its build output');
+  const marker=Buffer.from('__TAURI_BUNDLE_TYPE_VAR_'),stamps=[];
+  for(let at=compiled.indexOf(marker);at!==-1;at=compiled.indexOf(marker,at+1))stamps.push(at+marker.length);
+  if(!stamps.length)throw Error('Compiled launcher has no bundle type stamp');
+  let stray=0;
+  for(let i=0;i<packaged.length;i++)if(packaged[i]!==compiled[i]&&!stamps.some(s=>i>=s&&i<s+3))stray++;
+  if(stray)throw Error('Packaged Debian launcher differs from its build output outside the bundle stamp ('+stray+' bytes)');
+  const read=buffer=>stamps.map(s=>buffer.subarray(s,s+3).toString('latin1'));
+  const result={packaged:read(packaged),compiled:read(compiled)};
+  for(const s of stamps)if(!packaged.subarray(s-marker.length,s).equals(marker))throw Error('Packaged Debian launcher lacks the bundle type marker');
+  if(!result.packaged.every(v=>v==='DEB'))throw Error('Packaged Debian launcher stamp is '+JSON.stringify(result));
+  return result;
+}
 try{
   report.version=await readBlackcrabVersion();
   const desktop=await verifyArtifact(values.desktop,{expectedTarget:'linux-x64'});
@@ -52,8 +69,17 @@ try{
     const binary=await named(directory,'blackcrab');
     // linuxdeploy adjusts ELF library paths and strips symbols. Compare the
     // AppImage to Tauri's actual post-packaging AppDir, not the unmodified ELF.
-    const rootHash=kind==='deb'?binaryHash:await digest(path.join(release,'bundle/appimage/Blackcrab.AppDir/usr/bin/blackcrab'));
-    if(await digest(binary)!==rootHash)throw Error('Packaged launcher bytes differ from their build output');
+    // Tauri stamps each bundle's type into the launcher in place, so the
+    // compiled ELF ends as the last bundle's variant. The Debian launcher
+    // must equal it everywhere except that three-byte stamp.
+    let rootHash;
+    if(kind==='deb'){
+      report.debBundleStamp=await bundleStampOnly(binary,path.join(release,'blackcrab'));
+      rootHash=await digest(binary);
+    }else{
+      rootHash=await digest(path.join(release,'bundle/appimage/Blackcrab.AppDir/usr/bin/blackcrab'));
+      if(await digest(binary)!==rootHash)throw Error('Packaged AppImage launcher bytes differ from their build output');
+    }
     const desktopArchive=await named(directory,'managed-desktop-payload.tar.gz'),hostArchive=await named(directory,'managed-host-payload.tar.gz');
     const hashes={desktop:await digest(desktopArchive),host:await digest(hostArchive)};
     if(payloadHashes && JSON.stringify(hashes)!==JSON.stringify(payloadHashes))throw Error('Installer payload archives differ');

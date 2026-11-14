@@ -17,6 +17,7 @@ on:
       - managed-desktop/dependencies.mjs
       - managed-desktop/package-resolution.mjs
       - managed-desktop/physical-dependencies*.mjs
+      - managed-desktop/portable-metadata*.mjs
       - scripts/prepare-desktop-dependency-ci.mjs
       - scripts/verify-managed-runtime.mjs
       - .github/workflows/managed-runtime.yml
@@ -51,9 +52,9 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip libgtk-3-dev libnss3 libasound2t64 libsecret-1-0 libatspi2.0-0
+          sudo apt-get install -y unzip libgtk-3-dev libnss3 libasound2t64 libsecret-1-0 libatspi2.0-0 desktop-file-utils
       - name: Test staging rejection boundaries
-        run: node --test managed-desktop/runtime-package.test.mjs managed-desktop/targets.test.mjs managed-desktop/portable-artifact.test.mjs managed-desktop/checkout-integrity.test.mjs managed-desktop/physical-dependencies.test.mjs
+        run: node --test managed-desktop/runtime-package.test.mjs managed-desktop/targets.test.mjs managed-desktop/portable-artifact.test.mjs managed-desktop/checkout-integrity.test.mjs managed-desktop/physical-dependencies.test.mjs managed-desktop/portable-metadata.test.mjs
       - run: npm install --global pnpm@12.14.0 --ignore-scripts
       - name: Authenticate native dependency source
         id: source
@@ -66,6 +67,10 @@ jobs:
         run: node "$(npm root -g)/pnpm/bin/pnpm.mjs" --filter '@t3tools/desktop...' --filter . install --frozen-lockfile --ignore-scripts
       - name: Stage and execute the exact runtime in an isolated profile
         run: node scripts/verify-managed-runtime.mjs --report "${{ runner.temp }}/managed-runtime-result.json" --dependencySource "${{ steps.source.outputs.source }}"
+      - name: Verify localized Windows resource rewrites with frozen build tools
+        env:
+          BLACKCRAB_METADATA_SOURCE: ${{ steps.source.outputs.source }}
+        run: node --test managed-desktop/portable-metadata.acceptance.mjs
       - uses: actions/upload-artifact@v6
         if: always()
         with:

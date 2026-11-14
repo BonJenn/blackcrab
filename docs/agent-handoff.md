@@ -1,6 +1,59 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — physical native dependencies; continue through 0.4.4 release
+## Current checkpoint — PR297 integrated; PR298 native metadata CI
+
+Owner instruction remains: continue until 0.4.4 is downloadable for Mac, Windows
+and Linux. Promote tested stage to main for the coordinated release. Do not stop
+at an intermediate merge; required CI waits use watches and automatically resume.
+
+PR296 merged to stage 4be37291ec5038831555f04a3104eb88272e5cac on head
+56af00918987c1bab20be0654011e7d8ea4d5de5, all 11 checks passed; no reviews/comments
+outstanding, unwatched. Windows job 132340139897 and Linux132340139534 loaded real
+native modules in Electron 44.10.1 / Node 24.22.1 and verified complete synthetic
+artifact inventories (654/647 entries), then cleaned up. This is module/runtime
+acceptance, not the full workspace or installers.
+
+Active worktree P/desktop-portable-metadata-044, branch feat/desktop-portable-metadata,
+base now includes stage 2dd550585224c9294d0b6898d5d379e02438d331 (PR297).
+PR298: https://github.com/BonJenn/blackcrab/pull/298; linked and watched.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes. Read adjacent
+P/desktop-portable-metadata-044-plan.json for PR/head/results/processes. New portable
+metadata handles every Windows localized version/icon resource, preserves code and
+loader references, and supplies a Linux outer-launcher desktop-entry template/icon.
+Frozen resedit 1.7.2 comes from upstream's existing electron-builder graph. Five
+portable filesystem/version tests and four actual-editor synthetic PE regressions
+passed. Actual official Windows Electron PE rewrite/reparse passed locally without
+execution; evidence P/desktop-portable-metadata-044-real-pe.json. The complete
+managed-desktop suite passed 108 tests, plus 11 native-QA recipe tests (119 total,
+zero skips); the separate PE-editor suite passed four tests. No local process is
+running. Logs: P/desktop-portable-metadata-full.log and
+P/desktop-portable-metadata-qa-recipe.log. Native CI must pass before merging. Target producers
+remain gated. Continue producer orchestration, Root authenticated launch/transport,
+independent service lifecycle, verified installers and release publication next.
+
+The separately owned Mac updater PR297 merged to stage
+2dd550585224c9294d0b6898d5d379e02438d331, final head
+649ac85063e45f5656d98a15e638287a8af06ebb. Its owner reports all 10 checks passed,
+no review comments, and it is unwatched. This branch includes that merge; preserve
+it in the coordinated 0.4.4 build. Read docs/updater-cross-volume.md for the exact
+0.4.1 backup-rename EXDEV cause and destination-local verified replacement/rollback.
+Owner reports 11 installer tests including real EXDEV and signed 0.4.3 isolated
+replacement, two update gates and four Tauri guards. A later redundant rerun lost
+its handle/log during a Mac restart and is NOT counted. No process remains and no
+installed app/service/data or release/tag/main was changed by that work.
+Do not reopen or duplicate its completed CI/review/merge ownership.
+The owner also requested a separate 0.4.5 IDE thread, branch feat/ide-mode-045;
+keep that work isolated/draft and OUT of the 0.4.4 release.
+The owner was given the verified public 0.4.3 DMG manual replacement workaround.
+
+No 0.4.4 is published. Mac 0.4.3 and Windows/Linux 0.3.0 remain public. TestFlight
+Remote 1.0.0 (5) is delivered. Preserve production service c04c4d44…, existing data,
+public releases and the dirty main checkout. The website is a separate session
+whose Vercel quota issue remains distinct from app-download publication.
+
+---
+
+## Previous checkpoint — physical native dependencies; continue through 0.4.4 release
 
 Owner explicitly reiterated: do not stop until 0.4.4 is downloadable for Mac,
 Windows and Linux. Do not end a successful-merge wake at the milestone: continue

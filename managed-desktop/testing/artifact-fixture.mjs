@@ -5,7 +5,7 @@ import {desktopTarget} from '../targets.mjs';
 import {writeManifest, UPSTREAM} from '../artifact.mjs';
 import {NAMESPACE} from '../descriptor.mjs';
 
-export async function artifactFixture(root,targetId,{runtimeAlreadyStaged=false}={}) {
+export async function artifactFixture(root,targetId,{runtimeAlreadyStaged=false,appVersion='0.0.0-test'}={}) {
  const target=desktopTarget(targetId),payload=target.layout.payload;
  async function put(name,bytes){const file=path.join(root,name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
  if(!runtimeAlreadyStaged){
@@ -16,7 +16,7 @@ export async function artifactFixture(root,targetId,{runtimeAlreadyStaged=false}
   await put(target.layout.executable,header);
   await fs.chmod(path.join(root,target.layout.executable),0o755);
  }
- const pkg={name:'blackcrab-artifact-test-fixture',version:'0.0.0-test',main:'apps/desktop/dist-electron/boot.cjs',blackcrabManagedClient:'production'};
+ const pkg={name:'blackcrab-artifact-test-fixture',version:appVersion,main:'apps/desktop/dist-electron/boot.cjs',blackcrabManagedClient:'production'};
  await put(path.posix.join(payload,'package.json'),JSON.stringify(pkg));
  // Role above exercises the production structural check only. This code has no
  // workspace, host, credentials or provider commands, and the fixture is deleted.

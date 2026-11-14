@@ -626,7 +626,10 @@ impl ManagedHost {
                             .into(),
                     );
                 }
-                capability.validate(&self.root)?;
+                // Both Root status/retry and the independently installed helper
+                // read this persisted configuration before service readiness.
+                // Restore a reboot-cleared temp directory, not user/service data.
+                capability.ensure_runtime_directory(&self.root)?;
             }
             #[cfg(not(unix))]
             return Err("Private native browser transport is unavailable on this platform".into());

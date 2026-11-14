@@ -257,6 +257,26 @@ def inside():
             pass
         finished.set()
         report["processTimeline"] = dict(sorted(timeline.items())[:80])
+        # What is on screen and which workspace process roles exist. Titles and
+        # Chromium's --type role only; the image is of this empty fresh account.
+        try:
+            subprocess.run(["/usr/bin/import", "-window", "root", str(QA_HOME / "failure-screen.png")],
+                           env=environment, timeout=30)
+            ids = subprocess.run(["/usr/bin/xdotool", "search", "--onlyvisible", "--name", ""], capture_output=True,
+                                 text=True, env=environment, timeout=15).stdout.split()[:30]
+            titles = [subprocess.run(["/usr/bin/xdotool", "getwindowname", i], capture_output=True, text=True,
+                                     env=environment, timeout=5).stdout.strip()[:120] for i in ids]
+            report["visibleWindows"] = sorted(set(t for t in titles if t))
+            lines = subprocess.run(["/usr/bin/ps", "-u", str(UID), "-o", "comm=,args="], capture_output=True,
+                                   text=True, timeout=10).stdout.splitlines()
+            roles = {}
+            for line in lines:
+                if line.startswith("Blackcrab"):
+                    role = next((part[7:] for part in line.split() if part.startswith("--type=")), "main")[:40]
+                    roles[role] = roles.get(role, 0) + 1
+            report["workspaceRoles"] = roles
+        except Exception as failure:
+            report["screenEvidence"] = type(failure).__name__
         try:
             report["workspaceProbe"] = probe_workspace(environment)
         except Exception as failure:
@@ -336,7 +356,7 @@ def main(report_path):
         if created:
             # Export only bounded public result and fresh empty-workspace images.
             # Driver, profile and service logs/configuration remain private.
-            for name in ["result.json", "deb-workspace.png", "appimage-workspace.png"]:
+            for name in ["result.json", "deb-workspace.png", "appimage-workspace.png", "failure-screen.png"]:
                 if (QA_HOME / name).is_file():
                     cleanup(["sudo", "install", "-o", str(os.getuid()), "-m", "0600", str(QA_HOME / name), str(output / name)])
             # Failure evidence: signal and module-level trace of the newest core

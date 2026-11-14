@@ -104,6 +104,14 @@ the user and private. An existing entry that is not privately owned is refused.
 Without a usable runtime directory the profile path is kept. Mac is unchanged.
 On failure the test also saves `coredumpctl info` for the QA account.
 
+Run43629474947 confirmed the effect: with the short temp directory the workspace
+no longer dumps core and stays running. It is the next blocker that is open:
+the running workspace never answered Root's first lifecycle request within
+sixty seconds, so Root still reports an unresponsive window. Whether it is
+showing an error dialog, has no window, or is waiting on something is not yet
+known. On failure the test now also saves a screenshot, visible window titles
+and the workspace's process roles.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

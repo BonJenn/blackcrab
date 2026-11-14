@@ -13,8 +13,11 @@ verification passed; this is not GUI/service/installer acceptance.
 
 Active P/desktop-unix-launcher-044, branch feat/desktop-unix-launcher, same stagebase.
 Read adjacent desktop-unix-launcher-044-plan.json for final commit/PR/watch state.
-No PR yet: finish final diff review, commit explicit paths, push/create/link, watch
-checks and end. Changes share Unix launch/renewal/update channels and add Linux-only
+PR303 is open/linked: https://github.com/BonJenn/blackcrab/pull/303
+Implementation head5adb2ac04eab320e2672d3a30aa8d36785aa1216, followed by a handoff-only
+commit. CI pending: finish that push, register watch and end; on wake inspect final
+checks/reviews/base, merge and immediately continue service/installer integration.
+Changes share Unix launch/renewal/update channels and add Linux-only
 FD6 activation acknowledgements from the loaded, visible real workspace; Mac retains
 AppKit. Root Linux entry/handoff/update-close are wired. Linux service and Windows
 native transport/service/installers remain unfinished, production producers gated.

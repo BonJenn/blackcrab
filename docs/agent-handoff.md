@@ -1,6 +1,6 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — portable verifier merged; Unix launcher in validation
+## Current checkpoint — Unix launcher PR303 awaiting native CI
 
 The owner requires downloadable 0.4.4 for Mac, Windows and Linux, followed by full
 parity. Latest instruction: merge to stage, then launcher integration and installers.
@@ -19,9 +19,12 @@ establishes UI/service/installers. Do not republish old root-only installers.
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
 Active worktree P/desktop-unix-launcher-044, branch feat/desktop-unix-launcher,
 base5ec76354669b335cec3a9be5fdb6ccc01e5d4471. Adjacent -plan.json records the final
-commit/PR/watch state. No PR has been opened for this increment yet. Next finish
-review, commit explicit paths, push/create/link PR, then watch required CI and end
-the turn. On wake inspect final checks/reviews/current base, merge and continue.
+commit/PR/watch state. PR303 is open/linked:
+https://github.com/BonJenn/blackcrab/pull/303
+Implementation head5adb2ac04eab320e2672d3a30aa8d36785aa1216, followed by this handoff-only
+checkpoint. Native CI is pending; register the watch after this push and end the
+turn. On wake inspect final checks/reviews/current base, merge and continue service
+integration and installers. Do not recreate, duplicate or re-link PR302 (merged).
 
 Implemented in this branch:
 - Shared Unix captured-child launcher, original FD3 bootstrap/FD4 renewal and FD5

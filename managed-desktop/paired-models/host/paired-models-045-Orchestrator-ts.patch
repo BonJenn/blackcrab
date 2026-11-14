@@ -1,0 +1,128 @@
+--- a/apps/server/src/orchestration-v2/Orchestrator.ts
++++ b/apps/server/src/orchestration-v2/Orchestrator.ts
+@@ -1762,6 +1762,15 @@
+         failedRun?.id === options?.endedRunId &&
+         failedRun?.workspacePreparation?.type === "worktree" &&
+         projection.thread.worktreePath === null;
++      const predecessorMessageId = queuedMessage?.context?.pairedPass?.previousMessageId;
++      const predecessorRunId = projection.messages.find(
++        (message) => message.id === predecessorMessageId,
++      )?.runId;
++      const predecessor = projection.runs.find((candidate) => candidate.id === predecessorRunId);
++      const pairedPassBlocked =
++        predecessorMessageId !== undefined &&
++        predecessor?.status !== "completed" &&
++        queuedRun.queueHeld !== false;
+       const settings = yield* serverSettings.getSettings.pipe(Effect.orDie);
+       const projectOverride =
+         settings.projectSettingsOverrides[projection.thread.projectId]?.providerInstances?.[
+@@ -1778,6 +1787,7 @@
+           ? !projectOverride
+           : machineInstance !== undefined && !resolveProviderInstanceEnabled(machineInstance);
+       if (
++        pairedPassBlocked ||
+         worktreeMissing ||
+         instanceDisabledForProject ||
+         (failureClass !== undefined &&
+@@ -5610,7 +5620,7 @@
+     ]);
+   });
+ 
+-  const dispatchMessage = Effect.fn("Orchestrator.dispatchMessage")(function* (
++  const dispatchSingleMessage = Effect.fn("Orchestrator.dispatchMessage")(function* (
+     command: Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>,
+     events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
+     effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
+@@ -7918,6 +7928,92 @@
+     yield* Ref.update(effects, (existing) => [...existing, pendingEffect]);
+   });
+ 
++  const dispatchMessage = Effect.fn("Orchestrator.dispatchPairedMessage")(function* (
++    command: Extract<OrchestrationV2Command, { readonly type: "message.dispatch" }>,
++    events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
++    effects: Ref.Ref<Array<PendingOrchestrationEffectV2>>,
++  ) {
++    if (command.context?.pairedModel === undefined) {
++      return yield* dispatchSingleMessage(command, events, effects);
++    }
++    const projection = yield* getProjectionWithPendingEvents(command.threadId, events);
++    const lead = command.modelSelection ?? projection.thread.modelSelection;
++    const partner = command.context.pairedModel;
++    if (
++      (lead.instanceId === partner.instanceId && lead.model === partner.model) ||
++      command.text.trimStart().startsWith("/") ||
++      command.context.guest !== undefined ||
++      command.deliveryIntent === "steer" ||
++      command.deliveryIntent === "restart" ||
++      command.dispatchMode.type === "steer_active" ||
++      command.dispatchMode.type === "restart_active"
++    ) {
++      return yield* new OrchestratorDispatchError({
++        commandId: command.commandId,
++        commandType: command.type,
++        cause: "Choose two different models and send or queue a normal task for paired work.",
++      });
++    }
++    const { pairedModel: _pairedModel, ...context } = command.context;
++    const { deliveryIntent: _intent, ...first } = command;
++    const cancelled = yield* dispatchSingleMessage(
++      {
++        ...first,
++        context,
++        modelSelection: lead,
++        dispatchMode:
++          command.dispatchMode.type === "defer_start"
++            ? command.dispatchMode
++            : { type: "queue_after_active" },
++      },
++      events,
++      effects,
++    );
++    // All three passes commit with one receipt. Only the queue worker starts successors.
++    for (const [phase, selection, text] of [
++      [
++        "review",
++        partner,
++        "Paired review: Independently check the preceding lead's work against the user's task. Inspect the relevant files and evidence. Report concrete errors, missing requirements, and suggested corrections. Do not make edits; the lead will address your findings in the next pass. If the work is correct, explain what you verified. Do not start additional agents.",
++      ],
++      [
++        "resolve",
++        lead,
++        "Paired final pass: Read the partner's review above, assess each finding against the user's task, make any necessary corrections, and verify the result. Explain the outcome and any remaining limitations to the user. Do not claim the review passed if it failed or was interrupted. Do not start additional agents.",
++      ],
++    ] as const) {
++      yield* dispatchSingleMessage(
++        {
++          type: "message.dispatch",
++          commandId: command.commandId,
++          threadId: command.threadId,
++          messageId: MessageId.make(`${command.messageId}:paired:${phase}`),
++          createdBy: "system",
++          creationSource: command.creationSource,
++          text,
++          attachments: [],
++          context: {
++            version: 1,
++            records: [],
++            pairedPass: {
++              rootMessageId: command.messageId,
++              previousMessageId:
++                phase === "review"
++                  ? command.messageId
++                  : MessageId.make(`${command.messageId}:paired:review`),
++              phase,
++            },
++          },
++          modelSelection: selection,
++          dispatchMode: { type: "queue_after_active" },
++        },
++        events,
++        effects,
++      );
++    }
++    return cancelled;
++  });
++
+   const dispatchDelegatedTaskRequest = Effect.fn("orchestrationV2.dispatch.delegatedTaskRequest")(
+     function* (
+       command: Extract<OrchestrationV2Command, { readonly type: "delegated_task.request" }>,

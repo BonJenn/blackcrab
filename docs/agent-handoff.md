@@ -19,6 +19,9 @@ Active worktree P/linux-host-package-044, branch feat/linux-host-package,
 base eaa5f825907e5b9030e53b9270bbf11d7d5d6234. Adjacent
 linux-host-package-044-plan.json records the final commit/PR/watch state.
 Read docs/linux-host-package.md for implementation and acceptance boundaries.
+PR306 is open/linked: https://github.com/BonJenn/blackcrab/pull/306
+Implementation8167d09b41a8b444727bee284ba41639687a59f6, followed by this handoff-only
+checkpoint. Finish push/link, watch306 and end for required native CI.
 
 Current changes reuse the unchanged frozen service producer on native Linux;
 compile the actual host/web/resource monitor and standalone ELF helper; enable
@@ -31,8 +34,8 @@ Mac c04c4d44… artifact/helper/config/data and17-file producer freeze are uncha
 Local validation:181 native managed tests passed,11 intentionally ignored native/
 artifact cases;18 resource/helper tests passed,3 skipped actual-artifact cases.
 Logs P/linux-host-package-rust.log and P/linux-host-package-scripts.log. New native
-Linux CI is pending. Finish review/documentation, commit/push/open PR, link as next
-call, then watch and END for required CI. On wake inspect actual Linux build/test
+Linux CI is pending. Finish this handoff push/link, then watch306 and END for
+required CI. On wake inspect actual Linux build/test
 logs and final reviews/base; fix or merge and continue. No local build or service
 is running. Cargo cache /private/tmp/blackcrab-native-verifier-044-target is reusable.
 

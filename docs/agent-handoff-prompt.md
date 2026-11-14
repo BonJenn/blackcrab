@@ -12,10 +12,12 @@ systemd lifecycle:1 passed,0 ignored; this used an inert launcher. PR303 Unix
 launcher and actual portable workspace builds/verifiers remain integrated.
 Active P/linux-host-package-044, branch feat/linux-host-package, samebase as above.
 Read adjacent linux-host-package-044-plan.json for final commit/PR/test/watch.
+PR306 is open/linked: https://github.com/BonJenn/blackcrab/pull/306
+Implementation8167d09b41a8b444727bee284ba41639687a59f6, then this handoff-only commit.
 Read docs/linux-host-package.md: unchanged host producer, actual native Linux
 service build, ELF helper, opaque resources, real service/systemd/attachment test
-in a new disposable OS account. Native CI is pending. Finish review/commit/PR,
-link as next call, watch and end; on wake inspect actual build/test/reviews/base,
+in a new disposable OS account. Native CI is pending. Finish handoff push/link,
+watch306 and end; on wake inspect actual build/test/reviews/base,
 fix or merge and continue. No provider prompt or existing service was involved.
 Local Rust181 passed,11 explicitly ignored; helper/resource18 passed,3 skipped.
 Logs P/linux-host-package-rust.log and P/linux-host-package-scripts.log. No local

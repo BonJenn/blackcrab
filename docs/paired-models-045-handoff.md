@@ -25,8 +25,9 @@ main, or activate production recipes independently.
 - Repository: `https://github.com/BonJenn/blackcrab.git`.
 - Feature remote branch: `feat/paired-models-045`. The local branch retains the
   original T3 binding. Push future changes with `git push origin HEAD:feat/paired-models-045`.
-- PR: pending creation. Read current Git/PR state before acting; do not recreate an
-  existing PR if a previous run completed that step after this checkpoint.
+- Draft PR: https://github.com/BonJenn/blackcrab/pull/304 (linked to this thread).
+  CI/review is pending. Keep it draft for 0.4.5; do not recreate the PR.
+  Implementation commit is above; final PR head includes this documentation update.
 - Documentation commits can follow the implementation commit. Obtain the exact
   current head from `git rev-parse HEAD` and the PR before reporting it.
 - No build, browser, test, provider task, or native packaging job remains active.
@@ -113,8 +114,9 @@ work for 0.4.5, alongside the separately owned IDE feature.
 
 ## Immediate next actions
 
-1. Inspect/link the draft PR if creation is already complete; otherwise create it
-   from `feat/paired-models-045` to `stage`. Keep it draft and out of 0.4.4.
+1. Inspect CI/reviews on draft PR #304. Keep it draft and out of 0.4.4.
+   The thread will watch it after this checkpoint is pushed; on a T3 wake do not
+   relink/rewatch/list it. A replacement thread must read its current watch state.
 2. Handle CI/reviews. After any PR creation/push, link its full URL as the next
    tool call. If waiting, call `watch_pull_request` and end the turn; no CI polling
    loops. On a wake do not relink/rewatch/list the already watched PR. Before actual

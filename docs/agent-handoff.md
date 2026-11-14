@@ -19,6 +19,9 @@ P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
 Active P/linux-workspace-delivery-044, branch feat/linux-workspace-delivery,
 base4ac132512eb65f39d46cfd88b6dfdba96db52c74. Adjacent
 linux-workspace-delivery-044-plan.json records the latest commit/PR/watch status.
+PR307 is open/linked: https://github.com/BonJenn/blackcrab/pull/307
+Implementation1001a69927a12cb2d4828c17d1b51b72669d693f, followed by this handoff-only
+checkpoint. Finish push/link, watch307 and END for required native CI.
 Read docs/linux-installed-workspace.md. The extended Linux job builds real host
 and Electron artifacts on Ubuntu22.04, bundles normal Debian/AppImage installers,
 verifies both embedded inventories and actual package bytes, and uses a new OS
@@ -34,8 +37,8 @@ is pending. No local build, app or service is running; no old shell handle to re
 The source version remains0.4.3 for these private candidates; updater signing and
 publication are not performed. Production portable build enablement is unchanged.
 
-Next: finish reviewed diff/handoff commit, push/create/link the coherent PR, watch
-and END for required native CI. On wake inspect final checks/reviews/base and actual
+Next: finish this handoff push/link, watch307 and END for required native CI.
+On wake inspect final checks/reviews/base and actual
 Linux logs/screenshots. Fix failures or merge and continue; do not stop at the merge.
 Then finish Linux release signing/update delivery and platform compatibility,
 Windows private IPC/ACL/service/installed launcher, coherent0.4.4 version/payloads,

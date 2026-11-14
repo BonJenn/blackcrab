@@ -64,8 +64,9 @@ actual Debian/AppImage candidates and checks normal graphical launch/reopen.
 
 Local native regression:181 passed,11 explicitly ignored artifact/native cases.
 Focused resource/helper checks:18 passed,3 explicitly skipped actual-artifact cases.
-The dedicated Linux job must provide actual runtime evidence; local fixture success
-is not that evidence. CI retains build reports/logs, not user data or credentials.
+These local results preceded the actual passing Linux job recorded above; local
+fixtures alone did not establish that evidence. CI retains build reports/logs,
+not user data or credentials.
 
 Linux Electron window activation, complete launcher/installer acceptance and update
 delivery remain next. Windows IPC/ACL/service integration is still unfinished.

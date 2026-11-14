@@ -13,6 +13,8 @@ job132390531684/run43576064552; captured producer groups settled, zero prompts.
 Active P/linux-workspace-delivery-044, branch feat/linux-workspace-delivery, same
 base as above. Read adjacent linux-workspace-delivery-044-plan.json for current
 PR/head/watch, and docs/linux-installed-workspace.md for exact acceptance boundaries.
+PR307 is open/linked: https://github.com/BonJenn/blackcrab/pull/307
+Implementation1001a69927a12cb2d4828c17d1b51b72669d693f, then this handoff checkpoint.
 
 The extended Linux workflow now builds both real payloads and normal Debian and
 AppImage candidates on Ubuntu22.04, verifies actual package bytes/inventories and
@@ -22,7 +24,7 @@ CI is pending; require both sessions and cleanup, then inspect screenshots befor
 claiming acceptance. Local3 controller tests,18 startup/renderer tests and root
 TypeScript pass. No local build/app/service is running. Current source version is
 still0.4.3; private candidates are unsigned for updates and unpublished. Finish
-reviewed commit/push/create/link, then watch and END; fix or merge on wake.
+handoff push/link, then watch307 and END; fix or merge on wake.
 
 Next: Linux compatibility and signed release/update path, Windows private IPC/ACL/
 service/installed launcher, coherent0.4.4 bump, tested stage-to-main, signed installer

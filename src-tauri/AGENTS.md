@@ -103,3 +103,15 @@ a loaded, visible owned workspace before hiding; process liveness alone is not U
 readiness. Mac keeps AppKit activation. Preserve separate FD roles, bounded deadlines,
 closed-channel retirement and OS-derived HOME. Native transport tests do not certify
 Linux GUI/service/installers; production target enablement awaits those integrations.
+
+## Linux per-user background service
+
+managed_service_linux.rs controls only the OS-account user's blackcrab.service.
+Use the verified /run/user/<uid>/bus, fixed systemctl/busctl executables and
+bounded captured children; never use ambient DBUS addresses, sudo, system units,
+PID discovery or a second host. Check the exact owned unit, manager-resolved argv,
+environment and drop-ins before activation. Serialize changes and preserve issuer
+binding/journal checks. Stop leaves login enablement intact; uninstall removes only
+the owned unit/link, retaining history, configuration and pairings. Status does not
+rewrite registration or enable linger. The Linux CI lifecycle uses a new disposable
+OS account and inert launcher; it is not full host/GUI/package acceptance.

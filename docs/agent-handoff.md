@@ -1,6 +1,72 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Unix launcher PR303 awaiting native CI
+## Current checkpoint — Linux user-service implementation and native validation
+
+The owner requires downloadable 0.4.4 for Mac, Windows and Linux, followed by full
+parity. Publication is authorized. Continue after intermediate merges; use PR
+watching and end the turn while required CI runs. **0.4.4 is not published.**
+Public versions remain Mac0.4.3 and Windows/Linux0.3.0. Remote1.0.0(5) is delivered
+to the existing owner in TestFlight; don't repeat that build/upload.
+
+PR303 merged at10b575103142f73992832559fdfc4503d840b395 after all14 checks passed
+on76f983244e45d3cf699b755819078639ca66030c. No reviews/comments; unwatched. This
+includes shared Unix launcher, Linux FD6 visible-window acknowledgements and
+Mac's retained AppKit activation. Actual Windows/Linux package builds/verifiers
+passed CI; GUI/service/installer acceptance remains separate.
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Active P/linux-managed-service-044, branch feat/linux-managed-service,
+base10b575103142f73992832559fdfc4503d840b395. Read adjacent
+linux-managed-service-044-plan.json for current commit/PR/watch/test state.
+PR305 is open/linked: https://github.com/BonJenn/blackcrab/pull/305
+Implementation head29971c4cce73c16682a85a2d3c811a30f25d4a12, followed by this
+handoff-only checkpoint. Finish this push, watch305 and end for required CI.
+On wake inspect final checks/reviews/base, fix failures or merge and continue.
+
+Implementing native systemd user-service install/start/stop/restart/uninstall,
+with OS-account HOME/bus selection, bounded manager children, verified loaded
+argv/environment/unit ownership, existing native issuer/journal fencing, retained
+history and pairings. Mac launchd behavior is retained. A new CI test uses a fresh
+OS account and inert launcher to validate real systemd; it does not run providers
+or adopt the runner's service. Linux production host payload/installer and actual
+GUI acceptance remain next, followed by Windows native IPC/ACL/service integration.
+
+Local complete managed Rust suite:181 passed,0 failed,10 explicitly ignored native/
+artifact cases; eight Linux-specific unit/IO tests pass. Python syntax and paired
+guides/diff checks pass. Log P/linux-managed-service-regression.log. Required native
+Linux CI is pending. Final source review completed; watch PR305 after this handoff push and
+end the turn, then inspect final checks/reviews/base on wake and merge if ready. No
+local service/app/user data was touched. Do not launch the isolated Linux manager
+test on the Mac or the user's normal account. No background native build is
+currently running. Reusable cargo output:
+/private/tmp/blackcrab-native-verifier-044-target.
+
+After validated source is merged: finish Linux host payload and native integration,
+Windows IPC/service, installers and coherent0.4.4 version/payload bump; promote
+reviewed stage→main, verify draft signed installers/updater metadata, then publish
+all three real downloads. Never substitute old root-only Windows/Linux installers.
+Preserve production Mac host manifest
+c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83/helper/config/data
+pending a reviewed stopped data-preserving migration. PR297 updater and PR301
+reboot recovery are merged and must remain in0.4.4. PR300 IDE recipes are opt-in
+and inactive in0.4.4. Keep public releases and dirty main checkout unchanged.
+
+Coordination: PR304 is independently owned, DRAFT and excluded from0.4.4. It adds
+opt-in0.4.5 second-model collaboration recipes; head
+0b838c49f20e5b15c86fd622aed931aa62f89369, implementation
+73a187a82d5d244dedc99fb98e1bb14100518c88. Its owner handles CI/reviews. Do not
+merge, activate or duplicate it. Handoff on that branch:
+docs/paired-models-045-handoff.md. Production registries/freeze/service unchanged.
+
+Website redesign remains independently owned and Vercel Hobby quota blocked;
+see the copyable prompt. Existing account approvals remain valid; Google login
+setup is owner-deferred. No credentials belong in Git/logs/chat. Full off-LAN
+two-computer+iOS control, revocation/push, hosted entitlements and final parity
+still require their own evidence.
+
+---
+
+## Previous checkpoint — Unix launcher PR303 awaiting native CI
 
 The owner requires downloadable 0.4.4 for Mac, Windows and Linux, followed by full
 parity. Latest instruction: merge to stage, then launcher integration and installers.

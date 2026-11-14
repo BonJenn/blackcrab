@@ -132,6 +132,9 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked
 
+      - name: isolated systemd user-service lifecycle
+        run: python3 scripts/test-linux-service-manager.py
+
       - name: relay cargo check
         working-directory: apps/relay
         run: cargo check --locked

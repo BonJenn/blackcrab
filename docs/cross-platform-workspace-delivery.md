@@ -197,3 +197,15 @@ The first complete local managed Rust regression run passed181 tests with10
 explicit ignored native/artifact cases. Real systemd acceptance runs separately
 in a disposable Linux OS account. Full packaged host/GUI/installers remain pending.
 No production producer gate, public download or Mac service identity changes here.
+
+## Actual Linux service passed; installers in validation — 2026-11-14
+
+PR305 and PR306 are merged. PR306's actual host/helper/systemd/authenticated
+attachment acceptance passed1 test,0 ignored; all11 final-head checks passed.
+It is merged at4ac132512eb65f39d46cfd88b6dfdba96db52c74 and unwatched. This supersedes
+the earlier pending Linux service implementation notes for that tested scope.
+See [installed Linux workspace acceptance](linux-installed-workspace.md) for the
+next normal Debian/AppImage candidates, graphical startup/quit/reopen and retained
+service identity. Native graphical CI is pending; public downloads are unchanged.
+Windows private IPC/ACL/service and actual installers still remain, followed by
+coherent0.4.4 release signing, tested stage-to-main and public delivery.

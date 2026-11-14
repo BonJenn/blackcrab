@@ -96,9 +96,9 @@
     "target": "apps/web/src/components/ide/IdePanel.tsx",
     "kind": "payload",
     "file": "payloads/IdePanel.tsx",
-    "sha256": "5b4a9948d6512d31e274723a188fc7246660c3c01b54a576b59dc0b980fdc60a",
+    "sha256": "c6d5f9ffca9abae8fbb93bcf93e65e2f0b3e16ffa175f4150d1b8676c04653d4",
     "beforeSha256": null,
-    "afterSha256": "5b4a9948d6512d31e274723a188fc7246660c3c01b54a576b59dc0b980fdc60a"
+    "afterSha256": "c6d5f9ffca9abae8fbb93bcf93e65e2f0b3e16ffa175f4150d1b8676c04653d4"
   },
   {
     "id": "ide-ideState-ts",

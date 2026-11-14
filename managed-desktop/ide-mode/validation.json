@@ -1,0 +1,53 @@
+{
+  "status": "DRAFT_SOURCE_VALIDATED_NOT_NATIVE_ACCEPTANCE",
+  "implementationCommit": "a61b8dc2d9856465df214aca45f231f8cd312f15",
+  "registrySha256": "160e4288dba11be3ed2279cefdfb9af230a6dcd6a7392df1098ffadba0684d1f",
+  "upstream": "7f02de2eb8e253e0ec23f005b3cfff8e2c963be8",
+  "targetVersion": "0.4.5",
+  "productionRecipesChanged": false,
+  "productionServiceManifest": "c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83",
+  "results": {
+    "managedDesktopNodeTests": {
+      "passed": 119,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hostFileServiceTests": {
+      "passed": 28,
+      "failed": 0
+    },
+    "chromiumBrowserTests": {
+      "passed": 6,
+      "failed": 0,
+      "note": "IDE state test stubs RPC/editor boundary; separate actual Pierre typing test uses programmatic DOM focus. Upstream tree/editor regressions included."
+    },
+    "webTypes": "PASS",
+    "serverTypes": "PASS",
+    "electronTypes": "PASS",
+    "featureEnabledRendererBuild": "PASS; registry target hashes verified before and after"
+  },
+  "logsRoot": "/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/ide-mode-045",
+  "logs": [
+    "producer-tests.log",
+    "host-tests.log",
+    "browser-verified.log",
+    "web-types-final.log",
+    "server-types.log",
+    "desktop-types.log",
+    "web-build-final.log",
+    "web-build-final-result.json",
+    "rebased-producer-tests.log"
+  ],
+  "notEstablished": [
+    "authenticated full ChatView to host end-to-end acceptance",
+    "native packaged UI/pointer/close/quit behavior",
+    "real provider event timing",
+    "Windows/Linux filesystem and UI acceptance",
+    "atomic compare-and-swap against arbitrary external path replacement",
+    "release producer integration and stopped data-preserving host upgrade"
+  ],
+  "publication": "NOT_REQUESTED_FOR_THIS_DRAFT",
+  "processes": "No build or test remains running; no real provider runs or installed service mutations.",
+  "pullRequest": "https://github.com/BonJenn/blackcrab/pull/300",
+  "integrationBase": "c1763cda63e8b2dec9c6d433d7849a5d9a632f9d"
+}

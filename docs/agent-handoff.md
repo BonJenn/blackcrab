@@ -1,6 +1,74 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — PR298 merged; actual portable workspace builds underway
+## Current checkpoint — isolated 0.4.5 IDE mode draft (2026-11-13)
+
+This thread is bound to `/Users/jonathanbenn/.t3/worktrees/blackcrab/feat-ide-mode-045`,
+branch `feat/ide-mode-045`, starting at `4be37291ec5038831555f04a3104eb88272e5cac`.
+The owner explicitly asked for a new thread and IDE mode for 0.4.5. Do not take over
+0.4.4 release work, merge this draft, tag, publish, change accounts/keys, or replace
+production service manifest
+`c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83`.
+Main and other worktrees were not edited. Public state at task start: Mac 0.4.3,
+Windows/Linux 0.3.0, no 0.4.4 published, Remote TestFlight 1.0.0 (5).
+
+Implementation is in `managed-desktop/ide-mode/`, an authenticated experimental
+patch recipe deliberately separate from production registries. Read its README
+for activation, behavior and unresolved promotion gates. The renderer additionally
+requires `VITE_BLACKCRAB_IDE_MODE=1`; default mode remains chat. The source includes
+an actual file tree/Pierre editor, structured host-event follow, disk snapshots,
+selection questions attached to the owning chat, retained/recoverable drafts and
+host-guarded saves with previous-inode recovery copies. Old hosts are read-only.
+
+QA scratch is `/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/ide-mode-045`.
+Prepared source: `blackcrab-desktop-source-JWsQk1`; source edits remain in the bound
+worktree's payloads/patches. Caches were linked read-only with the frozen lock and
+canonical Effect graph; no shared producer source was changed. Focused filesystem
+checks and the full 109-test managed-desktop suite passed. The real host suite
+passed 28 tests; browser state/tree/editor regressions passed five tests. Full web,
+server and Electron typechecks passed before the final small robustness changes.
+The actual IDE typing test and final renderer build/typecheck are recorded in the
+completion evidence below. Earlier interrupted process handles are not resumable.
+
+Remaining before integration: authenticated full UI→host acceptance, final ChatView
+pane/narrow-window controls, real provider timing, native close/quit draft retention,
+Windows/Linux filesystems and a coordinated host upgrade. Arbitrary external path
+replacement in the check→rename interval is not an atomic filesystem CAS; retain
+this limitation until resolved/constrained. Do not claim native acceptance or
+lossless arbitrary-writer concurrency from the fixture tests. See completion notes
+for the draft PR/head and exact active/completed process state.
+
+The wider finish line remains validated parity, a current normal Mac app installed
+on the owner's Mac and an iOS build available in their TestFlight. This draft is
+implementation work, not integration, installation, publication or acceptance.
+
+### Completion evidence for this draft
+
+Implementation commit `a61b8dc2d9856465df214aca45f231f8cd312f15`; final payload registry
+SHA256 `160e4288dba11be3ed2279cefdfb9af230a6dcd6a7392df1098ffadba0684d1f`.
+`managed-desktop/ide-mode/validation.json` records the exact checks and limitations.
+109 producer tests, 28 real host-service tests and six Chromium tests passed with
+no failures; producer tests have zero skips. Full web/server/Electron types passed.
+The feature-enabled renderer build passed with every registry target hash checked
+before and after (unchanged). Final typing uses programmatic DOM focus; it is not
+full ChatView/native pointer acceptance. Earlier pointer-locator attempts failed
+and do not count as acceptance. Earlier broad tests failed only for missing local
+read-only dependency links; after supplying the matching graph all 109 passed.
+
+Source/build logs are under the scratch path above. Final build session 38604
+(PID 25806), earlier build 91432 and browser session 57995 have completed; do not
+restart old handles. No local build/test, provider run or installed-service change
+remains active. Draft [PR #300](https://github.com/BonJenn/blackcrab/pull/300) targets stage and is linked to this thread. It remains a draft; CI is pending and no merge/publication is authorized. The feature branch was rebased over stage c1763cda63e8b2dec9c6d433d7849a5d9a632f9d to resolve handoff-only conflicts; the production source patch registry did not change.
+After the rebase, all 119 current managed-desktop tests passed with zero skips;
+see `rebased-producer-tests.log`. The IDE payload registry and renderer hashes
+are unchanged by the rebase.
+
+Next action after draft review: coordinate 0.4.5 host/producer integration and
+complete the explicit authenticated/native/concurrent-writer gates. Do not merge
+or publish without that coordination. Public release/TestFlight state is unchanged.
+
+---
+
+## Parallel release checkpoint preserved during IDE rebase — PR298 merged; actual portable workspace builds underway
 
 Owner instruction remains: continue until 0.4.4 is downloadable for Mac, Windows
 and Linux, then tested stage → main for release. Do not stop at intermediate merges.

@@ -1,3 +1,35 @@
+Continue the isolated Blackcrab 0.4.5 IDE-mode draft, not the parallel 0.4.4 release.
+Read AGENTS.md, the current docs/agent-handoff.md checkpoint and
+managed-desktop/ide-mode/README.md first. Work only in the thread-bound
+/Users/jonathanbenn/.t3/worktrees/blackcrab/feat-ide-mode-045 on feat/ide-mode-045.
+Inspect the current head, draft PR and completion evidence before running tests.
+Do not merge, publish, tag, change accounts/keys or replace the c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 production service.
+
+The opt-in experimental registry implements chat/IDE toggle, live host snapshots,
+structured-file-event follow, a code-first Pierre editor and tree, selection-based
+questions, recoverable drafts and guarded host writes. Production recipes remain
+unchanged. Use the owned external QA scratch at
+/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes/ide-mode-045 for generated
+source, dependency links, browser caches and logs. Never edit another worktree or
+reset/clean/switch/stage the extensively dirty main checkout.
+
+Final local checks passed: 119 producer tests after rebase, 28 host tests, six browser tests,
+web/server/Electron types and the feature-enabled renderer build. See
+managed-desktop/ide-mode/validation.json for registry hashes and exact evidence.
+No build/test remains running; sessions 38604/91432/57995 are completed.
+
+Finish the documented promotion gates with honest evidence. Do not confuse fixture,
+source/build, native acceptance and installed delivery. No old build process resumes
+itself; consult the completion section for exact process state. The full project
+finish line still includes normal Mac installation/runtime and TestFlight availability.
+
+Draft PR: https://github.com/BonJenn/blackcrab/pull/300, base stage. Keep it draft;
+CI is pending. No merge/publication is authorized. Production patch registries
+remain unchanged after the handoff-only rebase over stage c1763cd.
+
+---
+Historical parallel-release prompt preserved during IDE rebase (do not execute here):
+
 Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
 Read AGENTS.md and the CURRENT checkpoint in docs/agent-handoff.md first. Preserve
 the dirty main checkout and paired AGENTS.md/CLAUDE.md files. The user wants mobile

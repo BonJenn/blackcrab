@@ -138,7 +138,7 @@ export default function IdePanel(props: {
           const key = keyFor(environmentId, cwd, selected);
           if (drafts.get(key)?.text !== file.contents && drafts.get(key)?.text === drafts.get(key)?.base) setRange(null);
           setDraft(key, receiveFile(drafts.get(key), file.contents, file.ideSafeWrite === true, file.truncated));
-          setError(null); 
+          setError(null);
         } else { setError("Unable to read the host file. Your draft is retained; retry after reconnecting."); }
       }
       } catch { if (!stopped) setError("Host read failed. Draft retained; reconnect to refresh."); }
@@ -151,7 +151,7 @@ export default function IdePanel(props: {
   const change = (text: string) => {
     if (!selected || !draft || savingRef.current) return;
     setDraft(keyFor(environmentId, cwd, selected), { ...draft, text });
-    setFollow(false); 
+    setFollow(false);
   };
   const save = async () => {
     if (!selected || !draft || !writable || !draft.safe || draft.truncated || draft.incoming !== null || savingRef.current || savingFiles.has(selectedKey) || error) return;
@@ -166,7 +166,7 @@ export default function IdePanel(props: {
       if (result.value.ideConflict) { setNotice("The host file changed. Your draft was kept. Review the incoming version before saving."); return; }
       if (!result.value.ideRecoveryPath) { setError("Host did not confirm a guarded save. Draft retained."); return; }
       setDraft(key, { ...snapshot, text: drafts.get(key)?.text ?? snapshot.text, base: snapshot.text, incoming: null });
-      
+
       setNotice(`Saved. Previous file retained at ${result.value.ideRecoveryPath}`);
     } catch { setError("Save outcome unknown. Draft retained; refresh before retrying."); } finally { fileReadEpochs.set(key, (fileReadEpochs.get(key) ?? 0) + 1); savingFiles.delete(key); draftRevision += 1; for (const listener of draftListeners) listener(); readEpoch.current += 1; savingRef.current = false; setSaving(false); }
   };

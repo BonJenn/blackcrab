@@ -77,3 +77,12 @@ a draft. Build the actual signed/notarized installer, then validate native UI an
 service lifecycle; pending evidence is never acceptance or public publication
 permission. Default validateAcceptance rejects it. Do not extend old owner-testing
 exceptions or invent successful lifecycle checks to build a candidate.
+
+## Actual Linux service integration
+
+managed-linux-host.yml builds the real pinned host and helper, then runs native
+initialization/systemd/authenticated attachment against that archive in a new
+disposable OS account. test-linux-service-manager.py --actual-host must observe
+exactly one passing test, never a zero-match/ignored success. Preserve account
+refusal and cleanup. No provider prompt, existing service, production credentials
+or Mac payload migration belongs in this job. GUI/installer delivery is separate.

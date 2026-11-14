@@ -56,3 +56,12 @@ the separately built/signed/notarized CLI helper embedded in Root. Preserve
 existing service configuration/generation during an explicitly stopped upgrade.
 Signature verification, real helper readiness and actual app UI acceptance are
 different checks; do not label the whole delivery complete from the first two.
+
+## Linux service packaging
+
+prepare-service-issuer accepts native Linux x64 ELF helpers as well as the existing
+Apple-silicon helper. Keep Mac signing/notarization intact and reject foreign
+architectures. managed-native-resources selects an explicit native target and
+verifies complete archive roundtrips. The native CI builder uses the unchanged
+frozen host producer with a clean environment and captured process groups; do not
+refresh the Mac freeze from Linux or claim an installer from a package build.

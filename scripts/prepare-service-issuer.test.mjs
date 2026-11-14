@@ -56,3 +56,29 @@ test('tool errors cannot disclose notarization credentials or select the previou
   }}), error=>error.message==='Standalone service helper notarization failed');
   assert(!f.calls.some(c=>c.args.some(a=>a.includes('Blackcrab.app'))));
 });
+
+test('Linux embeds the native ELF helper without invoking Apple signing or notarization', async t => {
+  const f = await fixture(t, true);
+  f.target = 'x86_64-unknown-linux-gnu';
+  const built = path.join(f.cwd, 'target', f.target, 'release/blackcrab-service-issuer');
+  await fs.mkdir(path.dirname(built), {recursive:true});
+  const elf = Buffer.alloc(64);
+  Buffer.from([0x7f,0x45,0x4c,0x46,2,1,1]).copy(elf);
+  elf.writeUInt16LE(3,16); elf.writeUInt16LE(62,18);
+  await fs.writeFile(built, elf);
+  const result = await prepareServiceIssuer(f); t.after(result.cleanup);
+  assert((await fs.readFile(result.path)).equals(elf));
+  assert.equal((await fs.stat(path.dirname(result.path))).mode & 0o777, 0o700);
+  assert.equal(f.calls.some(c=>c.command.startsWith('/usr/bin/')),false);
+  assert.equal(result.notarizationSubmissionId,undefined);
+  // A successful compiler exit cannot substitute another architecture/object.
+  for (const [offset, value] of [[4,1],[5,2],[16,1],[18,183]]) {
+    const wrong=Buffer.from(elf); wrong[offset]=value; await fs.writeFile(built,wrong);
+    await assert.rejects(prepareServiceIssuer(f), /ELF64 x86-64/);
+  }
+  await fs.writeFile(built, 'short');
+  await assert.rejects(prepareServiceIssuer(f), /ELF64 x86-64/);
+  const before=f.calls.length;
+  await assert.rejects(prepareServiceIssuer({...f,target:'x86_64-pc-windows-msvc'}), /darwin-arm64 or linux-x64/);
+  assert.equal(f.calls.length,before);
+});

@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {prepareManagedNativeResources,parseManagedResourceArgs} from './managed-native-resources.mjs';
 import {writeArtifactManifest,UPSTREAM,NODE_VERSION,PNPM_VERSION} from '../managed-host/artifact.mjs';
 import {writeManifest} from '../managed-desktop/artifact.mjs';
+import {artifactFixture} from '../managed-desktop/testing/artifact-fixture.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 async function fixture(t,role){const root=await fs.mkdtemp(path.join(os.tmpdir(),`native-${role}-`));t.after(()=>fs.rm(root,{recursive:true,force:true}));
  const put=async(name,bytes='fixture')=>{await fs.mkdir(path.dirname(path.join(root,name)),{recursive:true});await fs.writeFile(path.join(root,name),bytes);};
@@ -69,6 +70,16 @@ test('production desktop mapping verifies role and refuses rehashed QA applicati
 test('resource target must match bundled architecture; universal cannot reuse one binary',async()=>{
  await assert.rejects(prepareManagedNativeResources({desktop:'/unused',target:'x86_64-apple-darwin'}),/darwin-arm64/);
  await assert.rejects(prepareManagedNativeResources({host:'/unused',target:'universal-apple-darwin'}),/single-architecture/);
+});
+
+test('Linux desktop resources roundtrip the native format and reject a Mac target',async t=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'native-linux-desktop-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ await artifactFixture(root,'linux-x64');
+ const result=await prepareManagedNativeResources({desktop:root,env:{},target:'x86_64-unknown-linux-gnu'});t.after(result.cleanup);
+ assert.equal(result.env.BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256,sha(await fs.readFile(path.join(root,'blackcrab-managed-desktop.json'))));
+ assert.deepEqual(Object.values(result.config.bundle.resources),['managed-desktop-payload.tar.gz']);
+ await assert.rejects(prepareManagedNativeResources({desktop:root,target:'aarch64-apple-darwin'}),/provenance/);
+ await assert.rejects(prepareManagedNativeResources({desktop:root,target:'x86_64-pc-windows-msvc'}),/darwin-arm64 or linux-x64/);
 });
 
 test('native wrapper preserves signed/local flags and passes only freshly verified trust to child',async t=>{

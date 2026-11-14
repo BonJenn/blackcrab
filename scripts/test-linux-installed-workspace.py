@@ -162,18 +162,63 @@ def probe_workspace(environment):
         probe["usernsClone"] = "absent"
     linked = subprocess.run(["/usr/bin/ldd", str(found)], capture_output=True, text=True, timeout=20).stdout
     probe["missingLibraries"] = [line.strip()[:120] for line in linked.splitlines() if "not found" in line][:20]
-    keep = {key: environment[key] for key in ["HOME", "PATH", "DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR",
-                                              "DBUS_SESSION_BUS_ADDRESS", "LANG"] if key in environment}
-    child = subprocess.Popen([str(found)], cwd=found.parent, env=keep, stdin=subprocess.DEVNULL,
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
-    try:
-        output, _ = child.communicate(timeout=20)
-        probe["exit"] = child.returncode
-    except subprocess.TimeoutExpired:
-        os.killpg(child.pid, signal.SIGKILL)
-        output, _ = child.communicate(timeout=10)
-        probe["exit"] = "still running after 20s"
-    probe["output"] = output.decode("utf-8", "replace")[-2500:]
+    # Start it the way Root does (same environment, working directory and
+    # inherited descriptor numbers) with a descriptor of the right shape but a
+    # made-up credential and an unused loopback port. It cannot attach to the
+    # service; this only shows what its startup prints, which Root discards.
+    import fcntl
+    import tempfile
+    profile = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1"
+    runtime = Path(environment.get("XDG_RUNTIME_DIR", "/nonexistent")) / "blackcrab-workspace-tmp"
+    like_root = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(QA_HOME), "OTEL_SDK_DISABLED": "true",
+                 "TMPDIR": str(runtime if runtime.is_dir() else profile / "tmp")}
+    like_root.update({key: environment[key] for key in ["DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR",
+                                                        "DBUS_SESSION_BUS_ADDRESS", "LANG"] if key in environment})
+    probe["tmpdir"] = like_root["TMPDIR"]
+    pairs = {number: socket.socketpair() for number in (3, 4, 6)}
+    inherited = {number: fcntl.fcntl(pair[1].fileno(), fcntl.F_DUPFD, 40) for number, pair in pairs.items()}
+
+    def place():
+        for number, source in inherited.items():
+            os.dup2(source, number)
+
+    document = {"version": 1,
+                "owner": {"kind": "blackcrab-managed-host", "generation": 1, "environmentId": "startup-probe",
+                          "origin": "http://127.0.0.1:9/", "serverVersion": "0.1.7",
+                          "orchestrationProtocolVersion": 2},
+                "profile": {"root": str(profile), "namespace": "blackcrab-managed-v1",
+                            "appId": "com.blackcrab.desktop.managed"},
+                "control": {"kind": "unavailable"},
+                "authorization": {"kind": "paired-credential", "credential": "222222222222",
+                                  "expiresAt": int(time.time() * 1000) + 3600000,
+                                  "renewal": {"kind": "owner-credential-fd-v1", "fd": 4}},
+                "lifecycle": {"kind": "launcher-lifecycle-fd-v1", "fd": 6}}
+    with tempfile.TemporaryFile() as captured:
+        child = subprocess.Popen([str(found)], cwd=found.parent, env=like_root, stdin=subprocess.DEVNULL,
+                                 stdout=captured, stderr=subprocess.STDOUT, start_new_session=True,
+                                 close_fds=False, preexec_fn=place)
+        for source in inherited.values():
+            os.close(source)
+        for pair in pairs.values():
+            pair[1].close()
+        time.sleep(2)
+        pairs[3][0].sendall(json.dumps(document).encode())
+        pairs[3][0].shutdown(socket.SHUT_WR)
+        pairs[6][0].settimeout(20)
+        try:
+            pairs[6][0].sendall(b'{"version":1,"id":1,"action":"activate"}\n')
+            probe["lifecycleReply"] = pairs[6][0].recv(200).decode("utf-8", "replace")[:200]
+        except OSError as failure:
+            probe["lifecycleReply"] = type(failure).__name__
+        time.sleep(5)
+        probe["exit"] = child.poll() if child.poll() is not None else "still running"
+        if child.poll() is None:
+            os.killpg(child.pid, signal.SIGKILL)
+            child.wait(timeout=10)
+        captured.seek(0)
+        output = captured.read()
+    probe["created"] = sorted(item.name for item in profile.iterdir())[:30]
+    probe["output"] = re.sub(r"[A-Za-z0-9_\-=]{32,}", "[redacted]", output.decode("utf-8", "replace"))[-6000:]
     return probe
 
 

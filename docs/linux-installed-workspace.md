@@ -124,6 +124,16 @@ descriptor kinds, each thread's current system call number and the names of
 what the workspace created in its profile. The runner's ptrace scope is relaxed
 for that; the QA account only inspects its own processes.
 
+Run43637512960: the stalled main process was idle in its event loop, and its
+profile held only Root's marker, `home` and `tmp`. The workspace's first startup
+step creates `electron`, `app-data` and `logs` there, so its entry script fails
+before that, reading or validating Root's descriptor. Before Electron is ready
+on Linux an uncaught main-process error is written to standard error with no
+dialog, and Root discards that stream, so the process idles silently. The probe
+now starts the workspace as Root does (environment, working directory and
+descriptors3,4 and6) with a correctly shaped descriptor carrying a made-up
+credential and an unused port, and keeps what it prints.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

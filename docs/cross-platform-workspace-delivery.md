@@ -152,3 +152,13 @@ explicit buildOnlyTarget. It builds real source and verifies complete target-awa
 artifacts; managed-desktop-build CI must pass before treating compilation as done.
 Default production targets remain disabled while Root launch/transport and service
 lifecycle are unfinished. Candidate build success is not installer delivery.
+
+
+## Native verifier integration
+
+PR299's actual Windows/Linux compiled artifacts passed complete JS verification;
+merged c1763cda63e8b2dec9c6d433d7849a5d9a632f9d. The next change makes Root's native
+package verifier understand format2 and native layouts, with ELF/PE architecture,
+complete inventory/provenance and Windows path/handle checks. The native CI builds
+real artifacts and runs the actual crate verifier against their exact manifest pins.
+This still does not enable launch/service/installer delivery. Preserve Mac format1.

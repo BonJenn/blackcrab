@@ -1,6 +1,62 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — gated 0.4.5 IDE source; stage merge authorized
+## Current checkpoint — actual portable builds passed; native verifier underway
+
+Integration update: PR300 is merged at stage 77e84aa. The owner authorized its
+inactive IDE source on stage; the release producer does not import this recipe and
+VITE_BLACKCRAB_IDE_MODE remains unset. This supersedes earlier instructions to keep
+its branch draft, but does not enable IDE mode in 0.4.4. Preserve its source and
+validation history below; coordinate activation separately for 0.4.5.
+PR302 passed all 12 checks on a301d8c, including the actual native Rust verifier
+reading both freshly compiled Windows/Linux artifacts. The only new conflict was
+this shared handoff. Current merge resolution must pass CI before merging PR302.
+
+Latest integration: PR301 merged at 52a29b2cdb0ef304631a195c0d1635ca7fdb7687,
+head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3,10 checks passed/no reviews/unwatched
+per its owner. This branch includes it together with PR297. Read
+docs/desktop-browser-reboot-recovery.md. No installed payload/helper/service changed;
+the temporary owner-Mac repair remains limited to the missing runtime directory.
+The older 'await PR301' statements below are superseded by this integration.
+
+Owner requires downloadable 0.4.4 on Mac/Windows/Linux and tested stage→main release.
+PR299 merged/unwatched at c1763cda63e8b2dec9c6d433d7849a5d9a632f9d after 12 checks passed
+on cca450fa3d672e8acfa649a1afbb10e05e8dd2d5, no review/comments. Actual full workspace
+builds passed: Linux job132363825854,2812 files, manifest 2273236a1de5d6e7cf7170cdf634b80fc8a8829e67b0966716b747942710c1a2;
+Windows job132363825631,2818 files, manifest 32d74328479fd13482d12ca5f45276abf7c42fb21873c2b4ed941a671271cfec.
+These are real compiled payloads, unlike earlier synthetic runtime CI. No UI or
+service was launched; no installers or0.4.4 were published. Artifact version is
+still0.4.3 until the coordinated release bump. Default production targets stay gated.
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Active P/desktop-portable-native-verifier-044, branch feat/desktop-portable-native-verifier,
+base c1763cda63e8b2dec9c6d433d7849a5d9a632f9d. Adjacent -plan.json has exact head/PR.
+managed_desktop.rs now selects manifest/layout/native header by compiled OS/arch,
+retains Mac format1/QA, verifies portable format2/provenance/boot/notices, normalizes
+filesystem separators and checks all hashes. Windows reparse points/hardlinks,
+reserved names and case aliases are rejected. Native tests read the actual newly
+built workspace artifact with its exact trusted manifest pin, never launch it.
+Local actual crate: 17 tests passed, one explicitly ignored native portable artifact
+case (not runnable on Mac; CI runs it with --ignored on Windows/Linux). JS shared
+contracts: 6 passed. Logs P/desktop-portable-native-verifier-rust-final.log and
+P/desktop-portable-native-verifier-contract.log. No local process is running;
+owned incremental target is /private/tmp/blackcrab-native-verifier-044-target.
+Next inspect native artifact-verifier CI, merge only after passes, then implement
+Root launch/transport, per-user services and verified installers. Never substitute
+root-only installers or compilation for full product delivery.
+
+Separately owned PR301 (reported head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3) fixes
+reboot loss of private browser capability directory and exposes native error strings;
+its owner controls CI/review/merge. It also explicitly sets updater temp staging0700.
+Do not duplicate edits or alter production c04c4d44… service/helper/configuration/data.
+Include its merge when reported. The owner Mac0.4.3 currently works after guarded
+missing-temp-directory restoration and normal Retry with existing threads; another
+reboot may need repair until updated Root ships. PR297 updater fix is already inbase.
+IDE 0.4.5 source is merged but remains inactive in 0.4.4. TestFlight 1.0.0(5) remains delivered.
+Preserve dirty main checkout, existing releases/data and production service identity.
+
+---
+
+## Historical IDE handoff — superseded merge status — gated 0.4.5 IDE source; stage merge authorized
 
 The owner subsequently instructed: "merge it to stage". This supersedes the draft
 merge hold below for PR #300 only. Merge after required CI/review checks pass.
@@ -76,7 +132,10 @@ or publish without that coordination. Public release/TestFlight state is unchang
 
 ---
 
-## Parallel release checkpoint preserved during IDE rebase — PR298 merged; actual portable workspace builds underway
+
+---
+
+## Previous checkpoint — PR298 merged; actual portable workspace builds underway
 
 Owner instruction remains: continue until 0.4.4 is downloadable for Mac, Windows
 and Linux, then tested stage → main for release. Do not stop at intermediate merges.
@@ -123,7 +182,7 @@ or change production service/helper identity. Include its reported merge in0.4.4
 Next: inspect actual portable build CI; fix compiler/package failures; then implement
 Root authenticated launch/transport, independent service lifecycle, verified installers,
 and coordinated release. 0.4.5 IDE branch feat/ide-mode-045 stays isolated/draft OUT
-of0.4.4. No0.4.4 is published; Mac0.4.3 and Windows/Linux0.3.0 remain public.
+of 0.4.4. No0.4.4 is published; Mac0.4.3 and Windows/Linux0.3.0 remain public.
 TestFlight Remote1.0.0(5) is delivered. Preserve user data, c04c4d44… production host,
 public tags/assets, and dirty main checkout. Website session/quota issue is separate.
 

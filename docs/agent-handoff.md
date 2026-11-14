@@ -18,6 +18,11 @@ P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
 Active P/linux-managed-service-044, branch feat/linux-managed-service,
 base10b575103142f73992832559fdfc4503d840b395. Read adjacent
 linux-managed-service-044-plan.json for current commit/PR/watch/test state.
+PR305 is open/linked: https://github.com/BonJenn/blackcrab/pull/305
+Implementation head29971c4cce73c16682a85a2d3c811a30f25d4a12, followed by this
+handoff-only checkpoint. Finish this push, watch305 and end for required CI.
+On wake inspect final checks/reviews/base, fix failures or merge and continue.
+
 Implementing native systemd user-service install/start/stop/restart/uninstall,
 with OS-account HOME/bus selection, bounded manager children, verified loaded
 argv/environment/unit ownership, existing native issuer/journal fencing, retained
@@ -29,7 +34,7 @@ GUI acceptance remain next, followed by Windows native IPC/ACL/service integrati
 Local complete managed Rust suite:181 passed,0 failed,10 explicitly ignored native/
 artifact cases; eight Linux-specific unit/IO tests pass. Python syntax and paired
 guides/diff checks pass. Log P/linux-managed-service-regression.log. Required native
-Linux CI is pending. Final source review completed; create/link/watch this PR and
+Linux CI is pending. Final source review completed; watch PR305 after this handoff push and
 end the turn, then inspect final checks/reviews/base on wake and merge if ready. No
 local service/app/user data was touched. Do not launch the isolated Linux manager
 test on the Mac or the user's normal account. No background native build is

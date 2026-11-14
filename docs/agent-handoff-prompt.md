@@ -11,10 +11,14 @@ PR303 merged/unwatched at10b575103142f73992832559fdfc4503d840b395, finalhead
 builds/verifier and Unix launcher source are integrated; not GUI/service acceptance.
 Active P/linux-managed-service-044, branch feat/linux-managed-service, samebase.
 Read adjacent linux-managed-service-044-plan.json for final commit/PR/test/watch.
+PR305 is open/linked: https://github.com/BonJenn/blackcrab/pull/305
+Implementation head29971c4cce73c16682a85a2d3c811a30f25d4a12, followed by this
+handoff-only checkpoint. Finish this push, watch305 and end for required CI.
+On wake inspect final checks/reviews/base, fix failures or merge and continue.
+
 Linux user-service control is being implemented/tested, with real isolated systemd
 CI acceptance. Final local managed Rust run181 passed,10 explicitly ignored native/artifact cases.
-Python syntax and guide/diff checks passed. Native Linux CI is pending; finish PR
-creation/link/watch, end turn, then inspect checks/reviews/base on wake. No live local build/service;
+Python syntax and guide/diff checks passed. Native Linux CI is pending; finish PR305 handoff push/link/watch, end turn, then inspect checks/reviews/base on wake. No live local build/service;
 Cargo target /private/tmp/blackcrab-native-verifier-044-target is reusable.
 Next finish Linux service/native host packaging, Windows private IPC/ACL/service,
 actual integration acceptance, all installers, coherent0.4.4 bump, stage→main and

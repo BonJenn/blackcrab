@@ -162,3 +162,26 @@ package verifier understand format2 and native layouts, with ELF/PE architecture
 complete inventory/provenance and Windows path/handle checks. The native CI builds
 real artifacts and runs the actual crate verifier against their exact manifest pins.
 This still does not enable launch/service/installer delivery. Preserve Mac format1.
+
+## Unix launcher and activation channel
+
+PR302 merged with12 checks, including the actual native Rust verifier reading full
+Windows/Linux built artifacts. The next branch shares the POSIX launcher and private
+FD3 bootstrap, FD4 renewal and FD5 update channels. Linux adds FD6 lifecycle requests;
+its owned Electron window service reports readiness only for a visible, loaded
+blackcrab://app main window. Root retains recovery until that reply and then tracks
+normal exit/crash. Reopen reuses the captured client; updates close only that client.
+Mac retains AppKit. No renderer path/PID/command authority or provider run is added.
+
+The local actual native suite passes173 tests (10 explicitly ignored fixtures),
+JS desktop/QA/resource suite148 (3 ignored real-artifact fixtures), shared contracts6,
+and full fresh-source desktop Effect types/bundle. The channel tests use captured
+Rust/Node children; they are not Linux GUI or end-to-end service acceptance. A real
+Darwin close race was reproduced: setting a read timeout after peer close can return
+EINVAL while reply bytes remain buffered. Absolute-deadline poll/read preserves the
+valid reply without extending timeout or accepting a stale response.
+
+Linux Root entry now understands the package and launch path. Independent Linux
+user-service setup/controls still need implementation, then Windows private native
+transport and service lifecycle, native acceptance and distributable installers.
+Do not enable build-only producers or publish from these protocol checks alone.

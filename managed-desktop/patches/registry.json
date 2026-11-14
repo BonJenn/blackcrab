@@ -215,8 +215,8 @@
     "target": "apps/desktop/src/app/ManagedAttached.ts",
     "file": "../runtime/ManagedAttached.ts",
     "beforeSha256": null,
-    "afterSha256": "c9f9f916ea17e75da7f71306506e4b924855666064ce6221f897fe5b633d45da",
-    "sha256": "c9f9f916ea17e75da7f71306506e4b924855666064ce6221f897fe5b633d45da"
+    "afterSha256": "ffa8b3a107eb235615a7bdea3b27b391eb9082d555f1adae00a5a95917648c92",
+    "sha256": "ffa8b3a107eb235615a7bdea3b27b391eb9082d555f1adae00a5a95917648c92"
   },
   {
     "id": "payload-ManagedBootstrap.mjs",
@@ -233,8 +233,8 @@
     "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
     "file": "../descriptor.mjs",
     "beforeSha256": null,
-    "afterSha256": "33730523f36e2ae6867d2e1451d6b9eb370e558f91048d4b8fb180ae151ec263",
-    "sha256": "33730523f36e2ae6867d2e1451d6b9eb370e558f91048d4b8fb180ae151ec263"
+    "afterSha256": "b74d350edf8af154f178e1d77eef40064821619ec03dc2085ea4507b2e8fa68f",
+    "sha256": "b74d350edf8af154f178e1d77eef40064821619ec03dc2085ea4507b2e8fa68f"
   },
   {
     "id": "payload-attachment.mjs",
@@ -251,8 +251,8 @@
     "target": "apps/desktop/src/app/managed-desktop/descriptor.d.mts",
     "file": "../runtime/descriptor.d.mts",
     "beforeSha256": null,
-    "afterSha256": "ac910fcecc273446773a5c6a551118503439cce533527e894d02e29a51f8cd01",
-    "sha256": "ac910fcecc273446773a5c6a551118503439cce533527e894d02e29a51f8cd01"
+    "afterSha256": "a5dc6c118083b384ab4f43d6ccc11d802106c9450731b11d1b5a20d741395481",
+    "sha256": "a5dc6c118083b384ab4f43d6ccc11d802106c9450731b11d1b5a20d741395481"
   },
   {
     "id": "payload-attachment.d.mts",
@@ -4784,5 +4784,23 @@
         "after": "import type { DesktopUpdateState } from \"@t3tools/contracts\";\nimport { describe, expect, it, vi } from \"vite-plus/test\";\nimport { page, userEvent } from \"vite-plus/test/browser\";\n\nimport \"~/index.css\";\nimport { act, render } from \"../../../test/render\";\nimport { SidebarUpdatePill } from \"./SidebarUpdatePill\";\nimport { toastManager } from \"../ui/toast\";\n\nconst mocks = vi.hoisted(() => {\n  const listeners = new Set<() => void>();\n  return {\n    update: null as DesktopUpdateState | null,\n    hasUpdates: false,\n    subscribe: (listener: () => void) => {\n      listeners.add(listener);\n      return () => listeners.delete(listener);\n    },\n    notify: () => {\n      for (const listener of listeners) listener();\n    },\n  };\n});\nvi.mock(\"../../state/desktopUpdate\", async (importOriginal) => ({\n  ...(await importOriginal<typeof import(\"../../state/desktopUpdate\")>()),\n  useDesktopUpdateState: (await import(\"react\")).useSyncExternalStore.bind(\n    null,\n    mocks.subscribe,\n    () => mocks.update,\n  ),\n}));\n// The pill only renders in the desktop app.\nvi.mock(\"../../env\", async (importOriginal) => ({\n  ...(await importOriginal<typeof import(\"../../env\")>()),\n  isElectron: true,\n}));\nvi.mock(\"./useUpdateEverything\", () => ({\n  useUpdateEverything: () => ({\n    hasUpdates: mocks.hasUpdates,\n    summary: \"Update everything\",\n    version: null,\n    providerCount: 0,\n    rows: [],\n    restarts: [],\n  }),\n}));\n\nfunction nightlyUpdate(releaseNotes: DesktopUpdateState[\"releaseNotes\"]): DesktopUpdateState {\n  return {\n    enabled: true,\n    status: \"available\",\n    channel: \"nightly\",\n    currentVersion: \"0.0.50-nightly.1\",\n    hostArch: \"arm64\",\n    appArch: \"arm64\",\n    runningUnderArm64Translation: false,\n    availableVersion: \"0.0.50-nightly.2\",\n    downloadedVersion: null,\n    releaseNotes,\n    omittedReleaseCount: 0,\n    downloadPercent: null,\n    checkedAt: null,\n    message: null,\n    errorContext: null,\n    canRetry: false,\n  };\n}\n\nconst RELEASE_NOTES: DesktopUpdateState[\"releaseNotes\"] = [\n  { version: \"0.0.50-nightly.2\", items: [\"Faster sidebar.\"], totalItems: 1 },\n];\n\nfunction setup(update: DesktopUpdateState | null, { hasUpdates = false } = {}) {\n  mocks.update = update;\n  mocks.hasUpdates = hasUpdates;\n}\n\nfunction publish(update: DesktopUpdateState | null) {\n  return act(() => {\n    mocks.update = update;\n    mocks.notify();\n  });\n}\n\nconst releaseNotes = () => document.querySelector('[aria-label=\"Update release notes\"]');\n\ndescribe(\"SidebarUpdatePill release notes\", () => {\n  it(\"closes when the release notes stop applying\", async () => {\n    setup(nightlyUpdate(RELEASE_NOTES));\n    await using _screen = await render(<SidebarUpdatePill />);\n    await userEvent.tab();\n    await vi.waitFor(() => expect(releaseNotes()).not.toBeNull());\n\n    await publish(nightlyUpdate([]));\n    await vi.waitFor(() => expect(releaseNotes()).toBeNull());\n  });\n\n  it(\"opens when release notes arrive while the trigger has keyboard focus\", async () => {\n    setup(nightlyUpdate([]));\n    await using _screen = await render(<SidebarUpdatePill />);\n    await userEvent.tab();\n    expect(releaseNotes()).toBeNull();\n\n    await publish(\n      nightlyUpdate([\n        {\n          version: \"0.0.50-nightly.2\",\n          items: [\"**One-time tasks.** Pick a date.\"],\n          totalItems: 1,\n          stats: \"3 changes from 2 contributors\",\n          footer: \"Plus 2 more bug fixes.\",\n        },\n      ]),\n    );\n    await expect.element(page.getByText(\"One-time tasks.\", { exact: true })).toBeVisible();\n    await expect.element(page.getByText(\"Plus 2 more bug fixes.\")).toBeVisible();\n  });\n});\n\ndescribe(\"SidebarUpdatePill update everything\", () => {\n  it(\"does not refocus the update button after a pointer cancel\", async () => {\n    setup(null, { hasUpdates: true });\n    await using screen = await render(<SidebarUpdatePill />);\n    const button = screen.getByRole(\"button\", { name: \"Update everything\" });\n    await userEvent.click(button);\n    const cancel = page.getByRole(\"button\", { name: \"Cancel\" });\n    await expect.element(cancel).toBeVisible();\n\n    await userEvent.click(cancel);\n    await vi.waitFor(() => expect(document.querySelector('[role=\"alertdialog\"]')).toBeNull());\n    expect(document.activeElement).not.toBe(button.element());\n  });\n\n  it(\"returns focus to the update button after Escape\", async () => {\n    setup(null, { hasUpdates: true });\n    await using screen = await render(<SidebarUpdatePill />);\n    const button = screen.getByRole(\"button\", { name: \"Update everything\" });\n    await userEvent.click(button);\n    await expect.element(page.getByRole(\"button\", { name: \"Cancel\" })).toBeVisible();\n\n    await userEvent.keyboard(\"{Escape}\");\n    await vi.waitFor(() => expect(document.activeElement).toBe(button.element()));\n  });\n});\n\n\ndescribe(\"Blackcrab update notification\", () => {\n  it(\"announces a Blackcrab update once per version without installing it\", async () => {\n    const toast = vi.spyOn(toastManager, \"add\").mockReturnValue(\"update-notice\");\n    try {\n      const available = { ...nightlyUpdate([]), channel: \"latest\" as const, availableVersion: \"0.4.5\" };\n      setup(available);\n      await using _screen = await render(<SidebarUpdatePill />);\n      expect(toast).toHaveBeenCalledWith(expect.objectContaining({title: \"Blackcrab 0.4.5 is available\"}));\n      await publish({ ...available });\n      await publish({ ...available, status: \"checking\" });\n      await publish({ ...available });\n      expect(toast).toHaveBeenCalledTimes(1);\n      await publish({ ...available, availableVersion: \"0.4.6\" });\n      expect(toast).toHaveBeenCalledTimes(2);\n      expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({title: \"Blackcrab 0.4.6 is available\"}));\n    } finally { toast.mockRestore(); }\n  });\n});\n"
       }
     ]
+  },
+  {
+    "id": "launcher-lifecycle",
+    "kind": "payload",
+    "file": "../lifecycle.mjs",
+    "target": "apps/desktop/src/app/managed-desktop/lifecycle.mjs",
+    "beforeSha256": null,
+    "afterSha256": "7493497a6baed7c525892eb07d5d2d6cdb4da22ff69747315683059811122dc7",
+    "sha256": "7493497a6baed7c525892eb07d5d2d6cdb4da22ff69747315683059811122dc7"
+  },
+  {
+    "id": "launcher-lifecycle-types",
+    "kind": "payload",
+    "file": "../runtime/lifecycle.d.mts",
+    "target": "apps/desktop/src/app/managed-desktop/lifecycle.d.mts",
+    "beforeSha256": null,
+    "afterSha256": "2fc05d6fb708e69db9c982fda6b2c20e401cd9a5ccafc6cef4fa90ca4e983c39",
+    "sha256": "2fc05d6fb708e69db9c982fda6b2c20e401cd9a5ccafc6cef4fa90ca4e983c39"
   }
 ]

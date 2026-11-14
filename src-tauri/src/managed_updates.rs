@@ -257,13 +257,13 @@ async fn install(app: &tauri::AppHandle) {
     crate::managed_launcher::show(app, "blackcrab-open-settings");
     // Keep progress/recovery visible while the captured workspace closes normally.
     // The independent background service and its running agents are untouched.
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     let closed = app
         .state::<crate::managed_native_entry::ManagedNativeEntry>()
         .close_for_update()
         .await
         .is_ok();
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(unix))]
     let closed = true;
     if !closed {
         change(app, |inner| {
@@ -322,7 +322,7 @@ pub(crate) fn managed_update(
 }
 
 /// This stream is inherited only by the captured workspace, never exposed over HTTP.
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 pub(crate) fn serve(mut stream: std::os::unix::net::UnixStream, app: tauri::AppHandle) {
     use std::io::{Read, Write};
     let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));

@@ -1,84 +1,56 @@
-Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
-
-Integration update: PR300 is merged at stage 77e84aa. The owner authorized its
-inactive IDE source on stage; the release producer does not import this recipe and
-VITE_BLACKCRAB_IDE_MODE remains unset. This supersedes earlier instructions to keep
-its branch draft, but does not enable IDE mode in 0.4.4. Preserve its source and
-validation history below; coordinate activation separately for 0.4.5.
-PR302 passed all 12 checks on a301d8c, including the actual native Rust verifier
-reading both freshly compiled Windows/Linux artifacts. The only new conflict was
-this shared handoff. Current merge resolution must pass CI before merging PR302.
-
-Latest integration: PR301 merged at 52a29b2cdb0ef304631a195c0d1635ca7fdb7687,
-head 097b9582d291d1b5ace3ce36f5979fbfbc1db2c3,10 checks passed/no reviews/unwatched
-per its owner. This branch includes it together with PR297. Read
-docs/desktop-browser-reboot-recovery.md. No installed payload/helper/service changed;
-the temporary owner-Mac repair remains limited to the missing runtime directory.
-The older 'await PR301' statements below are superseded by this integration.
-Read AGENTS.md and the CURRENT checkpoint in docs/agent-handoff.md first. Preserve
-the dirty main checkout and paired AGENTS.md/CLAUDE.md files. The user wants mobile
-updates delivered to TestFlight first, then desktop 0.4.4 on all three platforms.
+Continue the authorized Blackcrab parity task and 0.4.4 release for Mac, Windows
+and Linux. Read AGENTS.md and the CURRENT docs/agent-handoff.md checkpoint first.
+Keep paired AGENTS.md/CLAUDE.md identical; preserve dirty main checkout and user data.
+Do not stop at a merge: continue launcher/service/installer delivery. For required
+CI waits, watch the PR and end the turn; on wake inspect and act. Do not poll CI.
+Publish tested stage→main with verified installers. Publication is already authorized.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-D=P/mobile-testflight-polish-xn2t7paa. Read D/plan.json, build-report.json and
-apple-submission-result.json before acting. Source 93edbe827fb52c4011cbbe52d5b954dc5de15111
-includes merged/unwatched PR292/293. The standalone signed 1.0.0 (5) IPA is BUILT,
-with all three target identities/entitlements/signatures verified; actual Hermes
-contains Blackcrab Account/Connect, zero T3 Account/Connect labels and the retained
-hosts label. IPA SHA256 38759e70456df516bdd285d383fd88a51110add4b32dbfa2a437258411e18e77,
-path /private/tmp/blackcrab-ios-Zgmgz1/artifacts/export/BlackcrabRemote.ipa.
-Completed archive session 78178 must NOT restart. Correct existing Apple app 6780360079,
-bundle dev.blackcrab.remote, team Jonathan Benn/YF28W3NGG6. No new account/app/project.
+PR302 merged/unwatched at5ec76354669b335cec3a9be5fdb6ccc01e5d4471, finalhead
+59080a2aaf0c74a27c9c3646003008bb3503b40d,12 checks passed, no comments/reviews.
+PR299 actual full Windows/Linux workspace builds and PR302 actual native package
+verification passed; this is not GUI/service/installer acceptance.
 
-DELIVERED: Blackcrab Remote 1.0.0 (5) is AVAILABLE to the existing owner in
-TestFlight. D/testflight-delivery-verification.json records Apple build
-8e31043e-b547-4264-9c27-d312772e7bdc as VALID, not expired and IN_BETA_TESTING,
-attached to the existing Blackcrab Internal Release group with owner membership
-verified, testing notes saved and notifications enabled at 2026-11-14 02:04 UTC.
-Archive session 78178, uploader 75457 and verifier 10732 all finished successfully.
-No mobile build/upload is active. Do not repeat the upload or restart controllers.
-The owner was told to update through TestFlight. No OTA was published. Availability
-is not proof of installation, device haptics, real login or retained data acceptance.
-Preserve build 4 and all existing account/app/project identities.
+Active P/desktop-unix-launcher-044, branch feat/desktop-unix-launcher, same stagebase.
+Read adjacent desktop-unix-launcher-044-plan.json for final commit/PR/watch state.
+PR303 is open/linked: https://github.com/BonJenn/blackcrab/pull/303
+Implementation head5adb2ac04eab320e2672d3a30aa8d36785aa1216, followed by a handoff-only
+commit. CI pending: finish that push, register watch and end; on wake inspect final
+checks/reviews/base, merge and immediately continue service/installer integration.
+Changes share Unix launch/renewal/update channels and add Linux-only
+FD6 activation acknowledgements from the loaded, visible real workspace; Mac retains
+AppKit. Root Linux entry/handoff/update-close are wired. Linux service and Windows
+native transport/service/installers remain unfinished, production producers gated.
 
-Clerk Native API/native iOS registration/redirect and Apple/GitHub sign-up/sign-in
-are configured. Actual login acceptance is pending. Verify Jonathan Benn/YF28W3NGG6
-before Apple mutations; a previously selected wrong team was corrected without
-mutating it. Private keys remain outside Git/chat/logs. Google is explicitly owner-
-deferred; do not repeat the request or enable it with unconfigured credentials.
+Local actual native suite173 passed/10 ignored; JS suite148 passed/3 skipped;
+shared contracts6 passed/0 skipped. Full pinned desktop Effect types + bundle passed.
+Evidence: P/desktop-unix-launcher-native-reviewed.log,
+P/desktop-unix-launcher-contracts.log, P/desktop-unix-launcher-rust-contract.log,
+P/desktop-unix-launcher-validation/result.json. Ignored native/packaging fixtures
+are NOT passed. No local build/test process running; original shell handles completed.
+Cargo output /private/tmp/blackcrab-native-verifier-044-target is reusable.
 
-Owner says do not stop until 0.4.4 is downloadable on Mac, Windows and Linux.
-After a successful merge, CONTINUE the next implementation step rather than ending
-at that milestone. Required CI waits use the existing PR-watch flow. Promote the
-tested stage to main before publishing from the validated main commit.
-Current worktree P/desktop-portable-native-verifier-044, branch
-feat/desktop-portable-native-verifier, basec1763cda63e8b2dec9c6d433d7849a5d9a632f9d.
-PR299 merged/unwatched with 12 checks: REAL Windows/Linux workspace builds and full
-inventories passed (2818/2812 files). No UI/service/installer/release acceptance.
-Current change ports native package verification; explicit OS/arch, format2, complete
-hashes, Windows paths/reparse/hardlink checks, correct ELF/PE headers. Mac retains
-format1/QA. Native CI rebuilds real artifacts and asks Rust to verify their exactpins.
-Read P/desktop-portable-native-verifier-044-plan.json for head/PR/processes.
-Local17 Rust tests and6 JS contracts pass; actual portable-artifact test is explicitly
-ignored on Mac and runs via --ignored on Windows/Linux CI. No local process active.
-Owned target /private/tmp/blackcrab-native-verifier-044-target can be reused here.
-After CI/merge continue Root transport, services and verified installers to0.4.4.
+Next implement Linux user-service controls/attachment, Windows private IPC/ACLs and
+service lifecycle, actual native launch acceptance and installers; then coordinated
+0.4.4 version/payload update, stage→main, verified draft builds and public download
+publication. Mac0.4.3 and Windows/Linux0.3.0 are still public. No0.4.4 yet.
+PR297 Mac cross-volume updater and PR301 reboot recovery are merged/included and
+unwatched. Preserve production Mac host manifest
+c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83/helper/config/data
+until a reviewed stopped, data-preserving migration. Old0.4.1/0.4.2 can need manual
+app-only replacement using official DMG; retain app data/service. IDE PR300 source
+is merged by authorization, opt-in and inactive in0.4.4; don't turn it on.
 
-PR297 Mac updater merged and included. Separately owned PR301 adds missing private
-browser directory recovery after reboot, native errors and explicit0700 updater
-staging. Its owner handles CI/review/merge; await report and include it in0.4.4.
-Do not duplicate or change c04c4d44… production host/helper/configuration/data.
-The owner Mac0.4.3 was repaired by restoring only missing temporary directory then
-normal Retry; real retained workspace/service verified per that owner's report.
-0.4.5 IDE source is merged but inactive in 0.4.4. No public0.4.4 yet.
-
-Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
-shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include
-a one-time manual download/app replacement instruction with the eventual 0.4.4
-website/release notes, preserving app data. Keep the production Mac service manifest
-c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 until an explicitly
-stopped, data-preserving upgrade. Native signing/updater checks remain required.
-Publication is already authorized; do not ask for routine confirmation again.
+Mobile is delivered: Blackcrab Remote1.0.0(5), Apple app6780360079,
+bundle dev.blackcrab.remote, correct Jonathan Benn teamYF28W3NGG6. Apple build
+8e31043e-b547-4264-9c27-d312772e7bdc is VALID/IN_BETA_TESTING in the existing owner
+group; P/mobile-testflight-polish-xn2t7paa/testflight-delivery-verification.json.
+No upload/build active and no OTA published. Do not repeat it. Device login/haptics/
+data acceptance remains separate. Clerk Native API/iOS setup and Apple/GitHub sign-in
+configured; Google is explicitly owner-deferred. No repeat approval request. Existing
+credentials are authorized; keep private values out of Git/logs/chat. Preserve account
+identities and spending limits. Full off-LAN two-computer+iOS control/revocation/push,
+hosted beta entitlements, and final full parity still need evidence.
 
 The user requested an independent NEW website redesign session:
 <t3-thread://v2/95c98c5c-276e-4ac8-b422-c5d8447bafe7/mcp:launch:52c478392d53de435662458de3e6d1957fa5cc9fe7cdab0af947fe25ae477d77>.

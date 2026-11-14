@@ -94,3 +94,12 @@ ELF x64 and execute permissions. Mac format1/framework/QA identities stay intact
 Native build CI feeds real compiled artifacts and exact pins to the read-only Rust
 verifier; this proves package acceptance only, not launcher/service lifecycle or
 installer publication. Keep production platform enablement separate until integrated.
+
+## Unix launcher integration — 0.4.4 preparation
+
+Linux uses the shared captured-child bootstrap/renewal/update sockets and a separate
+optional FD6 lifecycle channel. Root must receive the matching acknowledgement from
+a loaded, visible owned workspace before hiding; process liveness alone is not UI
+readiness. Mac keeps AppKit activation. Preserve separate FD roles, bounded deadlines,
+closed-channel retirement and OS-derived HOME. Native transport tests do not certify
+Linux GUI/service/installers; production target enablement awaits those integrations.

@@ -1,6 +1,59 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — physical native dependencies; continue through 0.4.4 release
+## Current checkpoint — PR298 merged; actual portable workspace builds underway
+
+Owner instruction remains: continue until 0.4.4 is downloadable for Mac, Windows
+and Linux, then tested stage → main for release. Do not stop at intermediate merges.
+PR298 merged to stage 426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d, final head
+32ba32d056f8acca99087a5256293c1db1e37d65. All 12 checks passed, no comments/reviews;
+unwatched. Windows job132360192900 independently read owned OS VersionInfo and
+launched the edited Electron44.10.1 runtime; Linux job132360193176 validated its
+outer-launcher desktop entry and launched runtime. Both loaded real native modules,
+verified complete inventories and cleaned up. These used synthetic app payloads.
+
+Current worktree P/desktop-portable-producer-044, branch feat/desktop-portable-producer,
+base426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d.
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Read P/desktop-portable-producer-044-plan.json for exact head/PR/tests/active handles.
+Focused validation passed: 28 distinct tests across native QA structure, platform
+selection, isolated environments, child cancellation and portable manifests. Logs:
+P/desktop-portable-producer-focused.log and -platform.log. No local build/test is
+running. Actual Windows/Linux full build acceptance remains pending CI.
+The shared build recipe now has an explicit native buildOnlyTarget for Windows/Linux:
+real pinned source, frozen dependencies including compiler tools, complete desktop/web
+types and builds, singleton Effect checks, owned metadata, physical dependencies,
+notices and format-2 inventory. It does not enable production target selection,
+activate/install an app/service, or certify Root transport. Mac metadata/signing and
+format1 stay unchanged. Windows uses explicit pnpm.mjs through Node and a minimal
+isolated OS environment; captured children have bounded steps and cancellation.
+The new CI workflow compiles actual workspace artifacts on native Windows/Linux.
+No synthetic payload is substituted if real builds fail; inspect the retained logs.
+
+PR297's Mac updater fix is already in this base (merge2dd550585224c9294d0b6898d5d379e02438d331).
+Read docs/updater-cross-volume.md; keep its destination-local verified install and
+rollback in 0.4.4. Its owner reported 10 CI checks, 11 installer tests, two update
+and four Tauri gates. An interrupted redundant rerun is not counted. No user data
+or public release changed. Old0.4.1 needs official DMG app-only replacement.
+
+NEW separately owned reboot recovery work: owner reported0.4.3 'Private native
+browser capability was refused' after this Mac rebooted. The updater thread
+confirmed missing /private/tmp capability directory with valid persistent identity
+and production c04c4d44… manifest. It reports restoring only the missing temporary
+directory with existing owner marker, then successful Retry/open of existing threads.
+It owns permanent managed_browser.ensure_runtime_directory/managed_host.read_config
+and Root native string-error fixes, focused regression, PR/CI/merge. Do not duplicate
+or change production service/helper identity. Include its reported merge in0.4.4.
+
+Next: inspect actual portable build CI; fix compiler/package failures; then implement
+Root authenticated launch/transport, independent service lifecycle, verified installers,
+and coordinated release. 0.4.5 IDE branch feat/ide-mode-045 stays isolated/draft OUT
+of0.4.4. No0.4.4 is published; Mac0.4.3 and Windows/Linux0.3.0 remain public.
+TestFlight Remote1.0.0(5) is delivered. Preserve user data, c04c4d44… production host,
+public tags/assets, and dirty main checkout. Website session/quota issue is separate.
+
+---
+
+## Previous checkpoint — physical native dependencies; continue through 0.4.4 release
 
 Owner explicitly reiterated: do not stop until 0.4.4 is downloadable for Mac,
 Windows and Linux. Do not end a successful-merge wake at the milestone: continue

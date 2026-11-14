@@ -120,3 +120,35 @@ records optional platform exclusions and attribution roots. Native CI installs t
 pinned frozen source graph and loads actual native addon packages under Electron.
 This does not yet exercise user credentials, accessibility operations or the full
 workspace. Complete app metadata, owner transport, services and installers next.
+
+## Native package identity
+
+PR296 merged to stage 4be37291ec5038831555f04a3104eb88272e5cac after 11 checks passed.
+Windows and Linux loaded the physical keyring/accessibility/FFI/passkey/Playwright
+closure in actual Electron 44.10.1 / Node 24.22.1, verified complete inventories and
+cleaned up. The payload is still synthetic; that does not certify the workspace.
+
+portable-metadata.mjs now provides Windows product/file versions, all localized
+product-name tables and icon groups, plus an owned Linux icon and desktop-entry
+template for the outer blackcrab launcher. It uses resedit 1.7.2 from the existing
+frozen upstream graph. Windows rewriting preserves code/data bytes and addresses,
+loader references and unrelated resources. A larger resource section may move the
+following relocation table; its directory offset and bytes remain verified. See
+[Microsoft's PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-reloc-section-image-only).
+Edited Windows executables are unsigned; Authenticode and signed updater evidence
+are separate release concerns. Linux metadata does not install desktop shortcuts.
+
+Native CI checks Windows VersionInfo through the OS, validates Linux's desktop
+entry with desktop-file-validate and launches the edited native runtime. Read final
+CI results before claiming acceptance. Producer orchestration, Root transport,
+services and installers remain next. Mac production packaging stays unchanged.
+
+
+## Actual workspace producer candidate
+
+PR298 native runtime/metadata checks passed and merged at426c9af8d1885152ca1fd5afcee6a8b1bb4aa92d.
+The next candidate extends the shared build recipe to native Windows/Linux with an
+explicit buildOnlyTarget. It builds real source and verifies complete target-aware
+artifacts; managed-desktop-build CI must pass before treating compilation as done.
+Default production targets remain disabled while Root launch/transport and service
+lifecycle are unfinished. Candidate build success is not installer delivery.

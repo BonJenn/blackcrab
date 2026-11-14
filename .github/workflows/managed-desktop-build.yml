@@ -1,0 +1,52 @@
+name: managed desktop build
+
+on:
+  pull_request:
+    paths:
+      - managed-desktop/**
+      - managed-cloud/client-config.mjs
+      - scripts/build-portable-desktop-ci.mjs
+      - .github/workflows/managed-desktop-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: managed-desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workspace-build:
+    name: full workspace build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: linux-x64
+          - os: windows-2022
+            target: win32-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26.12.1'
+      - name: Install Linux extraction tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y unzip
+      - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      - name: Test native build process boundaries
+        run: node --test managed-desktop/build-platform.test.mjs
+      - name: Compile and verify actual workspace artifact
+        run: node scripts/build-portable-desktop-ci.mjs --root "${{ runner.temp }}/portable-workspace-build" --pnpm "$(npm root -g)/pnpm/bin/pnpm.mjs"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: workspace-build-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/portable-workspace-build/result.json
+            ${{ runner.temp }}/portable-workspace-build/cache/blackcrab-desktop-build-*/logs/*.log
+          if-no-files-found: warn

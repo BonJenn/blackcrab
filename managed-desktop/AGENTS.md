@@ -151,3 +151,26 @@ Preserve nearest-ancestor package resolution, nested versions, required target
 native companions, notices and file bounds. Native module loading in CI is distinct
 from actual credential/accessibility/browser/provider operations and full workspace
 acceptance. Mac's existing dependency layout remains unchanged.
+
+## Portable native identity
+
+portable-metadata.mjs updates Windows product/version/icon resources through the
+frozen resedit build dependency and provides Linux metadata for the OUTER launcher.
+All Windows translations/icon groups must agree; keep code/data, loader references,
+nonbranding resources and legal attribution intact. A changed Electron executable
+is unsigned until release packaging signs it; never reuse its upstream signature
+as Blackcrab signing evidence. Native CI checks OS-visible version properties and
+launches the edited runtime. Linux desktop entries must launch Root, not the inner
+workspace without owner channels. Metadata success does not enable an unfinished
+producer, service or installer. Mac metadata/signing remains on its existing path.
+
+## Native build-only candidates
+
+build.mjs accepts explicit buildOnlyTarget on the matching Windows/Linux runner.
+It compiles actual pinned desktop/web source, not the testing fixture, and preserves
+full types, Effect singleton, metadata, dependencies, notices and inventory gates.
+This is a build candidate only; default producer selection stays disabled until
+Root transport/service/installer integration is ready. Do not infer runtime or
+release acceptance from build success. pnpm's explicit Node entry and --prod=false
+are necessary for ignored install scripts and compiler dev dependencies. Keep
+Windows OS variables minimal and private build HOME/TEMP/config paths isolated.

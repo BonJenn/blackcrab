@@ -1,1 +1,4 @@
+# Producer registries pin exact bytes, including referenced .ts/.mjs payloads.
+# Do not let Windows checkout conversion change authenticated inputs.
+* -text
 *.patch -text whitespace=-blank-at-eol,-blank-at-eof

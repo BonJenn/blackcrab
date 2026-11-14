@@ -31,6 +31,15 @@ Next implement physical Windows dependency materialization, native app metadata,
 Root launch/authenticated transport and per-user service lifecycle, then installers.
 Never publish the synthetic test payload. 0.4.4 is NOT released.
 
+Windows CI follow-up: initial PR295 head 8425ff4 passed the Linux native job but
+Windows rejected pinned payload hashes. A Git checkout reproduction found 33
+source files converted from LF to CRLF; restoring LF matched every trusted digest.
+The managed-desktop attributes now preserve all producer bytes, not only .patch
+files. A private-Git regression exercises real checkout filters with autocrlf=true;
+it and seven portable-artifact tests passed (8 total). Digests/verifier checks were
+not changed or bypassed. Log: P/desktop-portable-manifests-windows-checkout.log.
+Final-head native/required CI still needs to pass before merge.
+
 TestFlight Blackcrab Remote 1.0.0 (5) is already AVAILABLE to the existing owner;
 no mobile build/upload is running. Do not repeat upload. Website redesign is
 implemented in its separate session but Vercel's transfer-limit pause blocks its

@@ -39,6 +39,9 @@ synthetic payload inventory/load tests. Mac format 1 remains compatible. Windows
 rejects links/reserved aliases and omits POSIX execute flags; Linux requires execute
 permission. 108 local tests passed, including Mac QA compatibility. Read
 P/desktop-portable-manifests-044-plan.json for final head, PR and native CI status.
+The first Windows job failed because Git converted 33 pinned payloads to CRLF;
+producer .gitattributes now preserves exact bytes and eight focused checkout/artifact
+tests pass. Linux native CI passed on the first head; final-head CI remains required.
 Review checks/reviews on wake, fix failures and merge validated work. Native test
 payloads are synthetic, not real workspace/UI/service/installer acceptance. Full
 Windows/Linux producer gates remain disabled. Continue physical Windows dependency

@@ -112,6 +112,12 @@ showing an error dialog, has no window, or is waiting on something is not yet
 known. On failure the test now also saves a screenshot, visible window titles
 and the workspace's process roles.
 
+Run43632335759's screenshot shows only Root's launcher with that message. The
+workspace had its main, zygote, GPU and utility processes but no renderer and
+no window, and showed no error dialog: its startup stalls before any window is
+created. The test now also returns the tails of the workspace's own startup
+logs from the fresh profile, with long token-like strings removed.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

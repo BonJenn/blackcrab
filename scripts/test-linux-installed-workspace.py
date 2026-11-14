@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import re
 import signal
 import socket
 import subprocess
@@ -176,6 +177,29 @@ def probe_workspace(environment):
     return probe
 
 
+def workspace_logs():
+    # The workspace writes its own startup log into this fresh account's private
+    # profile. Keep the newest tails, with long token-like strings removed.
+    profile = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1/native-desktop-profile-v1"
+    files = []
+    for directory, _, names in os.walk(profile):
+        if len(Path(directory).relative_to(profile).parts) > 6:
+            continue
+        for name in names:
+            if name.endswith((".log", ".ndjson", ".jsonl")) or "log" in Path(directory).name.lower():
+                file = Path(directory) / name
+                if file.is_file() and not file.is_symlink():
+                    files.append(file)
+    files.sort(key=lambda file: file.stat().st_mtime, reverse=True)
+    result = {"files": [f"{file.relative_to(profile)} ({file.stat().st_size})" for file in files[:40]], "tails": {}}
+    for file in files[:4]:
+        with open(file, "rb") as source:
+            source.seek(max(0, file.stat().st_size - 5000))
+            text = source.read(5000).decode("utf-8", "replace")
+        result["tails"][str(file.relative_to(profile))] = re.sub(r"[A-Za-z0-9_\-=]{32,}", "[redacted]", text)
+    return result
+
+
 def inside():
     if os.geteuid() != UID or Path(pwd.getpwuid(UID).pw_dir) != QA_HOME:
         raise RuntimeError("Fresh graphical QA account required")
@@ -277,6 +301,10 @@ def inside():
             report["workspaceRoles"] = roles
         except Exception as failure:
             report["screenEvidence"] = type(failure).__name__
+        try:
+            report["workspaceLogs"] = workspace_logs()
+        except Exception as failure:
+            report["workspaceLogs"] = {"error": type(failure).__name__}
         try:
             report["workspaceProbe"] = probe_workspace(environment)
         except Exception as failure:

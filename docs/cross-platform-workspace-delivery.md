@@ -82,3 +82,31 @@ Windows/Linux producers remain disabled. Next implement their application metada
 native dependency closure and complete artifact manifests, then Root launch,
 authenticated channels, independent service lifecycle and installers. The new
 staging helper does not relax those release gates or change public downloads.
+
+## Platform-bound artifact verification — 0.4.4 preparation
+
+PR294 merged after all 11 checks passed, including real Windows x64 and Linux x64
+Electron 44.10.1 / Node 24.22.1 execution with notices and cleanup. That is runtime
+acceptance only; the workspace/service/installers are still unfinished.
+
+The portable artifact format is version 2 and binds an explicit `target` to the
+pinned runtime, executable layout, application entry point and build provenance.
+Callers must supply `expectedTarget`; the default verifier remains Mac format 1.
+Mac format, Electron fields and inventory serialization are preserved. Mac-only QA
+identities and policies are rejected for portable targets. Native launch/adoption
+and release support are not enabled by adding structural verification.
+
+Windows inventory omits POSIX execute bits, which cannot round-trip across NTFS
+and Unix. It rejects links, case/normalization aliases, reserved device names and
+paths that Windows would reinterpret. Linux retains executable bits and requires
+its actual entry point to be executable. Both targets verify every file digest,
+reviewed source patch, branding asset, boot entry and required license/notice file.
+The full Windows dependency closure must therefore be materialized without links;
+using absolute junctions to a build machine is not a distributable package.
+
+Native CI constructs and verifies a complete inventory around the real runtime
+with an explicitly synthetic application payload, then loads that payload in
+Electron Node mode. It never starts a real workspace or service. Do not report
+this fixture as full UI/remote/provider acceptance or publish it as an installer.
+Next complete dependency closure and platform metadata, then native Root launch,
+authenticated transport, independent service lifecycle and verified installers.

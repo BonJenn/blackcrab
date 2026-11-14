@@ -5,6 +5,8 @@ import os from 'node:os';
 import {execFile} from 'node:child_process';
 import {promisify, parseArgs} from 'node:util';
 import {desktopTarget} from '../managed-desktop/targets.mjs';
+import {artifactFixture} from '../managed-desktop/testing/artifact-fixture.mjs';
+import {verifyArtifact,MANIFEST,fileDigest} from '../managed-desktop/artifact.mjs';
 import {stageElectronRuntime} from '../managed-desktop/runtime-package.mjs';
 
 const {values} = parseArgs({options:{report:{type:'string'}}, allowPositionals:false});
@@ -12,7 +14,7 @@ if (!values.report || !path.isAbsolute(values.report)) throw Error('Pass --repor
 const targetId = `${process.platform}-${process.arch}`;
 if (!['linux-x64', 'win32-x64'].includes(targetId)) throw Error('This native smoke requires a Windows or Linux x64 runner');
 const target = desktopTarget(targetId);
-const report = {scope:'Native Electron runtime only; workspace, service and installer acceptance are separate', targetId, passed:false, launched:false};
+const report = {scope:'Native Electron runtime and synthetic artifact verification only; full workspace, service and installer acceptance are separate', targetId, passed:false, launched:false};
 const reportFile = await fs.open(values.report, 'wx', 0o600);
 let root;
 try {
@@ -35,6 +37,10 @@ try {
   for (const notice of ['LICENSE', 'LICENSES.chromium.html']) {
     if (!(await fs.stat(path.join(staging, notice))).isFile()) throw Error('Runtime notices missing');
   }
+  await artifactFixture(staging,targetId,{runtimeAlreadyStaged:true});
+  const manifestSha256=await fileDigest(path.join(staging,MANIFEST));
+  const artifact=await verifyArtifact(staging,{expectedTarget:targetId,expectedManifestSha256:manifestSha256});
+  report.artifact={format:artifact.format,target:artifact.target,files:artifact.files.length,manifestSha256,syntheticPayload:true};
   const home = path.join(root, 'home'), temporary = path.join(root, 'tmp');
   await fs.mkdir(home); await fs.mkdir(temporary);
   const env = {ELECTRON_RUN_AS_NODE:'1', HOME:home, TMPDIR:temporary, TEMP:temporary, TMP:temporary};
@@ -44,12 +50,12 @@ try {
     Object.assign(env, {SystemRoot:systemRoot, WINDIR:systemRoot, PATH:path.join(systemRoot,'System32'), USERPROFILE:home, APPDATA:path.join(home,'roaming'), LOCALAPPDATA:path.join(home,'local')});
     await fs.mkdir(env.APPDATA); await fs.mkdir(env.LOCALAPPDATA);
   } else env.PATH = '/usr/bin:/bin';
-  const probe = 'console.log(JSON.stringify({platform:process.platform,arch:process.arch,electron:process.versions.electron,node:process.versions.node}))';
+  const probe = `console.log(JSON.stringify({platform:process.platform,arch:process.arch,electron:process.versions.electron,node:process.versions.node,fixture:require(${JSON.stringify(layout.payload)}).fixture}))`;
   report.launchAttempted = true;
   const output = await promisify(execFile)(layout.executable, ['--no-global-search-paths','-e',probe], {cwd:staging, env, windowsHide:true, timeout:30_000, maxBuffer:64*1024});
   report.launched = true;
   const observed = JSON.parse(output.stdout.trim());
-  if (observed.platform !== target.electron.platform || observed.arch !== target.electron.arch || observed.electron !== target.electron.version) throw Error('Native runtime identity differs');
+  if (observed.platform !== target.electron.platform || observed.arch !== target.electron.arch || observed.electron !== target.electron.version || observed.fixture !== true) throw Error('Native runtime identity differs');
   report.native = observed;
   report.archiveSha256 = target.electron.archiveSha256;
   report.executable = target.layout.executable;

@@ -31,19 +31,21 @@ before Apple mutations; a previously selected wrong team was corrected without
 mutating it. Private keys remain outside Git/chat/logs. Google is explicitly owner-
 deferred; do not repeat the request or enable it with unconfigured credentials.
 
-Desktop preparation: P/desktop-portable-packaging-044, branch
-feat/portable-desktop-packaging, commit f74fce06d16e0ad81877afe354c85f53f20b3340.
-New runtime staging module uses pinned archives and native platform layouts; the
-Mac producer calls it. New native CI executes isolated Windows/Linux Electron
-Node-mode probes. Producer gates remain disabled for those unfinished platforms.
-90 managed-desktop tests and 11 QA recipe tests passed; six focused tests passed
-after final cleanup handling. Actual three-platform archive/layout checks passed.
-No Windows/Linux workspace, service or installer acceptance is claimed. The branch
-is being submitted for CI after confirmed TestFlight delivery. Read
-P/desktop-portable-packaging-044-plan.json for exact PR/head/watch state. On the
-CI wake, review the final head, checks and reviews, resolve failures and merge the
-validated runtime PR; do not poll CI. Continue actual metadata/dependency/manifests, launch/transport/service
-and native installer work before enabling/publishing Windows/Linux.
+Desktop runtime PR294 is merged/unwatched at stage
+f22e310b9a255d69d154819b6082b4de6dd808f8. Native runtime Windows/Linux checks passed.
+Current worktree P/desktop-portable-manifests-044, branch feat/portable-desktop-manifests,
+adds explicit format-2 Windows/Linux structural manifests and native runtime-backed
+synthetic payload inventory/load tests. Mac format 1 remains compatible. Windows
+rejects links/reserved aliases and omits POSIX execute flags; Linux requires execute
+permission. 108 local tests passed, including Mac QA compatibility. Read
+P/desktop-portable-manifests-044-plan.json for final head, PR and native CI status.
+The first Windows job failed because Git converted 33 pinned payloads to CRLF;
+producer .gitattributes now preserves exact bytes and eight focused checkout/artifact
+tests pass. Linux native CI passed on the first head; final-head CI remains required.
+Review checks/reviews on wake, fix failures and merge validated work. Native test
+payloads are synthetic, not real workspace/UI/service/installer acceptance. Full
+Windows/Linux producer gates remain disabled. Continue physical Windows dependency
+closure, metadata, Root launch/transport/service and verified 0.4.4 installers.
 
 Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
 shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include

@@ -3,8 +3,17 @@ name: managed runtime
 on:
   pull_request:
     paths:
+      - managed-desktop/.gitattributes
+      - managed-desktop/checkout-integrity.test.mjs
       - managed-desktop/targets.mjs
       - managed-desktop/runtime-package.mjs
+      - managed-desktop/runtime-package.test.mjs
+      - managed-desktop/targets.test.mjs
+      - managed-desktop/artifact*.mjs
+      - managed-desktop/portable-artifact.test.mjs
+      - managed-desktop/testing/**
+      - managed-desktop/patches/**
+      - managed-desktop/assets/**
       - scripts/verify-managed-runtime.mjs
       - .github/workflows/managed-runtime.yml
   workflow_dispatch:
@@ -40,7 +49,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y unzip libgtk-3-dev libnss3 libasound2t64
       - name: Test staging rejection boundaries
-        run: node --test managed-desktop/runtime-package.test.mjs managed-desktop/targets.test.mjs
+        run: node --test managed-desktop/runtime-package.test.mjs managed-desktop/targets.test.mjs managed-desktop/portable-artifact.test.mjs managed-desktop/checkout-integrity.test.mjs
       - name: Stage and execute the exact runtime in an isolated profile
         run: node scripts/verify-managed-runtime.mjs --report "${{ runner.temp }}/managed-runtime-result.json"
       - uses: actions/upload-artifact@v6

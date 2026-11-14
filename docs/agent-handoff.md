@@ -1,6 +1,65 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — native Linux host/helper package integration
+## Current checkpoint — actual Linux installers and graphical acceptance
+
+The finish line is downloadable0.4.4 for Mac, Windows and Linux, then full parity.
+Publication and tested stage-to-main promotion are authorized. **0.4.4 is not
+published.** Public Mac0.4.3 and Windows/Linux0.3.0 remain unchanged. Remote1.0.0(5)
+is already in the owner's TestFlight; do not repeat its build/upload.
+
+PR306 merged/unwatched at4ac132512eb65f39d46cfd88b6dfdba96db52c74 after all eleven
+checks passed on0e53afc5145d699df6525352215265f7f96f2d28; comments/reviews were empty.
+Native job132390531684, run43576064552, built the real Linux host/helper and passed
+actual_packaged_linux_service_lifecycle:1 passed,0 failed,0 ignored. The producer's
+captured process groups settled. See docs/linux-host-package.md for artifact pins.
+This proves service setup/systemd/authenticated attachment/retention without agent
+prompts; it does not prove an installed Electron window.
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Active P/linux-workspace-delivery-044, branch feat/linux-workspace-delivery,
+base4ac132512eb65f39d46cfd88b6dfdba96db52c74. Adjacent
+linux-workspace-delivery-044-plan.json records the latest commit/PR/watch status.
+PR307 is open/linked: https://github.com/BonJenn/blackcrab/pull/307
+Implementation1001a69927a12cb2d4828c17d1b51b72669d693f, followed by this handoff-only
+checkpoint. Finish push/link, watch307 and END for required native CI.
+Read docs/linux-installed-workspace.md. The extended Linux job builds real host
+and Electron artifacts on Ubuntu22.04, bundles normal Debian/AppImage installers,
+verifies both embedded inventories and actual package bytes, and uses a new OS
+account with Xvfb/Openbox and the official Tauri WebDriver to test normal installed
+startup, Electron foreground activation, Quit, independent service survival and
+AppImage reopen with identical persistent identity. It records screenshots and
+requires cleanup. No product IPC is invoked by the controller; no success stub,
+QA Root feature, existing user account, production credentials or provider prompt.
+
+Local validation:3 controller/input tests,18 startup/renderer tests, root TypeScript
+passed. Workflow syntax and script syntax pass. Native Linux graphical acceptance
+is pending. No local build, app or service is running; no old shell handle to resume.
+The source version remains0.4.3 for these private candidates; updater signing and
+publication are not performed. Production portable build enablement is unchanged.
+
+Next: finish this handoff push/link, watch307 and END for required native CI.
+On wake inspect final checks/reviews/base and actual
+Linux logs/screenshots. Fix failures or merge and continue; do not stop at the merge.
+Then finish Linux release signing/update delivery and platform compatibility,
+Windows private IPC/ACL/service/installed launcher, coherent0.4.4 version/payloads,
+tested stage-to-main promotion, draft installer verification and all three public
+downloads. Never substitute historical root-only Windows/Linux installers.
+
+Preserve production Mac host
+c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83/helper/config/data.
+PR297 cross-volume updater and PR301 reboot recovery are already merged and required.
+The host producer freeze is unchanged. Main checkout remains extensively dirty;
+never reset/clean/switch/stage-all it. PR300 IDE recipes stay inactive; independently
+owned DRAFT PR304 is0.4.5 and excluded from this release. Do not duplicate its work.
+
+Website redesign is independently owned and Vercel Hobby-quota blocked; see the
+copyable prompt. Google sign-in is owner-deferred. Existing cloud authorizations and
+spending limits persist. Full off-LAN two-computer+iOS control/revocation/push and
+hosted beta entitlements still require their own evidence.
+
+---
+
+## Previous checkpoint — native Linux host/helper package integration
 
 The owner requires downloadable0.4.4 for Mac, Windows and Linux, then full parity.
 Publication is authorized. **0.4.4 is not published.** Public versions remain

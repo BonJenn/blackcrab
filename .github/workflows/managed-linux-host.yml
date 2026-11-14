@@ -4,14 +4,26 @@ on:
   pull_request:
     paths:
       - managed-host/**
+      - managed-desktop/**
       - managed-cloud/client-config.mjs
+      - src/workspaceStartup.ts
+      - src/App.tsx
       - src-tauri/src/managed_host.rs
       - src-tauri/src/managed_service*.rs
       - src-tauri/src/managed_payload.rs
+      - src-tauri/src/managed_desktop*.rs
+      - src-tauri/src/managed_native_entry.rs
+      - src-tauri/src/managed_launcher.rs
+      - src-tauri/tauri.conf.json
       - scripts/prepare-service-issuer*
       - scripts/managed-native-resources*
       - scripts/build-linux-host-ci.mjs
+      - scripts/build-linux-installers-ci.mjs
+      - scripts/build-portable-desktop-ci.mjs
+      - scripts/tauri-build.mjs
       - scripts/test-linux-service-manager.py
+      - scripts/test-linux-installed-workspace.py
+      - scripts/test-linux-installed-workspace.test.py
       - .github/workflows/managed-linux-host.yml
   workflow_dispatch:
 
@@ -24,9 +36,11 @@ concurrency:
 
 jobs:
   service-package:
-    name: actual Linux host and systemd
-    runs-on: ubuntu-24.04
-    timeout-minutes: 100
+    name: Linux installers and real workspace
+    # Build on the oldest supported WebKitGTK 4.1 baseline to avoid requiring
+    # Ubuntu24's newer glibc in every downloaded Linux installer.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
     env:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
@@ -40,13 +54,23 @@ jobs:
         with:
           workspaces: src-tauri
       - name: Install native prerequisites
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libfuse2 libnss3 libasound2 libgbm1 unzip webkit2gtk-driver xvfb xauth openbox xdotool imagemagick
       - run: npm ci --ignore-scripts
       - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      - name: Test installer input and isolated-account refusal guards
+        run: python3 scripts/test-linux-installed-workspace.test.py
       - name: Build real pinned host, archive and native helper
         run: node scripts/build-linux-host-ci.mjs --root "${{ runner.temp }}/linux-host-build" --pnpm "$(command -v pnpm)"
       - name: Exercise actual package through isolated systemd and native attachment
         run: python3 scripts/test-linux-service-manager.py --actual-host
+      - name: Compile the actual Linux Electron workspace
+        run: node scripts/build-portable-desktop-ci.mjs --root "${{ runner.temp }}/linux-desktop-build" --pnpm "$(npm root -g)/pnpm/bin/pnpm.mjs"
+      - name: Build and verify the normal deb and AppImage installers
+        run: node scripts/build-linux-installers-ci.mjs --root "${{ runner.temp }}/linux-installers" --host "${{ runner.temp }}/linux-host-build/artifact" --desktop "${{ runner.temp }}/linux-desktop-build/artifact"
+      - name: Install the official Tauri WebDriver
+        run: cargo install tauri-driver --locked --version 2.1.0
+      - name: Launch installed app, quit and reopen from AppImage with the same service
+        run: python3 scripts/test-linux-installed-workspace.py --report "$BLACKCRAB_LINUX_PACKAGE_REPORT"
       - uses: actions/upload-artifact@v6
         if: always()
         with:
@@ -54,4 +78,11 @@ jobs:
           path: |
             ${{ runner.temp }}/linux-host-build/result.json
             ${{ runner.temp }}/linux-host-build/cache/blackcrab-managed-build-*/*.log
+            ${{ runner.temp }}/linux-desktop-build/result.json
+            ${{ runner.temp }}/linux-desktop-build/cache/blackcrab-desktop-build-*/logs/*.log
+            ${{ runner.temp }}/linux-installers/result.json
+            ${{ runner.temp }}/linux-installers/logs/*.log
+            ${{ runner.temp }}/linux-installers/ui-acceptance/result.json
+            ${{ runner.temp }}/linux-installers/ui-acceptance/cleanup.json
+            ${{ runner.temp }}/linux-installers/ui-acceptance/*-workspace.png
           if-no-files-found: warn

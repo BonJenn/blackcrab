@@ -1,34 +1,39 @@
-Continue the authorized Blackcrab parity task and 0.4.4 release for Mac, Windows
+Continue the authorized Blackcrab parity task and0.4.4 release for Mac, Windows
 and Linux. Read AGENTS.md and the CURRENT docs/agent-handoff.md checkpoint first.
 Keep paired AGENTS.md/CLAUDE.md identical; preserve dirty main checkout and user data.
-Do not stop at a merge: continue launcher/service/installer delivery. For required
-CI waits, watch the PR and end the turn; on wake inspect and act. Do not poll CI.
-Publish tested stage→main with verified installers. Publication is already authorized.
+Do not stop at a merge: finish launcher/service/installer delivery. For required CI
+waits, watch the PR and END; on wake inspect and act. Do not poll CI. Publish tested
+stage-to-main with verified installers. Publication is already authorized.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-PR305 merged/unwatched at eaa5f825907e5b9030e53b9270bbf11d7d5d6234, finalhead
-2080cadfd7246510538b50759788be29ad26227b, all10 checks passed. Actual isolated
-systemd lifecycle:1 passed,0 ignored; this used an inert launcher. PR303 Unix
-launcher and actual portable workspace builds/verifiers remain integrated.
-Active P/linux-host-package-044, branch feat/linux-host-package, samebase as above.
-Read adjacent linux-host-package-044-plan.json for final commit/PR/test/watch.
-PR306 is open/linked: https://github.com/BonJenn/blackcrab/pull/306
-Implementation8167d09b41a8b444727bee284ba41639687a59f6, then this handoff-only commit.
-Read docs/linux-host-package.md: unchanged host producer, actual native Linux
-service build, ELF helper, opaque resources, real service/systemd/attachment test
-in a new disposable OS account. Native CI is pending. Finish handoff push/link,
-watch306 and end; on wake inspect actual build/test/reviews/base,
-fix or merge and continue. No provider prompt or existing service was involved.
-Local Rust181 passed,11 explicitly ignored; helper/resource18 passed,3 skipped.
-Logs P/linux-host-package-rust.log and P/linux-host-package-scripts.log. No local
-build/service running; cargo target /private/tmp/blackcrab-native-verifier-044-target.
-Next: actual Linux GUI/launcher/installers, Windows private IPC/ACL/service,
-coherent0.4.4 bump, tested stage→main, signed installer/update verification and
-three public downloads. Mac0.4.3 and Windows/Linux0.3.0 are still public.
-Preserve c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 Mac
-host/helper/config/data and unchanged producer freeze. PR297/301 remain required.
-PR300 IDE is inactive. PR304 is independently owned DRAFT0.4.5 second-model recipes,
-head0b838c49f20e5b15c86fd622aed931aa62f89369; do not merge/activate/duplicate it.
+PR306 merged/unwatched at4ac132512eb65f39d46cfd88b6dfdba96db52c74, final head
+0e53afc5145d699df6525352215265f7f96f2d28, all11 checks passed, no reviews/comments.
+Actual host/helper/systemd/native attachment test:1 passed,0 failed,0 ignored in
+job132390531684/run43576064552; captured producer groups settled, zero prompts.
+Active P/linux-workspace-delivery-044, branch feat/linux-workspace-delivery, same
+base as above. Read adjacent linux-workspace-delivery-044-plan.json for current
+PR/head/watch, and docs/linux-installed-workspace.md for exact acceptance boundaries.
+PR307 is open/linked: https://github.com/BonJenn/blackcrab/pull/307
+Implementation1001a69927a12cb2d4828c17d1b51b72669d693f, then this handoff checkpoint.
+
+The extended Linux workflow now builds both real payloads and normal Debian and
+AppImage candidates on Ubuntu22.04, verifies actual package bytes/inventories and
+runs installed GUI startup/quit/service-survival/reopen in a new OS account using
+Xvfb/Openbox/official Tauri WebDriver. No native invoke or success stubs. Native
+CI is pending; require both sessions and cleanup, then inspect screenshots before
+claiming acceptance. Local3 controller tests,18 startup/renderer tests and root
+TypeScript pass. No local build/app/service is running. Current source version is
+still0.4.3; private candidates are unsigned for updates and unpublished. Finish
+handoff push/link, then watch307 and END; fix or merge on wake.
+
+Next: Linux compatibility and signed release/update path, Windows private IPC/ACL/
+service/installed launcher, coherent0.4.4 bump, tested stage-to-main, signed installer
+verification and all three public downloads. Mac0.4.3/Windows/Linux0.3.0 remain live.
+Preserve c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 Mac host,
+helper/configuration/data and unchanged producer freeze. PR297/301 fixes remain
+required; do not duplicate. PR300 IDE stays inactive. PR304 is independently owned
+DRAFT0.4.5 second-model recipes, head0b838c49f20e5b15c86fd622aed931aa62f89369;
+do not merge/activate/duplicate it. Do not run installer QA on the user's Mac.
 
 Mobile is delivered: Blackcrab Remote1.0.0(5), Apple app6780360079,
 bundle dev.blackcrab.remote, correct Jonathan Benn teamYF28W3NGG6. Apple build

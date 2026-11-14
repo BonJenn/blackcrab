@@ -32,6 +32,10 @@ mod service_control;
 #[path = "managed_service_linux.rs"]
 mod linux_service_control;
 
+#[cfg(all(test, unix))]
+#[path = "managed_service_package_tests.rs"]
+mod service_package_tests;
+
 #[path = "managed_desktop_policy.rs"]
 pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};

@@ -115,3 +115,11 @@ binding/journal checks. Stop leaves login enablement intact; uninstall removes o
 the owned unit/link, retaining history, configuration and pairings. Status does not
 rewrite registration or enable linger. The Linux CI lifecycle uses a new disposable
 OS account and inert launcher; it is not full host/GUI/package acceptance.
+
+## Linux package acceptance
+
+managed_service_package_tests.rs is an explicit ignored integration test compiled
+with the actual helper and host pins by native Linux CI. It runs only in the new
+disposable OS account, using the public product initialization/control/attachment
+paths. It must retain owner identity/data, refuse direct restart of a stopped
+service, and remove its registration. Local ignored results are not acceptance.

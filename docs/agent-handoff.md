@@ -1,6 +1,61 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Linux user-service implementation and native validation
+## Current checkpoint — native Linux host/helper package integration
+
+The owner requires downloadable0.4.4 for Mac, Windows and Linux, then full parity.
+Publication is authorized. **0.4.4 is not published.** Public versions remain
+Mac0.4.3 and Windows/Linux0.3.0. Remote1.0.0(5) is delivered to the existing owner
+in TestFlight; no rebuild/upload is needed for that delivery.
+
+PR305 merged/unwatched at eaa5f825907e5b9030e53b9270bbf11d7d5d6234 after all10 checks
+passed on2080cadfd7246510538b50759788be29ad26227b. Reviews/comments empty. The actual
+isolated systemd job132384697671 in run43574154464 ran one test:1 passed,0 failed,
+0 ignored; full Linux Rust290 passed,7 ignored. This proves manager lifecycle with
+an inert launcher, not the real service package. PR303 shared Unix launcher remains
+merged; PR297/301 Mac updater/reboot fixes remain included.
+
+P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
+Active worktree P/linux-host-package-044, branch feat/linux-host-package,
+base eaa5f825907e5b9030e53b9270bbf11d7d5d6234. Adjacent
+linux-host-package-044-plan.json records the final commit/PR/watch state.
+Read docs/linux-host-package.md for implementation and acceptance boundaries.
+
+Current changes reuse the unchanged frozen service producer on native Linux;
+compile the actual host/web/resource monitor and standalone ELF helper; enable
+verified Linux opaque resources; and run fresh initialization, real systemd,
+authenticated attachment/reopen, stop/start/restart and retained-data uninstall
+in a new disposable OS account. This is a real-host integration candidate, not
+an installer or GUI acceptance claim. No provider prompt is sent. The production
+Mac c04c4d44… artifact/helper/config/data and17-file producer freeze are unchanged.
+
+Local validation:181 native managed tests passed,11 intentionally ignored native/
+artifact cases;18 resource/helper tests passed,3 skipped actual-artifact cases.
+Logs P/linux-host-package-rust.log and P/linux-host-package-scripts.log. New native
+Linux CI is pending. Finish review/documentation, commit/push/open PR, link as next
+call, then watch and END for required CI. On wake inspect actual Linux build/test
+logs and final reviews/base; fix or merge and continue. No local build or service
+is running. Cargo cache /private/tmp/blackcrab-native-verifier-044-target is reusable.
+
+Next: actual Linux Electron window/launcher/installer integration; Windows private
+IPC/ACL/service; coherent0.4.4 version/payload bump; tested stage→main; draft signed
+installers/updater verification; publish all three real downloads. Preserve the
+Mac manifest c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 and
+existing data. Never substitute old root-only Windows/Linux installers. Main
+checkout is extensively dirty; do not reset/clean/switch/stage-all it.
+
+PR300 IDE recipes remain opt-in/inactive. Independently owned PR304 is DRAFT and
+excluded from0.4.4: head0b838c49f20e5b15c86fd622aed931aa62f89369, implementation
+73a187a82d5d244dedc99fb98e1bb14100518c88, docs/paired-models-045-handoff.md on its
+branch. Its owner handles CI; do not merge, activate or duplicate it.
+
+Website work remains independently owned and Vercel Hobby quota blocked; see the
+copyable prompt. Google social login is owner-deferred. Existing cloud authorizations
+and spending limits persist. Full off-LAN two-computer+iOS control/revocation/push,
+hosted entitlements and full parity still require their own evidence.
+
+---
+
+## Previous checkpoint — Linux user-service implementation and native validation
 
 The owner requires downloadable 0.4.4 for Mac, Windows and Linux, followed by full
 parity. Publication is authorized. Continue after intermediate merges; use PR

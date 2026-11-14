@@ -5,7 +5,8 @@ import { spawn,execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { prepareSource } from './source.mjs';
-import {desktopBuildTarget,verifyElectronArchive,verifyElectronExecutable} from './targets.mjs';
+import {desktopBuildTarget,verifyElectronArchive} from './targets.mjs';
+import {stageElectronRuntime} from './runtime-package.mjs';
 import { readBlackcrabVersion } from './release-version.mjs';
 import { assertOwnedRendererCopy } from './renderer-branding.mjs';
 import { linkDependencyCache,stageRuntimeDependencies,collectDependencyNotices } from './dependencies.mjs';
@@ -42,10 +43,9 @@ export async function buildManagedDesktop({archive,cacheDir,output,node,pnpm,ele
  const effectBundle=await assertBundleEffectSingleton(path.join(source,'apps/desktop/dist-electron'),effectRuntime.root);
  // Keep the final rename on the output filesystem when the build cache is on another volume.
  await fs.mkdir(path.dirname(output),{recursive:true});
- const staging=await fs.mkdtemp(path.join(path.dirname(output),'.blackcrab-desktop-artifact-'));await step('electron-extract','/usr/bin/ditto',['-x','-k',electronArchive,staging]);
- await verifyElectronExecutable(path.join(staging,target.layout.archiveExecutable),target.id);
- const app=path.join(staging,'Blackcrab.app');await fs.rename(path.join(staging,'Electron.app'),app);const contents=path.join(app,'Contents'),payload=path.join(contents,'Resources/app');await fs.mkdir(payload);
- await fs.rename(path.join(contents,'MacOS/Electron'),path.join(contents,'MacOS/Blackcrab'));
+ const staging=await fs.mkdtemp(path.join(path.dirname(output),'.blackcrab-desktop-artifact-'));
+ const runtime=await stageElectronRuntime({archive:electronArchive,root:staging,targetId:target.id});
+ const app=runtime.appBundle,contents=path.join(app,'Contents'),payload=runtime.payload;
  await fs.cp(path.join(source,'apps/desktop/dist-electron'),path.join(payload,'apps/desktop/dist-electron'),{recursive:true});await fs.cp(path.join(source,'apps/web/dist'),path.join(payload,'apps/server/dist/client'),{recursive:true});
  const assetPatches=JSON.parse(await fs.readFile(path.join(here,'assets/registry.json'),'utf8'));for(const patch of assetPatches){const target=path.join(payload,patch.target),input=path.join(here,'assets',patch.file);if(await fileDigest(target)!==patch.beforeSha256||await fileDigest(input)!==patch.afterSha256)throw Error('Packaged branding asset differs from pinned input');await fs.copyFile(input,target);}
  for(const name of ['resources','prod-resources']){const input=path.join(source,'apps/desktop',name);try{await fs.cp(input,path.join(payload,'apps/desktop',name),{recursive:true});}catch(error){if(error.code!=='ENOENT')throw error;}}

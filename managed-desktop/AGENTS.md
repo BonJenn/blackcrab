@@ -102,6 +102,13 @@ OS launch or lifecycle certification. Mac manifest serialization stays compatibl
 Implement packaging, dependency closure, native launch and service/transport before
 enabling another producer; never turn on a target solely because its ZIP verifies.
 
+`runtime-package.mjs` now supplies shared authenticated extraction and native
+layout staging; the Mac build uses it. The Windows/Linux native runtime workflow
+tests the actual Electron binary in isolated Node mode, not the full workspace.
+Keep metadata, dependency closure, manifests, launch/service transport, native
+UI acceptance and installer publication as the remaining product steps. Inspect
+the workflow result before claiming a native runtime check passed.
+
 ## Published 0.4.3 and next platforms — 2026-11-13
 
 Mac 0.4.3 is public from 18055fbc080faa4f6d518c420b19040ce45e3296. The actual signed/

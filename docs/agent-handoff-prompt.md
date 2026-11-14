@@ -1,51 +1,73 @@
 Continue Blackcrab parity and the authorized 0.4.4 release for Mac, Windows and Linux.
-Read AGENTS.md and the current checkpoint in docs/agent-handoff.md first. Preserve
-the extensively dirty main checkout and paired AGENTS.md/CLAUDE.md files.
+Read AGENTS.md and the CURRENT checkpoint in docs/agent-handoff.md first. Preserve
+the dirty main checkout and paired AGENTS.md/CLAUDE.md files. The user wants mobile
+updates delivered to TestFlight first, then desktop 0.4.4 on all three platforms.
 
 P=/Volumes/G-DRIVE PRO/Programming/.blackcrab-parity-probes.
-Owned worktree P/mobile-account-recovery-e49g7nr9/source is now on
-fix/native-account-preflight-shape (PR292), merged with current stage41935585….
-Read parent mobile-connect-plan.json for exact head/checks. PR293's header removal,
-Settings paired-host access and bottom-button haptics merged at
-41935585301936192105d631cbf2aaa79bc95674 after nine checks; it is unwatched.
-PR292's native readiness fix has refreshed docs and remains watched awaiting its
-new checks; don't poll/relink/watch again on a wake. Merge after actual acceptance.
+D=P/mobile-testflight-polish-xn2t7paa. Read D/plan.json, build-report.json and
+apple-submission-result.json before acting. Source 93edbe827fb52c4011cbbe52d5b954dc5de15111
+includes merged/unwatched PR292/293. The standalone signed 1.0.0 (5) IPA is BUILT,
+with all three target identities/entitlements/signatures verified; actual Hermes
+contains Blackcrab Account/Connect, zero T3 Account/Connect labels and the retained
+hosts label. IPA SHA256 38759e70456df516bdd285d383fd88a51110add4b32dbfa2a437258411e18e77,
+path /private/tmp/blackcrab-ios-Zgmgz1/artifacts/export/BlackcrabRemote.ipa.
+Completed archive session 78178 must NOT restart. Correct existing Apple app 6780360079,
+bundle dev.blackcrab.remote, team Jonathan Benn/YF28W3NGG6. No new account/app/project.
 
-All mobile source validation passed: full physical types, 100 source/activation
-tests, 11 root/navigation tests, consumer/native resource checks. Hermes export
-COMPLETED; no local build is running. Authoritative parent report:
-mobile-connect-export-reviewed-result.json. Candidate export is
-/private/tmp/blackcrab-ios-dXRCWc/artifacts/mobile-connect-export, code935b6346…,
-runtime2cbb84d9fbdb180f1af5bfe3e049108c47d628cb matching TestFlight1.0.0(4).
-The bundle has no T3 Account/account/Connect strings. It is NOT PUBLISHED. Validate
-installed update/retention/reconnect/rollback, then deliver through owned Expo
-project33fb14fd-4b87-4e85-920c-b6d4204e4567, production channel. Do not publish the
-superseded toolbar/account-only exports or force a runtime fingerprint.
+DELIVERED: Blackcrab Remote 1.0.0 (5) is AVAILABLE to the existing owner in
+TestFlight. D/testflight-delivery-verification.json records Apple build
+8e31043e-b547-4264-9c27-d312772e7bdc as VALID, not expired and IN_BETA_TESTING,
+attached to the existing Blackcrab Internal Release group with owner membership
+verified, testing notes saved and notifications enabled at 2026-11-14 02:04 UTC.
+Archive session 78178, uploader 75457 and verifier 10732 all finished successfully.
+No mobile build/upload is active. Do not repeat the upload or restart controllers.
+The owner was told to update through TestFlight. No OTA was published. Availability
+is not proof of installation, device haptics, real login or retained data acceptance.
+Preserve build 4 and all existing account/app/project identities.
 
-Native API and native iOS registration/redirect are complete in the existing
-Blackcrab Vercel Marketplace Clerk production app. GitHub and Apple sign-up/sign-in
-are ENABLED. Actual user login/session acceptance remains pending. The handoff
-records public app/client IDs and callbacks. Provider secrets stay outside source,
-logs, bundle and chat. The shipped ClerkKit uses browser OAuth for Google/GitHub
-and native Apple; don't invent a native SDK migration from newer generic docs.
+Clerk Native API/native iOS registration/redirect and Apple/GitHub sign-up/sign-in
+are configured. Actual login acceptance is pending. Verify Jonathan Benn/YF28W3NGG6
+before Apple mutations; a previously selected wrong team was corrected without
+mutating it. Private keys remain outside Git/chat/logs. Google is explicitly owner-
+deferred; do not repeat the request or enable it with unconfigured credentials.
 
-APPLE TEAM MUST BE **Jonathan Benn — YF28W3NGG6**, matching the shipped IPA. The
-owner corrected the initial wrong default team, Between The Lines LLC, before any
-resource/settings mutation there. All new Apple setup is in Jonathan Benn:
-Services ID app.blackcrab.connect, primary dev.blackcrab.remote, scoped Sign in
-with Apple keyQLVW98S6TC, Clerk callback, and private-relay sender with SPF check.
-Verify the current team before future mutations. Key backup is private0600 outside
-Git; do not print it or ask the owner to repeat completed configuration.
+Desktop preparation: P/desktop-portable-packaging-044, branch
+feat/portable-desktop-packaging, commit f74fce06d16e0ad81877afe354c85f53f20b3340.
+New runtime staging module uses pinned archives and native platform layouts; the
+Mac producer calls it. New native CI executes isolated Windows/Linux Electron
+Node-mode probes. Producer gates remain disabled for those unfinished platforms.
+90 managed-desktop tests and 11 QA recipe tests passed; six focused tests passed
+after final cleanup handling. Actual three-platform archive/layout checks passed.
+No Windows/Linux workspace, service or installer acceptance is claimed. The branch
+is being submitted for CI after confirmed TestFlight delivery. Read
+P/desktop-portable-packaging-044-plan.json for exact PR/head/watch state. On the
+CI wake, review the final head, checks and reviews, resolve failures and merge the
+validated runtime PR; do not poll CI. Continue actual metadata/dependency/manifests, launch/transport/service
+and native installer work before enabling/publishing Windows/Linux.
 
-Google is owner-deferred ("I'll do it later"): preview rejected the browser as
-insecure; await owner sign-in in normal Chrome. Keep Google disabled until its
-own credentials/configuration are completed. Don't repeat expired login requests.
+Updater PR290 is merged. Mac 0.4.3 and Windows/Linux 0.3.0 remain public; no 0.4.4 has
+shipped. Older 0.4.2/0.4.3 workspace controls cannot reliably deliver the fix; include
+a one-time manual download/app replacement instruction with the eventual 0.4.4
+website/release notes, preserving app data. Keep the production Mac service manifest
+c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 until an explicitly
+stopped, data-preserving upgrade. Native signing/updater checks remain required.
+Publication is already authorized; do not ask for routine confirmation again.
 
-UpdaterPR290 is merged; Mac0.4.3 and Windows/Linux0.3.0 remain public. 0.4.4 is not
-built/published. Continue actual Windows/Linux native package producers, launch/
-transport/service and native checks, then build/verify/publish all installers and
-update website/blog/release notes. Preserve Mac host manifest
-c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83 pending a stopped,
-data-preserving migration. Full Connect two-computer+iOS off-LAN control/revoke/
-push and hosted beta entitlements remain separate. Finish with real builds and
-working delivered apps, not merely green PRs. Keep the handoffs current.
+The user requested an independent NEW website redesign session:
+<t3-thread://v2/95c98c5c-276e-4ac8-b422-c5d8447bafe7/mcp:launch:52c478392d53de435662458de3e6d1957fa5cc9fe7cdab0af947fe25ae477d77>.
+Read P/website-redesign-session.json. Project root is
+/Volumes/G-DRIVE PRO/Programming/blackcrab-landing; separate worktree is
+/Users/jonathanbenn/.t3/worktrees/blackcrab-landing/design-blackcrab-product-site.
+The redesign is implemented in blackcrab-landing PR18, head 9e03f93, but the
+session has finished with publication BLOCKED: Vercel paused the Hobby team for
+exceeding its Fast Origin Transfer quota. It verified the existing public site is
+paused too, until December 13 absent account resolution. No paid upgrade, merge or
+deployment was made. The Cloudflare/PlanetScale spending approval does not cover
+Vercel Pro. Do not duplicate or overwrite the design work; read that thread before
+acting. Original app work remains active. Coordinate actual release-version changes
+when website publication can resume.
+
+Finish with real delivered builds, full parity and current handoffs, not just green
+PRs. Full two-computer+iOS off-LAN control/revocation/push and hosted beta entitlements
+remain separate from the completed source/import/account setup. Refresh this prompt
+and the handoff as delivery/active-handle status changes.

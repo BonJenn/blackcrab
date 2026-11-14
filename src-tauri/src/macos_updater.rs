@@ -2,7 +2,7 @@
 //! Never use the system temporary filesystem for bundle backup or replacement.
 use std::fs;
 use std::io::{self, Cursor};
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
 fn failure(message: impl Into<String>) -> io::Error {
@@ -178,6 +178,7 @@ fn install_with(
     }
     let transaction = tempfile::Builder::new()
         .prefix(".blackcrab-update-")
+        .permissions(fs::Permissions::from_mode(0o700))
         .tempdir_in(parent)?;
     if fs::metadata(transaction.path())?.dev() != original.dev() {
         return Err(failure(
@@ -301,7 +302,22 @@ mod tests {
     fn installs_complete_bundle_and_preserves_unrelated_data() {
         let dir = tempfile::tempdir().unwrap();
         let app = fixture(dir.path());
-        install_with(&payload(), &app, verify, |a, b| fs::rename(a, b)).unwrap();
+        install_with(
+            &payload(),
+            &app,
+            |candidate| {
+                if candidate != app {
+                    let transaction = candidate.parent().unwrap().parent().unwrap();
+                    assert_eq!(
+                        fs::metadata(transaction)?.permissions().mode() & 0o777,
+                        0o700
+                    );
+                }
+                verify(candidate)
+            },
+            |a, b| fs::rename(a, b),
+        )
+        .unwrap();
         assert_eq!(contents(&app), "new");
         assert_eq!(
             fs::read_to_string(dir.path().join("service-and-conversations")).unwrap(),

@@ -40,7 +40,7 @@ export default function App({ client = nativeClient }: { client?: WorkspaceStart
       if (!controller.signal.aborted) setMessage("Your workspace is open.");
     }, failure => {
       if (!controller.signal.aborted) {
-        setError(failure instanceof Error ? failure.message : "Blackcrab could not open. Try again.");
+        setError(failure instanceof Error ? failure.message : typeof failure === "string" ? failure : "Blackcrab could not open. Try again.");
         setControls(true);
       }
     }).finally(() => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCompilerTools, emittedBinding, compilerSourceFiles, verifyMobileReactCompiler } from './react-compiler.mjs';
+import { loadCompilerTools, emittedBinding, compilerSourceFiles, verifyMobileReactCompiler, verifyCompilerSource } from './react-compiler.mjs';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Local validation may use a READ-ONLY, already installed native tree. CI and
 // native preparation use their own npm-ci workspace. Never install from tests.
@@ -21,7 +21,7 @@ function setterFactory(result) {
   if (!cached) return new Function('$', 'setOptionsByRoute', `return (${generate(declaration.init).code});`);
   return new Function('$', 'setOptionsByRoute', `var ${temporary}; ${generate(guard).code}; ${generate({ type: 'VariableDeclaration', kind: 'var', declarations: [declaration] }).code}; return setRouteOptions;`);
 }
-test('real Expo production option factory enables pinned React Compiler on all affected original modules', () => {
+test('real Expo production option factory enables pinned React Compiler on reviewed original and adapted modules', () => {
   const result = verifyMobileReactCompiler({ repoRoot, dependencyRoot });
   assert.equal(result.provenance.pluginVersion, '1.0.0');
   assert.equal(result.files.length, 3);
@@ -37,6 +37,17 @@ test('real Expo production option factory enables pinned React Compiler on all a
     assert.equal(on.sourceSha256, off.sourceSha256, 'compiler must not require changed vendor source');
   }
 });
+test('compiler source verification accepts only the recorded adapter over the pinned original', () => {
+  const file = compilerSourceFiles[0];
+  const original = fs.readFileSync(path.join(repoRoot, 'vendor/t3-mobile/apps/mobile', file));
+  const prepared = fs.readFileSync(path.join(repoRoot, 'apps/mobile/.generated/native-ui/apps/mobile', file));
+  assert.notDeepEqual(prepared, original, 'the navigation feedback adapter must be present');
+  assert.doesNotThrow(() => verifyCompilerSource(file, original, prepared));
+  assert.throws(() => verifyCompilerSource(file, Buffer.concat([original, Buffer.from('\n// tampered')] ), prepared), /differs from reviewed original/);
+  assert.throws(() => verifyCompilerSource(file, original, Buffer.concat([prepared, Buffer.from('\n// unrecorded')])), /differs from reviewed product adaptation/);
+  assert.throws(() => verifyCompilerSource(file, original, original), /differs from reviewed product adaptation/);
+});
+
 test('actual compiled route setter is stable across renders; disabled production transform reproduces cleanup-triggering identity changes', () => {
   const tools = getTools(), file = compilerSourceFiles[0];
   const on = tools.transform(file, true), off = tools.transform(file, false);

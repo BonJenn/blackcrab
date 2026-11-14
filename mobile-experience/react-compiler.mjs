@@ -1,10 +1,23 @@
-/** Preserve the pinned mobile source's required React Compiler semantics. No source rewrites. */
+/** Preserve the pinned mobile source's required React Compiler semantics. Recorded product adapters retain the original source proof. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import { applyRecordedAdapter } from './activation/generator.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const policy = JSON.parse(fs.readFileSync(new URL('./react-compiler-policy.json', import.meta.url)));
+const adapterBytes = fs.readFileSync(new URL('./activation/registry.json', import.meta.url));
+const adapters = JSON.parse(adapterBytes);
+/** Validate the immutable upstream and then the exact recorded product adaptation. */
+export function verifyCompilerSource(relative, original, prepared) {
+  if (sha(original) !== policy.sourceSha256[relative]) throw new Error(`React Compiler source differs from reviewed original: ${relative}`);
+  if (adapters.schema !== 1 || adapters.upstreamCommit !== policy.upstream.commit) throw new Error('React Compiler adapter source differs.');
+  const records = adapters.adapters.filter(record => record.path === relative);
+  if (records.length > 1 || records.some(record => record.kind !== 'replace')) throw new Error('React Compiler requires a single recorded replacement adapter.');
+  const expected = records.length ? applyRecordedAdapter(original, records[0]) : original;
+  if (sha(prepared) !== sha(expected)) throw new Error(`React Compiler source differs from reviewed product adaptation: ${relative}`);
+}
+
 const pluginIntegrity = 'sha512-Ixm8tFfoKKIPYdCCKYTsqv+Fd4IJ0DQqMyEimo+pxUOMUR9cVPlwTrFt9Avu+3cb6Zp3mAzl+t1MrG2fxxKsxw==';
 export const compilerSourceFiles = [
   'src/features/layout/workspace/WorkspaceNativeTabs.ios.tsx',
@@ -67,7 +80,7 @@ export function loadCompilerTools(repoRoot, dependencyRoot = repoRoot) {
   const dependencyFiles = [packageFile, require.resolve('babel-plugin-react-compiler'), path.join(metroRoot, 'build/babel-transformer.js'), path.join(cliRoot, 'build/src/start/server/middleware/metroOptions.js')];
   return {
     expo, generate,
-    provenance: { upstream: policy.upstream, upstreamConfigurationEvidence: policy.upstreamConfigurationEvidence, pluginVersion: pkg.version, pluginIntegrity: pin.integrity, dependencyRecords, actualFiles: dependencyFiles.map(file => ({ path: path.relative(dependencyRoot, file).split(path.sep).join('/'), sha256: sha(fs.readFileSync(file)) })) },
+    provenance: { upstream: policy.upstream, upstreamConfigurationEvidence: policy.upstreamConfigurationEvidence, activationRegistrySha256: sha(adapterBytes), pluginVersion: pkg.version, pluginIntegrity: pin.integrity, dependencyRecords, actualFiles: dependencyFiles.map(file => ({ path: path.relative(dependencyRoot, file).split(path.sep).join('/'), sha256: sha(fs.readFileSync(file)) })) },
     transform(relative, enabled) {
       const original = path.join(repoRoot, 'vendor/t3-mobile/apps/mobile', relative);
       const sourceFile = path.join(sourceMobile, '.generated/native-ui/apps/mobile', relative);
@@ -76,7 +89,7 @@ export function loadCompilerTools(repoRoot, dependencyRoot = repoRoot) {
       if (!fs.lstatSync(sourceFile).isFile() || !fs.lstatSync(filename).isFile()) throw new Error('React Compiler inputs must be original regular source files.');
       const src = fs.readFileSync(sourceFile, 'utf8');
       if (sha(fs.readFileSync(filename)) !== sha(src)) throw new Error('Read-only native compiler dependency tree has different prepared source bytes.');
-      if (sha(src) !== policy.sourceSha256[relative]) throw new Error(`React Compiler source differs from reviewed original: ${relative}`);
+      verifyCompilerSource(relative, fs.readFileSync(original), src);
       // The real Expo export option factory and Babel transformer carry the flag;
       // this does not fake supportsReactCompiler in a hand-written Babel caller.
       const options = metroOptions.getMetroDirectBundleOptionsForExpoConfig(mobile, { ...expo, experiments: { ...expo.experiments, reactCompiler: enabled } }, { mode: 'production', platform: 'ios', engine: 'hermes', mainModuleName: 'index', isExporting: true });

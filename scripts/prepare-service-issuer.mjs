@@ -11,7 +11,13 @@ const exec = promisify(execFile);
 // The signed helper is embedded as bytes in Root, rather than as a Mach-O
 // resource that Tauri might re-sign after its hash/identity has been selected.
 export async function prepareServiceIssuer({env, target, signed, cwd = process.cwd(), run = exec}) {
+  const selected = target || ({'darwin-arm64':'aarch64-apple-darwin','linux-x64':'x86_64-unknown-linux-gnu'}[`${process.platform}-${process.arch}`]);
+  if (!['aarch64-apple-darwin', 'x86_64-unknown-linux-gnu'].includes(selected)) {
+    throw Error('Standalone service helper requires darwin-arm64 or linux-x64');
+  }
+  const mac = selected === 'aarch64-apple-darwin';
   const stage = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-service-issuer-'));
+  await fs.chmod(stage, 0o700);
   const cleanup = () => fs.rm(stage, {recursive: true, force: true});
   const step = async (label, command, args, options = {}) => {
     try { return await run(command, args, {cwd, timeout: 1800000, maxBuffer: 4 * 1024 * 1024, ...options}); }
@@ -30,12 +36,28 @@ export async function prepareServiceIssuer({env, target, signed, cwd = process.c
     const helper = path.join(stage, 'blackcrab-issuer');
     await fs.copyFile(built, helper);
     await fs.chmod(helper, 0o700);
-    if (signed) validateSigningIdentity(env.APPLE_SIGNING_IDENTITY, env.APPLE_TEAM_ID);
-    await step('signing', '/usr/bin/codesign', ['--force', '--sign', signed ? env.APPLE_SIGNING_IDENTITY : '-',
-      '--identifier', 'com.bonjenn.blackcrab.service-issuer', '--options', 'runtime', ...(signed ? ['--timestamp'] : []), helper]);
-    await step('signature verification', '/usr/bin/codesign', ['--verify', '--strict', helper]);
+    if (!mac) {
+      // Linux has no Apple signing step. Root's pinned resource/helper digest
+      // binds the native bytes; reject a cross-target build before embedding.
+      const header = Buffer.alloc(64);
+      const file = await fs.open(helper, 'r');
+      try {
+        const {bytesRead} = await file.read(header, 0, header.length, 0);
+        if (bytesRead !== 64 || !header.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46])) ||
+            header[4] !== 2 || header[5] !== 1 || header[6] !== 1 ||
+            ![2, 3].includes(header.readUInt16LE(16)) || header.readUInt16LE(18) !== 62) {
+          throw Error('Standalone service helper must be an ELF64 x86-64 executable');
+        }
+      } finally { await file.close(); }
+    }
+    if (mac && signed) validateSigningIdentity(env.APPLE_SIGNING_IDENTITY, env.APPLE_TEAM_ID);
+    if (mac) {
+      await step('signing', '/usr/bin/codesign', ['--force', '--sign', signed ? env.APPLE_SIGNING_IDENTITY : '-',
+        '--identifier', 'com.bonjenn.blackcrab.service-issuer', '--options', 'runtime', ...(signed ? ['--timestamp'] : []), helper]);
+      await step('signature verification', '/usr/bin/codesign', ['--verify', '--strict', helper]);
+    }
     let submissionId;
-    if (signed) {
+    if (mac && signed) {
       const {stderr} = await step('signature details', '/usr/bin/codesign', ['-d', '--verbose=4', helper]);
       validateSignatureDetails(stderr, {identity: env.APPLE_SIGNING_IDENTITY, teamId: env.APPLE_TEAM_ID});
       const auth = notarizationEnvironment(env);

@@ -12,11 +12,14 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 #[path = "managed_desktop_home.rs"]
 mod account_home;
+#[cfg(unix)]
+#[path = "managed_desktop_lifecycle.rs"]
+mod lifecycle;
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 pub(crate) fn native_account_home() -> Result<PathBuf, String> {
     account_home::account_home()
 }
@@ -732,9 +735,9 @@ fn descriptor_for_identity(
     Ok(bytes)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 fn prepare_profile(path: &Path) -> Result<PathBuf, String> {
-    use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
     let parent = path.parent().ok_or_else(error)?;
     let parent_meta = fs::symlink_metadata(parent).map_err(|_| error())?;
     if !parent_meta.is_dir()
@@ -746,8 +749,7 @@ fn prepare_profile(path: &Path) -> Result<PathBuf, String> {
     }
     let marker = path.join(".blackcrab-managed-desktop");
     if !path.exists() {
-        fs::create_dir(path).map_err(|_| error())?;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|_| error())?;
+        fs::DirBuilder::new().mode(0o700).create(path).map_err(|_| error())?;
         let mut f = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -771,8 +773,7 @@ fn prepare_profile(path: &Path) -> Result<PathBuf, String> {
     for name in ["home", "tmp"] {
         let p = canonical.join(name);
         if !p.exists() {
-            fs::create_dir(&p).map_err(|_| error())?;
-            fs::set_permissions(&p, fs::Permissions::from_mode(0o700)).map_err(|_| error())?;
+            fs::DirBuilder::new().mode(0o700).create(&p).map_err(|_| error())?;
         }
         let m = fs::symlink_metadata(&p).map_err(|_| error())?;
         if !m.is_dir()
@@ -796,23 +797,25 @@ fn reap_captured(child: Arc<Mutex<Child>>) {
     });
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 pub(super) struct NativeDesktop {
     child: Arc<Mutex<Child>>,
     control: std::os::unix::net::UnixStream,
+    lifecycle: Option<Arc<Mutex<lifecycle::Channel>>>,
     pub(super) package_digest: String,
     identity: DesktopIdentity,
 }
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 impl NativeDesktop {
     pub(super) fn detach(&self) {
         let _ = self.control.shutdown(std::net::Shutdown::Both);
+        if let Some(channel) = &self.lifecycle { if let Ok(mut channel) = channel.lock() { channel.close(); } }
     }
     pub(super) fn is_running(&self) -> Result<bool, String> {
         child_alive(&self.child)
     }
 }
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 impl Drop for NativeDesktop {
     fn drop(&mut self) {
         self.detach();
@@ -822,15 +825,16 @@ impl Drop for NativeDesktop {
 
 /// Root may hold exactly one of these in native state after reviewing integration.
 /// Repeated explicit opens reuse the captured client; no automatic restart/reauthentication.
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 #[derive(Default)]
 pub(super) struct NativeDesktopOwner {
     active: tokio::sync::Mutex<Option<NativeDesktop>>,
 }
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 impl NativeDesktopOwner {
     /// Activate only our captured child. Hold its handle lock through the
     /// AppKit lookup so another waiter cannot reap it and allow PID reuse.
+    #[cfg(target_os = "macos")]
     pub(super) async fn activate(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         let child = self.active.lock().await.as_ref().ok_or_else(error)?.child.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -844,6 +848,19 @@ impl NativeDesktopOwner {
             let _ = tx.send(result);
         }).map_err(|_| error())?;
         rx.await.map_err(|_| error())?
+    }
+    #[cfg(not(target_os = "macos"))]
+    pub(super) async fn activate(&self, _app: &tauri::AppHandle) -> Result<bool, String> {
+        let active = self.active.lock().await;
+        let native = active.as_ref().ok_or_else(error)?;
+        let child = native.child.clone();
+        let lifecycle = native.lifecycle.clone().ok_or_else(error)?;
+        tokio::task::spawn_blocking(move || {
+            if !child_alive(&child)? { return Err(error()); }
+            let visible = lifecycle.lock().map_err(|_| error())?.activate()?;
+            if !child_alive(&child)? { return Err(error()); }
+            Ok(visible)
+        }).await.map_err(|_| error())?
     }
     pub(super) async fn client_exit(&self) -> Result<Option<bool>, String> {
         let active = self.active.lock().await;
@@ -919,30 +936,32 @@ impl NativeDesktopOwner {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 fn inherit_private_fds(
     command: &mut Command,
     descriptor: &std::os::unix::net::UnixStream,
     control: &std::os::unix::net::UnixStream,
-) { inherit_workspace_fds(command, descriptor, control, None); }
+) { inherit_workspace_fds(command, descriptor, control, None, None); }
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 fn inherit_workspace_fds(
     command: &mut Command,
     descriptor: &std::os::unix::net::UnixStream,
     control: &std::os::unix::net::UnixStream,
     updates: Option<&std::os::unix::net::UnixStream>,
+    lifecycle: Option<&std::os::unix::net::UnixStream>,
 ) {
     use std::os::fd::AsRawFd;
     use std::os::unix::process::CommandExt;
-    let mut sources = vec![descriptor.as_raw_fd(), control.as_raw_fd()];
-    if let Some(stream) = updates { sources.push(stream.as_raw_fd()); }
+    let mut sources = vec![(descriptor.as_raw_fd(), 3), (control.as_raw_fd(), 4)];
+    if let Some(stream) = updates { sources.push((stream.as_raw_fd(), 5)); }
+    if let Some(stream) = lifecycle { sources.push((stream.as_raw_fd(), 6)); }
     // Duplicate all sources above the entire destination range before remapping.
     unsafe {
         command.pre_exec(move || {
-            let mut copies = [-1; 3];
-            for (i, fd) in sources.iter().enumerate() {
-                copies[i] = libc::fcntl(*fd, libc::F_DUPFD_CLOEXEC, 6);
+            let mut copies = [-1; 4];
+            for (i, (fd, _)) in sources.iter().enumerate() {
+                copies[i] = libc::fcntl(*fd, libc::F_DUPFD_CLOEXEC, 7);
                 if copies[i] < 0 {
                     let error = std::io::Error::last_os_error();
                     for fd in copies.iter().filter(|fd| **fd >= 0) { libc::close(*fd); }
@@ -951,7 +970,7 @@ fn inherit_workspace_fds(
             }
             let mut result = Ok(());
             for (i, fd) in copies.iter().take(sources.len()).enumerate() {
-                if libc::dup2(*fd, 3 + i as i32) < 0 { result = Err(std::io::Error::last_os_error()); break; }
+                if libc::dup2(*fd, sources[i].1) < 0 { result = Err(std::io::Error::last_os_error()); break; }
             }
             for fd in copies.iter().filter(|fd| **fd >= 0) { libc::close(*fd); }
             result
@@ -959,8 +978,20 @@ fn inherit_workspace_fds(
     }
 }
 
+#[cfg(any(target_os = "linux", test))]
+fn configure_linux_session(command: &mut Command, mut read: impl FnMut(&str) -> Option<std::ffi::OsString>) -> Result<(), String> {
+    for key in ["DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP", "LANG", "LC_ALL"] {
+        if let Some(value) = read(key) {
+            if value.is_empty() { continue; }
+            if value.len() > 4096 { return Err("Invalid desktop session environment".into()); }
+            command.env(key, value);
+        }
+    }
+    Ok(())
+}
+
 /// Backend-only launch. No app entrypoint, adoption persistence or arbitrary CLI exists here.
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 pub(super) async fn launch(
     host: ManagedHost,
     selected: PathBuf,
@@ -968,16 +999,14 @@ pub(super) async fn launch(
 ) -> Result<NativeDesktop, String> {
     launch_for_identity(host, selected, expected_digest, DesktopIdentity::Production).await
 }
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 async fn launch_for_identity(
     host: ManagedHost,
     selected: PathBuf,
     expected_digest: String,
     identity: DesktopIdentity,
 ) -> Result<NativeDesktop, String> {
-    if !cfg!(target_arch = "aarch64") {
-        return Err("Managed desktop package is verified only for Apple Silicon".into());
-    }
+    if Target::native().is_err() { return Err("This workspace platform is not supported".into()); }
     let package = tokio::task::spawn_blocking(move || {
         verify_package_for_identity(&selected, &expected_digest, identity)
     })
@@ -985,7 +1014,7 @@ async fn launch_for_identity(
     .map_err(|_| error())??;
     launch_verified(host, package).await
 }
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 async fn launch_verified(
     host: ManagedHost,
     package: VerifiedDesktop,
@@ -998,6 +1027,8 @@ async fn launch_verified(
     let (control, client_control) = UnixStream::pair().map_err(|_| error())?;
     let update_app = if verified_identity == DesktopIdentity::Production { crate::managed_updates::bridge_app() } else { None };
     let update_pair = if update_app.is_some() { Some(UnixStream::pair().map_err(|_| error())?) } else { None };
+    // Mac retains AppKit activation. Linux acknowledges its own actual window.
+    let lifecycle_pair = if cfg!(target_os = "linux") { Some(UnixStream::pair().map_err(|_| error())?) } else { None };
     let os_home = account_home::account_home()?;
     let mut command = Command::new(&package.executable);
     command
@@ -1010,9 +1041,11 @@ async fn launch_verified(
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    #[cfg(target_os = "linux")]
+    configure_linux_session(&mut command, |key| std::env::var_os(key))?;
     #[cfg(all(test, target_os = "macos"))]
     crate::managed_native_entry::acceptance::configure_native_output(&mut command, &profile)?;
-    inherit_workspace_fds(&mut command, &descriptor_reader, &client_control, update_pair.as_ref().map(|pair| &pair.1));
+    inherit_workspace_fds(&mut command, &descriptor_reader, &client_control, update_pair.as_ref().map(|pair| &pair.1), lifecycle_pair.as_ref().map(|pair| &pair.1));
     let child = Arc::new(Mutex::new(
         command
             .spawn()
@@ -1026,9 +1059,11 @@ async fn launch_verified(
     )?;
     drop(descriptor_reader);
     drop(client_control);
+    let lifecycle = lifecycle_pair.map(|(server, client)| { drop(client); Arc::new(Mutex::new(lifecycle::Channel::new(server))) });
     let owner = NativeDesktop {
         child: child.clone(),
         control,
+        lifecycle,
         package_digest: package.manifest_digest,
         identity: verified_identity,
     };
@@ -1058,6 +1093,7 @@ async fn launch_verified(
         .set_write_timeout(Some(Duration::from_secs(2)))
         .map_err(|_| error())?;
     let mut launch_descriptor: serde_json::Value = serde_json::from_slice(&descriptor_for_identity(&binding, &profile, &grant, verified_identity)?).map_err(|_| error())?;
+    if owner.lifecycle.is_some() { launch_descriptor["lifecycle"] = json!({"kind":"launcher-lifecycle-fd-v1","fd":6}); }
     if update_pair.is_some() { launch_descriptor["control"] = json!({"kind":"launcher-updates-fd-v1","fd":5}); }
     descriptor_writer
         .write_all(&serde_json::to_vec(&launch_descriptor).map_err(|_| error())?)
@@ -1084,7 +1120,7 @@ async fn launch_verified(
     });
     Ok(owner)
 }
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 fn serve_broker(
     mut stream: std::os::unix::net::UnixStream,
     child: Arc<Mutex<Child>>,
@@ -1438,7 +1474,7 @@ mod tests {
         b.browser.as_mut().unwrap().key = "A".repeat(64);
         assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     #[test]
     fn private_fd_child_fixture() {
         if std::env::var_os("BLACKCRAB_DESKTOP_FD_FIXTURE").is_none() {
@@ -1469,6 +1505,12 @@ mod tests {
         control.read_exact(&mut request).unwrap();
         assert_eq!(&request, b"renew\n");
         control.write_all(b"reply\n").unwrap();
+        if std::env::var_os("BLACKCRAB_LIFECYCLE_FD_FIXTURE").is_some() {
+            let mut lifecycle = unsafe { UnixStream::from_raw_fd(6) };
+            lifecycle.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            let mut request = [0u8; 9]; lifecycle.read_exact(&mut request).unwrap();
+            assert_eq!(&request, b"activate\n"); lifecycle.write_all(b"visible\n").unwrap();
+        }
         if std::env::var_os("BLACKCRAB_UPDATE_FD_FIXTURE").is_some() {
             let mut updates = unsafe { UnixStream::from_raw_fd(5) };
             updates.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
@@ -1476,7 +1518,7 @@ mod tests {
             assert_eq!(&request, b"status\n"); updates.write_all(b"update-reply\n").unwrap();
         }
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     #[test]
     fn actual_inherited_fd3_and_duplex_fd4_are_private_sockets() {
         use std::os::unix::net::UnixStream;
@@ -1509,7 +1551,7 @@ mod tests {
         assert_eq!(&reply, b"reply\n");
         assert!(child.lock().unwrap().wait().unwrap().success());
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     #[test]
     fn actual_inherited_update_fd5_keeps_pairing_fds_independent() {
         use std::os::unix::net::UnixStream;
@@ -1520,7 +1562,7 @@ mod tests {
         command.args(["--exact", "managed_desktop::tests::private_fd_child_fixture"])
             .env_clear().env("BLACKCRAB_DESKTOP_FD_FIXTURE", "1").env("BLACKCRAB_UPDATE_FD_FIXTURE", "1")
             .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-        inherit_workspace_fds(&mut command, &reader, &client, Some(&update_client));
+        inherit_workspace_fds(&mut command, &reader, &client, Some(&update_client), None);
         let mut child = command.spawn().unwrap(); drop((reader, client, update_client));
         writer.write_all(b"private-descriptor").unwrap(); writer.shutdown(std::net::Shutdown::Write).unwrap();
         owner.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
@@ -1528,6 +1570,54 @@ mod tests {
         owner.write_all(b"renew\n").unwrap(); let mut reply = [0u8; 6]; owner.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"reply\n");
         updates.write_all(b"status\n").unwrap(); let mut reply = [0u8; 13]; updates.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"update-reply\n");
         assert!(child.wait().unwrap().success());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn lifecycle_fd6_is_independent_with_and_without_update_fd5() {
+        use std::os::unix::net::UnixStream;
+        for has_updates in [false, true] {
+            let (mut writer, reader) = UnixStream::pair().unwrap();
+            let (mut owner, client) = UnixStream::pair().unwrap();
+            let (mut lifecycle, lifecycle_client) = UnixStream::pair().unwrap();
+            let updates = if has_updates { Some(UnixStream::pair().unwrap()) } else { None };
+            let mut command = Command::new(std::env::current_exe().unwrap());
+            command.args(["--exact", "managed_desktop::tests::private_fd_child_fixture"])
+                .env_clear().env("BLACKCRAB_DESKTOP_FD_FIXTURE", "1").env("BLACKCRAB_LIFECYCLE_FD_FIXTURE", "1")
+                .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+            if has_updates { command.env("BLACKCRAB_UPDATE_FD_FIXTURE", "1"); }
+            inherit_workspace_fds(&mut command, &reader, &client, updates.as_ref().map(|p| &p.1), Some(&lifecycle_client));
+            let mut child = command.spawn().unwrap(); drop((reader, client, lifecycle_client));
+            writer.write_all(b"private-descriptor").unwrap(); writer.shutdown(std::net::Shutdown::Write).unwrap();
+            owner.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            owner.write_all(b"renew\n").unwrap(); let mut reply = [0u8; 6]; owner.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"reply\n");
+            lifecycle.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            lifecycle.write_all(b"activate\n").unwrap(); let mut reply = [0u8; 8]; lifecycle.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"visible\n");
+            if let Some((mut server, client)) = updates {
+                drop(client); server.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                server.write_all(b"status\n").unwrap(); let mut reply = [0u8; 13]; server.read_exact(&mut reply).unwrap(); assert_eq!(&reply, b"update-reply\n");
+            }
+            assert!(child.wait().unwrap().success());
+        }
+    }
+    #[test]
+    fn linux_session_environment_preserves_display_without_loading_ambient_code() {
+        let mut command = Command::new("unused");
+        command.env_clear().env("HOME", "/verified-account");
+        configure_linux_session(&mut command, |key| match key {
+            "DISPLAY" => Some(":123".into()),
+            "WAYLAND_DISPLAY" => Some("wayland-1".into()),
+            "XDG_RUNTIME_DIR" => Some("/run/user/1000".into()),
+            "LANG" => Some("".into()),
+            "HOME" | "NODE_OPTIONS" | "LD_PRELOAD" | "ELECTRON_RUN_AS_NODE" => panic!("ambient process control queried"),
+            _ => None,
+        }).unwrap();
+        let env: std::collections::BTreeMap<_, _> = command.get_envs().map(|(k, v)| (k.to_string_lossy().to_string(), v.unwrap().to_string_lossy().to_string())).collect();
+        assert_eq!(env.len(), 4);
+        assert_eq!(env["HOME"], "/verified-account");
+        assert_eq!(env["DISPLAY"], ":123");
+        assert_eq!(env["WAYLAND_DISPLAY"], "wayland-1");
+        assert_eq!(env["XDG_RUNTIME_DIR"], "/run/user/1000");
+        assert!(configure_linux_session(&mut command, |_| Some("x".repeat(4097).into())).is_err());
     }
     #[test]
     fn reviewed_patch_provenance_paths_are_exact_regular_files_without_aliases() {

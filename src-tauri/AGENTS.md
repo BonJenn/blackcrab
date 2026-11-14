@@ -94,3 +94,32 @@ ELF x64 and execute permissions. Mac format1/framework/QA identities stay intact
 Native build CI feeds real compiled artifacts and exact pins to the read-only Rust
 verifier; this proves package acceptance only, not launcher/service lifecycle or
 installer publication. Keep production platform enablement separate until integrated.
+
+## Unix launcher integration — 0.4.4 preparation
+
+Linux uses the shared captured-child bootstrap/renewal/update sockets and a separate
+optional FD6 lifecycle channel. Root must receive the matching acknowledgement from
+a loaded, visible owned workspace before hiding; process liveness alone is not UI
+readiness. Mac keeps AppKit activation. Preserve separate FD roles, bounded deadlines,
+closed-channel retirement and OS-derived HOME. Native transport tests do not certify
+Linux GUI/service/installers; production target enablement awaits those integrations.
+
+## Linux per-user background service
+
+managed_service_linux.rs controls only the OS-account user's blackcrab.service.
+Use the verified /run/user/<uid>/bus, fixed systemctl/busctl executables and
+bounded captured children; never use ambient DBUS addresses, sudo, system units,
+PID discovery or a second host. Check the exact owned unit, manager-resolved argv,
+environment and drop-ins before activation. Serialize changes and preserve issuer
+binding/journal checks. Stop leaves login enablement intact; uninstall removes only
+the owned unit/link, retaining history, configuration and pairings. Status does not
+rewrite registration or enable linger. The Linux CI lifecycle uses a new disposable
+OS account and inert launcher; it is not full host/GUI/package acceptance.
+
+## Linux package acceptance
+
+managed_service_package_tests.rs is an explicit ignored integration test compiled
+with the actual helper and host pins by native Linux CI. It runs only in the new
+disposable OS account, using the public product initialization/control/attachment
+paths. It must retain owner identity/data, refuse direct restart of a stopped
+service, and remove its registration. Local ignored results are not acceptance.

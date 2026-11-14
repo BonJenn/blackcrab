@@ -48,7 +48,7 @@ pub(crate) struct ManagedNativeEntry {
     desktop_manifest: Option<String>,
     desktop_archive_path: Option<PathBuf>,
     desktop_configured: bool,
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     owner: crate::managed_desktop::NativeDesktopOwner,
 }
 fn payload(
@@ -120,7 +120,7 @@ impl ManagedNativeEntry {
             desktop_manifest: pins.desktop_manifest.map(str::to_owned),
             desktop_archive_path: None,
             desktop_configured: pins.desktop_manifest.is_some() || pins.desktop_archive.is_some(),
-            #[cfg(target_os = "macos")]
+            #[cfg(unix)]
             owner: Default::default(),
         };
         if !configured || !cfg!(unix) {
@@ -166,7 +166,7 @@ impl ManagedNativeEntry {
         self.host.clone()
     }
     fn metadata_status(&self) -> NativeDesktopStatus {
-        if !cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        if !cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))) {
             return status("unsupported", None);
         }
         if !self.desktop_configured {
@@ -200,7 +200,7 @@ impl ManagedNativeEntry {
         if current.state != "ready" {
             return current;
         }
-        #[cfg(target_os = "macos")]
+        #[cfg(unix)]
         {
             match self
                 .owner
@@ -218,11 +218,11 @@ impl ManagedNativeEntry {
         self.open_for_identity(host, crate::managed_desktop::DesktopIdentity::Production)
             .await
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     pub(crate) async fn activate(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         self.owner.activate(app).await
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     pub(crate) async fn close_for_update(&self) -> Result<(), String> {
         if !self.owner.running().await? { return Ok(()); }
         self.owner.detach().await;
@@ -232,7 +232,7 @@ impl ManagedNativeEntry {
         }
         Err("Workspace is still closing".into())
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     pub(crate) async fn client_exit(&self) -> Result<Option<bool>, String> {
         self.owner.client_exit().await
     }
@@ -245,7 +245,7 @@ impl ManagedNativeEntry {
         if current.state != "ready" {
             return current;
         }
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        #[cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64")))]
         {
             let payload = self.desktop.as_ref().unwrap().clone();
             let manifest = self.desktop_manifest.as_ref().unwrap().clone();
@@ -275,7 +275,7 @@ impl ManagedNativeEntry {
             }
             return self.status_for_identity(identity).await;
         }
-        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        #[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))))]
         {
             let _ = host;
             status("unsupported", None)
@@ -308,7 +308,7 @@ mod tests {
     async fn unsupported_or_absent_status_does_not_launch() {
         let root = std::env::temp_dir().join("blackcrab-unconfigured-entry-no-launch");
         let entry = ManagedNativeEntry::from_inputs(&root, &root, Pins::default());
-        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        let expected = if cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))) {
             "notBundled"
         } else {
             "unsupported"
@@ -352,14 +352,14 @@ mod tests {
         assert!(entry.bundled_host().is_some());
         assert!(!entry.host.as_ref().unwrap().target_directory().exists());
         assert!(!entry.desktop.as_ref().unwrap().target_directory().exists());
-        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        let expected = if cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))) {
             "ready"
         } else {
             "unsupported"
         };
         assert_eq!(entry.status().await.state, expected);
         fs::remove_file(resources.join("managed-desktop-payload.tar.gz")).unwrap();
-        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        if cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))) {
             assert_eq!(entry.status().await.state, "unavailable");
         }
         assert!(!entry.host.as_ref().unwrap().target_directory().exists());
@@ -402,14 +402,14 @@ mod tests {
             },
         );
         assert!(desktop_only.bundled_host().is_none());
-        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        if cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))) {
             assert_eq!(host_only.status().await.state, "notBundled");
             assert_eq!(desktop_only.status().await.state, "ready");
         }
         fs::remove_dir_all(base).unwrap();
     }
 
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64")))]
     #[tokio::test]
     async fn initialization_reports_missing_package_and_cache_failure_without_adopting_data() {
         let mut nonce = [0u8; 16];

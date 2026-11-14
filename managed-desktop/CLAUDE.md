@@ -174,3 +174,12 @@ Root transport/service/installer integration is ready. Do not infer runtime or
 release acceptance from build success. pnpm's explicit Node entry and --prod=false
 are necessary for ignored install scripts and compiler dev dependencies. Keep
 Windows OS variables minimal and private build HOME/TEMP/config paths isolated.
+
+## Unix launcher integration — 0.4.4 preparation
+
+Linux uses the shared captured-child bootstrap/renewal/update sockets and a separate
+optional FD6 lifecycle channel. Root must receive the matching acknowledgement from
+a loaded, visible owned workspace before hiding; process liveness alone is not UI
+readiness. Mac keeps AppKit activation. Preserve separate FD roles, bounded deadlines,
+closed-channel retirement and OS-derived HOME. Native transport tests do not certify
+Linux GUI/service/installers; production target enablement awaits those integrations.

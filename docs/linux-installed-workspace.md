@@ -176,6 +176,23 @@ The alternative is to change the workspace's environment contract so `TMPDIR`
 may be a short runtime directory. That keeps the profile under XDG but edits a
 registered payload module shared with Mac and requires Mac re-acceptance.
 
+## First real Linux workspace, and the Quit step
+
+Run43645072729, with the short profile, opened the real workspace from the
+installed Debian package for the first time: Root set up the service, paired,
+handed off, and the workspace window loaded and showed its onboarding with the
+local service listed as Connected. The service was active. The step that then
+failed was Quit: thirty seconds after `Ctrl+Q` the workspace was still open.
+Whether the shortcut was not delivered under Xvfb or the workspace does not act
+on it is not established.
+
+The test now focuses the workspace window explicitly, tries `Ctrl+Q`, and if
+Root has not closed after fifteen seconds sends the window manager's close
+request (`Alt+F4`). Each session records which one closed it as `normalQuit`
+(`shortcut` or `window-close`); a `window-close` result means the shortcut
+remains an open finding, not a pass for it. The workspace screenshot is taken
+after a short settle so it shows the loaded window instead of the splash.
+
 ## Acceptance and remaining release work
 
 Local checks pass: three controller/input regressions, eighteen startup/renderer

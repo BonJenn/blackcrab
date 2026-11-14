@@ -320,29 +320,40 @@ def inside():
             title = run(["/usr/bin/xdotool", "getwindowname", window], capture_output=True, text=True).stdout.strip()
             if "Blackcrab" not in title:
                 raise RuntimeError("Expected the actual Blackcrab workspace in the foreground")
+            # Let the acknowledged window finish its first paint so the retained
+            # image shows the workspace, not its splash.
+            time.sleep(8)
             run(["/usr/bin/import", "-window", "root", str(QA_HOME / (kind + "-workspace.png"))], env=environment)
             current = {name: digest(owner / name) for name in ["configuration.json", "host/userdata/environment-id"]}
             if before is not None and before != current:
                 raise RuntimeError("Reopening from AppImage changed the persistent service identity")
             before = current
             run(["/usr/bin/systemctl", "--user", "is-active", "--quiet", "blackcrab.service"])
-            # Quit the foreground workspace through its normal Linux menu shortcut.
-            # Root should then exit through its captured-client exit monitor.
-            run(["/usr/bin/xdotool", "key", "--clearmodifiers", "ctrl+q"])
-            deadline = time.monotonic() + 30
-            closed = False
-            while time.monotonic() < deadline:
-                try:
-                    windows = request("GET", f"/session/{session}/window/handles")
-                    if not windows:
-                        closed = True
-                        break
-                except DriverFailure as error:
-                    if str(error) in ("invalid session id", "no such window"):
-                        closed = True
-                        break
-                    raise
-                time.sleep(0.25)
+            # Quit the foreground workspace as a user would: its Linux menu
+            # shortcut first, then the window manager's close request. Root
+            # should then exit through its captured-client exit monitor.
+            def root_closed(seconds):
+                deadline = time.monotonic() + seconds
+                while time.monotonic() < deadline:
+                    try:
+                        if not request("GET", f"/session/{session}/window/handles"):
+                            return True
+                    except DriverFailure as error:
+                        if str(error) in ("invalid session id", "no such window"):
+                            return True
+                        raise
+                    except (OSError, http.client.HTTPException):
+                        return True
+                    time.sleep(0.25)
+                return False
+
+            run(["/usr/bin/xdotool", "windowactivate", "--sync", window], env=environment)
+            closed, quit_by = False, None
+            for method, keys, seconds in [("shortcut", "ctrl+q", 15), ("window-close", "alt+F4", 30)]:
+                run(["/usr/bin/xdotool", "key", "--clearmodifiers", keys], env=environment)
+                if root_closed(seconds):
+                    closed, quit_by = True, method
+                    break
             if not closed:
                 raise RuntimeError("Normal workspace Quit did not close its Root launcher")
             try:
@@ -350,9 +361,11 @@ def inside():
             except DriverFailure as error:
                 if str(error) != "invalid session id":
                     raise
+            except (OSError, http.client.HTTPException):
+                pass
             session = None
             run(["/usr/bin/systemctl", "--user", "is-active", "--quiet", "blackcrab.service"])
-            report["sessions"].append({"package": kind, "visibleWorkspace": True, "normalQuit": True,
+            report["sessions"].append({"package": kind, "visibleWorkspace": True, "normalQuit": quit_by,
                                        "serviceSurvived": True, "identityRetained": True})
         report["passed"] = True
     except Exception as error:

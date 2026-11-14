@@ -185,3 +185,15 @@ Linux Root entry now understands the package and launch path. Independent Linux
 user-service setup/controls still need implementation, then Windows private native
 transport and service lifecycle, native acceptance and distributable installers.
 Do not enable build-only producers or publish from these protocol checks alone.
+
+
+## Linux user-service integration — 2026-11-14
+
+PR303's Unix launcher is merged at10b575103142f73992832559fdfc4503d840b395,
+all14 checks passed. The next branch adds native systemd user controls, verified
+loaded argv/environment, bounded commands and the existing native issuer/journal
+fence. See [Linux service behavior and acceptance](linux-background-service.md).
+The first complete local managed Rust regression run passed181 tests with10
+explicit ignored native/artifact cases. Real systemd acceptance runs separately
+in a disposable Linux OS account. Full packaged host/GUI/installers remain pending.
+No production producer gate, public download or Mac service identity changes here.

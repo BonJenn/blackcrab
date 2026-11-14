@@ -8,8 +8,12 @@ async fn read_limited(reader: impl AsyncRead+Unpin, maximum:usize)->Result<Vec<u
     if bytes.len()>maximum{return Err("Service-manager output exceeded its limit".into());}Ok(bytes)
 }
 async fn run_tool(program:&Path,args:&[String],home:&Path,timeout:Duration,maximum:usize)->Result<Output,String>{
+    run_tool_with_environment(program,args,home,timeout,maximum,&[]).await
+}
+async fn run_tool_with_environment(program:&Path,args:&[String],home:&Path,timeout:Duration,maximum:usize,environment:&[(String,String)])->Result<Output,String>{
     let mut child=tokio::process::Command::new(program).args(args).env_clear()
         .env("PATH","/usr/bin:/bin:/usr/sbin:/sbin").env("HOME",home).env("LANG","C").env("LC_ALL","C")
+        .envs(environment.iter().cloned())
         .current_dir(home).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped())
         .kill_on_drop(true).spawn().map_err(|_|"Could not start the service manager".to_owned())?;
     let Some(stdout)=child.stdout.take() else {let _=child.kill().await;let _=child.wait().await;return Err("Service-manager stdout unavailable".into());};
@@ -30,6 +34,18 @@ async fn run_tool(program:&Path,args:&[String],home:&Path,timeout:Duration,maxim
 }
 pub(super) async fn launchctl(args:&[String],home:&Path,timeout:Duration)->Result<Output,String>{
     run_tool(Path::new("/bin/launchctl"),args,home,timeout,64*1024).await
+}
+// Linux callers derive these values from the OS uid and verify the runtime
+// directory/socket; neither ambient DBUS_* nor renderer input chooses the bus.
+#[cfg(any(target_os="linux",test))]
+pub(super) async fn linux_manager(bus:bool,args:&[String],home:&Path,runtime:&Path,timeout:Duration)->Result<Output,String>{
+    let environment=vec![
+        ("XDG_RUNTIME_DIR".into(),runtime.to_string_lossy().into_owned()),
+        ("DBUS_SESSION_BUS_ADDRESS".into(),format!("unix:path={}/bus",runtime.display())),
+        ("XDG_CONFIG_HOME".into(),home.join(".config").to_string_lossy().into_owned()),
+        ("SYSTEMD_PAGER".into(),String::new()),
+    ];
+    run_tool_with_environment(Path::new(if bus{"/usr/bin/busctl"}else{"/usr/bin/systemctl"}),args,home,timeout,64*1024,&environment).await
 }
 #[cfg(test)]
 mod tests{

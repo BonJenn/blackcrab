@@ -20,8 +20,10 @@ The handoff records the correct Marketplace app/instance, GitHub OAuth app and
 redirect URI. GitHub Confirm access verification is pending before generating its
 secret; Google Cloud and Apple Developer owner sign-ins are pending. No social
 provider has been claimed enabled or tested. Use Clerk's existing AuthView, finish
-provider/native registration, and never expose secrets. Google native client
-configuration may need a new TestFlight binary, not an incompatible forced OTA.
+provider/native registration, and never expose secrets. Native iOS registration and dev.blackcrab.remote://callback allowlisting are done.
+The shipped ClerkKit uses browser OAuth for Google/GitHub and native Apple. Clerk
+rejected Apple activation without production custom credentials; it stays disabled.
+Do not require a new Google native SDK based only on newer generic documentation.
 
 The earlier account-only branded export at /private/tmp/blackcrab-ios-yP6Wlk is
 unpublished and superseded by current polish once verified. Installed TestFlight

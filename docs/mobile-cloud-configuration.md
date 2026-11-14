@@ -64,6 +64,32 @@ state instead of an indefinitely disabled Checking row or a blank auth page.
 If Clerk later loads, its existing sign-in/profile view appears normally. Recovery
 does not replace the provider or clear account, pairing, draft or outbox storage.
 
+## Social sign-in and native redirects
+
+The native account screen uses the installed ClerkKit AuthView. Enabled social
+providers appear automatically there; the hosted Connect sign-in uses the same
+production Clerk instance. Provider credentials belong in Clerk's connection
+settings, never in Expo extras, source, or the Hermes bundle.
+
+For the shipped 1.0.0 (4) SDK, SocialButton invokes native Sign in with Apple for
+Apple and the browser OAuth session for Google/GitHub. The bridge uses ClerkKit's
+default redirect, `dev.blackcrab.remote://callback`; the signed app already includes
+that URL scheme. Register App ID prefix `YF28W3NGG6`, bundle `dev.blackcrab.remote`
+and that exact redirect under Clerk Native applications. These values were checked
+against the final IPA's provisioning profile and installed SDK source. Recheck the
+actual SDK when upgrading; newer documentation can describe a different Google
+native integration requiring additional client IDs and a rebuilt binary.
+
+The production OAuth callback for web providers is
+`https://clerk.app.blackcrab.app/v1/oauth_callback`. Configure Blackcrab-owned Google,
+GitHub and Apple applications with that callback and only necessary identity/email
+scopes. Apple hosted OAuth also needs its Services ID, key and team configuration.
+The existing iOS profile includes Sign in with Apple, but capability alone does not
+enable a Clerk connection. Production Clerk rejected Apple activation without
+custom credentials during setup; do not claim native or hosted login works until
+configuration and a real callback/session are verified. Current provider progress
+and account-owner sign-in blockers are recorded in the handoff.
+
 ## Deployment and acceptance still required
 
 The relay must implement the pinned managed-relay API. The older legacy WebSocket

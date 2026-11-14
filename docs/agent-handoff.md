@@ -39,11 +39,14 @@ requires GitHub Confirm access (owner verification); no secret has been generate
 or installed into Clerk. The GitHub connection remains disabled. Owner sign-in
 is also pending in Google Cloud and Apple Developer preview tabs. Existing private
 API authorizations are preserved; never ask for passwords or print credentials.
-Finish native app/redirect registration from the installed SDK's actual behavior.
-Google's native client configuration may require a new binary; never force the
-runtime hash to fit an incompatible update. Native Apple and hosted Apple setup
-have different credential requirements. None of these social logins is accepted
-end-to-end yet, and no production provider has been claimed enabled.
+Native iOS registration is now complete: verified final IPA profile app identifier
+YF28W3NGG6.dev.blackcrab.remote and Apple sign-in entitlement, registered that app
+in Clerk, and confirmed dev.blackcrab.remote://callback in the redirect allowlist.
+The installed ClerkKit source/bridge uses that callback and browser OAuth for
+Google/GitHub, native Apple for Apple. Do not require an unnecessary Google native
+SDK rebuild based only on newer online docs. Production Clerk rejected Apple
+activation without custom credentials; the unsaved form was reset. Its connection
+remains disabled. None of these social logins is accepted end-to-end yet.
 
 The compatible account-only export /private/tmp/blackcrab-ios-yP6Wlk/artifacts/account-export
 (runtime 2cbb84d9fbdb180f1af5bfe3e049108c47d628cb, source d6a3a6e...) is unpublished

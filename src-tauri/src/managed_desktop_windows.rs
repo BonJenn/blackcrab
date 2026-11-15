@@ -382,6 +382,25 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
     if let Ok(root) = std::env::var("BLACKCRAB_BOOT_EVIDENCE") {
         let kept = Path::new(&root).join("workspace-logs");
         let _ = fs::create_dir_all(&kept);
+        if let Some(output) = std::env::var_os("BLACKCRAB_TEST_WORKSPACE_OUTPUT") {
+            let bytes = fs::read(&output).unwrap_or_default();
+            // Long token-like strings are removed before anything is printed.
+            let mut text = String::new();
+            let mut run = String::new();
+            for character in String::from_utf8_lossy(&bytes).chars() {
+                if character.is_ascii_alphanumeric() || "_-=".contains(character) {
+                    run.push(character);
+                    continue;
+                }
+                text.push_str(if run.len() >= 32 { "[redacted]" } else { &run });
+                run.clear();
+                text.push(character);
+            }
+            text.push_str(if run.len() >= 32 { "[redacted]" } else { &run });
+            let tail: String = text.chars().rev().take(12000).collect::<Vec<_>>().into_iter().rev().collect();
+            println!("WINDOWS_WORKSPACE output ({} bytes):\n{tail}", bytes.len());
+            let _ = fs::write(kept.join("workspace-output.txt"), text);
+        }
         for file in files.iter().filter(|file| file.starts_with(profile.join("userdata"))) {
             if let Some(name) = file.file_name() {
                 let _ = fs::copy(file, kept.join(name));

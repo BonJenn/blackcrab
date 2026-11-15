@@ -721,6 +721,29 @@ workspace runs without the native browser channel.
 - No code signing and no updater artifacts. An unsigned installer shows a
   SmartScreen warning on a real PC; signing is a release decision.
 
+Step 6a merged as PR326 (4e87dd67b9680f9c40ec75f7c0353a02ab790da4). On the
+runner: `Blackcrab_0.4.3_x64-setup.exe`, 375 MB, unsigned; installed silently
+it leaves `blackcrab.exe`, both payload archives and `uninstall.exe`, and both
+archives unpack to trees that verify with their input manifests. Tauri drops
+the drive from an absolute Windows resource path, so on Windows the archives
+are staged inside `src-tauri/target` and named relative to `src-tauri`.
+
+## Step 6b — why the Windows workspace window is blank
+
+Correction to an earlier note: the Linux acceptance does not read the
+workspace's page. It reads Root's own status ("Your workspace is open."),
+checks the foreground window title and keeps a screenshot. That screenshot
+shows the workspace's onboarding screen fully drawn, so the blank Windows
+window is a real difference between the platforms.
+
+The Windows workspace's trace has no page-asset request at all
+(`desktop.protocol.serveAsset` never appears), so the page is not being asked
+for, not failing to draw. To see why, a **test build only** can keep the
+workspace's output with Chromium's logging on
+(`BLACKCRAB_TEST_WORKSPACE_OUTPUT`); a product build always discards the
+output and adds no variable. The Windows host job sets it and keeps the
+result, with long token-like strings removed.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

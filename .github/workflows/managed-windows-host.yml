@@ -79,6 +79,7 @@ jobs:
           CARGO_PROFILE_DEV_DEBUG: '0'
           CARGO_PROFILE_TEST_DEBUG: '0'
           BLACKCRAB_BOOT_EVIDENCE: ${{ runner.temp }}/windows-host-build
+          BLACKCRAB_TEST_WORKSPACE_OUTPUT: ${{ runner.temp }}/windows-host-build/workspace-output.raw
         # Hashing is optimized even in this test build. Unoptimized, one payload
         # verification takes about seven seconds against half a second in a
         # release build, and the launch's eight-second pairing limit is missed.

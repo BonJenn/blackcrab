@@ -161,13 +161,45 @@ pub(crate) struct Started {
 pub(crate) fn start(executable: &Path, package: &Path, home: &Path, profile: &Path) -> io::Result<Started> {
     let (bootstrap, renewal, lifecycle) =
         (channel(ChildEnd::Blocking)?, channel(ChildEnd::Duplex)?, channel(ChildEnd::Duplex)?);
-    let process = spawn(
-        executable,
-        &[],
-        &environment(home, profile)?,
-        package,
-        &[(3, &bootstrap.theirs), (4, &renewal.theirs), (6, &lifecycle.theirs)],
-    )?;
+    let descriptors = [(3, &bootstrap.theirs), (4, &renewal.theirs), (6, &lifecycle.theirs)];
+    // Test builds only: CI can keep what the workspace prints, with
+    // Chromium's own logging on, to see why a page did not load. A product
+    // build always discards the workspace's output and adds no variable.
+    #[cfg(test)]
+    if let Some(file) = std::env::var_os("BLACKCRAB_TEST_WORKSPACE_OUTPUT") {
+        use crate::managed_spawn_windows::{spawn_with, Console, Options};
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Foundation::{DuplicateHandle, DUPLICATE_SAME_ACCESS};
+        let log = OpenOptions::new().append(true).create(true).open(file)?;
+        let mut inheritable: HANDLE = std::ptr::null_mut();
+        if unsafe {
+            DuplicateHandle(
+                GetCurrentProcess(),
+                log.as_raw_handle() as HANDLE,
+                GetCurrentProcess(),
+                &mut inheritable,
+                0,
+                1,
+                DUPLICATE_SAME_ACCESS,
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        let output = unsafe { OwnedHandle::from_raw_handle(inheritable) };
+        let mut variables = environment(home, profile)?;
+        variables.push(("ELECTRON_ENABLE_LOGGING".into(), "1".into()));
+        let process = spawn_with(
+            executable,
+            &[],
+            &variables,
+            package,
+            &descriptors,
+            &Options { console: Console::Inherited, output: Some(&output), job: None },
+        )?;
+        return Ok(Started { process, bootstrap: bootstrap.ours, renewal: renewal.ours, lifecycle: lifecycle.ours });
+    }
+    let process = spawn(executable, &[], &environment(home, profile)?, package, &descriptors)?;
     // Dropping `theirs` here leaves the workspace holding the only other end
     // of each channel, so its exit is seen as end of stream.
     Ok(Started { process, bootstrap: bootstrap.ours, renewal: renewal.ours, lifecycle: lifecycle.ours })

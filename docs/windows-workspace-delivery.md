@@ -296,6 +296,38 @@ service control, initialization and attachment are still Unix-only, and
 protective on Windows: that must be fixed before Root creates an owner
 directory there.
 
+Step 4b-2 merged as PR315 (c96cce94f79d6de00fea285a602288ee751c181b); all six
+Windows issuer tests passed on the runner at the first attempt.
+
+## Step 4c-1 — a stop the service can handle
+
+The Node service launcher stops on SIGTERM or SIGINT and only then retires its
+issuer epoch. Windows cannot deliver SIGTERM, and ending a process or a
+scheduled task terminates it with no handler run. The one stop a Node program
+can handle is Ctrl+C on its console, which arrives as SIGINT.
+
+Console events go to a console, not a process, so:
+
+- `spawn_with(…, Console::Hidden)` starts the child with `CREATE_NO_WINDOW`: a
+  console of its own with no window, shared by its descendants and by nothing
+  else.
+- `interrupt(process)` leaves this process's console, attaches to the child's,
+  ignores Ctrl+C itself and raises it there.
+
+The CI test starts `node.exe` on a hidden console as a stand-in for the
+launcher, with a child of its own as the launcher has its server, interrupts
+it, and requires the program's SIGINT handler to have run, its follow-up work
+to have completed and its own exit code 0. It prints what reached the
+grandchild, which shares the console and is therefore expected to receive the
+event too; the service design has to allow for the server seeing SIGINT at the
+same moment as the launcher.
+
+Still open for the helper's run mode: who asks for the stop (a private event
+Root signals, since ending the task would bypass it), and sign-out. At
+sign-out Windows gives console programs only a few seconds; the helper must
+interrupt the launcher then, or the journal stays unretired and the service
+fails closed until the next boot.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

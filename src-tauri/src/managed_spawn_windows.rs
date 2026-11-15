@@ -900,12 +900,13 @@ try {
 const fs = require('fs'), path = require('path'), { spawn } = require('child_process');
 const directory = process.argv[process.argv.length - 1];
 const note = (name, text) => fs.writeFileSync(path.join(directory, name), text);
-if (process.argv.includes('--child')) {
+// A plain word: Node would take a dashed marker for one of its own options.
+if (process.argv.includes('as-child')) {
   process.on('SIGINT', () => { note('child-signal', 'SIGINT'); process.exit(0); });
   setInterval(() => {}, 1000);
   note('child-ready', String(process.pid));
 } else {
-  const child = spawn(process.execPath, ['-e', fs.readFileSync(path.join(directory, 'script.js'), 'utf8'), '--child', directory],
+  const child = spawn(process.execPath, ['-e', fs.readFileSync(path.join(directory, 'script.js'), 'utf8'), 'as-child', directory],
     { stdio: 'ignore', env: process.env });
   child.on('exit', (code, signal) => note('child-exit', JSON.stringify({ code, signal })));
   process.on('SIGINT', () => {

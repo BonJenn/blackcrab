@@ -369,6 +369,33 @@ sign-out. Without sign-out handling the supervisor is simply terminated at
 sign-out, the journal stays unretired, and the service fails closed until the
 next boot. That must be handled before release.
 
+Step 4c-2 merged as PR317 (1c2488e7a5fbfa1eb954f9612e29215dae2c5295); its three
+supervisor tests passed on the Windows runner.
+
+## Step 4c-3 — sign-out and shutdown
+
+When a session ends Windows sends `WM_QUERYENDSESSION` and then
+`WM_ENDSESSION` to top-level windows and terminates what remains. A terminated
+supervisor would leave the journal unretired, and after a sign-out without a
+reboot the boot identity is unchanged, so the service would fail closed until
+the next boot.
+
+The supervisor now keeps a hidden top-level window on its own thread
+(message-only windows do not receive these broadcasts) and calls
+`SetProcessShutdownParameters(0x3FF)` so it is told before ordinary programs,
+including the service's own console processes. On the query it agrees and
+starts stopping; on the final notice it does not return until the service has
+stopped or `session_grace`, shorter than the normal grace, has passed, since
+Windows may terminate the process as soon as that notice returns. A sign-out
+the user then cancels has still stopped the service; that is the safe
+direction, and the task's restart setting brings it back.
+
+The CI test sends the two messages to the window, as Windows would, and
+requires the final notice to return only after the service's SIGINT handler
+has finished and it has exited0. This simulates the notice; a real sign-out
+cannot be exercised on a runner, and the few seconds Windows actually allows
+are not measured there.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

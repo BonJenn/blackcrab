@@ -12,6 +12,12 @@
 //! The stop request is a named event in the session's local namespace that
 //! only the current user can open. Creating it also proves there is no other
 //! supervisor for the same key in this session.
+//!
+//! Sign-out and shutdown are a stop too. Windows tells top-level windows that
+//! the session is ending and then terminates what is left. The supervisor
+//! keeps a hidden window for that notice, asks to be notified ahead of
+//! ordinary programs, stops the service on it, and does not return from the
+//! final notice until the service has stopped or its shorter grace has passed.
 #![cfg(windows)]
 use crate::{
     managed_private_windows::Descriptor,
@@ -52,6 +58,8 @@ pub(crate) struct Plan {
     pub(crate) key: String,
     /// How long the service has to exit after being asked to stop.
     pub(crate) grace: Duration,
+    /// The same, when the session is ending and Windows will not wait long.
+    pub(crate) session_grace: Duration,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -63,6 +71,149 @@ pub(crate) enum Outcome {
     /// The service did not stop in time, or could not be asked; it and
     /// everything it started were ended.
     Killed,
+}
+
+/// The hidden top-level window that receives the session-ending notice.
+mod session {
+    use std::{
+        io,
+        os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle},
+        ptr,
+        sync::mpsc,
+    };
+    use windows_sys::Win32::{
+        Foundation::{HANDLE, HWND, LPARAM, LRESULT, WPARAM},
+        System::{
+            LibraryLoader::GetModuleHandleW,
+            Threading::{CreateEventW, SetEvent, SetProcessShutdownParameters, WaitForSingleObject},
+        },
+        UI::WindowsAndMessaging::{
+            CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
+            GetWindowLongPtrW, PostMessageW, PostQuitMessage, RegisterClassW, SetWindowLongPtrW,
+            GWLP_USERDATA, MSG, WM_CLOSE, WM_DESTROY, WM_ENDSESSION, WM_QUERYENDSESSION,
+            WNDCLASSW,
+        },
+    };
+
+    struct Signals {
+        ending: HANDLE,
+        finished: HANDLE,
+    }
+
+    unsafe extern "system" fn procedure(window: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+        let signals = GetWindowLongPtrW(window, GWLP_USERDATA) as *const Signals;
+        match message {
+            // Agree to the session ending and start stopping at once.
+            WM_QUERYENDSESSION if !signals.is_null() => {
+                SetEvent((*signals).ending);
+                1
+            }
+            // The session really is ending. Once this returns Windows may
+            // terminate the process, so hold it until the service has stopped.
+            WM_ENDSESSION if !signals.is_null() && w != 0 => {
+                SetEvent((*signals).ending);
+                WaitForSingleObject((*signals).finished, 20_000);
+                0
+            }
+            WM_CLOSE => {
+                DestroyWindow(window);
+                0
+            }
+            WM_DESTROY => {
+                PostQuitMessage(0);
+                0
+            }
+            _ => DefWindowProcW(window, message, w, l),
+        }
+    }
+
+    pub(super) fn class_name(key: &str) -> Vec<u16> {
+        format!("blackcrab-service-session-{key}\0").encode_utf16().collect()
+    }
+
+    pub(super) struct Watch {
+        pub(super) ending: OwnedHandle,
+        finished: OwnedHandle,
+        window: isize,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+    impl Watch {
+        pub(super) fn start(key: &str) -> io::Result<Self> {
+            let event = || {
+                let handle = unsafe { CreateEventW(ptr::null(), 1, 0, ptr::null()) };
+                if handle.is_null() {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(unsafe { OwnedHandle::from_raw_handle(handle) })
+                }
+            };
+            let (ending, finished) = (event()?, event()?);
+            // Above the default 0x280: told before ordinary programs,
+            // including the service's own console processes.
+            unsafe { SetProcessShutdownParameters(0x3FF, 0) };
+            let signals = Signals {
+                ending: ending.as_raw_handle() as HANDLE,
+                finished: finished.as_raw_handle() as HANDLE,
+            };
+            // Raw handles and window handles are plain values to move.
+            let (ending_raw, finished_raw) = (signals.ending as isize, signals.finished as isize);
+            let class = class_name(key);
+            let (ready, started) = mpsc::channel::<io::Result<isize>>();
+            let thread = std::thread::spawn(move || unsafe {
+                let signals = Signals { ending: ending_raw as HANDLE, finished: finished_raw as HANDLE };
+                let instance = GetModuleHandleW(ptr::null());
+                let mut definition: WNDCLASSW = std::mem::zeroed();
+                definition.lpfnWndProc = Some(procedure);
+                definition.hInstance = instance;
+                definition.lpszClassName = class.as_ptr();
+                // Already registered by an earlier supervisor in this process
+                // is fine; creation below fails if the class is unusable.
+                RegisterClassW(&definition);
+                // Never shown: no style bits, no size, no parent.
+                let window = CreateWindowExW(
+                    0,
+                    class.as_ptr(),
+                    class.as_ptr(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    instance,
+                    ptr::null(),
+                );
+                if window.is_null() {
+                    let _ = ready.send(Err(io::Error::last_os_error()));
+                    return;
+                }
+                SetWindowLongPtrW(window, GWLP_USERDATA, &signals as *const Signals as isize);
+                let _ = ready.send(Ok(window as isize));
+                let mut message: MSG = std::mem::zeroed();
+                while GetMessageW(&mut message, ptr::null_mut(), 0, 0) > 0 {
+                    DispatchMessageW(&message);
+                }
+            });
+            let window = started
+                .recv()
+                .map_err(|_| io::Error::other("session watch did not start"))??;
+            Ok(Self { ending, finished, window, thread: Some(thread) })
+        }
+        /// The service has stopped; release a pending final notice.
+        pub(super) fn finish(&self) {
+            unsafe { SetEvent(self.finished.as_raw_handle() as HANDLE) };
+        }
+    }
+    impl Drop for Watch {
+        fn drop(&mut self) {
+            self.finish();
+            unsafe { PostMessageW(self.window as HWND, WM_CLOSE, 0, 0) };
+            if let Some(thread) = self.thread.take() {
+                let _ = thread.join();
+            }
+        }
+    }
 }
 
 fn event_name(key: &str) -> io::Result<Vec<u16>> {
@@ -113,6 +264,7 @@ pub(crate) fn supervise(plan: &Plan) -> io::Result<Outcome> {
             Some(unsafe { OwnedHandle::from_raw_handle(inheritable) })
         }
     };
+    let watch = session::Watch::start(&plan.key)?;
     let job = Job::new()?;
     let process = spawn_with(
         &plan.executable,
@@ -123,8 +275,12 @@ pub(crate) fn supervise(plan: &Plan) -> io::Result<Outcome> {
         &Options { console: Console::Hidden, output: output.as_ref(), job: Some(&job) },
     )?;
     drop(output);
-    let handles = [process.raw(), event.as_raw_handle() as HANDLE];
-    let signalled = unsafe { WaitForMultipleObjects(2, handles.as_ptr(), 0, INFINITE) };
+    let handles = [
+        process.raw(),
+        event.as_raw_handle() as HANDLE,
+        watch.ending.as_raw_handle() as HANDLE,
+    ];
+    let signalled = unsafe { WaitForMultipleObjects(3, handles.as_ptr(), 0, INFINITE) };
     if signalled == WAIT_OBJECT_0 {
         // The lower index wins when both are ready: an exit is never
         // reported as a stop.
@@ -133,19 +289,22 @@ pub(crate) fn supervise(plan: &Plan) -> io::Result<Outcome> {
             None => Err(io::Error::other("service exit not observable")),
         };
     }
-    if signalled != WAIT_OBJECT_0 + 1 {
+    if signalled != WAIT_OBJECT_0 + 1 && signalled != WAIT_OBJECT_0 + 2 {
         let error = io::Error::last_os_error();
         let _ = job.terminate();
         return Err(error);
     }
+    let grace = if signalled == WAIT_OBJECT_0 + 2 { plan.session_grace } else { plan.grace };
     let asked = interrupt(&process).is_ok();
     if asked {
-        if let Some(code) = process.wait(plan.grace)? {
+        if let Some(code) = process.wait(grace)? {
+            watch.finish();
             return Ok(Outcome::Stopped(code));
         }
     }
     job.terminate()?;
     let _ = process.wait(Duration::from_secs(10));
+    watch.finish();
     Ok(Outcome::Killed)
 }
 
@@ -227,6 +386,7 @@ if (mode === 'as-child') {
                 log: Some(self.directory.join("service.log")),
                 key: self.key.clone(),
                 grace,
+                session_grace: Duration::from_secs(10).min(grace),
             }
         }
         fn read(&self, name: &str) -> Option<String> {
@@ -308,6 +468,33 @@ if (mode === 'as-child') {
             wait_gone(&service);
             wait_gone(&child);
         });
+    }
+
+    #[test]
+    fn the_session_ending_stops_the_service_before_the_final_notice_returns() {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            FindWindowW, SendMessageW, WM_ENDSESSION, WM_QUERYENDSESSION,
+        };
+        let fixture = Fixture::new();
+        let plan = fixture.plan("stops", Duration::from_secs(30));
+        std::thread::scope(|scope| {
+            let supervisor = scope.spawn(|| supervise(&plan));
+            fixture.wait_for("ready");
+            let child = fixture.wait_for("child-ready");
+            let class = session::class_name(&fixture.key);
+            let window = unsafe { FindWindowW(class.as_ptr(), ptr::null()) };
+            assert!(!window.is_null(), "no session window");
+            // What Windows sends each top-level window when a session ends.
+            assert_eq!(unsafe { SendMessageW(window, WM_QUERYENDSESSION, 0, 0) }, 1);
+            unsafe { SendMessageW(window, WM_ENDSESSION, 1, 0) };
+            // The final notice returned only after the service had stopped.
+            assert_eq!(fixture.read("stopped").as_deref(), Some("clean"));
+            assert_eq!(supervisor.join().unwrap().unwrap(), Outcome::Stopped(0));
+            assert_eq!(fixture.read("signal").as_deref(), Some("SIGINT"));
+            wait_gone(&child);
+        });
+        // A cancelled sign-out (asked, but the session did not end) has
+        // still stopped the service; that is the safe direction.
     }
 
     #[test]

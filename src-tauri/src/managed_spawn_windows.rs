@@ -436,7 +436,7 @@ pub(crate) fn spawn(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     fn text(line: &[u16]) -> String {
         String::from_utf16(line).unwrap()
@@ -679,6 +679,164 @@ try {
         process.terminate().unwrap();
         assert_eq!(process.wait(Duration::from_secs(10)).unwrap(), Some(1));
         let _ = std::fs::remove_file(&trace);
+    }
+
+    /// The exact variables Root gives the Windows workspace: the account home
+    /// and both temporary variables the environment contract owns, and the few
+    /// system variables Windows programs need to start at all.
+    fn workspace_environment(profile: &Path) -> Vec<(OsString, OsString)> {
+        let system = |name: &str| (OsString::from(name), std::env::var_os(name).unwrap());
+        let root = PathBuf::from(std::env::var_os("SystemRoot").unwrap());
+        let mut path = root.join("System32").into_os_string();
+        path.push(";");
+        path.push(&root);
+        vec![
+            system("SystemRoot"),
+            system("SystemDrive"),
+            system("USERPROFILE"),
+            ("windir".into(), root.into_os_string()),
+            ("PATH".into(), path),
+            ("TEMP".into(), profile.join("tmp").into_os_string()),
+            ("TMP".into(), profile.join("tmp").into_os_string()),
+            ("OTEL_SDK_DISABLED".into(), "true".into()),
+        ]
+    }
+    fn listing(root: &Path, depth: usize, found: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(root) else { return };
+        for entry in entries.flatten().take(60) {
+            let path = entry.path();
+            found.push(format!("{}{}", "  ".repeat(3 - depth), entry.file_name().to_string_lossy()));
+            if depth > 0 && path.is_dir() {
+                listing(&path, depth - 1, found);
+            }
+        }
+    }
+    /// What is on screen when the workspace does not start: on Windows an
+    /// uncaught error in Electron's main process is a message box.
+    fn screenshot(name: &str) {
+        let Some(directory) = std::env::var_os("BLACKCRAB_BOOT_EVIDENCE") else { return };
+        let file = PathBuf::from(directory).join(name);
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; \
+             $b=[System.Windows.Forms.SystemInformation]::VirtualScreen; \
+             $i=New-Object System.Drawing.Bitmap $b.Width,$b.Height; \
+             $g=[System.Drawing.Graphics]::FromImage($i); \
+             $g.CopyFromScreen($b.Left,$b.Top,0,0,$i.Size); \
+             $i.Save('{}')",
+            file.display()
+        );
+        let _ = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output();
+    }
+
+    #[test]
+    #[ignore = "requires an actual built Windows workspace; starts its real Electron main process"]
+    fn built_workspace_boots_from_a_root_shaped_launch() {
+        use crate::managed_private_windows::{create_private_directory, directory as inspect, Access};
+        let package = std::fs::canonicalize(std::env::var("BLACKCRAB_NATIVE_PACKAGE_ROOT").unwrap()).unwrap();
+        let plain = |path: PathBuf| PathBuf::from(path.to_string_lossy().trim_start_matches(r"\\?\"));
+        let package = plain(package);
+        let executable = package.join("Blackcrab.exe");
+        assert!(executable.is_file());
+
+        // A fresh private profile at its canonical path, as Root's will be.
+        let mut nonce = [0u8; 8];
+        getrandom::getrandom(&mut nonce).unwrap();
+        let base = plain(std::fs::canonicalize(std::env::temp_dir()).unwrap()).join(format!(
+            "blackcrab-boot-{}",
+            nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        ));
+        create_private_directory(&base).unwrap();
+        let profile = base.join("profile");
+        create_private_directory(&profile).unwrap();
+        assert_eq!(inspect(&profile, Access::Private), Ok(()));
+
+        let (bootstrap, renewal, lifecycle) = (
+            channel(ChildEnd::Blocking).unwrap(),
+            channel(ChildEnd::Duplex).unwrap(),
+            channel(ChildEnd::Duplex).unwrap(),
+        );
+        let process = spawn(
+            &executable,
+            &[],
+            &workspace_environment(&profile),
+            &package,
+            &[(3, &bootstrap.theirs), (4, &renewal.theirs), (6, &lifecycle.theirs)],
+        )
+        .unwrap();
+        drop((bootstrap.theirs, renewal.theirs, lifecycle.theirs));
+
+        // The right shape with a made-up credential and an unused port: the
+        // workspace cannot attach to any service, only start.
+        let expires = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
+            + 3_600_000;
+        let descriptor = serde_json::json!({
+            "version": 1,
+            "owner": {"kind": "blackcrab-managed-host", "generation": 1, "environmentId": "startup-probe",
+                "origin": "http://127.0.0.1:9/", "serverVersion": "0.1.7", "orchestrationProtocolVersion": 2},
+            "profile": {"root": profile, "namespace": "blackcrab-managed-v1", "appId": "com.blackcrab.desktop.managed"},
+            "control": {"kind": "unavailable"},
+            "authorization": {"kind": "paired-credential", "credential": "222222222222", "expiresAt": expires,
+                "renewal": {"kind": "owner-credential-fd-v1", "fd": 4}},
+            "lifecycle": {"kind": "launcher-lifecycle-fd-v1", "fd": 6}
+        });
+        let second = Some(Duration::from_secs(10));
+        bootstrap.ours.write_all(descriptor.to_string().as_bytes(), second).unwrap();
+        drop(bootstrap.ours);
+
+        // The environment contract creates these only after it has read the
+        // descriptor from 3 and accepted the profile and variables.
+        let expected = [
+            profile.join("app-data").join("blackcrab-managed-v1"),
+            profile.join("tmp"),
+            profile.join("logs"),
+        ];
+        let deadline = std::time::Instant::now() + Duration::from_secs(90);
+        let mut exited = None;
+        while !expected.iter().all(|path| path.is_dir()) {
+            exited = process.wait(Duration::from_millis(500)).unwrap();
+            if exited.is_some() || std::time::Instant::now() >= deadline {
+                screenshot("workspace-boot-failure.png");
+                let mut found = Vec::new();
+                listing(&profile, 3, &mut found);
+                let _ = process.terminate();
+                panic!(
+                    "the built workspace did not accept its bootstrap; exit {exited:?}; profile:\n{}",
+                    found.join("\n")
+                );
+            }
+        }
+        for path in &expected {
+            assert_eq!(inspect(path, Access::Private), Ok(()), "{}", path.display());
+        }
+
+        // Not required to pass: with nothing to attach to, the workspace may
+        // answer "not visible" or give up first. Recorded for the next step.
+        let _ = lifecycle
+            .ours
+            .write_all(b"{\"version\":1,\"id\":1,\"action\":\"activate\"}\n", second);
+        let mut buffer = [0u8; 256];
+        let reply = match lifecycle.ours.read(&mut buffer, Some(Duration::from_secs(45))) {
+            Ok(0) => "channel closed".to_string(),
+            Ok(read) => String::from_utf8_lossy(&buffer[..read]).trim().to_string(),
+            Err(error) => format!("no reply: {error}"),
+        };
+        screenshot("workspace-boot.png");
+        let mut found = Vec::new();
+        listing(&profile, 2, &mut found);
+        println!(
+            "WORKSPACE_BOOT lifecycle={reply} exit={:?}\n{}",
+            process.wait(Duration::from_millis(0)),
+            found.join("\n")
+        );
+        let _ = process.terminate();
+        let _ = process.wait(Duration::from_secs(10));
+        let _ = exited;
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]

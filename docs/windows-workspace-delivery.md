@@ -149,6 +149,29 @@ Tests: `environment.windows.test.mjs` needs only Node. It runs natively in the
 Windows workspace job, and on Linux CI with the platform reported as win32 so
 the name and directory rules are exercised there too.
 
+Step 3a merged as PR311 (f1ac457a7dfbf87a554399effc059479d5add1aa); the three
+Windows-form tests passed natively on the Windows runner.
+
+## Step 3b — booting the built Electron workspace
+
+Everything so far was proven with `node.exe`. The Windows workspace job now
+also starts the real built `Blackcrab.exe` main process the way Root will:
+a fresh profile created with the protected DACL at its canonical path, the
+package directory as working directory, pipes at descriptors3,4 and6, and
+exactly this environment: `SystemRoot`, `SystemDrive`, `windir`, `USERPROFILE`,
+`PATH` (System32 and the Windows directory), `TEMP` and `TMP` at
+`<profile>\tmp`, and `OTEL_SDK_DISABLED`. The descriptor has the right shape
+with a made-up credential and an unused port, so the workspace can start but
+cannot attach to anything.
+
+It passes when the environment contract has created
+`app-data\blackcrab-managed-v1`, `tmp` and `logs` in the profile and each is
+still private. That only happens after the workspace read the descriptor from
+descriptor3 and accepted the profile and variables: the exact point where the
+Linux workspace failed silently. The lifecycle reply is recorded, not required.
+On failure it saves a screenshot (an uncaught main-process error is a message
+box on Windows) and lists the profile.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

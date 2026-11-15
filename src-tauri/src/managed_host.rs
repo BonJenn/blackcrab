@@ -19,8 +19,6 @@ use tokio::sync::Mutex;
 #[allow(dead_code)]
 #[path = "managed_service_issuer_io.rs"]
 mod issuer_io;
-// On Windows only the standalone helper entry uses the issuer so far; Root's
-// own service control is not ported yet.
 #[cfg(any(unix, windows))]
 #[cfg_attr(windows, allow(dead_code))]
 #[path = "managed_service_issuer.rs"]
@@ -29,9 +27,17 @@ mod service_issuer;
 #[path = "managed_service_identity.rs"]
 mod service_identity;
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", windows))]
 #[path = "managed_service_initialization.rs"]
 mod service_initialization;
+
+#[cfg(windows)]
+#[path = "managed_service_windows.rs"]
+mod windows_service_control;
+
+#[cfg(all(test, windows))]
+#[path = "managed_service_windows_tests.rs"]
+mod windows_service_tests;
 
 #[cfg(target_os = "macos")]
 #[path = "managed_service_control.rs"]
@@ -49,6 +55,12 @@ mod service_package_tests;
 pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};
 
+/// The scheduled task's action on Windows: supervise the service launcher.
+/// Returns the process exit code.
+#[cfg(windows)]
+pub(crate) fn run_private_service_supervisor() -> Result<i32, String> {
+    service_issuer::run_service_supervisor()
+}
 pub(crate) fn run_private_service_issuer() -> Result<(), String> {
     #[cfg(any(unix, windows))]
     { service_issuer::run_private_stdio() }
@@ -249,14 +261,16 @@ impl ManagedHost {
         {service_control::control(self,action).await}
         #[cfg(target_os="linux")]
         {linux_service_control::control(self,action).await}
-        #[cfg(not(any(target_os="macos",target_os="linux")))]
+        #[cfg(windows)]
+        {windows_service_control::control(self,action).await}
+        #[cfg(not(any(target_os="macos",target_os="linux",windows)))]
         {if action==ServiceAction::Status{Ok(ServiceStatus{state:"notAvailable",can_initialize:false,installed:false,loaded:false,permission_identity_restart_required:false,error:None})}else{Err("Background-service controls are unavailable on this platform".into())}}
     }
     /// Explicit fresh service setup. No migration, process spawn or OS activation.
     pub(crate) async fn initialize_service(&self) -> Result<HostStatus, String> {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        #[cfg(any(target_os = "macos", target_os = "linux", windows))]
         { service_initialization::initialize(self).await }
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
         { Err("Background service setup is unavailable on this platform".into()) }
     }
     pub(crate) async fn start(&self, artifact: Option<PathBuf>) -> Result<HostStatus, String> {
@@ -937,9 +951,9 @@ impl ManagedHost {
     }
     async fn probe(&self, config: &Configuration) -> Result<Probe, String> {
         if config.ownership == OwnershipMode::Service {
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             service_issuer::attachment_selection(self, config)?;
-            #[cfg(not(unix))]
+            #[cfg(not(any(unix, windows)))]
             return Err("Background service attachment is unavailable on this platform".into());
         }
         let file = self.root.join("host/userdata/server-runtime.json");
@@ -964,9 +978,9 @@ impl ManagedHost {
         starting: bool,
     ) -> Result<Option<Attached>, String> {
         let service_selection: Option<(String, String)> = if config.ownership == OwnershipMode::Service {
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             { Some(service_issuer::attachment_selection(self, config)?) }
-            #[cfg(not(unix))]
+            #[cfg(not(any(unix, windows)))]
             { return Err("Background service attachment is unavailable on this platform".into()); }
         } else { None };
         if starting && service_selection.is_some() {
@@ -1293,6 +1307,18 @@ fn private_directory(path: &Path) -> Result<(), String> {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(io_error)?;
     }
+    // Windows has no mode to set. A directory created under the user's own
+    // application data or inside an already private directory inherits a
+    // private DACL; anything broader is refused, not silently accepted.
+    #[cfg(windows)]
+    crate::managed_payload::private_dir(path)?;
+    let _ = path;
+    Ok(())
+}
+/// Flushes a directory's entries where the platform can.
+fn sync_directory(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    File::open(path).and_then(|file| file.sync_all()).map_err(io_error)?;
     let _ = path;
     Ok(())
 }

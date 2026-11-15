@@ -557,6 +557,66 @@ patched server sources.
   argument when not installed. It exports the pins, archive and helper path
   for the native tests that follow.
 
+Step 4f-1 merged as PR322 (452a7a0a2476b0700f2f6b9705fa5512ad62d3d7). The
+built helper refused as required on the runner: 64, 64 and 1.
+
+## Step 4f-2 — Root controls the Windows service
+
+- `managed_service_install.rs`, `managed_service_initialization.rs` and the
+  service parts of `managed_host.rs` now compile on Windows. Files are
+  checked by owner and DACL instead of UID and mode. The private browser
+  channel is not configured on Windows (`browser` stays absent) until step 5.
+- The helper has a second fixed argument, `__blackcrab-service-run-v1`. This
+  is the scheduled task's action. It verifies its own installed location and
+  the selected payload exactly as the issuer does, then supervises
+  `t3.exe __service-launcher` with an allowlisted environment, logging to
+  `<owner>\logs\boot-service.log`.
+- The task and its stop event are named by a key: SHA-256 over the lowercase
+  owner directory, the generation and the environment identity, first 32 hex
+  characters. Two owner directories never share a task.
+- `managed_service_windows.rs` is the control, in the same order as launchd
+  and systemd: one control lock, configuration and generation rechecked under
+  the launcher lock, then the action. "Installed" means our task is registered
+  exactly as written; a different task under that name is reported and left
+  alone. "Loaded" means the supervisor is running. Stop asks the supervisor
+  for a clean stop and ends the task only if that fails. Uninstall removes
+  the task and keeps configuration, issuer, journal and all data.
+- A status poll may reuse a verification of the same task for 30 seconds,
+  because exporting the task through PowerShell takes seconds. Every action
+  that changes or starts the task verifies it again.
+- `managed-windows-host.yml` now runs the ignored test
+  `actual_packaged_windows_service_lifecycle` after the build: set up in a
+  fresh private directory, install, attach, pair, reopen, stop, start,
+  restart, uninstall, with the real payload, helper and Task Scheduler.
+
+Findings from the real runs on the runner (PR323):
+
+- The helper is windowless and the scheduler keeps only an exit code, so the
+  helper writes `<owner>\logs\service-supervisor.log`: each startup step with
+  its time, each request's kind and whether it was answered, and how the run
+  ended. Never a path, frame or secret.
+- Timings: helper ready in about 0.75 s; one full payload verification about
+  0.35–0.55 s in the release helper and 4.5–7.6 s in the unoptimized test
+  build, which is why the test takes about nine minutes.
+- All three stops in each passing run were logged "service stopped cleanly on
+  request".
+- **Intermittent start failure, cause found.** In three of seven runs the
+  first start failed: the launcher logged "Owned service bootstrap is
+  unavailable" and exited with 1, leaving the journal prepared (so the
+  uninstall was then refused as needing recovery). The helper's record showed
+  `begin` answered and `issued` never requested, which places the failure in
+  the launcher's `deliver`: it writes the sign-in envelope to the new server
+  process's input and allowed one second for the close to complete. On
+  Windows that close completes only when the reader has taken the bytes, so
+  it waits for the server process to start. The failing runs were the slow
+  ones (verification 7.6 s against 4.5 s). The Windows launcher record now
+  allows twenty seconds; the helper's own limit for the delivery is thirty.
+  The journal-replacement retry added earlier on suspicion was never needed
+  in any run; it stays as a bounded guard.
+- A start that fails after `begin` leaves the journal prepared for this boot,
+  and stop, start and uninstall are then refused as needing recovery, as on
+  macOS and Linux. Windows has no recovery path yet other than signing out.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

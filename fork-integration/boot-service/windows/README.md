@@ -15,7 +15,10 @@ changes only what cannot hold on Windows:
   adding a canonical-path check on the directories); names the helper
   `blackcrab-issuer.exe`; and starts it with a Windows environment
   (`SystemRoot`, with `USERPROFILE`, `TEMP` and `TMP` at the owner directory)
-  and no window, in place of a `/usr/bin:/bin` PATH.
+  and no window, in place of a `/usr/bin:/bin` PATH. It also allows twenty
+  seconds, not one, to hand the server its sign-in envelope: on Windows
+  closing the pipe completes only when the server process has started and
+  read it, and one second failed in two of six real runs on the CI runner.
 - **`owned-windows-serviceLauncher`**: drops the `getuid` and mode
   requirements on runtime metadata; and stops the server child by closing the
   launcher's IPC channel, which the server treats as a stop, because `kill()`

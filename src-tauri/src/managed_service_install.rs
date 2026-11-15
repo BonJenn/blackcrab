@@ -1,5 +1,5 @@
 //! Native-only profile4 runtime publication; no commands or service activation.
-#![cfg(any(target_os = "macos", target_os = "linux"))]
+#![cfg(any(target_os = "macos", target_os = "linux", windows))]
 //! EmbeddedPayload must originate in trusted native selection (compiled pins).
 //! Generic artifact consistency plus a caller-supplied JSON hash is NOT authority.
 use crate::{
@@ -21,6 +21,8 @@ use std::{
     time::{Duration, Instant},
 };
 const MANIFEST: &str = "blackcrab-managed-host.json";
+/// The host's entry program inside its payload.
+const ENTRY: &str = if cfg!(windows) { "t3.exe" } else { "t3" };
 const OWNER_MARKER: &str = ".blackcrab-managed-host";
 const PROFILE: &str = "blackcrab-local-service-layout-v1";
 const REGISTRY: &str = include_str!("../../fork-integration/boot-service/registry.json");
@@ -107,10 +109,7 @@ impl SelectedServiceRuntime {
             ".native-install-{}",
             nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
         ));
-        fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&stage)
-            .map_err(|_| InstallError::Io)?;
+        create_private(&stage)?;
         managed_payload::private_dir(&stage).map_err(|_| InstallError::Owner)?;
         let transaction = ServiceInstallTransaction {
             selection: self,
@@ -128,7 +127,7 @@ impl ServiceInstallTransaction {
         self.stage.as_ref().expect("transaction staging is live")
     }
     pub(super) fn entry(&self) -> PathBuf {
-        self.payload().join("t3")
+        self.payload().join(ENTRY)
     }
     fn payload(&self) -> PathBuf {
         self.directory().join("payload")
@@ -159,11 +158,7 @@ impl ServiceInstallTransaction {
         Ok(())
     }
     pub(super) fn commit(self) -> Result<PublishedServiceRuntime> {
-        self.commit_with_sync(|parent| {
-            File::open(parent)
-                .and_then(|f| f.sync_all())
-                .map_err(|_| InstallError::Io)
-        })
+        self.commit_with_sync(sync_parent_directory)
     }
     fn commit_with_sync(
         mut self,
@@ -193,7 +188,7 @@ impl ServiceInstallTransaction {
         self.stage = None; // A failed post-publication fsync must never delete or retry the published tree.
         sync_parent(target.parent().ok_or(InstallError::Io)?)?;
         Ok(PublishedServiceRuntime {
-            entry: target.join("payload/t3"),
+            entry: target.join("payload").join(ENTRY),
             version_directory: target,
             manifest_sha256: self.selection.manifest.clone(),
         })
@@ -234,6 +229,14 @@ fn check_profile(root: &Path) -> Result<()> {
         return Err(InstallError::Profile);
     }
     Ok(())
+}
+#[cfg(unix)]
+fn create_private(path: &Path) -> Result<()> {
+    fs::DirBuilder::new().mode(0o700).create(path).map_err(|_| InstallError::Io)
+}
+#[cfg(unix)]
+fn sync_parent_directory(parent: &Path) -> Result<()> {
+    File::open(parent).and_then(|f| f.sync_all()).map_err(|_| InstallError::Io)
 }
 #[cfg(unix)]
 fn check_owner(root: &Path) -> Result<()> {
@@ -370,6 +373,220 @@ fn copy_payload(source: &Path, target: &Path) -> Result<()> {
     }
     visit(source, target, 0, &mut count, &mut bytes)
 }
+// Windows: owners and DACLs stand in for UID and mode (see
+// managed_private_windows). Children created inside a private directory
+// inherit its protected DACL, and are checked after creation all the same.
+#[cfg(windows)]
+mod windows_files {
+    use super::{InstallError, Result, OWNER_MARKER};
+    use crate::{
+        managed_payload,
+        managed_private_windows::{self as private, Access},
+    };
+    use std::{
+        fs::{self, OpenOptions},
+        io::{Read, Write},
+        os::windows::process::CommandExt,
+        path::Path,
+        process::{Command, Stdio},
+        time::{Duration, Instant},
+    };
+    pub(super) fn create_private(path: &Path) -> Result<()> {
+        private::create_private_directory(path).map_err(|_| InstallError::Io)
+    }
+    pub(super) fn sync_parent_directory(_parent: &Path) -> Result<()> {
+        Ok(())
+    }
+    pub(super) fn check_owner(root: &Path) -> Result<()> {
+        let canonical = root.canonicalize().map_err(|_| InstallError::Owner)?;
+        let canonical = canonical.to_string_lossy();
+        if !root.is_absolute()
+            || root.to_string_lossy().chars().any(char::is_control)
+            || !canonical
+                .strip_prefix(r"\\?\")
+                .unwrap_or(&canonical)
+                .eq_ignore_ascii_case(&root.to_string_lossy())
+        {
+            return Err(InstallError::Owner);
+        }
+        managed_payload::private_dir(root).map_err(|_| InstallError::Owner)?;
+        let marker = root.join(OWNER_MARKER);
+        let file = private::open_file(&marker, OpenOptions::new().read(true))
+            .map_err(|_| InstallError::Owner)?;
+        private::security(&file, Access::Private).map_err(|_| InstallError::Owner)?;
+        drop(file);
+        if read_regular(&marker, 64)? != b"blackcrab-managed-host-v1\n" {
+            return Err(InstallError::Owner);
+        }
+        Ok(())
+    }
+    pub(super) fn private_child(path: &Path) -> Result<()> {
+        match fs::create_dir(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return Err(InstallError::Io),
+        }
+        managed_payload::private_dir(path).map_err(|_| InstallError::Owner)
+    }
+    pub(super) fn read_regular(path: &Path, maximum: u64) -> Result<Vec<u8>> {
+        let mut file = private::open_file(path, OpenOptions::new().read(true))
+            .map_err(|_| InstallError::Io)?;
+        let length = file.metadata().map_err(|_| InstallError::Io)?.len();
+        if length > maximum {
+            return Err(InstallError::Verification);
+        }
+        let mut bytes = Vec::new();
+        Read::by_ref(&mut file)
+            .take(maximum + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| InstallError::Io)?;
+        if bytes.len() as u64 != length {
+            return Err(InstallError::Verification);
+        }
+        Ok(bytes)
+    }
+    pub(super) fn write_private(path: &Path, bytes: &[u8]) -> Result<()> {
+        let mut file = private::open_file(path, OpenOptions::new().write(true).create_new(true))
+            .map_err(|_| InstallError::Io)?;
+        file.write_all(bytes)
+            .and_then(|_| file.sync_all())
+            .map_err(|_| InstallError::Io)
+    }
+    pub(super) fn copy_payload(source: &Path, target: &Path) -> Result<()> {
+        private_child(target)?;
+        let mut count = 0usize;
+        let mut bytes = 0u64;
+        fn visit(
+            source: &Path,
+            target: &Path,
+            depth: usize,
+            count: &mut usize,
+            bytes: &mut u64,
+        ) -> Result<()> {
+            if depth > 128 {
+                return Err(InstallError::Verification);
+            }
+            for item in fs::read_dir(source).map_err(|_| InstallError::Io)? {
+                let item = item.map_err(|_| InstallError::Io)?;
+                let name = item.file_name();
+                let text = name.to_str().ok_or(InstallError::Verification)?;
+                if text.chars().any(char::is_control) {
+                    return Err(InstallError::Verification);
+                }
+                let input = item.path();
+                let output = target.join(&name);
+                let meta = fs::symlink_metadata(&input).map_err(|_| InstallError::Io)?;
+                *count += 1;
+                // Symbolic links and junctions both report as links here.
+                if *count > 200_000 || meta.file_type().is_symlink() {
+                    return Err(InstallError::Verification);
+                }
+                if meta.is_dir() {
+                    private_child(&output)?;
+                    visit(&input, &output, depth + 1, count, bytes)?;
+                } else if meta.is_file() {
+                    *bytes = bytes
+                        .checked_add(meta.len())
+                        .ok_or(InstallError::Verification)?;
+                    if *bytes > 8 * 1024 * 1024 * 1024 {
+                        return Err(InstallError::Verification);
+                    }
+                    // Single-link, not a reparse point, checked on the handle.
+                    let source = private::open_file(&input, OpenOptions::new().read(true))
+                        .map_err(|_| InstallError::Verification)?;
+                    let mut out = private::open_file(
+                        &output,
+                        OpenOptions::new().write(true).create_new(true),
+                    )
+                    .map_err(|_| InstallError::Io)?;
+                    let n = std::io::copy(&mut source.take(meta.len() + 1), &mut out)
+                        .map_err(|_| InstallError::Io)?;
+                    if n != meta.len() {
+                        return Err(InstallError::Verification);
+                    }
+                    out.sync_all().map_err(|_| InstallError::Io)?;
+                } else {
+                    return Err(InstallError::Verification);
+                }
+            }
+            Ok(())
+        }
+        visit(source, target, 0, &mut count, &mut bytes)
+    }
+    pub(super) fn run_original_version_validation(
+        entry: &Path,
+        home: &Path,
+        expected: &str,
+    ) -> Result<()> {
+        // Nothing inherited but the system root, no window, and a time limit.
+        let root = std::env::var_os("SystemRoot").ok_or(InstallError::Version)?;
+        let mut child = Command::new(entry)
+            .arg("--version")
+            .current_dir(home)
+            .env_clear()
+            .env("SystemRoot", &root)
+            .env("USERPROFILE", home)
+            .env("TEMP", home)
+            .env("TMP", home)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .creation_flags(0x0800_0000)
+            .spawn()
+            .map_err(|_| InstallError::Version)?;
+        let mut stdout = child.stdout.take().ok_or(InstallError::Version)?;
+        // The pipe is synchronous; read it on a thread, bounded.
+        let reader = std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let _ = (&mut stdout).take(65537).read_to_end(&mut bytes);
+            bytes
+        });
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break status,
+                Ok(None) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(10))
+                }
+                _ => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(InstallError::Version);
+                }
+            }
+        };
+        let out = reader.join().map_err(|_| InstallError::Version)?;
+        if out.len() > 65536
+            || !status.success()
+            || !super::original_version_matches(
+                std::str::from_utf8(&out).map_err(|_| InstallError::Version)?,
+                expected,
+            )
+        {
+            return Err(InstallError::Version);
+        }
+        Ok(())
+    }
+    pub(super) fn remove_owned_stage(path: &Path) {
+        if let Ok(meta) = fs::symlink_metadata(path) {
+            if meta.is_dir() && !meta.file_type().is_symlink() {
+                if let Ok(items) = fs::read_dir(path) {
+                    for item in items.flatten() {
+                        remove_owned_stage(&item.path());
+                    }
+                }
+                let _ = fs::remove_dir(path);
+            } else {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+}
+#[cfg(windows)]
+use windows_files::{
+    check_owner, copy_payload, create_private, private_child, read_regular, remove_owned_stage,
+    run_original_version_validation, sync_parent_directory, write_private,
+};
 fn js_space(c: char) -> bool {
     matches!(c,'\u{0009}'..='\u{000d}'|'\u{0020}'|'\u{00a0}'|'\u{1680}'|'\u{2000}'..='\u{200a}'|'\u{2028}'|'\u{2029}'|'\u{202f}'|'\u{205f}'|'\u{3000}'|'\u{feff}')
 }
@@ -485,7 +702,7 @@ fn remove_owned_stage(path: &Path) {
         }
     }
 }
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     struct Fixture {

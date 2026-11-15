@@ -5273,6 +5273,14 @@ fn blackcrab_menu(app_handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 /// Fixed private native helper entry; dispatch before any Tauri/legacy initialization.
 /// No caller paths, secrets or runtime selection are accepted here.
 pub fn dispatch_private_service_issuer(arguments: Vec<std::ffi::OsString>) -> Option<i32> {
+    // Windows only: the scheduled task's action, which supervises the service.
+    #[cfg(windows)]
+    if arguments.first().is_some_and(|value| value.as_encoded_bytes().starts_with(b"__blackcrab-service-run")) {
+        if arguments.len() != 1 || arguments[0] != "__blackcrab-service-run-v1" {
+            return Some(64);
+        }
+        return Some(managed_host::run_private_service_supervisor().unwrap_or(1));
+    }
     let selected = arguments.first()
         .is_some_and(|value| value.as_encoded_bytes().starts_with(b"__blackcrab-service-issuer"));
     if !selected { return None; }

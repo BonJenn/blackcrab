@@ -11,6 +11,11 @@ on:
       - scripts/prepare-service-issuer.mjs
       - src-tauri/src/service_issuer_main.rs
       - src-tauri/src/managed_service*.rs
+      - src-tauri/src/managed_host.rs
+      - src-tauri/src/managed_payload*.rs
+      - src-tauri/src/managed_private_windows.rs
+      - src-tauri/src/managed_spawn_windows.rs
+      - src-tauri/src/lib.rs
       - .github/workflows/managed-windows-host.yml
   workflow_dispatch:
 
@@ -49,6 +54,16 @@ jobs:
           PNPM="$(find "$(npm root -g)" -name pnpm.exe | head -1)"
           test -n "$PNPM"
           node scripts/build-windows-host-ci.mjs --root "$RUNNER_TEMP/windows-host-build" --pnpm "$(cygpath -w "$PNPM")"
+      # Root itself, compiled against that payload and helper, sets the service
+      # up in a fresh private directory, registers the real scheduled task,
+      # attaches to the running service, stops, starts and restarts it, and
+      # removes the task again. No agent prompt is sent.
+      - name: Install, start, attach to, stop and remove the real service through Task Scheduler
+        working-directory: src-tauri
+        env:
+          CARGO_PROFILE_DEV_DEBUG: '0'
+          CARGO_PROFILE_TEST_DEBUG: '0'
+        run: cargo test --locked --lib managed_host::windows_service_tests::actual_packaged_windows_service_lifecycle -- --exact --ignored --nocapture
       - uses: actions/upload-artifact@v6
         if: always()
         with:

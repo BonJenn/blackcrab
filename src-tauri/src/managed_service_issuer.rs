@@ -122,6 +122,47 @@ impl NativeIssuer {
         Self::open_installed(&executable, expected)
     }
     fn open_installed(executable: &Path, expected: &str) -> Result<Self> {
+        let began = Instant::now();
+        let (owner, binding) = installed_layout(executable, expected)?;
+        let owner = owner.as_path();
+        let step = |name: &str| note(owner, &format!("issuer {name} at {} ms", began.elapsed().as_millis()));
+        step("layout verified");
+        let session_lease = managed_payload::owned_lock(&owner.join("service-owner.lock"), true)
+            .map_err(|_| { step("service-owner lock refused"); invalid() })?;
+        let host = ManagedHost::new(owner.to_path_buf());
+        // Lock order is service-owner then launcher. Never hold launcher over IPC trial commit.
+        let transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
+            .map_err(|_| { step("launcher lock refused"); invalid() })?;
+        step("locks held");
+        verify_selection(&host, &binding).inspect_err(|_| step("selection refused"))?;
+        step("selection verified");
+        let opened = Self::open_verified(owner, host, binding, session_lease, transaction);
+        step(if opened.is_ok() { "open" } else { "reconciliation refused" });
+        opened
+    }
+}
+/// The owner directory and binding this helper is installed under. Authority is
+/// the fixed layout around the running executable plus the compiled manifest
+/// pin, never a path or digest supplied by a caller.
+/// A step and its time, beside the service log. Windows only: there the
+/// helper has no console and no journal. Never a path or a secret.
+#[cfg(windows)]
+fn note(owner: &Path, line: &str) {
+    if let Ok(mut log) = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(owner.join("logs").join("service-supervisor.log"))
+    {
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs());
+        let _ = writeln!(log, "{seconds} {line}");
+    }
+}
+#[cfg(not(windows))]
+fn note(_owner: &Path, _line: &str) {}
+fn installed_layout(executable: &Path, expected: &str) -> Result<(PathBuf, Binding)> {
+    {
         // owner/issuer/<selfSHA>/blackcrab-issuer, never a request-selected root.
         if executable.file_name().and_then(|x| x.to_str()) != Some(ISSUER_NAME) {
             return Err(invalid());
@@ -163,13 +204,17 @@ impl NativeIssuer {
         {
             return Err(invalid());
         }
-        let session_lease = managed_payload::owned_lock(&owner.join("service-owner.lock"), true)
-            .map_err(|_| invalid())?;
-        let host = ManagedHost::new(owner.to_path_buf());
-        // Lock order is service-owner then launcher. Never hold launcher over IPC trial commit.
-        let transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
-            .map_err(|_| invalid())?;
-        verify_selection(&host, &binding)?;
+        Ok((owner.to_path_buf(), binding))
+    }
+}
+impl NativeIssuer {
+    fn open_verified(
+        owner: &Path,
+        host: ManagedHost,
+        binding: Binding,
+        session_lease: File,
+        transaction: File,
+    ) -> Result<Self> {
         let boot_session_id = boot_session::read_boot_session_id()?;
         // Selection remains verified under BOTH leases before reconciling prior-boot state.
         verify_selection(&host, &binding)?;
@@ -226,8 +271,9 @@ impl NativeIssuer {
             return Err(invalid());
         }
         let transaction = managed_payload::owned_lock(&self.host.root.join("launcher.lock"), true)
-            .map_err(|_| invalid())?;
-        let config = verify_selection(&self.host, &self.binding)?;
+            .map_err(|error| { note(&self.host.root, &format!("issuer begin: launcher lock refused ({error})")); invalid() })?;
+        let config = verify_selection(&self.host, &self.binding)
+            .inspect_err(|_| note(&self.host.root, "issuer begin: selection refused"))?;
         self.prepare_verified(epoch, generation, config, transaction)
     }
     // Only called after selection verification; tests exercise this state transaction
@@ -362,6 +408,12 @@ impl NativeIssuer {
             }
             _ => Err(invalid()),
         })();
+        // The request kind only; frames carry secrets and are never recorded.
+        let kind = ["begin", "issued", "retire"]
+            .into_iter()
+            .find(|kind| bytes.windows(kind.len() + 2).any(|part| part == format!("\"{kind}\"").as_bytes()))
+            .unwrap_or("unknown");
+        note(&self.host.root, &format!("issuer request {kind}: {}", if outcome.is_ok() { "answered" } else { "refused" }));
         match outcome {
             Ok(output) => {
                 self.transcript_bytes = self
@@ -765,6 +817,105 @@ pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configu
 pub(super) fn control_generation(host: &ManagedHost, expected_config: &Configuration) -> Result<u64> {
     Ok(attachment_binding(host, expected_config)?.generation)
 }
+/// The installed helper, which the Windows scheduled task runs, and the
+/// generation it is bound to. Same read-only selection as attachment.
+#[cfg(windows)]
+pub(super) fn service_helper(host: &ManagedHost, expected_config: &Configuration) -> Result<(PathBuf, u64)> {
+    let binding = attachment_binding(host, expected_config)?;
+    Ok((host.root.join("issuer").join(&binding.self_sha256).join(ISSUER_NAME), binding.generation))
+}
+/// Names one service instance for its scheduled task and its stop request:
+/// unique to the owner directory, generation and environment.
+#[cfg(windows)]
+pub(super) fn service_key(root: &Path, generation: u64, environment: &str) -> String {
+    let mut hash = Sha256::new();
+    hash.update(b"blackcrab-service-instance-v1\0");
+    hash.update(root.to_string_lossy().to_lowercase().as_bytes());
+    hash.update([0]);
+    hash.update(generation.to_le_bytes());
+    hash.update(environment.as_bytes());
+    format!("{:x}", hash.finalize())[..32].to_string()
+}
+/// The Windows scheduled task's action. Starts the selected service launcher
+/// under supervision and returns the process exit code: the launcher's own
+/// when it ends by itself (a failure makes the task restart it), zero after a
+/// requested stop.
+#[cfg(windows)]
+pub(super) fn run_service_supervisor() -> Result<i32> {
+    let executable = std::env::current_exe().map_err(|_| invalid())?;
+    let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256").ok_or_else(invalid)?;
+    let (owner, binding) = installed_layout(&executable, expected)?;
+    // The helper has no console and the scheduler keeps only an exit code, so
+    // the reason a run ended is recorded beside the service's own log. The
+    // lines name a step and a system error, never a path or a secret.
+    let outcome = supervise_selected(&owner, &binding);
+    let line = match &outcome {
+        Ok((code, how)) => format!("supervisor ended: {how}, exit {code}"),
+        Err(reason) => format!("supervisor failed: {reason}"),
+    };
+    note(&owner, &line);
+    outcome.map(|(code, _)| code).map_err(|_| invalid())
+}
+#[cfg(windows)]
+fn supervise_selected(owner: &Path, binding: &Binding) -> Result<(i32, &'static str)> {
+    use crate::managed_service_run_windows::{supervise, Outcome, Plan};
+    use std::ffi::OsString;
+    let host = ManagedHost::new(owner.to_path_buf());
+    let began = Instant::now();
+    let config = {
+        let _transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
+            .map_err(|_| "launcher lock".to_string())?;
+        verify_selection(&host, binding).map_err(|_| "selection".to_string())?
+    };
+    note(owner, &format!("supervisor verified selection in {} ms; starting service", began.elapsed().as_millis()));
+    if config.ownership != OwnershipMode::Service {
+        return Err("ownership".into());
+    }
+    // The service runs provider tools and terminals, so it gets the signed-in
+    // user's ordinary Windows variables, by name, and nothing else inherited.
+    let mut environment: Vec<(OsString, OsString)> = [
+        "SystemRoot", "SystemDrive", "windir", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA",
+        "LOCALAPPDATA", "ProgramData", "ALLUSERSPROFILE", "PUBLIC", "ProgramFiles",
+        "ProgramFiles(x86)", "ProgramW6432", "CommonProgramFiles", "CommonProgramFiles(x86)",
+        "CommonProgramW6432", "ComSpec", "PATHEXT", "TEMP", "TMP", "USERNAME", "USERDOMAIN",
+        "COMPUTERNAME", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "OS",
+    ]
+    .iter()
+    .filter_map(|name| std::env::var_os(name).map(|value| (OsString::from(*name), value)))
+    .collect();
+    let mut path = config.artifact_path.clone().into_os_string();
+    if let Some(inherited) = std::env::var_os("PATH") {
+        path.push(";");
+        path.push(inherited);
+    }
+    let stamp = json!({"schema":1,"root":owner,"manifestSha256":binding.manifest_sha256,
+        "generation":binding.generation,"environmentId":binding.environment_id});
+    environment.extend([
+        (OsString::from("PATH"), path),
+        (OsString::from("T3CODE_HOME"), owner.join("host").into_os_string()),
+        (OsString::from("T3_BOOT_SERVICE_UNIT"), OsString::from("blackcrab.service")),
+        (OsString::from("BLACKCRAB_NATIVE_SERVICE_OWNER"), OsString::from(stamp.to_string())),
+    ]);
+    let plan = Plan {
+        executable: config.artifact_path.join("t3.exe"),
+        arguments: vec!["__service-launcher".into()],
+        environment,
+        directory: owner.to_path_buf(),
+        log: Some(owner.join("logs").join("boot-service.log")),
+        key: service_key(owner, binding.generation, &binding.environment_id),
+        grace: Duration::from_secs(90),
+        // Windows allows a program only a few seconds once a session is ending.
+        session_grace: Duration::from_secs(4),
+    };
+    match supervise(&plan) {
+        Ok(Outcome::Exited(code)) => Ok((code as i32, "service exited by itself")),
+        Ok(Outcome::Stopped(_)) => Ok((0, "service stopped cleanly on request")),
+        Ok(Outcome::Killed) => Ok((0, "service did not stop in time and was ended")),
+        // Another supervisor already runs this service in this session.
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok((0, "already running")),
+        Err(error) => Err(format!("supervise ({:?}, os {:?})", error.kind(), error.raw_os_error())),
+    }
+}
 
 fn stopped_control_journal(previous: Option<&Journal>, generation: u64, current_boot: &str) -> Result<()> {
     if boot_session::normalize(current_boot.as_bytes()).as_deref() != Ok(current_boot) { return Err(invalid()); }
@@ -1010,6 +1161,27 @@ fn read_journal(owner: &Path) -> Result<Option<Journal>> {
         }
     }
 }
+/// Replaces the journal with its fully written successor. On Windows another
+/// program, typically a virus scanner reading the file just written, can hold
+/// the old journal open for a moment and the replacement is then refused; it
+/// is retried for a bounded time. Nothing is ever written in place.
+fn replace_journal(temp: &Path, journal: &Path) -> std::io::Result<u32> {
+    let deadline = Instant::now() + Duration::from_secs(if cfg!(windows) { 3 } else { 0 });
+    let mut refused = 0;
+    loop {
+        match fs::rename(temp, journal) {
+            Err(error)
+                if cfg!(windows)
+                    && error.kind() == std::io::ErrorKind::PermissionDenied
+                    && Instant::now() < deadline =>
+            {
+                refused += 1;
+                std::thread::sleep(Duration::from_millis(20))
+            }
+            outcome => return outcome.map(|()| refused),
+        }
+    }
+}
 fn save_journal(owner: &Path, journal: &Journal) -> Result<()> {
     if journal.schema != 1
         || !safe_number(journal.epoch)
@@ -1026,7 +1198,13 @@ fn save_journal(owner: &Path, journal: &Journal) -> Result<()> {
     let bytes = serde_json::to_vec(journal).map_err(|_| invalid())?;
     super::write_new(&temp, &bytes)?;
     let outcome = (|| {
-        fs::rename(&temp, owner.join(JOURNAL)).map_err(|_| invalid())?;
+        let refused = replace_journal(&temp, &owner.join(JOURNAL)).map_err(|error| {
+            note(owner, &format!("issuer journal replace failed ({:?}, os {:?})", error.kind(), error.raw_os_error()));
+            invalid()
+        })?;
+        if refused > 0 {
+            note(owner, &format!("issuer journal replaced after {refused} refusals"));
+        }
         platform::sync_directory(owner)
     })();
     if outcome.is_err() {

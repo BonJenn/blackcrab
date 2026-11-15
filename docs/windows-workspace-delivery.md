@@ -736,13 +736,31 @@ checks the foreground window title and keeps a screenshot. That screenshot
 shows the workspace's onboarding screen fully drawn, so the blank Windows
 window is a real difference between the platforms.
 
-The Windows workspace's trace has no page-asset request at all
-(`desktop.protocol.serveAsset` never appears), so the page is not being asked
-for, not failing to draw. To see why, a **test build only** can keep the
-workspace's output with Chromium's logging on
-(`BLACKCRAB_TEST_WORKSPACE_OUTPUT`); a product build always discards the
-output and adds no variable. The Windows host job sets it and keeps the
-result, with long token-like strings removed.
+**Cause found (PR327).** Read through Chromium's debugging port in a test
+build, the window's page is `blackcrab://app/` and the answer to it is
+**404**: an empty document, three elements, no scripts. The workspace serves
+its interface from `clientAssetsDir`, which is `serverRoot/apps/server/dist/
+client`. In `DesktopEnvironment.ts`, for a packaged Windows build only,
+`serverRoot` is `resources\server.asar`, not the app root. Our package has no
+`server.asar`: `managed-desktop/build.mjs` puts the interface under the app
+root on every platform, which is where macOS and Linux look. So on Windows
+the interface is in the package but the workspace looks somewhere else.
+
+Fix not made yet. The direct one is a desktop source record that makes
+`serverRoot` the app root on Windows too. That changes the desktop registry
+and therefore the payload bytes and pins on every platform (macOS acceptance
+is already owed a re-run for PR310/311).
+
+How it was found, so the tools are not rebuilt: a test build can keep the
+workspace's output (`BLACKCRAB_TEST_WORKSPACE_OUTPUT`) and open the debugging
+port (`BLACKCRAB_TEST_WORKSPACE_DEBUG_PORT`); `scripts/probe-workspace-page.mjs`
+reads the page's state, console, errors and requests. A product build does
+neither. Things ruled out on the way: the service does serve its own page and
+script (200); the main process reports no error; the trace does not record
+page requests at all, so their absence there meant nothing.
+
+Also seen: Windows PowerShell is found but the workspace's five-second limit
+on reading the shell environment through it is missed on the runner.
 
 ## Remaining steps
 

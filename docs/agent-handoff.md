@@ -5,10 +5,13 @@
 Steps1 to 6a are merged (PR308–326; stage 4e87dd67b9680f9c40ec75f7c0353a02ab790da4).
 The Windows installer builds, installs and verifies in CI (unsigned). Worktree
 P/windows-workspace-delivery-044, branch feat/windows-installed-acceptance.
-**Blocking finding:** the Windows workspace window is blank while Linux draws
-its onboarding screen, and the workspace's trace shows no page request. Read
-"Step 6b" in docs/windows-workspace-delivery.md; the Windows host job now
-keeps the workspace's own output. After that: installed graphical acceptance
+**Blank Windows workspace window: cause found, fix not made.** The page
+`blackcrab://app/` answers 404 because a packaged Windows build looks for the
+interface in `resources\server.asar` and our package has it under the app
+root. Read "Step 6b" in docs/windows-workspace-delivery.md. The owner asked on
+2026-11-15 whether all this is necessary; the recommendation given was to ship
+0.4.4 for Mac and Linux and let Windows follow. **Await the owner's answer
+before more Windows work.** After that: installed graphical acceptance
 through Root's interface, signing/updater metadata, then step 5 (browser
 channel). Mac payload changed in PR310/311: **redo Mac native acceptance
 before0.4.4**. **0.4.4 is not published**; consult the owner before any tag or

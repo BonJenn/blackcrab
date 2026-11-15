@@ -50,8 +50,11 @@ export function serveLifecycle(stream, activate, { timeoutMs = 2000 } = {}) {
 
 export function openLifecycle(descriptor, activate) {
   if (!descriptor.lifecycle) return { close() {} };
-  if (descriptor.lifecycle.kind !== 'launcher-lifecycle-fd-v1' || descriptor.lifecycle.fd !== 6 || !fs.fstatSync(6).isSocket()) {
-    throw Error('Blackcrab launcher lifecycle connection unavailable');
+  // Windows inherits a private duplex pipe, which fstat reports as neither socket nor FIFO; there net.Socket itself refuses any descriptor that is not a pipe or socket.
+  const unavailable = () => Error('Blackcrab launcher lifecycle connection unavailable');
+  if (descriptor.lifecycle.kind !== 'launcher-lifecycle-fd-v1' || descriptor.lifecycle.fd !== 6 || (process.platform !== 'win32' && !fs.fstatSync(6).isSocket())) {
+    throw unavailable();
   }
-  return serveLifecycle(new net.Socket({ fd: 6, readable: true, writable: true }), activate);
+  let stream; try { stream = new net.Socket({ fd: 6, readable: true, writable: true }); } catch { throw unavailable(); }
+  return serveLifecycle(stream, activate);
 }

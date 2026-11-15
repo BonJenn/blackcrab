@@ -78,17 +78,50 @@ One fact for step 2b: in the child these descriptors are pipes, and Node's
 `fstatSync(fd).isSocket()`, so those payload checks need a Windows branch that
 identifies the inherited pipe some other way.
 
+Step 2a merged as PR309 (f9b0f8f3f4f06ed512734a379eaa5724358aa059).
+
+## Step 2b — workspace channel modules accept Windows pipes
+
+The owner chose on2026-11-14 to edit the shared workspace modules with a
+Windows-only branch, accepting that the Mac workspace payload's bytes change
+and its acceptance is redone before0.4.4.
+
+`credential-broker.mjs`, `update-client.mjs` and `lifecycle.mjs` required
+`fstatSync(fd).isSocket()`. On Windows the inherited channel is a pipe that
+`fstat` reports as neither socket nor FIFO, so there the stat check is skipped
+and `net.Socket({fd})`, which refuses any descriptor that is not a pipe or
+socket, is the check; a refusal surfaces as the same error. Behaviour on Mac
+and Linux is unchanged: the socket requirement still applies.
+
+Registry consequences: the three payload records in
+`managed-desktop/patches/registry.json` carry the new digests, and
+`fork-integration/native-keychain-qa/registry.json` pins the new whole
+registry (`c2881ccb…`). No QA patch targets these three files, so no QA
+predecessor digest changed. The host build freeze is untouched.
+
+**This changes the Mac desktop payload manifest.** The installed Mac0.4.3 app
+is unaffected; the next Mac build from stage has a different workspace payload
+and needs its native acceptance again before release.
+
+Evidence on Windows: the Node tests for the three modules now run there with
+overlapped inherited pipes, and a Rust test starts `node.exe` through
+`managed_spawn_windows` with Root-made pipes at4,5 and6 and drives the real
+modules: credential request and accepted reply, an update request sent only
+after that, and a lifecycle activation acknowledged as visible.
+
+Still not wired: `launch_verified`, its broker/update/lifecycle servers and
+`prepare_profile` remain Unix-only, and `native-os-home-environment.mjs` still
+refuses Windows. Those are step3.
+
 ## Remaining steps
 
-2. **Workspace bootstrap channels.** Root passes the workspace descriptor,
-   credential renewal, update and lifecycle channels as inherited descriptors
-   3 to 6. Windows needs inherited pipe handles the Electron process can open
-   as the same descriptor numbers, or an equivalent private handle transport,
-   and the payload's descriptor contract must accept it. That changes payload
-   modules shared with Mac, so Mac acceptance is re-run with it.
-3. **Workspace profile and environment contract.** `prepare_profile`, the
-   account home and `native-os-home-environment.mjs` assume UID, mode bits and
-   `O_NOFOLLOW`.
+3. **Workspace launch, profile and environment contract.** Port
+   `launch_verified` and its broker, update and lifecycle servers from
+   `UnixStream` to the Windows pipes; `prepare_profile`, the account home and
+   `native-os-home-environment.mjs` assume UID, mode bits and `O_NOFOLLOW`.
+   The environment module is also patched by the keychain QA recipe, so its
+   QA predecessor digests and fixtures change with it. Prove the descriptor
+   mechanism against the built Electron workspace, not only Node.
 4. **Background service.** Per-user startup with the same single-owner and
    attachment guarantees as launchd/systemd, the native issuer helper and its
    boot-session identity, and service installation into private storage.

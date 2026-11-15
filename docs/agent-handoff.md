@@ -1,6 +1,21 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows integration started (private storage, payload cache)
+## Current checkpoint — Windows step 2b: workspace channel modules (payload change)
+
+PR308 (step1) and PR309 (step 2a) are merged into stage at
+f9b0f8f3f4f06ed512734a379eaa5724358aa059. Worktree
+P/windows-workspace-delivery-044, branch feat/windows-workspace-channels.
+Read docs/windows-workspace-delivery.md. Step 2b edits three shared workspace
+payload modules with a Windows-only branch (owner's choice,2026-11-14), so the
+**Mac desktop payload manifest changes and Mac native acceptance must be redone
+before0.4.4**. Registry pins updated: three payload records and the keychain-QA
+whole-registry pin. Local: 17 Node module tests and the Mac managed_desktop Rust
+tests pass; other managed-desktop Node suites need `npm ci` (no node_modules in
+this worktree) and run in CI. Windows evidence comes only from the runner.
+Next: step3 (launch wiring, profile, environment contract).
+**0.4.4 is not published**; consult the owner before any tag or publication.
+
+## Previous checkpoint — Windows integration started (private storage, payload cache)
 
 PR307 merged into stage at fde830d1a8ea7ffe9c193463d759f3bff49f0cae. The owner
 asked on2026-11-14 to start Windows. Worktree

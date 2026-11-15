@@ -319,8 +319,8 @@
     "target": "apps/desktop/src/app/managed-desktop/credential-broker.mjs",
     "file": "../credential-broker.mjs",
     "beforeSha256": null,
-    "afterSha256": "dde2e54e1f8990737396fc1b4572b3c69107f3b8e0c327404587790bea7ef901",
-    "sha256": "dde2e54e1f8990737396fc1b4572b3c69107f3b8e0c327404587790bea7ef901"
+    "afterSha256": "16e10c694988d64227f26138d35cd91a2b93ad1917ce9dc21703abd075a7757a",
+    "sha256": "16e10c694988d64227f26138d35cd91a2b93ad1917ce9dc21703abd075a7757a"
   },
   {
     "id": "payload-access-session.d.mts",
@@ -4698,8 +4698,8 @@
     "file": "../update-client.mjs",
     "target": "apps/desktop/src/app/managed-desktop/update-client.mjs",
     "beforeSha256": null,
-    "afterSha256": "799d75afa703f3515afe5dc621be6cf79cc7d1514174514c635e03018fd605cd",
-    "sha256": "799d75afa703f3515afe5dc621be6cf79cc7d1514174514c635e03018fd605cd"
+    "afterSha256": "a6d4abdc3052f0f37df611f7bb8c0f681cec36574cbcb1cb7724679b3eed8ac6",
+    "sha256": "a6d4abdc3052f0f37df611f7bb8c0f681cec36574cbcb1cb7724679b3eed8ac6"
   },
   {
     "id": "launcher-update-client-types",
@@ -4791,8 +4791,8 @@
     "file": "../lifecycle.mjs",
     "target": "apps/desktop/src/app/managed-desktop/lifecycle.mjs",
     "beforeSha256": null,
-    "afterSha256": "7493497a6baed7c525892eb07d5d2d6cdb4da22ff69747315683059811122dc7",
-    "sha256": "7493497a6baed7c525892eb07d5d2d6cdb4da22ff69747315683059811122dc7"
+    "afterSha256": "a68cc613d03edd2e4381eceb344c629951cb74f6aadfe0f4ca859e838b524f82",
+    "sha256": "a68cc613d03edd2e4381eceb344c629951cb74f6aadfe0f4ca859e838b524f82"
   },
   {
     "id": "launcher-lifecycle-types",

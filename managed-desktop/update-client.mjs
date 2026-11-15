@@ -40,6 +40,9 @@ export function createUpdateClient(stream) {
   } };
 }
 export function openUpdateClient(control) {
-  if (control.kind !== 'launcher-updates-fd-v1' || control.fd !== 5 || !fs.fstatSync(5).isSocket()) throw Error('Blackcrab launcher update connection unavailable');
-  return createUpdateClient(new net.Socket({fd:5, readable:true, writable:true}));
+  // Windows inherits a private duplex pipe, which fstat reports as neither socket nor FIFO; there net.Socket itself refuses any descriptor that is not a pipe or socket.
+  const unavailable = () => Error('Blackcrab launcher update connection unavailable');
+  if (control.kind !== 'launcher-updates-fd-v1' || control.fd !== 5 || (process.platform !== 'win32' && !fs.fstatSync(5).isSocket())) throw unavailable();
+  let stream; try { stream = new net.Socket({fd:5, readable:true, writable:true}); } catch { throw unavailable(); }
+  return createUpdateClient(stream);
 }

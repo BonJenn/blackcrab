@@ -39,10 +39,14 @@ test('timeout and disconnect fence a late window activation result', async () =>
     await new Promise(r => setImmediate(r)); assert.equal(stream.replies.length, 0);
   }
 });
-test('actual child receives only the inherited lifecycle socket', { skip: process.platform === 'win32' }, async () => {
+// Node stalls a write on a synchronous Windows pipe while a read is pending, so
+// a two-way inherited channel is overlapped there, as Root's is.
+const duplex = process.platform === 'win32' ? 'overlapped' : 'pipe';
+const childEnv = process.platform === 'win32' ? { SystemRoot: process.env.SystemRoot } : {};
+test('actual child receives only the inherited lifecycle socket', async () => {
   const moduleUrl = new URL('./lifecycle.mjs', import.meta.url).href;
   const code = `import { openLifecycle } from ${JSON.stringify(moduleUrl)}; const server=openLifecycle({lifecycle:{kind:'launcher-lifecycle-fd-v1',fd:6}}, async()=>true); process.stdin.resume();`;
-  const child = spawn(process.execPath, ['--input-type=module', '-e', code], { env: {}, stdio: ['pipe','ignore','pipe','pipe','pipe','pipe','pipe'] });
+  const child = spawn(process.execPath, ['--input-type=module', '-e', code], { env: childEnv, stdio: ['pipe','ignore','pipe','pipe','pipe','pipe',duplex] });
   let stderr = ''; child.stderr.on('data', b => { stderr += b; });
   const exited = once(child, 'exit');
   try {

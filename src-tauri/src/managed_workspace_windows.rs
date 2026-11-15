@@ -189,9 +189,15 @@ pub(crate) fn start(executable: &Path, package: &Path, home: &Path, profile: &Pa
         let output = unsafe { OwnedHandle::from_raw_handle(inheritable) };
         let mut variables = environment(home, profile)?;
         variables.push(("ELECTRON_ENABLE_LOGGING".into(), "1".into()));
+        // Chromium's debugging port, so CI can read the page itself.
+        let arguments: Vec<OsString> = std::env::var("BLACKCRAB_TEST_WORKSPACE_DEBUG_PORT")
+            .ok()
+            .map(|port| OsString::from(format!("--remote-debugging-port={port}")))
+            .into_iter()
+            .collect();
         let process = spawn_with(
             executable,
-            &[],
+            &arguments,
             &variables,
             package,
             &descriptors,

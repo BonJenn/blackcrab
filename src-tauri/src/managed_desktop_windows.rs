@@ -339,6 +339,27 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
         }
     };
     screenshot("workspace-attached.png");
+    // What the page itself is doing, read through the debugging port a test
+    // build opens: its state, then console, errors and requests on a reload.
+    if let Ok(port) = std::env::var("BLACKCRAB_TEST_WORKSPACE_DEBUG_PORT") {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().map(Path::to_path_buf).unwrap_or_default();
+        let probe = tokio::task::spawn_blocking(move || {
+            Command::new("node")
+                .arg(repository.join("scripts").join("probe-workspace-page.mjs"))
+                .arg(port)
+                .output()
+        })
+        .await;
+        match probe {
+            Ok(Ok(output)) => println!(
+                "WINDOWS_PAGE {}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr).chars().take(2000).collect::<String>()
+            ),
+            other => println!("WINDOWS_PAGE probe did not run: {other:?}"),
+        }
+    }
     // The first screenshot showed an empty window. A second, a minute later,
     // tells a slow first load from an interface that never loads.
     if outcome.is_ok() {

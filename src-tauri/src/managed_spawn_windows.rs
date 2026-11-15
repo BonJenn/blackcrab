@@ -39,7 +39,8 @@ use windows_sys::Win32::{
         Threading::{
             CreateEventW, CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
             InitializeProcThreadAttributeList, TerminateProcess, UpdateProcThreadAttribute,
-            WaitForSingleObject, CREATE_NO_WINDOW, CREATE_UNICODE_ENVIRONMENT,
+            ResumeThread, WaitForSingleObject, CREATE_NO_WINDOW, CREATE_SUSPENDED,
+            CREATE_UNICODE_ENVIRONMENT,
             EXTENDED_STARTUPINFO_PRESENT,
             LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
             STARTF_USESTDHANDLES, STARTUPINFOEXW,
@@ -259,6 +260,9 @@ pub(crate) struct Process {
     pub(crate) id: u32,
 }
 impl Process {
+    pub(crate) fn raw(&self) -> HANDLE {
+        self.handle.as_raw_handle() as HANDLE
+    }
     /// `Some(code)` once the process has exited.
     pub(crate) fn wait(&self, timeout: Duration) -> io::Result<Option<u32>> {
         let millis = timeout.as_millis().min(u128::from(u32::MAX - 1)) as u32;
@@ -294,6 +298,10 @@ pub(crate) fn interrupt(process: &Process) -> io::Result<()> {
     use windows_sys::Win32::System::Console::{
         AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
     };
+    // A process has one console at a time, so concurrent interrupts must not
+    // interleave their detach, attach and raise.
+    static CONSOLE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _console = CONSOLE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     unsafe {
         // Fails harmlessly when this process has no console.
         FreeConsole();
@@ -332,13 +340,65 @@ pub(crate) fn spawn(
     directory: &Path,
     descriptors: &[(u32, &OwnedHandle)],
 ) -> io::Result<Process> {
-    spawn_with(executable, arguments, environment, directory, descriptors, Console::Inherited)
+    spawn_with(executable, arguments, environment, directory, descriptors, &Options::default())
+}
+
+/// How a child is started beyond its descriptors.
+#[derive(Default)]
+pub(crate) struct Options<'a> {
+    pub(crate) console: Console,
+    /// Standard output and error; the null device when absent. The handle
+    /// must be inheritable.
+    pub(crate) output: Option<&'a OwnedHandle>,
+    /// The child joins this job before it runs any code, so every process it
+    /// ever starts is in the job too.
+    pub(crate) job: Option<&'a Job>,
+}
+
+/// A job whose processes are all ended when its last handle closes, including
+/// when the process holding it is itself terminated.
+pub(crate) struct Job(OwnedHandle);
+impl Job {
+    pub(crate) fn new() -> io::Result<Self> {
+        use windows_sys::Win32::System::JobObjects::{
+            CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        let handle = unsafe { CreateJobObjectW(ptr::null(), ptr::null()) };
+        if handle.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        let job = Self(unsafe { OwnedHandle::from_raw_handle(handle) });
+        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if unsafe {
+            SetInformationJobObject(
+                handle,
+                JobObjectExtendedLimitInformation,
+                (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(job)
+    }
+    /// Ends every process in the job now.
+    pub(crate) fn terminate(&self) -> io::Result<()> {
+        use windows_sys::Win32::System::JobObjects::TerminateJobObject;
+        if unsafe { TerminateJobObject(self.0.as_raw_handle() as HANDLE, 1) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
 }
 
 /// Which console a console-subsystem child gets.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Console {
     /// The parent's, if it has one.
+    #[default]
     Inherited,
     /// A new console of its own with no window. Its descendants share it, and
     /// `interrupt` can address it without touching any other console.
@@ -351,7 +411,7 @@ pub(crate) fn spawn_with(
     environment: &[(OsString, OsString)],
     directory: &Path,
     descriptors: &[(u32, &OwnedHandle)],
-    console: Console,
+    options: &Options,
 ) -> io::Result<Process> {
     let invalid = || io::Error::from(io::ErrorKind::InvalidInput);
     let mut count = 3;
@@ -372,6 +432,13 @@ pub(crate) fn spawn_with(
         flags[slot] = FOPEN | FDEV;
         handles[slot] = null.as_raw_handle() as HANDLE;
     }
+    if let Some(file) = options.output {
+        // A regular file, not a device.
+        for slot in 1..3 {
+            flags[slot] = FOPEN;
+            handles[slot] = file.as_raw_handle() as HANDLE;
+        }
+    }
     for (number, handle) in descriptors {
         flags[*number as usize] = FOPEN | FPIPE;
         handles[*number as usize] = handle.as_raw_handle() as HANDLE;
@@ -383,7 +450,13 @@ pub(crate) fn spawn_with(
         reserved.extend_from_slice(&(*handle as usize).to_ne_bytes());
     }
 
+    let output = options
+        .output
+        .map_or(null.as_raw_handle() as HANDLE, |handle| handle.as_raw_handle() as HANDLE);
     let mut inherited: Vec<HANDLE> = vec![null.as_raw_handle() as HANDLE];
+    if options.output.is_some() {
+        inherited.push(output);
+    }
     inherited.extend(descriptors.iter().map(|(_, h)| h.as_raw_handle() as HANDLE));
     let mut size = 0usize;
     unsafe { InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size) };
@@ -455,8 +528,8 @@ pub(crate) fn spawn_with(
     startup.StartupInfo.cb = std::mem::size_of::<STARTUPINFOEXW>() as u32;
     startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
     startup.StartupInfo.hStdInput = null.as_raw_handle() as HANDLE;
-    startup.StartupInfo.hStdOutput = null.as_raw_handle() as HANDLE;
-    startup.StartupInfo.hStdError = null.as_raw_handle() as HANDLE;
+    startup.StartupInfo.hStdOutput = output;
+    startup.StartupInfo.hStdError = output;
     startup.StartupInfo.cbReserved2 = reserved.len() as u16;
     startup.StartupInfo.lpReserved2 = reserved.as_mut_ptr();
     startup.lpAttributeList = attributes;
@@ -470,7 +543,8 @@ pub(crate) fn spawn_with(
             1,
             EXTENDED_STARTUPINFO_PRESENT
                 | CREATE_UNICODE_ENVIRONMENT
-                | if console == Console::Hidden { CREATE_NO_WINDOW } else { 0 },
+                | if options.console == Console::Hidden { CREATE_NO_WINDOW } else { 0 }
+                | if options.job.is_some() { CREATE_SUSPENDED } else { 0 },
             block.as_ptr().cast(),
             directory.as_ptr(),
             &startup.StartupInfo,
@@ -480,11 +554,26 @@ pub(crate) fn spawn_with(
     if ok == 0 {
         return Err(io::Error::last_os_error());
     }
-    drop(unsafe { OwnedHandle::from_raw_handle(created.hThread) });
-    Ok(Process {
+    let thread = unsafe { OwnedHandle::from_raw_handle(created.hThread) };
+    let process = Process {
         handle: unsafe { OwnedHandle::from_raw_handle(created.hProcess) },
         id: created.dwProcessId,
-    })
+    };
+    if let Some(job) = options.job {
+        use windows_sys::Win32::System::JobObjects::AssignProcessToJobObject;
+        // Created suspended: it joins the job before running anything, then
+        // starts. A child that cannot be contained is not allowed to run.
+        let joined = unsafe {
+            AssignProcessToJobObject(job.0.as_raw_handle() as HANDLE, created.hProcess)
+        } != 0;
+        if !joined || unsafe { ResumeThread(thread.as_raw_handle() as HANDLE) } == u32::MAX {
+            let error = io::Error::last_os_error();
+            let _ = process.terminate();
+            return Err(error);
+        }
+    }
+    drop(thread);
+    Ok(process)
 }
 
 #[cfg(test)]
@@ -936,7 +1025,7 @@ if (process.argv.includes('as-child')) {
             &[("SystemRoot".into(), std::env::var_os("SystemRoot").unwrap())],
             &directory,
             &[],
-            Console::Hidden,
+            &Options { console: Console::Hidden, ..Options::default() },
         )
         .unwrap();
         let read = |name: &str| std::fs::read_to_string(directory.join(name)).ok();

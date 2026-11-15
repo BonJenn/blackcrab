@@ -328,6 +328,47 @@ sign-out Windows gives console programs only a few seconds; the helper must
 interrupt the launcher then, or the journal stays unretired and the service
 fails closed until the next boot.
 
+Step 4c-1 merged as PR316 (f40300819b733996df191aa292c5101522841ff7). On the
+runner the stand-in received SIGINT, finished its follow-up work and exited0
+by itself. Its own child, on the same hidden console, received SIGINT at the
+same moment and also exited0: the real server will see the stop together with
+the launcher, not after it.
+
+## Step 4c-2 — the service supervisor
+
+`managed_service_run_windows.rs` is what the scheduled task will run in place
+of the launcher itself:
+
+- `supervise(plan)` creates the stop event, starts the launcher on a hidden
+  console with exactly the plan's environment and its output appended to a log
+  file, inside a job, and waits for the launcher's exit or a stop request.
+  A stop is delivered as Ctrl+C. If the launcher exits within the grace period
+  its own exit code is reported; otherwise the job is ended.
+- The job is kill-on-close and the launcher joins it before running any code
+  (it is created suspended, assigned, then resumed), so nothing it ever starts
+  can outlive the supervisor, even if the supervisor is itself terminated.
+- The stop event is `Local\blackcrab-service-stop-<key>`: per sign-in session,
+  openable by the current user only. Creating it doubles as the
+  single-supervisor check; a second supervisor for the same key starts
+  nothing. `request_stop(key)` is what Root will call.
+
+`managed_spawn_windows` gained what this needs: an `Options` value with the
+console choice, an inheritable output handle for standard output and error,
+and the job; and a lock around `interrupt`, since a process has one console.
+
+CI tests, with `node.exe` standing in for the launcher and a child of its own:
+a stop request arrives as SIGINT and the service's own exit is reported with
+its child gone, exact environment and both streams in the log; a service that
+ignores the stop is ended together with its child after the grace period; a
+service that ends by itself reports its exit code and appends to an existing
+log.
+
+Not yet here: deriving the plan from the verified owner directory (needs a
+Windows service payload), the helper's command-line entry for it, and
+sign-out. Without sign-out handling the supervisor is simply terminated at
+sign-out, the journal stays unretired, and the service fails closed until the
+next boot. That must be handled before release.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

@@ -39,6 +39,34 @@ function Get-ServiceTask {
   $rows = & schtasks.exe /Query /FO CSV /NH 2>$null | ConvertFrom-Csv -Header Name, Next, Status
   $rows | Where-Object { $_.Name -like '*Blackcrab Service *' }
 }
+# What the workspace window shows, read as assistive software reads it. The
+# window's title alone is not enough: an error screen has the same title.
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+function Get-WindowText([IntPtr]$handle) {
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
+  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+  $names = New-Object System.Collections.Generic.List[string]
+  foreach ($element in $all) { $name = $element.Current.Name; if ($name -and -not $names.Contains($name)) { $names.Add($name) } }
+  ($names -join ' | ')
+}
+# Evidence for a failure: the service's own records and what it answers.
+function Get-ServiceEvidence {
+  $evidence = [ordered]@{}
+  $owner = Join-Path $appData 'managed-host\v1'
+  $files = @('logs\service-supervisor.log', 'logs\boot-service.log')
+  $logs = Join-Path $owner 'host\userdata\logs'
+  if (Test-Path -LiteralPath $logs) { $files += @(Get-ChildItem -LiteralPath $logs -File -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 4 | ForEach-Object { $_.FullName.Substring($owner.Length + 1) }) }
+  foreach ($file in $files) {
+    $path = Join-Path $owner $file
+    if (Test-Path -LiteralPath $path) { $evidence[$file] = ((Get-Content -LiteralPath $path -Tail 60) -join "`n") -replace '[A-Za-z0-9_\-=]{32,}', '[redacted]' }
+  }
+  foreach ($route in '/.well-known/t3/environment', '/api/auth/session') {
+    try { $reply = Invoke-WebRequest -Uri ("http://127.0.0.1:3773" + $route) -UseBasicParsing -TimeoutSec 20 -SkipHttpErrorCheck
+      $evidence[$route] = "$($reply.StatusCode) " + ("$($reply.Content)" -replace '[A-Za-z0-9_\-=]{32,}', '[redacted]').Substring(0, [Math]::Min(1500, "$($reply.Content)".Length))
+    } catch { $evidence[$route] = "failed: $($_.Exception.Message)" }
+  }
+  $evidence
+}
 function Get-Identity {
   $owner = Join-Path $appData 'managed-host\v1'
   ('configuration.json', 'host\userdata\environment-id' | ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $owner $_) -Algorithm SHA256).Hash }) -join ':'
@@ -63,6 +91,14 @@ try {
     # Let the acknowledged window finish its first paint for the kept image.
     Start-Sleep -Seconds 10
     Save-Screen "$round-workspace.png"
+    $shown = ''
+    for ($attempt = 0; $attempt -lt 20 -and $shown.Length -lt 40; $attempt++) {
+      try { $shown = Get-WindowText $workspace.Process.MainWindowHandle } catch { $shown = '' }
+      if ($shown.Length -lt 40) { Start-Sleep -Seconds 1 }
+    }
+    $result["$round-shown"] = $shown.Substring(0, [Math]::Min(1200, $shown.Length))
+    if ($shown -match 'Something went wrong') { throw 'The workspace opened on its error screen' }
+    if ($shown -notmatch 'Connect your computers|What should we work on') { throw 'The workspace did not show its interface' }
     $task = Get-ServiceTask
     if (@($task).Count -ne 1 -or $task.Status -ne 'Running') { throw "Background service task is not running: $(@($task | ForEach-Object { $_.Status }) -join ',')" }
     $identity = Get-Identity
@@ -85,10 +121,7 @@ try {
   Save-Screen 'failure-screen.png'
   $result.processes = @(Get-Blackcrab | ForEach-Object { [ordered]@{ title = $_.Process.MainWindowTitle; window = ($_.Process.MainWindowHandle -ne 0); launcher = ($_.Path -ieq $launcher) } })
   $result.serviceTasks = @(Get-ServiceTask | ForEach-Object { $_.Status })
-  foreach ($log in 'managed-host\v1\logs\service-supervisor.log', 'managed-host\v1\logs\boot-service.log') {
-    $file = Join-Path $appData $log
-    if (Test-Path -LiteralPath $file) { $result[$log] = (Get-Content -LiteralPath $file -Tail 40) -join "`n" }
-  }
+  try { $result.service = Get-ServiceEvidence } catch { $result.service = "evidence failed: $($_.Exception.Message)" }
 } finally {
   # This run's own launcher, workspace and scheduled task only.
   $cleanup = @()

@@ -49,3 +49,16 @@
          const peer = new OwnedLauncherBootstrap(child, binding as unknown as NativeBinding, baseDir, 1, onFailure);
          try {
              const ready = await peer.#wait(120000);
+@@ -239,7 +241,11 @@
+         this.#envelope = undefined;
+         // No retry on uncertain write; caller cleans only its captured child.
+         await new Promise<void>((resolve, reject) => {
+-            const timer = setTimeout(() => reject(fail()), 1000);
++            // Windows build: closing a pipe completes only once the reader has taken
++            // the bytes, so this waits for the server process to start and read its
++            // input. One second is not enough on a busy machine; the native helper
++            // allows thirty for the whole delivery.
++            const timer = setTimeout(() => reject(fail()), 20000);
+             const failed = () => { clearTimeout(timer); reject(fail()); };
+             child.stdin!.once('error', failed);
+             child.stdin!.end(bytes, (error?: Error | null) => {

@@ -600,15 +600,22 @@ Findings from the real runs on the runner (PR323):
   build, which is why the test takes about nine minutes.
 - All three stops in each passing run were logged "service stopped cleanly on
   request".
-- **Open: an intermittent start failure.** In two of five runs the first start
-  failed: the launcher logged "Owned service bootstrap is unavailable" and
-  exited with 1 about two seconds after the helper was ready, leaving the
-  journal prepared (so the uninstall was then refused as needing recovery).
-  Those two runs predate the per-request record, so the failing step is not
-  known. A retry of a refused journal replacement was added on suspicion
-  (a scanner holding the old file open); the two runs since passed **without
-  a single retry**, so that cause is not confirmed. If it recurs, the log now
-  names the step. Do not treat this as fixed.
+- **Intermittent start failure, cause found.** In three of seven runs the
+  first start failed: the launcher logged "Owned service bootstrap is
+  unavailable" and exited with 1, leaving the journal prepared (so the
+  uninstall was then refused as needing recovery). The helper's record showed
+  `begin` answered and `issued` never requested, which places the failure in
+  the launcher's `deliver`: it writes the sign-in envelope to the new server
+  process's input and allowed one second for the close to complete. On
+  Windows that close completes only when the reader has taken the bytes, so
+  it waits for the server process to start. The failing runs were the slow
+  ones (verification 7.6 s against 4.5 s). The Windows launcher record now
+  allows twenty seconds; the helper's own limit for the delivery is thirty.
+  The journal-replacement retry added earlier on suspicion was never needed
+  in any run; it stays as a bounded guard.
+- A start that fails after `begin` leaves the journal prepared for this boot,
+  and stop, start and uninstall are then refused as needing recovery, as on
+  macOS and Linux. Windows has no recovery path yet other than signing out.
 
 ## Remaining steps
 

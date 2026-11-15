@@ -5,9 +5,9 @@
       "id": "owned-windows-OwnedLauncherBootstrap",
       "file": "owned-windows-OwnedLauncherBootstrap.patch",
       "target": "apps/server/src/OwnedLauncherBootstrap.ts",
-      "sha256": "990722ed70cc36d0908b10b170d65e76030da13963efcb270dc37067812398cb",
+      "sha256": "9bff6f1bc4adca6de89799403e33241a36234e00b3835a1c39f25c20aa67fe28",
       "beforeSha256": "089e2130323dc98458588c7815747ffbd2c32af706129f2e8903e5edef73cbd1",
-      "afterSha256": "c2b39278f6da6e6e06cdb05b80fd86952ba07e36ea9fa53f6fc36960551eb15d",
+      "afterSha256": "07229c797bbed1b6245a0c7ce6fe31c9b3d8380ee116cd8b19dbb0880a1800e3",
       "replacements": [
         {
           "before": "        if (!meta.isFile() || meta.nlink !== 1 || meta.uid !== process.getuid?.() || (meta.mode & 0o777) !== 0o600 || meta.size > limit)\n            throw fail();",
@@ -28,6 +28,10 @@
         {
           "before": "{ cwd: owner, env: { PATH: '/usr/bin:/bin', HOME: owner, TMPDIR: owner }, stdio: ['pipe', 'pipe', 'pipe'] }",
           "after": "{ cwd: owner, env: { SystemRoot: process.env.SystemRoot ?? '', USERPROFILE: owner, TEMP: owner, TMP: owner }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }"
+        },
+        {
+          "before": "            const timer = setTimeout(() => reject(fail()), 1000);",
+          "after": "            // Windows build: closing a pipe completes only once the reader has taken\n            // the bytes, so this waits for the server process to start and read its\n            // input. One second is not enough on a busy machine; the native helper\n            // allows thirty for the whole delivery.\n            const timer = setTimeout(() => reject(fail()), 20000);"
         }
       ]
     },

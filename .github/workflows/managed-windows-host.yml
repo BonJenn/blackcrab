@@ -21,6 +21,7 @@ on:
       - managed-desktop/**
       - scripts/build-portable-desktop-ci.mjs
       - scripts/build-windows-installers-ci.mjs
+      - scripts/probe-workspace-page.mjs
       - scripts/tauri-build.mjs
       - src-tauri/tauri.conf.json
       - src-tauri/src/managed_spawn_windows.rs
@@ -79,6 +80,8 @@ jobs:
           CARGO_PROFILE_DEV_DEBUG: '0'
           CARGO_PROFILE_TEST_DEBUG: '0'
           BLACKCRAB_BOOT_EVIDENCE: ${{ runner.temp }}/windows-host-build
+          BLACKCRAB_TEST_WORKSPACE_OUTPUT: ${{ runner.temp }}/windows-host-build/workspace-output.raw
+          BLACKCRAB_TEST_WORKSPACE_DEBUG_PORT: '9339'
         # Hashing is optimized even in this test build. Unoptimized, one payload
         # verification takes about seven seconds against half a second in a
         # release build, and the launch's eight-second pairing limit is missed.

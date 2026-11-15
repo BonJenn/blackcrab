@@ -721,6 +721,50 @@ workspace runs without the native browser channel.
 - No code signing and no updater artifacts. An unsigned installer shows a
   SmartScreen warning on a real PC; signing is a release decision.
 
+Step 6a merged as PR326 (4e87dd67b9680f9c40ec75f7c0353a02ab790da4). On the
+runner: `Blackcrab_0.4.3_x64-setup.exe`, 375 MB, unsigned; installed silently
+it leaves `blackcrab.exe`, both payload archives and `uninstall.exe`, and both
+archives unpack to trees that verify with their input manifests. Tauri drops
+the drive from an absolute Windows resource path, so on Windows the archives
+are staged inside `src-tauri/target` and named relative to `src-tauri`.
+
+## Step 6b — why the Windows workspace window is blank
+
+Correction to an earlier note: the Linux acceptance does not read the
+workspace's page. It reads Root's own status ("Your workspace is open."),
+checks the foreground window title and keeps a screenshot. That screenshot
+shows the workspace's onboarding screen fully drawn, so the blank Windows
+window is a real difference between the platforms.
+
+**Cause found (PR327).** Read through Chromium's debugging port in a test
+build, the window's page is `blackcrab://app/` and the answer to it is
+**404**: an empty document, three elements, no scripts. The workspace serves
+its interface from `clientAssetsDir`, which is `serverRoot/apps/server/dist/
+client`. In `DesktopEnvironment.ts`, for a packaged Windows build only,
+`serverRoot` is `resources\server.asar`, not the app root. Our package has no
+`server.asar`: `managed-desktop/build.mjs` puts the interface under the app
+root on every platform, which is where macOS and Linux look. So on Windows
+the interface is in the package but the workspace looks somewhere else.
+
+Fix: desktop source record `windows-interface-under-app-root` (after
+`blackcrab-environment`, same file) makes `serverRoot` the app root on every
+platform. macOS and Linux already took that branch, so their behaviour is
+unchanged, but the registry and therefore the payload bytes change on every
+platform; the keychain-QA whole-registry pin is updated to `cd44caa8…`.
+The owner chose on 2026-11-15 to continue with Windows before releasing.
+**macOS acceptance is owed a re-run** (already so since PR310/311).
+
+How it was found, so the tools are not rebuilt: a test build can keep the
+workspace's output (`BLACKCRAB_TEST_WORKSPACE_OUTPUT`) and open the debugging
+port (`BLACKCRAB_TEST_WORKSPACE_DEBUG_PORT`); `scripts/probe-workspace-page.mjs`
+reads the page's state, console, errors and requests. A product build does
+neither. Things ruled out on the way: the service does serve its own page and
+script (200); the main process reports no error; the trace does not record
+page requests at all, so their absence there meant nothing.
+
+Also seen: Windows PowerShell is found but the workspace's five-second limit
+on reading the shell environment through it is missed on the runner.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

@@ -339,6 +339,27 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
         }
     };
     screenshot("workspace-attached.png");
+    // What the page itself is doing, read through the debugging port a test
+    // build opens: its state, then console, errors and requests on a reload.
+    if let Ok(port) = std::env::var("BLACKCRAB_TEST_WORKSPACE_DEBUG_PORT") {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().map(Path::to_path_buf).unwrap_or_default();
+        let probe = tokio::task::spawn_blocking(move || {
+            Command::new("node")
+                .arg(repository.join("scripts").join("probe-workspace-page.mjs"))
+                .arg(port)
+                .output()
+        })
+        .await;
+        match probe {
+            Ok(Ok(output)) => println!(
+                "WINDOWS_PAGE {}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr).chars().take(2000).collect::<String>()
+            ),
+            other => println!("WINDOWS_PAGE probe did not run: {other:?}"),
+        }
+    }
     // The first screenshot showed an empty window. A second, a minute later,
     // tells a slow first load from an interface that never loads.
     if outcome.is_ok() {
@@ -382,6 +403,25 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
     if let Ok(root) = std::env::var("BLACKCRAB_BOOT_EVIDENCE") {
         let kept = Path::new(&root).join("workspace-logs");
         let _ = fs::create_dir_all(&kept);
+        if let Some(output) = std::env::var_os("BLACKCRAB_TEST_WORKSPACE_OUTPUT") {
+            let bytes = fs::read(&output).unwrap_or_default();
+            // Long token-like strings are removed before anything is printed.
+            let mut text = String::new();
+            let mut run = String::new();
+            for character in String::from_utf8_lossy(&bytes).chars() {
+                if character.is_ascii_alphanumeric() || "_-=".contains(character) {
+                    run.push(character);
+                    continue;
+                }
+                text.push_str(if run.len() >= 32 { "[redacted]" } else { &run });
+                run.clear();
+                text.push(character);
+            }
+            text.push_str(if run.len() >= 32 { "[redacted]" } else { &run });
+            let tail: String = text.chars().rev().take(12000).collect::<Vec<_>>().into_iter().rev().collect();
+            println!("WINDOWS_WORKSPACE output ({} bytes):\n{tail}", bytes.len());
+            let _ = fs::write(kept.join("workspace-output.txt"), text);
+        }
         for file in files.iter().filter(|file| file.starts_with(profile.join("userdata"))) {
             if let Some(name) = file.file_name() {
                 let _ = fs::copy(file, kept.join(name));

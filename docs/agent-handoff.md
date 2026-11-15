@@ -1,6 +1,23 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 6a: the installer (order changed)
+## Current checkpoint — Windows step 6b: the blank workspace window
+
+Steps1 to 6a are merged (PR308–326; stage 4e87dd67b9680f9c40ec75f7c0353a02ab790da4).
+The Windows installer builds, installs and verifies in CI (unsigned). Worktree
+P/windows-workspace-delivery-044, branch feat/windows-installed-acceptance.
+**Blank Windows workspace window: cause found and fixed in this branch.**
+A packaged Windows build looked for the interface in `resources\server.asar`;
+our package has it under the app root. Desktop record
+`windows-interface-under-app-root` fixes it (desktop registry pin now
+`cd44caa8…`). Read "Step 6b" in docs/windows-workspace-delivery.md. The owner
+chose on 2026-11-15 to continue with Windows before releasing 0.4.4.
+After that: installed graphical acceptance
+through Root's interface, signing/updater metadata, then step 5 (browser
+channel). Mac payload changed in PR310/311: **redo Mac native acceptance
+before0.4.4**. **0.4.4 is not published**; consult the owner before any tag or
+publication.
+
+## Previous checkpoint — Windows step 6a: the installer (order changed)
 
 Steps1 to 4f-3b are merged (PR308–325; stage 03568bfc3e8a18948b04bb410c9c3ab685453c7b).
 Step 6 (packaging, installed acceptance) now comes before step 5 (browser

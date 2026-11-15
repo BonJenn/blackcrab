@@ -18,6 +18,12 @@ use tokio::sync::Mutex;
 #[allow(dead_code)]
 #[path = "managed_service_boot_session.rs"]
 mod boot_session;
+// Windows pipe I/O for the issuer, ahead of the issuer itself. Its logic is
+// platform-neutral, so it is also built for tests everywhere.
+#[cfg(any(windows, test))]
+#[allow(dead_code)]
+#[path = "managed_service_issuer_io.rs"]
+mod issuer_io;
 #[cfg(unix)]
 #[path = "managed_service_issuer.rs"]
 mod service_issuer;

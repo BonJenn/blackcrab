@@ -288,31 +288,57 @@ impl Process {
     }
 }
 
+/// Makes this process survive a Ctrl+C on whatever console it is attached
+/// to, by handling the event. The other way to survive it, the ignore flag
+/// (`SetConsoleCtrlHandler(NULL, TRUE)`), is inherited by every child started
+/// afterwards, which would then never see a Ctrl+C at all; a handler routine
+/// is not inherited.
+fn handle_ctrl_c_here() {
+    use windows_sys::Win32::System::Console::{SetConsoleCtrlHandler, CTRL_C_EVENT};
+    unsafe extern "system" fn handler(event: u32) -> i32 {
+        // Handled: nothing else runs, including the default that would end
+        // the process. Every other event keeps its normal treatment.
+        i32::from(event == CTRL_C_EVENT)
+    }
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| unsafe {
+        SetConsoleCtrlHandler(Some(handler), 1);
+    });
+}
+
+/// A child inherits this process's Ctrl+C ignore flag, which a launcher or
+/// scheduler may have set (a new process group sets it, for one). A child
+/// meant to be stopped by Ctrl+C must not start with it, so it is cleared
+/// here, with this process protected by its own handler instead.
+fn enable_ctrl_c_for_children() {
+    use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+    handle_ctrl_c_here();
+    unsafe { SetConsoleCtrlHandler(None, 0) };
+}
+
 /// Delivers Ctrl+C to every process on the hidden console `process` was
 /// started with: the only stop a Node program can handle on Windows, where it
 /// arrives as SIGINT. Windows sends console events to a console, not a
-/// process, so this process leaves its own console, joins the child's, ignores
-/// the event itself and raises it there. It stays detached afterwards: the
-/// caller is a background helper with no console to return to.
+/// process, so this process leaves its own console, joins the child's and
+/// raises the event there, surviving it through its own handler. It stays
+/// detached afterwards: the caller is a background helper with no console to
+/// return to.
 pub(crate) fn interrupt(process: &Process) -> io::Result<()> {
     use windows_sys::Win32::System::Console::{
-        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
+        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, CTRL_C_EVENT,
     };
     // A process has one console at a time, so concurrent interrupts must not
     // interleave their detach, attach and raise.
     static CONSOLE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _console = CONSOLE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    handle_ctrl_c_here();
     unsafe {
         // Fails harmlessly when this process has no console.
         FreeConsole();
         if AttachConsole(process.id) == 0 {
             return Err(io::Error::last_os_error());
         }
-        // A null handler with TRUE makes this process ignore Ctrl+C. Without
-        // it the event raised below would end this process too.
-        let outcome = if SetConsoleCtrlHandler(None, 1) == 0
-            || GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) == 0
-        {
+        let outcome = if GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) == 0 {
             Err(io::Error::last_os_error())
         } else {
             Ok(())
@@ -414,6 +440,9 @@ pub(crate) fn spawn_with(
     options: &Options,
 ) -> io::Result<Process> {
     let invalid = || io::Error::from(io::ErrorKind::InvalidInput);
+    if options.console == Console::Hidden {
+        enable_ctrl_c_for_children();
+    }
     let mut count = 3;
     for (index, (number, _)) in descriptors.iter().enumerate() {
         if *number < 3
@@ -1051,8 +1080,50 @@ if (process.argv.includes('as-child')) {
         // recorded for the service design, not required.
         std::thread::sleep(Duration::from_secs(2));
         println!("WINDOWS_INTERRUPT {}", state());
-        // This process ignored the event and is still running to say so.
+        // This process handled the event and is still running to say so.
         let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_child_started_after_an_earlier_interrupt_can_still_be_interrupted() {
+        // The ignore flag is inherited; a handler is not. Set the flag the way
+        // an outer launcher might have, then start and stop two children in
+        // turn: each must receive its own Ctrl+C.
+        use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+        unsafe { SetConsoleCtrlHandler(None, 1) };
+        let node = node();
+        for round in 0..2 {
+            let mut nonce = [0u8; 8];
+            getrandom::getrandom(&mut nonce).unwrap();
+            let directory = std::env::temp_dir().join(format!(
+                "blackcrab-interrupt-again-{}",
+                nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+            ));
+            std::fs::create_dir(&directory).unwrap();
+            std::fs::write(directory.join("script.js"), STOPPABLE).unwrap();
+            let process = spawn_with(
+                &node,
+                &["-e".into(), STOPPABLE.into(), directory.clone().into_os_string()],
+                &[("SystemRoot".into(), std::env::var_os("SystemRoot").unwrap())],
+                &directory,
+                &[],
+                &Options { console: Console::Hidden, ..Options::default() },
+            )
+            .unwrap();
+            let deadline = std::time::Instant::now() + Duration::from_secs(60);
+            while !directory.join("parent-ready").exists() || !directory.join("child-ready").exists() {
+                assert!(std::time::Instant::now() < deadline, "round {round} not ready");
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            interrupt(&process).unwrap();
+            assert_eq!(process.wait(Duration::from_secs(30)).unwrap(), Some(0), "round {round}");
+            assert_eq!(
+                std::fs::read_to_string(directory.join("parent-stopped")).ok().as_deref(),
+                Some("clean"),
+                "round {round}"
+            );
+            let _ = std::fs::remove_dir_all(&directory);
+        }
     }
 
     #[test]

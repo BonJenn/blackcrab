@@ -396,6 +396,17 @@ has finished and it has exited0. This simulates the notice; a real sign-out
 cannot be exercised on a runner, and the few seconds Windows actually allows
 are not measured there.
 
+**Correction to step 4c-1, found by this step's CI run.** `interrupt` first
+protected itself with the console ignore flag, `SetConsoleCtrlHandler(NULL,
+TRUE)`. That flag is inherited by every child started afterwards, so a service
+started after any earlier interrupt in the same process never received its
+Ctrl+C; the earlier runs passed only because their children happened to start
+first. The sender now survives the event through a handler routine, which is
+not inherited, and `spawn_with` clears the ignore flag before starting a
+hidden-console child, since an outer launcher or scheduler may have set it (a
+new process group does). A test sets the flag deliberately and then starts
+and stops two children in turn.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

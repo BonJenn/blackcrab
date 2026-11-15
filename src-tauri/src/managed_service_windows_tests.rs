@@ -73,32 +73,39 @@ async fn actual_packaged_windows_service_lifecycle() {
     // Cleanup stays outside the assertions so an ordinary failure still
     // removes exactly the scheduled task this test registered.
     let result: Result<(), String> = async {
+        macro_rules! ensure {
+            ($condition:expr, $($message:tt)+) => {
+                if !$condition {
+                    return Err(format!($($message)+));
+                }
+            };
+        }
         let installed = host.control_service(ServiceAction::Install).await?;
-        assert!(installed.installed && installed.loaded, "{}", installed.state);
-        assert_eq!(running(&host).await?.environment_id.as_deref(), Some(identity.as_str()));
+        ensure!(installed.installed && installed.loaded, "install left the service {}", installed.state);
+        ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed");
         let binding = host.desktop_binding().await?;
-        assert!(binding.browser.is_none() && binding.environment_id == identity);
-        assert!(!host.desktop_pair_grant(&binding).await?.credential.is_empty());
+        ensure!(binding.browser.is_none() && binding.environment_id == identity, "binding differs");
+        ensure!(!host.desktop_pair_grant(&binding).await?.credential.is_empty(), "no pair credential");
         let runtime = fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)?;
 
         // A second launcher instance must attach to the SAME running service
         // and never replace its process, selection or environment.
         let reopened = ManagedHost::new(owner.clone()).with_bundled_payload(payload);
-        assert_eq!(reopened.start(None).await?.environment_id.as_deref(), Some(identity.as_str()));
+        ensure!(reopened.start(None).await?.environment_id.as_deref() == Some(identity.as_str()), "reopen changed the environment");
         let rebound = reopened.desktop_binding().await?;
-        assert!(rebound.origin == binding.origin);
-        assert!(fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)? == runtime);
+        ensure!(rebound.origin == binding.origin, "reopen changed the origin");
+        ensure!(fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)? == runtime, "reopen replaced the service");
         drop(reopened);
-        assert_eq!(host.status().await.state, "running");
+        ensure!(host.status().await.state == "running", "not running after reopen");
 
         let stopped = host.control_service(ServiceAction::Stop).await?;
-        assert!(stopped.installed && !stopped.loaded, "{}", stopped.state);
-        assert_eq!(host.status().await.state, "stopped");
-        assert!(host.start(None).await.is_err(), "attachment must not restart a stopped service");
+        ensure!(stopped.installed && !stopped.loaded, "stop left the service {}", stopped.state);
+        ensure!(host.status().await.state == "stopped", "host not stopped");
+        ensure!(host.start(None).await.is_err(), "attachment must not restart a stopped service");
         host.control_service(ServiceAction::Start).await?;
-        assert_eq!(running(&host).await?.environment_id.as_deref(), Some(identity.as_str()));
+        ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed after start");
         host.control_service(ServiceAction::Restart).await?;
-        assert_eq!(running(&host).await?.environment_id.as_deref(), Some(identity.as_str()));
+        ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed after restart");
         Ok(())
     }
     .await;
@@ -110,7 +117,7 @@ async fn actual_packaged_windows_service_lifecycle() {
             tail(&owner.join("logs/boot-service.log"), 6000),
             found.join("\n")
         );
-        for log in ["host/userdata/logs/server.log", "logs/host.log"] {
+        for log in ["logs/service-supervisor.log", "host/userdata/logs/server.log", "logs/host.log"] {
             println!("--- {log}\n{}", tail(&owner.join(log), 3000));
         }
     }

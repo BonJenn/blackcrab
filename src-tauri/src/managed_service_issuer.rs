@@ -811,19 +811,41 @@ pub(super) fn service_key(root: &Path, generation: u64, environment: &str) -> St
 /// requested stop.
 #[cfg(windows)]
 pub(super) fn run_service_supervisor() -> Result<i32> {
-    use crate::managed_service_run_windows::{supervise, Outcome, Plan};
-    use std::ffi::OsString;
     let executable = std::env::current_exe().map_err(|_| invalid())?;
     let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256").ok_or_else(invalid)?;
     let (owner, binding) = installed_layout(&executable, expected)?;
-    let host = ManagedHost::new(owner.clone());
+    // The helper has no console and the scheduler keeps only an exit code, so
+    // the reason a run ended is recorded beside the service's own log. The
+    // lines name a step and a system error, never a path or a secret.
+    let outcome = supervise_selected(&owner, &binding);
+    let line = match &outcome {
+        Ok(code) => format!("supervisor ended: exit {code}"),
+        Err(reason) => format!("supervisor failed: {reason}"),
+    };
+    if let Ok(mut log) = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(owner.join("logs").join("service-supervisor.log"))
+    {
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs());
+        let _ = writeln!(log, "{seconds} {line}");
+    }
+    outcome.map_err(|_| invalid())
+}
+#[cfg(windows)]
+fn supervise_selected(owner: &Path, binding: &Binding) -> Result<i32> {
+    use crate::managed_service_run_windows::{supervise, Outcome, Plan};
+    use std::ffi::OsString;
+    let host = ManagedHost::new(owner.to_path_buf());
     let config = {
         let _transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
-            .map_err(|_| invalid())?;
-        verify_selection(&host, &binding)?
+            .map_err(|_| "launcher lock".to_string())?;
+        verify_selection(&host, binding).map_err(|_| "selection".to_string())?
     };
     if config.ownership != OwnershipMode::Service {
-        return Err(invalid());
+        return Err("ownership".into());
     }
     // The service runs provider tools and terminals, so it gets the signed-in
     // user's ordinary Windows variables, by name, and nothing else inherited.
@@ -854,9 +876,9 @@ pub(super) fn run_service_supervisor() -> Result<i32> {
         executable: config.artifact_path.join("t3.exe"),
         arguments: vec!["__service-launcher".into()],
         environment,
-        directory: owner.clone(),
+        directory: owner.to_path_buf(),
         log: Some(owner.join("logs").join("boot-service.log")),
-        key: service_key(&owner, binding.generation, &binding.environment_id),
+        key: service_key(owner, binding.generation, &binding.environment_id),
         grace: Duration::from_secs(90),
         // Windows allows a program only a few seconds once a session is ending.
         session_grace: Duration::from_secs(4),
@@ -866,7 +888,7 @@ pub(super) fn run_service_supervisor() -> Result<i32> {
         Ok(Outcome::Stopped(_)) | Ok(Outcome::Killed) => Ok(0),
         // Another supervisor already runs this service in this session.
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(0),
-        Err(_) => Err(invalid()),
+        Err(error) => Err(format!("supervise ({:?}, os {:?})", error.kind(), error.raw_os_error())),
     }
 }
 

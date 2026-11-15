@@ -306,6 +306,10 @@ fn handle_ctrl_c_here() {
     });
 }
 
+/// Serialises changes to this process's Ctrl+C ignore flag with the creation
+/// of children that must not inherit it.
+static CTRL_C_STATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// A child inherits this process's Ctrl+C ignore flag, which a launcher or
 /// scheduler may have set (a new process group sets it, for one). A child
 /// meant to be stopped by Ctrl+C must not start with it, so it is cleared
@@ -440,9 +444,13 @@ pub(crate) fn spawn_with(
     options: &Options,
 ) -> io::Result<Process> {
     let invalid = || io::Error::from(io::ErrorKind::InvalidInput);
-    if options.console == Console::Hidden {
+    // Held until the child exists: the flag is process-wide, and nothing may
+    // set it again between clearing it and creating the child.
+    let _ctrl_c = (options.console == Console::Hidden).then(|| {
+        let guard = CTRL_C_STATE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         enable_ctrl_c_for_children();
-    }
+        guard
+    });
     let mut count = 3;
     for (index, (number, _)) in descriptors.iter().enumerate() {
         if *number < 3
@@ -1090,9 +1098,14 @@ if (process.argv.includes('as-child')) {
         // an outer launcher might have, then start and stop two children in
         // turn: each must receive its own Ctrl+C.
         use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
-        unsafe { SetConsoleCtrlHandler(None, 1) };
         let node = node();
         for round in 0..2 {
+            {
+                // Under the lock, so no other test's child is created between
+                // this and its own clearing of the flag.
+                let _state = CTRL_C_STATE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                unsafe { SetConsoleCtrlHandler(None, 1) };
+            }
             let mut nonce = [0u8; 8];
             getrandom::getrandom(&mut nonce).unwrap();
             let directory = std::env::temp_dir().join(format!(

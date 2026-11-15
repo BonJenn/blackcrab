@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "patches": [
+    {
+      "id": "owned-windows-OwnedLauncherBootstrap",
+      "file": "owned-windows-OwnedLauncherBootstrap.patch",
+      "target": "apps/server/src/OwnedLauncherBootstrap.ts",
+      "sha256": "990722ed70cc36d0908b10b170d65e76030da13963efcb270dc37067812398cb",
+      "beforeSha256": "089e2130323dc98458588c7815747ffbd2c32af706129f2e8903e5edef73cbd1",
+      "afterSha256": "c2b39278f6da6e6e06cdb05b80fd86952ba07e36ea9fa53f6fc36960551eb15d",
+      "replacements": [
+        {
+          "before": "        if (!meta.isFile() || meta.nlink !== 1 || meta.uid !== process.getuid?.() || (meta.mode & 0o777) !== 0o600 || meta.size > limit)\n            throw fail();",
+          "after": "        // Windows build: there is no UID or mode. Privacy is the protected DACL the\n        // native launcher creates and verifies on the owner directory and its children.\n        if (!meta.isFile() || meta.nlink !== 1 || meta.size > limit)\n            throw fail();"
+        },
+        {
+          "before": "        for (const path of [owner, baseDir]) {\n            const m = await FS.lstat(path);\n            if (!m.isDirectory() || m.isSymbolicLink() || m.uid !== process.getuid?.() || (m.mode & 0o077) !== 0)\n                throw fail();",
+          "after": "        for (const path of [owner, baseDir]) {\n            const m = await FS.lstat(path);\n            if (!m.isDirectory() || m.isSymbolicLink() || await FS.realpath(path) !== path)\n                throw fail();"
+        },
+        {
+          "before": "        const executable = Path.join(owner, 'issuer', binding.selfSha256, 'blackcrab-issuer');\n        for (const path of [Path.join(owner, 'issuer'), Path.dirname(executable)]) {\n            const m = await FS.lstat(path);\n            if (!m.isDirectory() || m.isSymbolicLink() || m.uid !== process.getuid?.() || (m.mode & 0o077) !== 0)\n                throw fail();",
+          "after": "        const executable = Path.join(owner, 'issuer', binding.selfSha256, 'blackcrab-issuer.exe');\n        for (const path of [Path.join(owner, 'issuer'), Path.dirname(executable)]) {\n            const m = await FS.lstat(path);\n            if (!m.isDirectory() || m.isSymbolicLink() || await FS.realpath(path) !== path)\n                throw fail();"
+        },
+        {
+          "before": "            if (!m.isFile() || m.nlink !== 1 || m.uid !== process.getuid?.() || (m.mode & 0o777) !== 0o700 || m.size > 256 * 1024 * 1024)\n                throw fail();",
+          "after": "            if (!m.isFile() || m.nlink !== 1 || m.size > 256 * 1024 * 1024)\n                throw fail();"
+        },
+        {
+          "before": "{ cwd: owner, env: { PATH: '/usr/bin:/bin', HOME: owner, TMPDIR: owner }, stdio: ['pipe', 'pipe', 'pipe'] }",
+          "after": "{ cwd: owner, env: { SystemRoot: process.env.SystemRoot ?? '', USERPROFILE: owner, TEMP: owner, TMP: owner }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }"
+        }
+      ]
+    },
+    {
+      "id": "owned-windows-serviceLauncher",
+      "file": "owned-windows-serviceLauncher.patch",
+      "target": "apps/server/src/serviceLauncher.ts",
+      "sha256": "143a2244ae65db18fa1282174ac4ff20a384caacb17096cdb9e56d74f5cf5261",
+      "beforeSha256": "81c43acf995daf69275cd3bcd2064f1ebd3c9c7bde5c51e1421b6824f0b749b3",
+      "afterSha256": "90731313f181bf910069062cf92739dbe6364a63a96abff2a0f409942ae172e8",
+      "replacements": [
+        {
+          "before": "    if (typeof process.getuid !== \"function\" || !stat.isFile() || stat.nlink !== 1 ||\n        stat.uid !== process.getuid() || !Number.isSafeInteger(stat.size) || stat.size > maximum ||\n        (privateFile && (stat.mode & 0o777) !== 0o600)) throw new Error(\"Invalid owned service metadata\");",
+          "after": "    // Windows build: there is no UID or mode. Privacy is the protected DACL the\n    // native launcher creates and verifies on the owner directory and its children.\n    void privateFile;\n    if (!stat.isFile() || stat.nlink !== 1 || !Number.isSafeInteger(stat.size) ||\n        stat.size > maximum) throw new Error(\"Invalid owned service metadata\");"
+        },
+        {
+          "before": "  if (child.exitCode !== null || child.signalCode !== null) return;\n  child.kill(signal);\n  const force = setTimeout(() => child.kill(\"SIGKILL\"), TERMINATE_GRACE_MS);",
+          "after": "  if (child.exitCode !== null || child.signalCode !== null) return;\n  // Windows build: kill() ends a process at once, whatever the signal name, so\n  // it cannot ask the server to stop. Closing the launcher's IPC channel does:\n  // the server interrupts itself when that channel is lost. A console stop has\n  // also reached it directly as SIGINT. It is ended only after the grace.\n  void signal;\n  if (child.connected) child.disconnect();\n  const force = setTimeout(() => child.kill(\"SIGKILL\"), TERMINATE_GRACE_MS);"
+        }
+      ]
+    }
+  ],
+  "addedSources": []
+}

@@ -48,7 +48,7 @@ pub(crate) struct ManagedNativeEntry {
     desktop_manifest: Option<String>,
     desktop_archive_path: Option<PathBuf>,
     desktop_configured: bool,
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     owner: crate::managed_desktop::NativeDesktopOwner,
 }
 fn payload(
@@ -150,10 +150,10 @@ impl ManagedNativeEntry {
             desktop_manifest: pins.desktop_manifest.map(str::to_owned),
             desktop_archive_path: None,
             desktop_configured: pins.desktop_manifest.is_some() || pins.desktop_archive.is_some(),
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             owner: Default::default(),
         };
-        if !configured || !cfg!(unix) {
+        if !configured || !cfg!(any(unix, windows)) {
             return entry;
         }
         let cache = app_data.join("managed-payloads-v1");
@@ -196,7 +196,7 @@ impl ManagedNativeEntry {
         self.host.clone()
     }
     fn metadata_status(&self) -> NativeDesktopStatus {
-        if !cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))) {
+        if !cfg!(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"), all(windows, target_arch = "x86_64"))) {
             return status("unsupported", None);
         }
         if !self.desktop_configured {
@@ -230,7 +230,7 @@ impl ManagedNativeEntry {
         if current.state != "ready" {
             return current;
         }
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         {
             match self
                 .owner
@@ -248,11 +248,11 @@ impl ManagedNativeEntry {
         self.open_for_identity(host, crate::managed_desktop::DesktopIdentity::Production)
             .await
     }
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     pub(crate) async fn activate(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         self.owner.activate(app).await
     }
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     pub(crate) async fn close_for_update(&self) -> Result<(), String> {
         if !self.owner.running().await? { return Ok(()); }
         self.owner.detach().await;
@@ -262,7 +262,7 @@ impl ManagedNativeEntry {
         }
         Err("Workspace is still closing".into())
     }
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     pub(crate) async fn client_exit(&self) -> Result<Option<bool>, String> {
         self.owner.client_exit().await
     }
@@ -275,7 +275,7 @@ impl ManagedNativeEntry {
         if current.state != "ready" {
             return current;
         }
-        #[cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64")))]
+        #[cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"), all(windows, target_arch = "x86_64")))]
         {
             let payload = self.desktop.as_ref().unwrap().clone();
             let manifest = self.desktop_manifest.as_ref().unwrap().clone();
@@ -305,7 +305,7 @@ impl ManagedNativeEntry {
             }
             return self.status_for_identity(identity).await;
         }
-        #[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"))))]
+        #[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "linux", target_arch = "x86_64"), all(windows, target_arch = "x86_64"))))]
         {
             let _ = host;
             status("unsupported", None)
@@ -325,6 +325,21 @@ mod tests {
         assert!(!super::open_failure_message("secret-token-diagnostic").contains("secret-token"));
     }
     use super::*;
+    // Root's application-data folder on Windows is created plainly and takes
+    // its access from the account's own folder. The service owner directory
+    // and the payload cache inside it require that to already be private.
+    #[cfg(windows)]
+    #[test]
+    fn a_plain_folder_under_application_data_is_already_private() {
+        let base = PathBuf::from(std::env::var_os("APPDATA").unwrap())
+            .join(format!("blackcrab-entry-test-{}", std::process::id()));
+        let nested = base.join("managed-host").join("v1");
+        prepare_app_data(&nested).unwrap();
+        for path in [&base, &nested] {
+            assert_eq!(crate::managed_payload::private_dir(path), Ok(()), "{}", path.display());
+        }
+        let _ = fs::remove_dir_all(&base);
+    }
     #[cfg(unix)]
     #[test]
     fn app_data_is_created_private_and_an_owned_shared_one_is_tightened() {

@@ -659,6 +659,24 @@ a second open reused it. Findings:
   render it is not known; nothing yet reads the page on Windows as the Linux
   acceptance does. Do not count the Windows interface as shown working.
 
+Step 4f-3a merged as PR324 (88c2478964e082dcd5de83eccc083788c404b996).
+
+## Step 4f-3b — the native entry and launcher handoff on Windows
+
+- `managed_native_entry.rs` holds a `NativeDesktopOwner` on Windows, counts
+  Windows x64 as a supported target, and opens the verified desktop payload
+  through it. `managed_launcher_handoff` waits for the window and watches the
+  workspace exit on Windows as it does on macOS and Linux.
+- **Still off for users.** The entry does nothing unless the build was
+  compiled with the payload pins (`BLACKCRAB_EMBEDDED_*`), and release
+  packaging does not prepare Windows payloads yet (step 6). A Windows build
+  made today reports "notBundled" exactly as before.
+- Root's application-data folder is created plainly; a Windows test checks
+  that such a folder under `%APPDATA%` already passes the private-directory
+  check the owner directory and payload cache require.
+- The CI open of the real workspace now prints the workspace's own log
+  files, to settle the blank-window finding above.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

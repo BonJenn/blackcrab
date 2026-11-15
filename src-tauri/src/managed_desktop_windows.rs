@@ -113,7 +113,19 @@ impl NativeDesktopOwner {
         selected: PathBuf,
         expected_digest: String,
     ) -> Result<bool, String> {
-        let identity = DesktopIdentity::Production;
+        self.open_for_identity(host, selected, expected_digest, DesktopIdentity::Production).await
+    }
+    /// Only the production identity exists on Windows.
+    pub(in crate) async fn open_for_identity(
+        &self,
+        host: ManagedHost,
+        selected: PathBuf,
+        expected_digest: String,
+        identity: DesktopIdentity,
+    ) -> Result<bool, String> {
+        if identity != DesktopIdentity::Production {
+            return Err(error());
+        }
         identity.check_digest(&expected_digest)?;
         let mut active = self.active.lock().await;
         if let Some(client) = active.as_ref() {
@@ -274,6 +286,7 @@ fn serve_broker(
 pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: PathBuf) -> Result<(), String> {
     let digest = std::env::var("BLACKCRAB_NATIVE_PACKAGE_SHA256").map_err(|_| "no package digest".to_string())?;
     let owner = NativeDesktopOwner::default();
+    let logs = host.desktop_profile_root().join("logs");
     if !owner.open(host.clone(), package.clone(), digest.clone()).await? {
         return Err("the first open did not start a workspace".into());
     }
@@ -322,6 +335,18 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
             file.display()
         );
         let _ = Command::new("powershell").args(["-NoProfile", "-NonInteractive", "-Command", &script]).output();
+    }
+    // What the workspace itself recorded while starting: the screenshot alone
+    // cannot say whether its interface loaded.
+    let mut names: Vec<PathBuf> = fs::read_dir(&logs)
+        .map(|entries| entries.flatten().map(|entry| entry.path()).filter(|path| path.is_file()).collect())
+        .unwrap_or_default();
+    names.sort();
+    println!("WINDOWS_WORKSPACE logs: {} files in {}", names.len(), logs.display());
+    for name in names.iter().take(8) {
+        let bytes = fs::read(name).unwrap_or_default();
+        let tail = String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(5000)..]).into_owned();
+        println!("--- {} ({} bytes)\n{tail}", name.display(), bytes.len());
     }
     if let Some(client) = owner.active.lock().await.as_ref() {
         client.detach();

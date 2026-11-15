@@ -32,7 +32,7 @@ pub(crate) async fn managed_launcher_handoff(
     window: tauri::WebviewWindow, app: tauri::AppHandle,
 ) -> Result<(), String> {
     crate::require_main_window(&window)?;
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     {
         let view_epoch = app.state::<LauncherState>().view_epoch.load(Ordering::SeqCst);
         let entry = app.state::<crate::managed_native_entry::ManagedNativeEntry>();
@@ -80,6 +80,6 @@ pub(crate) async fn managed_launcher_handoff(
         }
         Ok(())
     }
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     { let _ = app; Err("This workspace is not available on this platform yet.".into()) }
 }

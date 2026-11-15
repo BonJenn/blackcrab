@@ -1,6 +1,19 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 4f-3a: Root's workspace launch
+## Current checkpoint — Windows step 4f-3b: native entry on Windows
+
+Steps1 to 4f-3a are merged (PR308–324; stage 88c2478964e082dcd5de83eccc083788c404b996).
+Worktree P/windows-workspace-delivery-044, branch feat/windows-native-entry:
+`managed_native_entry` and the launcher handoff compile for Windows; still off
+for users because no Windows build carries payload pins. Open: the Windows
+workspace window was blank white in CI (see "Step 4f-3a" in
+docs/windows-workspace-delivery.md); this branch prints the workspace's logs
+to find out why. Next: step 5 browser channel, step 6 packaging and installed
+acceptance. Mac payload changed in PR310/311: **redo Mac native acceptance
+before0.4.4**. **0.4.4 is not published**; consult the owner before any tag or
+publication.
+
+## Previous checkpoint — Windows step 4f-3a: Root's workspace launch
 
 Steps1 to 4f-2 are merged (PR308–323; stage 758debc6c73a69becb80166a8e741b92a9d46de4).
 Worktree P/windows-workspace-delivery-044, branch feat/windows-workspace-launch:

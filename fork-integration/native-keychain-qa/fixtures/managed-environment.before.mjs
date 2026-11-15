@@ -3,24 +3,47 @@ import path from 'node:path';
 import {NAMESPACE} from './descriptor.mjs';
 // Same foreign configuration prefixes cleared by the existing ManagedBootstrap.
 const foreignPrefix = /^(T3CODE_|VITE_|OTEL_)/;
-const foreign = key => foreignPrefix.test(key) || key === 'GITHUB_APP_CLIENT_ID';
-const owned = ['HOME','TMPDIR','T3CODE_HOME','T3CODE_DISABLE_AUTO_UPDATE','T3CODE_DESKTOP_APP_USER_MODEL_ID','OTEL_SDK_DISABLED'];
+// Windows names the account home USERPROFILE and has two temporary-directory variables; its variable names are case-insensitive.
+const windows = process.platform === 'win32';
+const name = key => windows ? key.toUpperCase() : key;
+const foreign = key => foreignPrefix.test(name(key)) || name(key) === 'GITHUB_APP_CLIENT_ID';
+const locations = windows ? ['USERPROFILE','TEMP','TMP','T3CODE_HOME'] : ['HOME','TMPDIR','T3CODE_HOME'];
+const temporary = windows ? ['TEMP','TMP'] : ['TMPDIR'];
+const owned = [...locations,'T3CODE_DISABLE_AUTO_UPDATE','T3CODE_DESKTOP_APP_USER_MODEL_ID','OTEL_SDK_DISABLED'];
+const isOwned = key => owned.includes(name(key));
+// A plain object, unlike process.env, can hold one Windows variable under several spellings; conflicting spellings are not an authority.
+const read = (env,key) => { if(!windows) return env[key]; const values=[...new Set(Object.keys(env).filter(k=>k.toUpperCase()===key).map(k=>env[k]))]; return values.length===1?values[0]:undefined; };
 export function captureManagedShellAuthority(env) {
- const result = Object.fromEntries(owned.map(key=>[key,env[key]]));
- for(const key of ['HOME','TMPDIR','T3CODE_HOME']) if(typeof result[key]!=='string'||!path.isAbsolute(result[key])||result[key].includes('\0')) throw Error('Managed environment authority is unavailable');
- if(result.TMPDIR!==path.join(result.T3CODE_HOME,'tmp')||result.T3CODE_DISABLE_AUTO_UPDATE!=='true'||result.T3CODE_DESKTOP_APP_USER_MODEL_ID!==NAMESPACE.appId||result.OTEL_SDK_DISABLED!=='true') throw Error('Managed environment authority differs');
+ const result = Object.fromEntries(owned.map(key=>[key,read(env,key)]));
+ for(const key of locations) if(typeof result[key]!=='string'||!path.isAbsolute(result[key])||result[key].includes('\0')) throw Error('Managed environment authority is unavailable');
+ if(temporary.some(key=>result[key]!==path.join(result.T3CODE_HOME,'tmp'))||result.T3CODE_DISABLE_AUTO_UPDATE!=='true'||result.T3CODE_DESKTOP_APP_USER_MODEL_ID!==NAMESPACE.appId||result.OTEL_SDK_DISABLED!=='true') throw Error('Managed environment authority differs');
  return Object.freeze(result);
 }
 export function filterManagedShellEnvironment(authority,candidate) {
  const trusted = captureManagedShellAuthority(authority);
- return Object.assign(Object.fromEntries(Object.entries(candidate).filter(([key])=>!foreign(key)&&!owned.includes(key))),trusted);
+ return Object.assign(Object.fromEntries(Object.entries(candidate).filter(([key])=>!foreign(key)&&!isOwned(key))),trusted);
 }
 export function restoreManagedShellAuthority(env,authority) {
  const trusted=captureManagedShellAuthority(authority);
- for(const key of Object.keys(env))if(foreign(key)||owned.includes(key))delete env[key];
+ for(const key of Object.keys(env))if(foreign(key)||isOwned(key))delete env[key];
  Object.assign(env,trusted);
 }
+// Windows has no UID, mode bits, O_DIRECTORY or O_NOFOLLOW. Privacy there is the protected DACL Root created and verified on the
+// descriptor root, which every child inherits; this side refuses anything that is not a real directory at its canonical path
+// (lstat reports symbolic links and junctions alike as links) before and after creating it.
+function privateWindowsDirectory(root,target) {
+ if(path.resolve(root)!==root||!target.startsWith(root+path.sep))throw Error('Managed storage path differs');
+ let current=root;
+ const real=()=>{const stat=fs.lstatSync(current);return stat.isDirectory()&&!stat.isSymbolicLink()&&fs.realpathSync(current)===current;};
+ for(const part of ['.',...path.relative(root,target).split(path.sep)]) {
+  try {
+   if(part!=='.'){current=path.join(current,part);try{fs.mkdirSync(current);}catch(error){if(error.code!=='EEXIST')throw error;}}
+   if(!real())throw Error('unsafe directory');
+  } catch {throw Error('Managed storage directory is not private');}
+ }
+}
 function privateDirectory(root,target) {
+ if(windows)return privateWindowsDirectory(root,target);
  if(path.resolve(root)!==root||!target.startsWith(root+path.sep)||typeof process.getuid!=='function')throw Error('Managed storage path differs');
  const flags=fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW;
  if(typeof fs.constants.O_DIRECTORY!=='number'||typeof fs.constants.O_NOFOLLOW!=='number')throw Error('Managed directory verification is unavailable');

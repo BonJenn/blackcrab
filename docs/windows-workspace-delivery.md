@@ -113,6 +113,42 @@ Still not wired: `launch_verified`, its broker/update/lifecycle servers and
 `prepare_profile` remain Unix-only, and `native-os-home-environment.mjs` still
 refuses Windows. Those are step3.
 
+Step 2b merged as PR310 (c3c92bf67e227e6b59b9bd2bda38a04c1919c4eb); the Rust
+test and the three module test files passed on the Windows runners first time.
+
+## Step 3a — the managed environment contract on Windows
+
+`environment.mjs` (source `fork-integration/native-os-home/payload/`, installed
+copy `managed-desktop/patches/native-os-home-environment.mjs`) is what refused
+the Linux workspace when its temp directory was moved. On Windows it could not
+run at all: it requires `process.getuid`, `O_DIRECTORY` and `O_NOFOLLOW`.
+
+Windows form, decided here:
+
+- The owned location variables are `USERPROFILE`, `TEMP` and `TMP` (not `HOME`
+  and `TMPDIR`), plus `T3CODE_HOME`. Both temporary variables must equal
+  `<profile>\tmp`. Root must therefore launch the workspace with exactly those.
+- Variable names are matched without regard to case, for owned names and for
+  the foreign `T3CODE_`/`VITE_`/`OTEL_` prefixes. A plain object carrying one
+  owned variable under conflicting spellings is not an authority.
+- Storage directories are checked structurally only: a real directory, not a
+  symbolic link or junction, at its canonical path. Privacy is not checked in
+  JavaScript, which has no access to owners or DACLs; it is the protected DACL
+  Root creates and verifies on the profile root (step1) and children inherit.
+  **Root's Windows `prepare_profile` must do that before launch**, or this side
+  is not private.
+
+Mac and Linux logic is unchanged, but the payload bytes are. Pins updated: both
+registries' payload record, the keychain-QA `preserved-source` predecessor, its
+sample record and before/after fixtures, and its whole-registry pin
+(`68e8fbcd…`). `managed_native_keychain_qa.rs` embeds the old digest as a record
+of one historical QA artifact; it is test-only, already pinned to an older
+registry, and was left alone.
+
+Tests: `environment.windows.test.mjs` needs only Node. It runs natively in the
+Windows workspace job, and on Linux CI with the platform reported as win32 so
+the name and directory rules are exercised there too.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

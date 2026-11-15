@@ -81,11 +81,11 @@
       "target": "apps/desktop/src/app/managed-desktop/environment.mjs",
       "fixture": "fixtures/managed-environment.before.mjs",
       "phase": "preserved-source",
-      "beforeSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
+      "beforeSha256": "907ca715aeceac3ffa7caeff25ef1ecca76f82b2cdf7686b24aa74521e1f20b8",
       "productionPatchIds": [
         "native-os-home-environment-mjs"
       ]
     }
   ],
-  "productionDesktopRegistrySha256": "c2881ccb647c2940eb900116fca6b9ae1e85e8825d50c53ba1bc57f46938eb79"
+  "productionDesktopRegistrySha256": "68e8fbcd6eb47ef575e2eb8c72d89cc64aab24baf3be558938252c7c9aa205d5"
 }

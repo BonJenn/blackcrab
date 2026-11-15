@@ -231,6 +231,33 @@ unknown layout is "unavailable". The CI test checks it is stable and prints the
 registry's own boot count beside it for comparison. It cannot show the value
 changes across a reboot.
 
+Step 4a merged as PR313 (3a3df8a3cc3a3ce7c47bba12917392a6bff2d64e). On the
+runner the kernel `BootId` was13 and the registry's `PrefetchParameters\BootId`
+was `0xd`: the two agree.
+
+## Step 4b-1 — issuer pipe I/O
+
+The Unix issuer sets its inherited stdin/stdout non-blocking and polls them
+with deadlines. The handles a Windows issuer inherits from the Node launcher
+are synchronous anonymous pipes: no polling, no timeouts.
+`managed_service_issuer_io.rs` gives each direction one thread that makes the
+blocking call while the issuer waits on a channel with its deadline:
+
+- Input is handed over one byte at a time through a rendezvous, so at most one
+  byte beyond the current frame leaves the pipe and it is kept for the next
+  read. A missed deadline loses nothing. A closed writer is end of stream.
+- Output writes a whole frame or fails. After any failure, including a missed
+  deadline with the write still pending, the output is retired so a late
+  completion cannot be taken for a later frame's.
+- `standard_pipes()` opens the process's own standard handles unbuffered and
+  requires both to be pipes.
+
+The logic is platform-neutral and its three tests run on Mac, Linux and
+Windows. `standard_pipes()` itself is not exercised until the issuer runs on
+Windows, and the issuer still does not compile there: its file and owner
+checks (`uid`, mode `0700`/`0600`, `O_NOFOLLOW`) and `managed_host.rs`'s
+private file helpers are the next piece.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

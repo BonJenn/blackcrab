@@ -91,6 +91,17 @@ function Get-Identity {
   ('configuration.json', 'host\userdata\environment-id' | ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $owner $_) -Algorithm SHA256).Hash }) -join ':'
 }
 
+# Windows keeps the workspace's saved sign-in in the account's Credential
+# Manager, outside any profile directory. An earlier step of this same job
+# ran a workspace against a different, now removed, service; what it saved
+# is recorded by name and removed, as a fresh account would not have it.
+function Get-SavedSignIns {
+  @(& cmdkey.exe /list 2>$null | ForEach-Object { if ($_ -match 'Target:\s*(.+)$') { $Matches[1].Trim() } } | Where-Object { $_ -match 'blackcrab|t3code|t3 code' })
+}
+$result.savedSignInsBefore = @(Get-SavedSignIns)
+foreach ($target in $result.savedSignInsBefore) { & cmdkey.exe /delete:$target 2>$null | Out-Null }
+$result.savedSignInsRemoved = ($result.savedSignInsBefore.Count -gt 0 -and @(Get-SavedSignIns).Count -eq 0)
+
 try {
   $before = $null
   foreach ($round in 'first-launch', 'reopen') {
@@ -140,6 +151,7 @@ try {
   Save-Screen 'failure-screen.png'
   $result.processes = @(Get-Blackcrab | ForEach-Object { [ordered]@{ title = $_.Process.MainWindowTitle; window = ($_.Process.MainWindowHandle -ne 0); launcher = ($_.Path -ieq $launcher) } })
   $result.serviceTasks = @(Get-ServiceTask | ForEach-Object { $_.Status })
+  $result.savedSignInsAtFailure = @(Get-SavedSignIns)
   try { $result.service = Get-ServiceEvidence } catch { $result.service = "evidence failed: $($_.Exception.Message)" }
 } finally {
   # This run's own launcher, workspace and scheduled task only.

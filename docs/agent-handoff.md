@@ -1,6 +1,21 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 3a: environment contract (payload change)
+## Current checkpoint — Windows step 4: background service started
+
+Steps1 to 3b are merged (PR308–312; stage ac797ae537359de23084f64e0a0635acfc06dc65).
+The built Windows workspace boots from a Root-shaped launch in CI. The owner
+agreed on2026-11-14 to do the service before Root's launch wiring, and decided:
+a per-user scheduled task running Blackcrab's helper; and Windows-only service
+source records with the Mac and Linux service payloads kept byte-identical
+(freeze `files` hashes may change, `rawSourceData`/`recordGraphSha256` may not).
+Read "Step 4" in docs/windows-workspace-delivery.md before touching
+managed-host/ or fork-integration/boot-service/. Worktree
+P/windows-workspace-delivery-044, branch feat/windows-service-foundation:
+step 4a, the Windows boot identity. Mac payload changed in PR310/311: **redo Mac
+native acceptance before0.4.4**. **0.4.4 is not published**; consult the owner
+before any tag or publication.
+
+## Previous checkpoint — Windows step 3a: environment contract (payload change)
 
 Steps1,2a,2b are merged (PR308,309,310; stage c3c92bf67e227e6b59b9bd2bda38a04c1919c4eb).
 The owner said "Start" for step3 on2026-11-14. Worktree

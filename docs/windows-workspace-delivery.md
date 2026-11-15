@@ -172,6 +172,65 @@ Linux workspace failed silently. The lifecycle reply is recorded, not required.
 On failure it saves a screenshot (an uncaught main-process error is a message
 box on Windows) and lists the profile.
 
+Step 3b merged as PR312 (ac797ae537359de23084f64e0a0635acfc06dc65). Run
+43665398105 on windows-2022: the built `Blackcrab.exe` read its descriptor,
+accepted the profile and environment, created its storage in the private
+profile, answered the lifecycle request `{"version":1,"id":1,"visible":false}`
+and then showed its own "Blackcrab failed to start — Stage: bootstrap — fetch
+failed — bad port" dialog, the expected result of the made-up port. Root's own
+Windows launch wiring is deferred until a service exists to attach to.
+
+## Step 4 — background service: decisions (owner, 2026-11-14)
+
+1. **Mechanism: a per-user scheduled task.** A Task Scheduler task that runs at
+   sign-in, needs no administrator rights, restarts on failure, and whose
+   registered definition can be read back and compared, as the systemd unit's
+   loaded properties are. Its action is Blackcrab's own signed helper, which
+   starts `t3.exe __service-launcher` with the exact environment (a task
+   definition cannot carry one) and stops it cleanly. A Run key (no restart or
+   status) and a true Windows service (administrator install, outside the user
+   session) were considered and not chosen.
+2. **Frozen host producer: Windows-only, Mac and Linux identical.** Windows
+   changes to the service launcher sources go in as Windows-only records, and
+   the freeze file's hashes are updated only for the producer scripts edited.
+   The Mac and Linux service payloads must stay byte-identical, so the
+   installed Mac `c04c4d44…` service and its data are untouched.
+   This is achievable: the host artifact (`BUILD-PROVENANCE.json` and the
+   manifest) records the upstream pin, tool versions, the plan's
+   `sourcePatches` and the target, not the producer scripts' hashes. The
+   existing `build-source-freeze.test.mjs` assertions on `rawSourceData` and
+   `recordGraphSha256` for the default plan are the proof and must keep
+   passing unmodified; only `files` entries may change.
+
+Known constraints for the design, from the Linux implementation:
+
+- The Node launcher stops on SIGTERM/SIGINT and only then retires its issuer
+  epoch. Ending a task terminates the process outright, which would leave a
+  non-retired journal and make later service control fail closed for the rest
+  of the boot. The helper must deliver a stop the launcher handles.
+- The issuer speaks newline JSON on stdin/stdout pipes and is entirely
+  `cfg(unix)` (poll, fcntl, fstat kind checks, uid/mode).
+- `OwnedLauncherBootstrap.ts`, `serviceLauncher` and `service-profile.mjs`
+  require `process.getuid`, mode bits and `O_NOFOLLOW`, spawn the issuer with a
+  `/usr/bin:/bin` PATH and name it without `.exe`.
+- `managed-native-resources.mjs`, `prepare-service-issuer.mjs`, the service
+  profile build and `build-linux-host-ci.mjs` refuse Windows.
+- The frontend accepts exactly the existing `ServiceStatus` shape and states.
+
+## Step 4a — boot identity
+
+The issuer's journal records the boot it was written in; a non-retired journal
+is only retired when the current boot differs, and anything else fails closed.
+The module allows a kernel identity only: no timestamp, persisted file or
+random fallback. On Windows that identity is `BootId` in `KUSER_SHARED_DATA`,
+the kernel's read-only page mapped at `0x7FFE0000` in every process: the
+kernel's count of boots of the installation. It is read directly, guarded by
+the major version field in the same structure (10 on Windows 10 and 11), and
+rendered as the UUID `626f6f74-6964-4000-8000-<counter>`. A zero counter or an
+unknown layout is "unavailable". The CI test checks it is stable and prints the
+registry's own boot count beside it for comparison. It cannot show the value
+changes across a reboot.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

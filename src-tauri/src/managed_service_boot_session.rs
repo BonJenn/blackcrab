@@ -74,7 +74,33 @@ pub(super) fn read_boot_session_id() -> Result<String, String> {
     normalize(&bytes[..36])
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(windows)]
+pub(super) fn read_boot_session_id() -> Result<String, String> {
+    // KUSER_SHARED_DATA is the kernel's read-only page mapped at this address
+    // in every process. Its BootId is the kernel's count of boots of this
+    // installation, so it differs for every boot and cannot change within one.
+    // It is read directly: no registry value, boot time, wallclock or random
+    // substitute. The major version sits in the same structure and guards
+    // against a layout this code does not know; Windows 10 and 11 both
+    // report 10 there.
+    const SHARED: usize = 0x7FFE_0000;
+    const MAJOR_VERSION: usize = 0x26C;
+    const BOOT_ID: usize = 0x2C4;
+    let (major, boot) = unsafe {
+        (
+            std::ptr::read_volatile((SHARED + MAJOR_VERSION) as *const u32),
+            std::ptr::read_volatile((SHARED + BOOT_ID) as *const u32),
+        )
+    };
+    if major != 10 || boot == 0 {
+        return Err(UNAVAILABLE.into());
+    }
+    // The journal stores a UUID. This one spells "boot" and "id" in its first
+    // two groups and carries the counter in its last.
+    normalize(format!("626f6f74-6964-4000-8000-{boot:012x}").as_bytes())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 pub(super) fn read_boot_session_id() -> Result<String, String> {
     Err(UNAVAILABLE.into())
 }
@@ -82,6 +108,30 @@ pub(super) fn read_boot_session_id() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::normalize;
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_boot_identity_is_the_kernel_boot_counter_and_is_stable() {
+        let first = super::read_boot_session_id().unwrap();
+        assert_eq!(super::read_boot_session_id().unwrap(), first);
+        assert_eq!(normalize(first.as_bytes()).unwrap(), first);
+        assert!(first.starts_with("626f6f74-6964-4000-8000-"));
+        let counter = u64::from_str_radix(&first[24..], 16).unwrap();
+        assert!(counter > 0 && counter <= u64::from(u32::MAX));
+        // Windows keeps a boot count in the registry too. Where it is present
+        // it is reported beside the kernel value for comparison, not required.
+        let registry = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters",
+                "/v",
+                "BootId",
+            ])
+            .output()
+            .map(|out| String::from_utf8_lossy(&out.stdout).split_whitespace().last().unwrap_or("absent").to_string())
+            .unwrap_or_else(|_| "unavailable".into());
+        println!("WINDOWS_BOOT_ID kernel={counter} registry={registry}");
+    }
 
     #[test]
     fn kernel_uuid_is_normalized_without_semantic_rewriting() {

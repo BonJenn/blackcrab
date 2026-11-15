@@ -13,6 +13,11 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+// The issuer that uses this is not ported to Windows yet; its boot identity is.
+#[cfg(windows)]
+#[allow(dead_code)]
+#[path = "managed_service_boot_session.rs"]
+mod boot_session;
 #[cfg(unix)]
 #[path = "managed_service_issuer.rs"]
 mod service_issuer;

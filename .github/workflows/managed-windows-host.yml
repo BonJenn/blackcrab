@@ -1,0 +1,52 @@
+name: managed Windows host
+
+on:
+  pull_request:
+    paths:
+      - managed-host/**
+      - fork-integration/boot-service/**
+      - managed-cloud/client-config.mjs
+      - scripts/build-windows-host-ci.mjs
+      - .github/workflows/managed-windows-host.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: managed-windows-host-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service-payload:
+    name: Windows service payload build
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      # The producer checks every reviewed source file against its recorded
+      # hash. Those hashes are of the committed bytes, so the checkout must
+      # not rewrite line endings.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26.12.1'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci --ignore-scripts
+      # The producer starts pnpm directly, so it needs the standalone
+      # executable, not the script npm would install.
+      - run: npm install --global @pnpm/exe@12.14.0 --ignore-scripts
+      - name: Build and verify the real pinned Windows service payload
+        shell: bash
+        run: |
+          PNPM="$(find "$(npm root -g)" -name pnpm.exe | head -1)"
+          test -n "$PNPM"
+          node scripts/build-windows-host-ci.mjs --root "$RUNNER_TEMP/windows-host-build" --pnpm "$(cygpath -w "$PNPM")"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: windows-host-build
+          path: |
+            ${{ runner.temp }}/windows-host-build/result.json
+            ${{ runner.temp }}/windows-host-build/cache/blackcrab-managed-build-*/*.log
+          if-no-files-found: warn

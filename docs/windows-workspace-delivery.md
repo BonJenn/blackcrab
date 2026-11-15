@@ -465,6 +465,46 @@ starts nothing else, but parallel tests do. The tests that interrupt now run
 one at a time in their own invocation, and tests find `node.exe` by searching
 PATH instead of running `where`.
 
+Step 4d merged as PR319 (cab68022ebebad725073dd754a689fc359b0d685). The real
+Task Scheduler test passed on the runner, including starting the sign-in task
+on demand. It took over four minutes: every verification exports the task
+through PowerShell. Root's status checks must not verify on every poll; verify
+at registration and before start, stop and removal.
+
+## Step 4e-1 — building the Windows service payload
+
+The first change to the frozen host producer, under the owner's decision of
+2026-11-14 (Windows-only, Mac and Linux identical). Two lines:
+
+- `managed-host/build.mjs`: the service profile is accepted on `win32` as well
+  as `darwin` and `linux`.
+- `managed-host/service-profile.mjs`: the fresh-source-root check keeps its
+  directory, no-symlink and canonical-path requirements on Windows and skips
+  UID and mode, which do not exist there.
+
+`build-controller-source-freeze.json` records new hashes for exactly those two
+files. `rawSourceData`, `recordGraphSha256`, `upstream` and the other fifteen
+file hashes are unchanged, and `build-source-freeze.test.mjs` passes without
+modification: the inputs that determine the Mac and Linux service payloads
+are what they were. The freeze's recorded state describes an audited Mac
+build made with the previous two files; the Mac build controller has not been
+re-run with these.
+
+`scripts/build-windows-host-ci.mjs` and the `managed Windows host` workflow
+build the real pinned service payload on `windows-2022` and verify it as a
+service-profile artifact. The producer starts pnpm directly, so the workflow
+installs the standalone `pnpm.exe`; and Windows' own `tar` is put first on
+PATH, since GNU `tar` reads `C:` in a path as a remote host. The native
+resources archive and the helper build still refuse Windows and are not run.
+The checkout runs with `core.autocrlf false`: the producer hashes every
+reviewed source file, and the first run failed at once because the runner's
+default checkout had rewritten line endings.
+
+This builds the payload from the unchanged service sources. They still assume
+Unix at run time (`getuid`, mode bits, `O_NOFOLLOW`, a `/usr/bin:/bin` PATH for
+the helper, a helper name without `.exe`). Making the built service start is
+step 4e-2, as Windows-only records.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

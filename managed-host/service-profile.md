@@ -4,8 +4,10 @@ The opt-in producer built and verified a real macOS arm64 package. Its final
 protected-input audit passed, and the output remains unselected in quarantine.
 The existing default C21 producer and its21 descriptor output remain unchanged.
 The developer producer accepts an optional exact profile
-`blackcrab-local-service-layout-v1`; unknown profiles and Windows service targets
-fail before source preparation. No install, service action, native selection,
+`blackcrab-local-service-layout-v1`; unknown profiles fail before source
+preparation. Windows is accepted as a build target since2026-11-14 (see
+docs/windows-workspace-delivery.md, step 4e); its service sources still assume
+Unix at run time until Windows-only records are added. No install, service action, native selection,
 release feed or version invention is performed. Original version remains0.1.7.
 
 The optional `--profile blackcrab-local-service-layout-v1` flag is passed by

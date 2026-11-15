@@ -47,7 +47,7 @@ async function rustNotices(source, output, env, processControl) {
 export async function buildManagedHost({ archive, cacheDir, output, node, pnpm, nodeLicense, profile, processControl, environment, workDir, offline = false, cloudEnvironment = environment ?? process.env }) {
   if (processControl && process.platform === 'win32') throw new Error('Controlled producer process groups require Unix');
   if (profile !== undefined && profile !== SERVICE_PROFILE) throw new Error('Unknown managed-host producer profile');
-  if (profile !== undefined && !['darwin','linux'].includes(process.platform)) throw new Error('Owned service profile supports macOS/Linux only');
+  if (profile !== undefined && !['darwin','linux','win32'].includes(process.platform)) throw new Error('Owned service profile supports macOS, Linux and Windows only');
   const cloud = clientCloudConfigFromEnvironment(cloudEnvironment);
   if (!platformName[process.platform] || !['arm64', 'x64'].includes(process.arch)) throw new Error('Unsupported managed-host build target');
   archive = path.resolve(archive); cacheDir = path.resolve(cacheDir); output = path.resolve(output);

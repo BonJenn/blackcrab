@@ -1,6 +1,22 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 4: background service started
+## Current checkpoint — Windows step 4e: service payload build (frozen producer touched)
+
+Steps1 to 4d are merged (PR308–319; stage cab68022ebebad725073dd754a689fc359b0d685):
+private storage, payload cache, descriptor spawn, workspace modules and
+environment, built-workspace boot, boot identity, issuer I/O and issuer on
+Windows, clean stop, supervisor, sign-out, scheduled task. The owner said on
+2026-11-14 to keep going until completion. Worktree
+P/windows-workspace-delivery-044, branch feat/windows-host-build: step 4e-1.
+It edits two frozen producer files by one line each and updates only their two
+hashes in build-controller-source-freeze.json; `rawSourceData` and
+`recordGraphSha256` must never change for the default plan. Read "Step 4e-1"
+in docs/windows-workspace-delivery.md first. Before release, on a real Windows
+desktop: sign-out timing, the Ctrl+C stop, and the scheduled task. Mac payload
+changed in PR310/311: **redo Mac native acceptance before0.4.4**.
+**0.4.4 is not published**; consult the owner before any tag or publication.
+
+## Previous checkpoint — Windows step 4: background service started
 
 Steps1 to 3b are merged (PR308–312; stage ac797ae537359de23084f64e0a0635acfc06dc65).
 The built Windows workspace boots from a Root-shaped launch in CI. The owner

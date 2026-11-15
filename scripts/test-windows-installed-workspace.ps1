@@ -1,0 +1,107 @@
+# Disposable CI only. Starts the installed Blackcrab the way a person does, by
+# running its launcher, and watches from outside: no native command, test-only
+# launcher feature or agent prompt is used. The launcher sets up and starts the
+# background service and opens the workspace by itself.
+param([Parameter(Mandatory = $true)][string]$Report)
+$ErrorActionPreference = 'Stop'
+if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows') { throw 'Disposable GitHub Windows runner required' }
+$plan = Get-Content -LiteralPath $Report -Raw | ConvertFrom-Json
+if ($plan.passed -ne $true -or $plan.target -ne 'win32-x64' -or $plan.published -ne $false) { throw 'Verified local Windows installer candidate required' }
+$launcher = $plan.launcher
+if ((Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash.ToLower() -ne $plan.installedRootSha256) { throw 'Installed launcher changed after verification' }
+$appData = Join-Path $env:APPDATA 'com.bonjenn.blackcrab'
+if (Test-Path -LiteralPath $appData) { throw 'Refusing existing Blackcrab application data' }
+$output = Join-Path (Split-Path -Parent $Report) 'ui-acceptance'
+New-Item -ItemType Directory -Path $output | Out-Null
+$result = [ordered]@{ passed = $false; agentPromptsSent = 0; published = $false; sessions = @() }
+
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+function Save-Screen([string]$name) {
+  try {
+    $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+    $image = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+    $graphics = [System.Drawing.Graphics]::FromImage($image)
+    $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $image.Size)
+    $image.Save((Join-Path $output $name))
+  } catch { }
+}
+# The launcher and the workspace are both named Blackcrab. They are told apart
+# by where their program is: the installed launcher, or the payload cache.
+function Get-Blackcrab {
+  Get-Process -Name 'blackcrab' -ErrorAction SilentlyContinue | ForEach-Object {
+    $path = $null; try { $path = $_.Path } catch { }
+    [pscustomobject]@{ Process = $_; Path = $path }
+  }
+}
+function Get-Workspace { Get-Blackcrab | Where-Object { $_.Path -and $_.Path.StartsWith($appData, [StringComparison]::OrdinalIgnoreCase) -and $_.Process.MainWindowHandle -ne 0 } | Select-Object -First 1 }
+function Get-Launcher { Get-Blackcrab | Where-Object { $_.Path -and $_.Path -ieq $launcher } }
+function Get-ServiceTask {
+  $rows = & schtasks.exe /Query /FO CSV /NH 2>$null | ConvertFrom-Csv -Header Name, Next, Status
+  $rows | Where-Object { $_.Name -like '*Blackcrab Service *' }
+}
+function Get-Identity {
+  $owner = Join-Path $appData 'managed-host\v1'
+  ('configuration.json', 'host\userdata\environment-id' | ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $owner $_) -Algorithm SHA256).Hash }) -join ':'
+}
+
+try {
+  $before = $null
+  foreach ($round in 'first-launch', 'reopen') {
+    $root = Start-Process -FilePath $launcher -PassThru
+    $deadline = (Get-Date).AddSeconds(480); $workspace = $null; $title = ''
+    while ((Get-Date) -lt $deadline) {
+      $workspace = Get-Workspace
+      if ($workspace) {
+        $workspace.Process.Refresh(); $title = $workspace.Process.MainWindowTitle
+        # The window takes this title from the interface once it has loaded.
+        if ($title -like 'Blackcrab*') { break }
+      }
+      if ($root.HasExited -and -not $workspace) { throw "The launcher exited ($($root.ExitCode)) before a workspace opened" }
+      Start-Sleep -Milliseconds 500
+    }
+    if (-not $workspace -or $title -notlike 'Blackcrab*') { throw "No loaded workspace window appeared (last title: '$title')" }
+    # Let the acknowledged window finish its first paint for the kept image.
+    Start-Sleep -Seconds 10
+    Save-Screen "$round-workspace.png"
+    $task = Get-ServiceTask
+    if (@($task).Count -ne 1 -or $task.Status -ne 'Running') { throw "Background service task is not running: $(@($task | ForEach-Object { $_.Status }) -join ',')" }
+    $identity = Get-Identity
+    if ($before -and $before -ne $identity) { throw 'Reopening changed the persistent service identity' }
+    $before = $identity
+    # Quit as a person would: close the workspace window. The launcher, hidden
+    # since the handoff, must then exit too; the service must not.
+    if (-not $workspace.Process.CloseMainWindow()) { throw 'The workspace window refused a close request' }
+    $deadline = (Get-Date).AddSeconds(60)
+    while ((Get-Date) -lt $deadline -and (-not $workspace.Process.HasExited -or (Get-Launcher))) { Start-Sleep -Milliseconds 500 }
+    if (-not $workspace.Process.HasExited) { throw 'Closing its window did not quit the workspace' }
+    if (Get-Launcher) { throw 'Quitting the workspace did not close its launcher' }
+    $task = Get-ServiceTask
+    if (@($task).Count -ne 1 -or $task.Status -ne 'Running') { throw 'The background service did not survive quitting the workspace' }
+    $result.sessions += [ordered]@{ round = $round; windowTitle = $title; loadedWorkspace = $true; closeQuitBoth = $true; serviceSurvived = $true; identityRetained = $true }
+  }
+  $result.passed = $true
+} catch {
+  $result.error = "$($_.Exception.Message)".Substring(0, [Math]::Min(500, "$($_.Exception.Message)".Length))
+  Save-Screen 'failure-screen.png'
+  $result.processes = @(Get-Blackcrab | ForEach-Object { [ordered]@{ title = $_.Process.MainWindowTitle; window = ($_.Process.MainWindowHandle -ne 0); launcher = ($_.Path -ieq $launcher) } })
+  $result.serviceTasks = @(Get-ServiceTask | ForEach-Object { $_.Status })
+  foreach ($log in 'managed-host\v1\logs\service-supervisor.log', 'managed-host\v1\logs\boot-service.log') {
+    $file = Join-Path $appData $log
+    if (Test-Path -LiteralPath $file) { $result[$log] = (Get-Content -LiteralPath $file -Tail 40) -join "`n" }
+  }
+} finally {
+  # This run's own launcher, workspace and scheduled task only.
+  $cleanup = @()
+  Get-Blackcrab | Where-Object { $_.Path -and ($_.Path -ieq $launcher -or $_.Path.StartsWith($appData, [StringComparison]::OrdinalIgnoreCase)) } | ForEach-Object { try { $_.Process.Kill() } catch { } }
+  foreach ($task in @(Get-ServiceTask)) {
+    $name = $task.Name
+    & schtasks.exe /End /TN $name 2>$null | Out-Null
+    & schtasks.exe /Delete /F /TN $name 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) { $cleanup += 'scheduled task' }
+  }
+  $result.cleanupErrors = $cleanup
+  if ($cleanup.Count) { $result.passed = $false }
+  $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'result.json')
+}
+if (-not $result.passed -or $result.sessions.Count -ne 2) { Write-Output ($result | ConvertTo-Json -Depth 6); throw 'Installed graphical acceptance did not pass' }
+Write-Output 'INSTALLED_WINDOWS_WORKSPACE_ACCEPTANCE_PASSED'

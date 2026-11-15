@@ -1,6 +1,18 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 6b: the blank workspace window
+## Current checkpoint — Windows step 6c: installed acceptance
+
+Steps1 to 6b are merged (PR308–327; stage acdc35d88d326bae4b794a6dad3a3f28d3df14ef).
+The Windows workspace now draws its interface (see "Step 6b"). Worktree
+P/windows-workspace-delivery-044, branch feat/windows-installed-ui: the
+installed launcher run end to end in CI. The owner chose on 2026-11-15 to
+continue with Windows before releasing. After this: code signing and updater
+metadata (owner's decision), a check on a real PC, then step 5 (browser
+channel) if wanted. Mac payload changed in PR310/311 and PR327: **redo Mac
+native acceptance before0.4.4**. **0.4.4 is not published**; consult the
+owner before any tag or publication.
+
+## Previous checkpoint — Windows step 6b: the blank workspace window
 
 Steps1 to 6a are merged (PR308–326; stage 4e87dd67b9680f9c40ec75f7c0353a02ab790da4).
 The Windows installer builds, installs and verifies in CI (unsigned). Worktree

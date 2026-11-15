@@ -765,6 +765,25 @@ page requests at all, so their absence there meant nothing.
 Also seen: Windows PowerShell is found but the workspace's five-second limit
 on reading the shell environment through it is missed on the runner.
 
+Step 6b merged as PR327 (acdc35d88d326bae4b794a6dad3a3f28d3df14ef). With the
+fix the page is `blackcrab://app/#/welcome`, titled "Blackcrab (Beta)", 719
+elements, its script and stylesheet loaded and its requests to the service
+answered 200; the screenshot shows the onboarding screen, as on Linux. The
+Linux installed acceptance passed with the changed payload.
+
+## Step 6c — installed acceptance
+
+`scripts/test-windows-installed-workspace.ps1` (CI only) runs the installed
+launcher as a person does and watches from outside; it calls no native
+command and sends no agent prompt. Twice over: the launcher must set up and
+start the service and open the workspace by itself; a workspace window from
+the payload cache must take the interface's title; the service's scheduled
+task must be running; closing the workspace window must quit the workspace
+and its hidden launcher but not the service; and the second launch must keep
+the service's identity. Unlike the Linux acceptance it does not read the
+launcher's own status line (that needs a WebView2 driver); the loaded
+workspace window is the evidence instead.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

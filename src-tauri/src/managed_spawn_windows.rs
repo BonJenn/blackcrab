@@ -581,6 +581,106 @@ renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4),
         drop(unrelated);
     }
 
+    // The workspace's own channel modules, unmodified, on Root-made pipes.
+    const WORKSPACE: &str = r#"
+import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
+const [trace, directory] = process.argv.slice(-2);
+const note = text => { try { fs.appendFileSync(trace, text + '\n'); } catch {} };
+process.on('uncaughtException', error => { note('uncaught ' + (error && error.stack)); process.exit(3); });
+const load = name => import(pathToFileURL(directory + '/' + name).href);
+const hold = setInterval(() => {}, 1000);
+try {
+  const { openLifecycle } = await load('lifecycle.mjs');
+  const { createCredentialBroker } = await load('credential-broker.mjs');
+  const { openUpdateClient } = await load('update-client.mjs');
+  openLifecycle({ lifecycle: { kind: 'launcher-lifecycle-fd-v1', fd: 6 } }, async () => true);
+  const updates = openUpdateClient({ kind: 'launcher-updates-fd-v1', fd: 5 });
+  const broker = createCredentialBroker({ owner: { generation: 7, environmentId: 'owned-environment' } });
+  note('channels open');
+  const credential = await broker.renew();
+  note('renewed ' + credential);
+  // Only reached with an accepted credential.
+  updates.request('status').catch(error => note('update ' + error));
+} catch (error) { note('failed ' + (error && error.stack)); process.exit(4); }
+"#;
+
+    #[test]
+    fn the_workspace_channel_modules_work_over_root_pipes() {
+        let node = node();
+        let (renewal, updates, lifecycle) = (
+            channel(ChildEnd::Duplex).unwrap(),
+            channel(ChildEnd::Duplex).unwrap(),
+            channel(ChildEnd::Duplex).unwrap(),
+        );
+        let modules = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("managed-desktop");
+        let modules = std::fs::canonicalize(modules).unwrap();
+        // Node's file URLs do not take the verbatim prefix canonicalize adds.
+        let modules = PathBuf::from(modules.to_string_lossy().trim_start_matches(r"\\?\"));
+        let directory = std::env::temp_dir();
+        let mut nonce = [0u8; 8];
+        getrandom::getrandom(&mut nonce).unwrap();
+        let trace = directory.join(format!(
+            "blackcrab-workspace-trace-{}.txt",
+            nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        ));
+        let process = spawn(
+            &node,
+            &[
+                "--input-type=module".into(),
+                "-e".into(),
+                WORKSPACE.into(),
+                trace.clone().into_os_string(),
+                modules.into_os_string(),
+            ],
+            &[("SystemRoot".into(), std::env::var_os("SystemRoot").unwrap())],
+            &directory,
+            &[(4, &renewal.theirs), (5, &updates.theirs), (6, &lifecycle.theirs)],
+        )
+        .unwrap();
+        drop((renewal.theirs, updates.theirs, lifecycle.theirs));
+        let explain = |failure: String| -> String {
+            panic!(
+                "{failure}; child exit {:?}; child trace:\n{}",
+                process.wait(Duration::from_millis(0)),
+                std::fs::read_to_string(&trace).unwrap_or_else(|e| format!("<no trace: {e}>"))
+            )
+        };
+        let second = Some(Duration::from_secs(10));
+
+        // FD4: the broker asks for a credential and accepts only a matching reply.
+        let request: serde_json::Value =
+            serde_json::from_str(&try_line(&renewal.ours).unwrap_or_else(explain)).unwrap();
+        assert_eq!(request["kind"], "native-client-credential");
+        assert_eq!(request["generation"], 7);
+        let expires = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
+            + 60_000;
+        let reply = serde_json::json!({"version":1,"kind":"paired-credential","requestId":request["requestId"],
+            "generation":7,"environmentId":request["environmentId"],"credential":"23456789ABCD","expiresAt":expires});
+        renewal.ours.write_all(format!("{reply}\n").as_bytes(), second).unwrap();
+
+        // FD5: sent only after the credential was accepted.
+        let update: serde_json::Value =
+            serde_json::from_str(&try_line(&updates.ours).unwrap_or_else(explain)).unwrap();
+        assert_eq!(update, serde_json::json!({"action":"status","expectedVersion":null}));
+
+        // FD6: the lifecycle server answers Root's activation request.
+        lifecycle
+            .ours
+            .write_all(b"{\"version\":1,\"id\":1,\"action\":\"activate\"}\n", second)
+            .unwrap();
+        let visible: serde_json::Value =
+            serde_json::from_str(&try_line(&lifecycle.ours).unwrap_or_else(explain)).unwrap();
+        assert_eq!(visible, serde_json::json!({"version":1,"id":1,"visible":true}));
+
+        process.terminate().unwrap();
+        assert_eq!(process.wait(Duration::from_secs(10)).unwrap(), Some(1));
+        let _ = std::fs::remove_file(&trace);
+    }
+
     #[test]
     fn invalid_descriptor_numbers_and_environment_are_refused_before_spawning() {
         let pipe = channel(ChildEnd::Duplex).unwrap();

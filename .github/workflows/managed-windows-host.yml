@@ -86,6 +86,6 @@ jobs:
           name: windows-host-build
           path: |
             ${{ runner.temp }}/windows-host-build/result.json
-            ${{ runner.temp }}/windows-host-build/workspace-attached.png
+            ${{ runner.temp }}/windows-host-build/workspace-attached*.png
             ${{ runner.temp }}/windows-host-build/cache/blackcrab-managed-build-*/*.log
           if-no-files-found: warn

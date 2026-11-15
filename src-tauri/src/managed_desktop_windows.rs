@@ -378,6 +378,16 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
         let tail = String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(5000)..]).into_owned();
         println!("--- {} ({} bytes)\n{tail}", file.display(), bytes.len());
     }
+    // The workspace's whole trace and renderer history, kept as evidence.
+    if let Ok(root) = std::env::var("BLACKCRAB_BOOT_EVIDENCE") {
+        let kept = Path::new(&root).join("workspace-logs");
+        let _ = fs::create_dir_all(&kept);
+        for file in files.iter().filter(|file| file.starts_with(profile.join("userdata"))) {
+            if let Some(name) = file.file_name() {
+                let _ = fs::copy(file, kept.join(name));
+            }
+        }
+    }
     if let Some(client) = owner.active.lock().await.as_ref() {
         client.detach();
         let _ = client.process.terminate();

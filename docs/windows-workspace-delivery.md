@@ -642,6 +642,23 @@ Step 4f-2 merged as PR323 (758debc6c73a69becb80166a8e741b92a9d46de4).
   `NativeDesktopOwner` and requires `visible: true`, the process still running
   20 seconds later, a second open to reuse it, and a second activation.
 
+Result on the runner (PR324): the built workspace, started by
+`NativeDesktopOwner` against the real service, paired, answered
+`visible: true` on the third request, was still running 20 seconds later, and
+a second open reused it. Findings:
+
+- Unoptimized, one payload verification took about 7 s and the launch missed
+  its eight-second pairing limit. The job now compiles `sha2` optimized for
+  this test (0.67 s). A release build is unaffected.
+- The first activation request is answered "not visible" while the window is
+  still being created; Root's launcher asks up to sixty times, and the test
+  now does the same.
+- **Open: the window's content was blank white in the screenshot**, taken
+  more than 20 seconds after launch. The frame, title bar and taskbar icon
+  are there. Whether the interface failed to load or the runner simply cannot
+  render it is not known; nothing yet reads the page on Windows as the Linux
+  acceptance does. Do not count the Windows interface as shown working.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

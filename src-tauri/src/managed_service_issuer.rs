@@ -1165,8 +1165,9 @@ fn read_journal(owner: &Path) -> Result<Option<Journal>> {
 /// program, typically a virus scanner reading the file just written, can hold
 /// the old journal open for a moment and the replacement is then refused; it
 /// is retried for a bounded time. Nothing is ever written in place.
-fn replace_journal(temp: &Path, journal: &Path) -> std::io::Result<()> {
+fn replace_journal(temp: &Path, journal: &Path) -> std::io::Result<u32> {
     let deadline = Instant::now() + Duration::from_secs(if cfg!(windows) { 3 } else { 0 });
+    let mut refused = 0;
     loop {
         match fs::rename(temp, journal) {
             Err(error)
@@ -1174,9 +1175,10 @@ fn replace_journal(temp: &Path, journal: &Path) -> std::io::Result<()> {
                     && error.kind() == std::io::ErrorKind::PermissionDenied
                     && Instant::now() < deadline =>
             {
+                refused += 1;
                 std::thread::sleep(Duration::from_millis(20))
             }
-            outcome => return outcome,
+            outcome => return outcome.map(|()| refused),
         }
     }
 }
@@ -1196,10 +1198,13 @@ fn save_journal(owner: &Path, journal: &Journal) -> Result<()> {
     let bytes = serde_json::to_vec(journal).map_err(|_| invalid())?;
     super::write_new(&temp, &bytes)?;
     let outcome = (|| {
-        replace_journal(&temp, &owner.join(JOURNAL)).map_err(|error| {
+        let refused = replace_journal(&temp, &owner.join(JOURNAL)).map_err(|error| {
             note(owner, &format!("issuer journal replace failed ({:?}, os {:?})", error.kind(), error.raw_os_error()));
             invalid()
         })?;
+        if refused > 0 {
+            note(owner, &format!("issuer journal replaced after {refused} refusals"));
+        }
         platform::sync_directory(owner)
     })();
     if outcome.is_err() {

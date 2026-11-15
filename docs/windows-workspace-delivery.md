@@ -784,6 +784,15 @@ the service's identity. Unlike the Linux acceptance it does not read the
 launcher's own status line (that needs a WebView2 driver); the loaded
 workspace window is the evidence instead.
 
+First installed run (PR328): the launcher drew its own page and refused with
+"The bundled runtime does not support background-service setup". The
+application names its owner directory `managed-host/v1` with a forward slash;
+Windows opens that, but the owner check compares the path with its canonical
+spelling, which has only backslashes. `ManagedHost::new` now rebuilds the path
+from its components on Windows, and the lifecycle test spells its owner
+directory with a forward slash too. Every earlier Windows test had used a
+backslash path, which is why only the installed app showed it.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

@@ -111,7 +111,8 @@ async fn actual_packaged_windows_service_lifecycle() {
         root.join("payload-cache"),
     )
     .unwrap();
-    let owner = root.join("owner");
+    // Spelled with a forward slash, as the application spells its own.
+    let owner = root.join("owner/v1");
     let host = ManagedHost::new(owner.clone()).with_bundled_payload(payload.clone());
     let fresh = host.control_service(ServiceAction::Status).await.unwrap();
     assert!(fresh.can_initialize && !fresh.installed && !fresh.loaded, "{}", fresh.state);

@@ -203,6 +203,12 @@ pub(crate) struct ManagedHost {
 }
 impl ManagedHost {
     pub(crate) fn new(root: PathBuf) -> Self {
+        // The application builds this path with a forward slash
+        // ("managed-host/v1"). Windows opens such a path, but the owner
+        // checks compare it with its canonical spelling, which has only
+        // backslashes. Rebuilding it from its components gives that spelling.
+        #[cfg(windows)]
+        let root: PathBuf = root.components().collect();
         Self {
             root,
             bundled_payload: None,

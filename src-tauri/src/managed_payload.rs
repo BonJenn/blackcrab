@@ -103,15 +103,27 @@ impl EmbeddedPayload {
         // of 260 characters, and this name sits above every file of a
         // package. Two whole digests cost 128 of those; sixteen characters of
         // each are enough to name a directory whose contents are verified
-        // against the whole digests every time it is used.
+        // against the whole digests every time it is used. With sixteen, one
+        // library in the workspace package still came to 263 characters for an
+        // eleven-character account name, so Windows uses twelve and the
+        // role's initial.
         #[cfg(windows)]
-        let (manifest, archive) = (
-            self.manifest_sha256.get(..16).unwrap_or(&self.manifest_sha256),
-            self.archive_sha256.get(..16).unwrap_or(&self.archive_sha256),
-        );
+        {
+            let short = |digest: &str| digest.get(..12).unwrap_or(digest).to_string();
+            let initial = &self.role.name()[..1];
+            self.cache_root.join(format!(
+                "{initial}-{}-{}",
+                short(&self.manifest_sha256),
+                short(&self.archive_sha256)
+            ))
+        }
         #[cfg(not(windows))]
-        let (manifest, archive) = (&self.manifest_sha256[..], &self.archive_sha256[..]);
-        self.cache_root.join(format!("{}-{manifest}-{archive}", self.role.name()))
+        self.cache_root.join(format!(
+            "{}-{}-{}",
+            self.role.name(),
+            self.manifest_sha256,
+            self.archive_sha256
+        ))
     }
     pub fn ensure_verified(&self) -> Result<PathBuf, String> {
         self.ensure_with(|root| {

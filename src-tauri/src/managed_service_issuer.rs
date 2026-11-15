@@ -271,8 +271,9 @@ impl NativeIssuer {
             return Err(invalid());
         }
         let transaction = managed_payload::owned_lock(&self.host.root.join("launcher.lock"), true)
-            .map_err(|_| invalid())?;
-        let config = verify_selection(&self.host, &self.binding)?;
+            .map_err(|error| { note(&self.host.root, &format!("issuer begin: launcher lock refused ({error})")); invalid() })?;
+        let config = verify_selection(&self.host, &self.binding)
+            .inspect_err(|_| note(&self.host.root, "issuer begin: selection refused"))?;
         self.prepare_verified(epoch, generation, config, transaction)
     }
     // Only called after selection verification; tests exercise this state transaction
@@ -407,6 +408,12 @@ impl NativeIssuer {
             }
             _ => Err(invalid()),
         })();
+        // The request kind only; frames carry secrets and are never recorded.
+        let kind = ["begin", "issued", "retire"]
+            .into_iter()
+            .find(|kind| bytes.windows(kind.len() + 2).any(|part| part == format!("\"{kind}\"").as_bytes()))
+            .unwrap_or("unknown");
+        note(&self.host.root, &format!("issuer request {kind}: {}", if outcome.is_ok() { "answered" } else { "refused" }));
         match outcome {
             Ok(output) => {
                 self.transcript_bytes = self
@@ -1154,6 +1161,25 @@ fn read_journal(owner: &Path) -> Result<Option<Journal>> {
         }
     }
 }
+/// Replaces the journal with its fully written successor. On Windows another
+/// program, typically a virus scanner reading the file just written, can hold
+/// the old journal open for a moment and the replacement is then refused; it
+/// is retried for a bounded time. Nothing is ever written in place.
+fn replace_journal(temp: &Path, journal: &Path) -> std::io::Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(if cfg!(windows) { 3 } else { 0 });
+    loop {
+        match fs::rename(temp, journal) {
+            Err(error)
+                if cfg!(windows)
+                    && error.kind() == std::io::ErrorKind::PermissionDenied
+                    && Instant::now() < deadline =>
+            {
+                std::thread::sleep(Duration::from_millis(20))
+            }
+            outcome => return outcome,
+        }
+    }
+}
 fn save_journal(owner: &Path, journal: &Journal) -> Result<()> {
     if journal.schema != 1
         || !safe_number(journal.epoch)
@@ -1170,7 +1196,10 @@ fn save_journal(owner: &Path, journal: &Journal) -> Result<()> {
     let bytes = serde_json::to_vec(journal).map_err(|_| invalid())?;
     super::write_new(&temp, &bytes)?;
     let outcome = (|| {
-        fs::rename(&temp, owner.join(JOURNAL)).map_err(|_| invalid())?;
+        replace_journal(&temp, &owner.join(JOURNAL)).map_err(|error| {
+            note(owner, &format!("issuer journal replace failed ({:?}, os {:?})", error.kind(), error.raw_os_error()));
+            invalid()
+        })?;
         platform::sync_directory(owner)
     })();
     if outcome.is_err() {

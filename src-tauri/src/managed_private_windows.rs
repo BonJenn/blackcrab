@@ -276,45 +276,58 @@ fn wide(path: &Path) -> io::Result<Vec<u16>> {
 /// current user, SYSTEM and Administrators only, inherited by its children.
 /// Fails if anything already exists at `path`.
 pub(crate) fn create_private_directory(path: &Path) -> io::Result<()> {
-    let user = current_user()?;
-    let mut text = ptr::null_mut();
-    if unsafe { ConvertSidToStringSidW(user_sid(&user), &mut text) } == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    let _text = Local(text.cast());
-    let mut length = 0;
-    while unsafe { *text.add(length) } != 0 {
-        length += 1;
-    }
-    let sid = String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
-        .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
-    let sddl: Vec<u16> =
-        format!("O:{sid}D:P(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)\0")
-            .encode_utf16()
-            .collect();
-    let mut descriptor = ptr::null_mut();
-    if unsafe {
-        ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            sddl.as_ptr(),
-            SDDL_REVISION_1,
-            &mut descriptor,
-            ptr::null_mut(),
-        )
-    } == 0
-    {
-        return Err(io::Error::last_os_error());
-    }
-    let _descriptor = Local(descriptor);
-    let attributes = SECURITY_ATTRIBUTES {
-        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-        lpSecurityDescriptor: descriptor,
-        bInheritHandle: 0,
-    };
+    let descriptor = Descriptor::new("O:{sid}D:P(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")?;
+    let attributes = descriptor.attributes(false);
     let path = wide(path)?;
     if unsafe { CreateDirectoryW(path.as_ptr(), &attributes) } == 0 {
         return Err(io::Error::last_os_error());
     }
     Ok(())
+}
+
+/// A security descriptor built from SDDL in which `{sid}` stands for the
+/// current user. It must outlive every use of its `attributes`.
+pub(crate) struct Descriptor(Local);
+impl Descriptor {
+    pub(crate) fn new(template: &str) -> io::Result<Self> {
+        let user = current_user()?;
+        let mut text = ptr::null_mut();
+        if unsafe { ConvertSidToStringSidW(user_sid(&user), &mut text) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let _text = Local(text.cast());
+        let mut length = 0;
+        while unsafe { *text.add(length) } != 0 {
+            length += 1;
+        }
+        let sid = String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
+            .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
+        let sddl: Vec<u16> = template
+            .replace("{sid}", &sid)
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let mut descriptor = ptr::null_mut();
+        if unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl.as_ptr(),
+                SDDL_REVISION_1,
+                &mut descriptor,
+                ptr::null_mut(),
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(Self(Local(descriptor)))
+    }
+    pub(crate) fn attributes(&self, inheritable: bool) -> SECURITY_ATTRIBUTES {
+        SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: self.0 .0,
+            bInheritHandle: i32::from(inheritable),
+        }
+    }
 }
 
 /// Renames within one volume and never replaces an existing destination.

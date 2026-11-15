@@ -42,6 +42,42 @@ read and write grants via `icacls`, junctions, hard links, existing roots).
 Local evidence is limited to type-checking against `x86_64-pc-windows-msvc`
 and the unchanged Mac payload tests.
 
+Step1 merged as PR308 (eebb5bb17930775730a10021dbe70a9a58c7ec0d); all eight
+tests passed on the Windows runner at the first attempt.
+
+## Step 2a — spawning with inherited descriptors
+
+Root gives the workspace its private channels as descriptors3 to6. Windows has
+no kernel descriptor table: the child's C runtime rebuilds one from
+`STARTUPINFO.lpReserved2`, which is how Node and Electron children receive
+extra `stdio` entries. `managed_spawn_windows.rs` does that from Rust:
+
+- `channel()` makes one duplex named pipe per channel: random 128-bit name,
+  first-and-only instance, remote clients rejected, DACL for the current user
+  alone. Root's end is overlapped, so a pending read never blocks a write and
+  each transfer takes a timeout; a closed peer reads as end of stream. The
+  child's end is synchronous for the bootstrap descriptor, which is read to
+  the end with blocking reads, and overlapped for every two-way channel. The
+  first CI run showed why: with a synchronous child end Node opened both
+  sockets but its first write never completed while a read was pending.
+- `spawn()` starts the executable with exactly the given environment, standard
+  streams on `NUL`, and only the listed handles inherited (explicit handle
+  list), each at its descriptor number.
+- There is no half-close on a pipe. Root signals the end of the bootstrap
+  descriptor by closing its end of descriptor3.
+
+Its CI test starts the runner's `node.exe` and checks from inside the child:
+descriptor3 delivers the bootstrap bytes and end of stream, 4 and6 are live
+duplex pipes, 5 and7 are closed, the environment holds only what was passed,
+and arguments with quotes survive. Not yet shown: the same against the built
+Electron workspace, and nothing here is wired into the launcher.
+
+One fact for step 2b: in the child these descriptors are pipes, and Node's
+`fstatSync` reports them as neither socket nor FIFO on Windows. The workspace's
+`credential-broker.mjs`, `update-client.mjs` and `lifecycle.mjs` require
+`fstatSync(fd).isSocket()`, so those payload checks need a Windows branch that
+identifies the inherited pipe some other way.
+
 ## Remaining steps
 
 2. **Workspace bootstrap channels.** Root passes the workspace descriptor,

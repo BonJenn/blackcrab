@@ -19,6 +19,9 @@ mod managed_updates;
 mod managed_payload;
 #[cfg(windows)]
 mod managed_private_windows;
+#[cfg(windows)]
+#[allow(dead_code)] // Used by the workspace launcher as it gains Windows support.
+mod managed_spawn_windows;
 mod managed_service_install;
 mod pairing;
 mod provider;

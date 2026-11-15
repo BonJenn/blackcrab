@@ -56,8 +56,10 @@ extra `stdio` entries. `managed_spawn_windows.rs` does that from Rust:
   first-and-only instance, remote clients rejected, DACL for the current user
   alone. Root's end is overlapped, so a pending read never blocks a write and
   each transfer takes a timeout; a closed peer reads as end of stream. The
-  child's end is synchronous, like Node's own child pipes, so the child can
-  read its bootstrap descriptor with a blocking read.
+  child's end is synchronous for the bootstrap descriptor, which is read to
+  the end with blocking reads, and overlapped for every two-way channel. The
+  first CI run showed why: with a synchronous child end Node opened both
+  sockets but its first write never completed while a read was pending.
 - `spawn()` starts the executable with exactly the given environment, standard
   streams on `NUL`, and only the listed handles inherited (explicit handle
   list), each at its descriptor number.
@@ -70,10 +72,11 @@ duplex pipes, 5 and7 are closed, the environment holds only what was passed,
 and arguments with quotes survive. Not yet shown: the same against the built
 Electron workspace, and nothing here is wired into the launcher.
 
-One fact for step 2b: in the child these descriptors are pipes, not sockets.
-The workspace's `credential-broker.mjs`, `update-client.mjs` and
-`lifecycle.mjs` require `fstatSync(fd).isSocket()`, so those payload checks
-need a Windows branch.
+One fact for step 2b: in the child these descriptors are pipes, and Node's
+`fstatSync` reports them as neither socket nor FIFO on Windows. The workspace's
+`credential-broker.mjs`, `update-client.mjs` and `lifecycle.mjs` require
+`fstatSync(fd).isSocket()`, so those payload checks need a Windows branch that
+identifies the inherited pipe some other way.
 
 ## Remaining steps
 

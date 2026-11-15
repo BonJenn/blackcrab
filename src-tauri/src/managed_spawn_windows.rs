@@ -142,7 +142,19 @@ pub(crate) struct Channel {
     pub(crate) theirs: OwnedHandle,
 }
 
-pub(crate) fn channel() -> io::Result<Channel> {
+/// How the child will use its end. Node opens an inherited pipe with whatever
+/// mode the handle has: a synchronous handle allows a blocking descriptor read
+/// but stalls a write while a read is pending, so anything used in both
+/// directions at once must be overlapped.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ChildEnd {
+    /// Read to end of stream with blocking reads (the bootstrap descriptor).
+    Blocking,
+    /// Request/reply or streaming in both directions.
+    Duplex,
+}
+
+pub(crate) fn channel(child: ChildEnd) -> io::Result<Channel> {
     let mut nonce = [0u8; 16];
     getrandom::getrandom(&mut nonce).map_err(|_| io::Error::other("random unavailable"))?;
     let name: OsString = format!(
@@ -170,9 +182,7 @@ pub(crate) fn channel() -> io::Result<Channel> {
         return Err(io::Error::last_os_error());
     }
     let ours = Pipe(unsafe { OwnedHandle::from_raw_handle(server) });
-    // The single instance is taken by our own client end immediately. The
-    // child end is synchronous, as Node's own child stdio pipes are, so the
-    // child can read its bootstrap descriptor with a blocking read.
+    // The single instance is taken by our own client end immediately.
     let client = unsafe {
         CreateFileW(
             name.as_ptr(),
@@ -180,7 +190,7 @@ pub(crate) fn channel() -> io::Result<Channel> {
             0,
             &descriptor.attributes(true),
             OPEN_EXISTING,
-            0,
+            if child == ChildEnd::Duplex { FILE_FLAG_OVERLAPPED } else { 0 },
             ptr::null_mut(),
         )
     };
@@ -496,8 +506,12 @@ renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4),
     #[test]
     fn a_node_child_receives_only_the_listed_descriptors_and_environment() {
         let node = node();
-        let (bootstrap, renewal, lifecycle) = (channel().unwrap(), channel().unwrap(), channel().unwrap());
-        let unrelated = channel().unwrap();
+        let (bootstrap, renewal, lifecycle) = (
+            channel(ChildEnd::Blocking).unwrap(),
+            channel(ChildEnd::Duplex).unwrap(),
+            channel(ChildEnd::Duplex).unwrap(),
+        );
+        let unrelated = channel(ChildEnd::Duplex).unwrap();
         let directory = std::env::temp_dir();
         let root = std::env::var_os("SystemRoot").unwrap();
         let mut nonce = [0u8; 8];
@@ -535,9 +549,10 @@ renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4),
         });
         let _ = std::fs::remove_file(&trace);
         assert!(report.contains(r#""descriptor":"{\"version\":1}""#), "{report}");
-        assert!(report.contains(r#""four":"pipe""#), "{report}");
+        // Node reports these pipes as neither FIFO nor socket on Windows.
+        assert!(report.contains(r#""four":"other""#), "{report}");
         assert!(report.contains(r#""five":"closed""#), "{report}");
-        assert!(report.contains(r#""six":"pipe""#), "{report}");
+        assert!(report.contains(r#""six":"other""#), "{report}");
         assert!(report.contains(r#""seven":"closed""#), "{report}");
         assert!(report.contains(r#""probe":"only this""#), "{report}");
         assert!(report.contains(r#""argument":"an argument with \"quotes\" and spaces""#), "{report}");
@@ -568,8 +583,8 @@ renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4),
 
     #[test]
     fn invalid_descriptor_numbers_and_environment_are_refused_before_spawning() {
-        let pipe = channel().unwrap();
-        let other = channel().unwrap();
+        let pipe = channel(ChildEnd::Duplex).unwrap();
+        let other = channel(ChildEnd::Duplex).unwrap();
         let here = std::env::temp_dir();
         let program = PathBuf::from(r"C:\nonexistent\never-started.exe");
         for descriptors in [

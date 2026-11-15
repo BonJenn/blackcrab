@@ -16,6 +16,8 @@ on:
       - src-tauri/src/managed_private_windows.rs
       - src-tauri/src/managed_workspace_windows.rs
       - src-tauri/src/managed_desktop*.rs
+      - src-tauri/src/managed_native_entry.rs
+      - src-tauri/src/managed_launcher.rs
       - managed-desktop/**
       - scripts/build-portable-desktop-ci.mjs
       - src-tauri/src/managed_spawn_windows.rs
@@ -84,6 +86,7 @@ jobs:
           name: windows-host-build
           path: |
             ${{ runner.temp }}/windows-host-build/result.json
-            ${{ runner.temp }}/windows-host-build/workspace-attached.png
+            ${{ runner.temp }}/windows-host-build/workspace-attached*.png
+            ${{ runner.temp }}/windows-host-build/workspace-logs/*
             ${{ runner.temp }}/windows-host-build/cache/blackcrab-managed-build-*/*.log
           if-no-files-found: warn

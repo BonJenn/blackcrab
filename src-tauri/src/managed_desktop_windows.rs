@@ -113,7 +113,19 @@ impl NativeDesktopOwner {
         selected: PathBuf,
         expected_digest: String,
     ) -> Result<bool, String> {
-        let identity = DesktopIdentity::Production;
+        self.open_for_identity(host, selected, expected_digest, DesktopIdentity::Production).await
+    }
+    /// Only the production identity exists on Windows.
+    pub(in crate) async fn open_for_identity(
+        &self,
+        host: ManagedHost,
+        selected: PathBuf,
+        expected_digest: String,
+        identity: DesktopIdentity,
+    ) -> Result<bool, String> {
+        if identity != DesktopIdentity::Production {
+            return Err(error());
+        }
         identity.check_digest(&expected_digest)?;
         let mut active = self.active.lock().await;
         if let Some(client) = active.as_ref() {
@@ -274,6 +286,7 @@ fn serve_broker(
 pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: PathBuf) -> Result<(), String> {
     let digest = std::env::var("BLACKCRAB_NATIVE_PACKAGE_SHA256").map_err(|_| "no package digest".to_string())?;
     let owner = NativeDesktopOwner::default();
+    let host_profile = host.desktop_profile_root();
     if !owner.open(host.clone(), package.clone(), digest.clone()).await? {
         return Err("the first open did not start a workspace".into());
     }
@@ -310,18 +323,70 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
         Ok(())
     }
     .await;
+    let screenshot = |name: &str| {
+        if let Ok(root) = std::env::var("BLACKCRAB_BOOT_EVIDENCE") {
+            let file = Path::new(&root).join(name);
+            let script = format!(
+                "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; \
+                 $b=[System.Windows.Forms.SystemInformation]::VirtualScreen; \
+                 $i=New-Object System.Drawing.Bitmap $b.Width,$b.Height; \
+                 $g=[System.Drawing.Graphics]::FromImage($i); \
+                 $g.CopyFromScreen($b.Left,$b.Top,0,0,$i.Size); \
+                 $i.Save('{}')",
+                file.display()
+            );
+            let _ = Command::new("powershell").args(["-NoProfile", "-NonInteractive", "-Command", &script]).output();
+        }
+    };
+    screenshot("workspace-attached.png");
+    // The first screenshot showed an empty window. A second, a minute later,
+    // tells a slow first load from an interface that never loads.
+    if outcome.is_ok() {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        screenshot("workspace-attached-later.png");
+        println!("WINDOWS_WORKSPACE still running a minute later: {:?}", owner.running().await);
+    }
+    // What the workspace itself recorded while starting: the screenshots
+    // alone cannot say whether its interface loaded.
+    fn walk(root: &Path, depth: usize, found: &mut Vec<PathBuf>) {
+        let Ok(entries) = fs::read_dir(root) else { return };
+        for entry in entries.flatten().take(200) {
+            let path = entry.path();
+            if path.is_dir() {
+                if depth > 0 {
+                    walk(&path, depth - 1, found);
+                }
+            } else {
+                found.push(path);
+            }
+        }
+    }
+    let profile = host_profile.clone();
+    let mut files = Vec::new();
+    walk(&profile, 4, &mut files);
+    files.sort();
+    println!("WINDOWS_WORKSPACE profile holds {} files", files.len());
+    for file in &files {
+        let size = fs::metadata(file).map(|m| m.len()).unwrap_or(0);
+        println!("  {} ({size} bytes)", file.strip_prefix(&profile).unwrap_or(file).display());
+    }
+    for file in files.iter().filter(|file| {
+        file.extension().is_some_and(|e| e == "log" || e == "ndjson")
+            || file.file_name().is_some_and(|n| n.to_string_lossy().to_lowercase().contains("log"))
+    }).take(8) {
+        let bytes = fs::read(file).unwrap_or_default();
+        let tail = String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(5000)..]).into_owned();
+        println!("--- {} ({} bytes)\n{tail}", file.display(), bytes.len());
+    }
+    // The workspace's whole trace and renderer history, kept as evidence.
     if let Ok(root) = std::env::var("BLACKCRAB_BOOT_EVIDENCE") {
-        let file = Path::new(&root).join("workspace-attached.png");
-        let script = format!(
-            "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; \
-             $b=[System.Windows.Forms.SystemInformation]::VirtualScreen; \
-             $i=New-Object System.Drawing.Bitmap $b.Width,$b.Height; \
-             $g=[System.Drawing.Graphics]::FromImage($i); \
-             $g.CopyFromScreen($b.Left,$b.Top,0,0,$i.Size); \
-             $i.Save('{}')",
-            file.display()
-        );
-        let _ = Command::new("powershell").args(["-NoProfile", "-NonInteractive", "-Command", &script]).output();
+        let kept = Path::new(&root).join("workspace-logs");
+        let _ = fs::create_dir_all(&kept);
+        for file in files.iter().filter(|file| file.starts_with(profile.join("userdata"))) {
+            if let Some(name) = file.file_name() {
+                let _ = fs::copy(file, kept.join(name));
+            }
+        }
     }
     if let Some(client) = owner.active.lock().await.as_ref() {
         client.detach();

@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {parseArgs} from 'node:util';
+import {fileURLToPath} from 'node:url';
 import {buildManagedHost} from '../managed-host/build.mjs';
 import {UPSTREAM, NODE_VERSION, MANIFEST_FILE} from '../managed-host/artifact.mjs';
 import {SERVICE_PROFILE, verifyServiceProfileArtifact} from '../managed-host/service-profile.mjs';
@@ -51,7 +52,8 @@ try{
   issuer=await prepareServiceIssuer({env:resources.env,target:'x86_64-pc-windows-msvc',signed:false,
     run:(command,args,options)=>exec(command,args,{...options,shell:/\.cmd$/i.test(command)})});
   const hostArchive=path.join(root,'managed-host-payload.tar.gz'),helper=path.join(root,'blackcrab-issuer.exe');
-  await fs.copyFile(Object.keys(resources.config.bundle.resources)[0],hostArchive);
+  // On Windows the resource is named relative to src-tauri.
+  await fs.copyFile(path.resolve(fileURLToPath(new URL('../src-tauri/',import.meta.url)),Object.keys(resources.config.bundle.resources)[0]),hostArchive);
   await fs.copyFile(issuer.path,helper);
   const pins=Object.fromEntries(Object.entries(resources.env).filter(([key])=>key.startsWith('BLACKCRAB_EMBEDDED_')));
   report.helper={sha256:issuer.sha256,format:'PE-x86-64',authenticodeSigned:false};

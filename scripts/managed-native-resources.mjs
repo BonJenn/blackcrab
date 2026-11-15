@@ -5,6 +5,7 @@ import {createReadStream} from 'node:fs';
 import os from 'node:os';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {fileURLToPath} from 'node:url';
 import {verifyArtifact as verifyDesktop, MANIFEST as DESKTOP_MANIFEST} from '../managed-desktop/artifact.mjs';
 import {verifyArtifact as verifyHost, MANIFEST_FILE as HOST_MANIFEST, NODE_VERSION, PNPM_VERSION} from '../managed-host/artifact.mjs';
 import {verifyServiceProfileArtifact, SERVICE_PROFILE} from '../managed-host/service-profile.mjs';
@@ -90,7 +91,12 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
   const tree=await checkArchiveTree(root);
   const after=await fs.readFile(path.join(root,manifestName));
   if(!before.equals(after))throw Error('Artifact manifest changed during verification');
-  stage ??= await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-managed-payloads-')));
+  // Tauri drops the drive from an absolute Windows resource path and then looks on the build's own drive.
+  // There the archives are staged inside the build's target directory and named relative to src-tauri.
+  const native=fileURLToPath(new URL('../src-tauri/',import.meta.url));
+  const stageBase=process.platform==='win32'?path.join(native,'target'):os.tmpdir();
+  if(process.platform==='win32')await fs.mkdir(stageBase,{recursive:true});
+  stage ??= await fs.realpath(await fs.mkdtemp(path.join(stageBase,'blackcrab-managed-payloads-')));
   await fs.chmod(stage,0o700);
   const name=`managed-${role}-payload.tar.gz`, archive=path.join(stage,name);
   const metadataFlags=process.platform==='darwin'?['--no-fflags','--no-mac-metadata']:[];
@@ -110,7 +116,7 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
   nextEnv[variable]=sha(after);
   if(role==='host'&&serviceHost!==undefined)nextEnv.BLACKCRAB_EMBEDDED_HOST_SERVICE_PROFILE=SERVICE_PROFILE;
   nextEnv[`BLACKCRAB_EMBEDDED_${role.toUpperCase()}_ARCHIVE_SHA256`]=await fileSha(archive);
-  resources[archive]=name;
+  resources[process.platform==='win32'?path.relative(await fs.realpath(native),archive).split(path.sep).join('/'):archive]=name;
  }
  return {env:nextEnv,config:{bundle:{resources}},cleanup};
  }catch(error){await cleanup();throw error;}

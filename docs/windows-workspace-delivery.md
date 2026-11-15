@@ -414,6 +414,57 @@ hidden this because it survives an attach. The handler is now registered
 after every `AttachConsole`, and the sender stays attached briefly so its own
 copy of the event is handled before it detaches.
 
+Step 4c-3 merged as PR318 (de7a815048d5b1c466525513a0e85a51417d3284), with the
+two corrections to `interrupt` above and a more robust Quit check in the Linux
+installed-workspace test.
+
+## Step 4d — the scheduled task
+
+`managed_service_task_windows.rs` is the counterpart of the launchd agent and
+the systemd user unit.
+
+- **Definition**: one sign-in trigger for the current user's SID; one program
+  action (command, arguments, working directory); run as that user with
+  `InteractiveToken` and `LeastPrivilege`; no execution time limit; ignore a
+  second instance; restart on failure every minute, up to 999 times; nothing
+  conditional on idle, battery or network.
+- **Name**: `Blackcrab Service <key>`. Task names are global to the machine,
+  so the key (the supervisor's) makes it unique per user and owner directory.
+- **Verification**: the registered definition is exported and must match in
+  every checked respect, with exactly one trigger, action and principal and no
+  other trigger or action kind. Registration is verified immediately after
+  creation. A task with our name that does not match is `Foreign`: it is never
+  run, replaced, ended or deleted on our behalf.
+  Windows rewrites a definition when it stores it, as the first CI run
+  showed: elements at their default value are dropped, sections are
+  reordered, and the trigger's user is recorded by account name
+  (`HOST\user`) while the principal keeps the SID. The comparison is
+  therefore by meaning, section by section: an absent element matches only
+  where our value is Windows's default (so a missing `ExecutionTimeLimit`,
+  whose default is 72 hours, does not match our "no limit"), and the
+  trigger's account name is resolved to a SID and compared with the user's.
+- **Tools**: `schtasks.exe` to create, run, end and delete, and Windows
+  PowerShell's `Export-ScheduledTask` for the export, because `schtasks`
+  prints in the console code page and would corrupt non-ASCII paths. Both are
+  run by absolute path from the system directory, with a cleared environment,
+  no window, and bounded time and output.
+
+CI tests: rendering and matching (escaping, what Windows adds on registration,
+thirteen single alterations each rejected), unusable definitions, and the real
+Task Scheduler on the runner with `node.exe` as the action: absent, register,
+verify, re-register, a same-named altered definition treated as foreign, run,
+the action's arguments and working directory as given, end, unregister.
+
+The clean stop does not go through the task: Root signals the supervisor.
+`end` is the fallback when it does not respond.
+
+A test hazard found here, which does not affect the product: while
+`interrupt` is attached to a service's console, any child another thread
+starts inherits that console and receives the same Ctrl+C. The supervisor
+starts nothing else, but parallel tests do. The tests that interrupt now run
+one at a time in their own invocation, and tests find `node.exe` by searching
+PATH instead of running `where`.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

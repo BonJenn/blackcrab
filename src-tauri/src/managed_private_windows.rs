@@ -285,23 +285,69 @@ pub(crate) fn create_private_directory(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// The current user's SID in its `S-1-…` text form.
+pub(crate) fn current_user_sid() -> io::Result<String> {
+    let user = current_user()?;
+    let mut text = ptr::null_mut();
+    if unsafe { ConvertSidToStringSidW(user_sid(&user), &mut text) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let _text = Local(text.cast());
+    let mut length = 0;
+    while unsafe { *text.add(length) } != 0 {
+        length += 1;
+    }
+    String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
+        .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))
+}
+
+/// The SID, in text form, of the account Windows knows by `name`
+/// (`DOMAIN\\user` or `user`).
+pub(crate) fn account_sid(name: &str) -> io::Result<String> {
+    use windows_sys::Win32::Security::LookupAccountNameW;
+    let account: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+    if account.len() > 512 || account[..account.len() - 1].contains(&0) {
+        return Err(io::Error::from(io::ErrorKind::InvalidInput));
+    }
+    // u64 storage keeps the SID's alignment.
+    let mut sid = vec![0u64; 32];
+    let mut sid_bytes = (sid.len() * 8) as u32;
+    let mut domain = vec![0u16; 512];
+    let mut domain_units = domain.len() as u32;
+    let mut kind = 0;
+    if unsafe {
+        LookupAccountNameW(
+            ptr::null(),
+            account.as_ptr(),
+            sid.as_mut_ptr().cast(),
+            &mut sid_bytes,
+            domain.as_mut_ptr(),
+            &mut domain_units,
+            &mut kind,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    let mut text = ptr::null_mut();
+    if unsafe { ConvertSidToStringSidW(sid.as_mut_ptr().cast(), &mut text) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let _text = Local(text.cast());
+    let mut length = 0;
+    while unsafe { *text.add(length) } != 0 {
+        length += 1;
+    }
+    String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
+        .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))
+}
+
 /// A security descriptor built from SDDL in which `{sid}` stands for the
 /// current user. It must outlive every use of its `attributes`.
 pub(crate) struct Descriptor(Local);
 impl Descriptor {
     pub(crate) fn new(template: &str) -> io::Result<Self> {
-        let user = current_user()?;
-        let mut text = ptr::null_mut();
-        if unsafe { ConvertSidToStringSidW(user_sid(&user), &mut text) } == 0 {
-            return Err(io::Error::last_os_error());
-        }
-        let _text = Local(text.cast());
-        let mut length = 0;
-        while unsafe { *text.add(length) } != 0 {
-            length += 1;
-        }
-        let sid = String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
-            .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
+        let sid = current_user_sid()?;
         let sddl: Vec<u16> = template
             .replace("{sid}", &sid)
             .encode_utf16()

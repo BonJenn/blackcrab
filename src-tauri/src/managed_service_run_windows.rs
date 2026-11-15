@@ -373,10 +373,12 @@ if (mode === 'as-child') {
             Self { directory, key }
         }
         fn plan(&self, mode: &str, grace: Duration) -> Plan {
-            let node = std::process::Command::new("where").arg("node.exe").output().unwrap();
-            assert!(node.status.success(), "node.exe is required for this test");
+            let node = std::env::split_paths(&std::env::var_os("PATH").unwrap())
+                .map(|directory| directory.join("node.exe"))
+                .find(|candidate| candidate.is_file())
+                .expect("node.exe is required for this test");
             Plan {
-                executable: PathBuf::from(String::from_utf8(node.stdout).unwrap().lines().next().unwrap().trim()),
+                executable: node,
                 arguments: vec!["-e".into(), SERVICE.into(), mode.into(), self.directory.clone().into_os_string()],
                 environment: vec![
                     ("SystemRoot".into(), std::env::var_os("SystemRoot").unwrap()),

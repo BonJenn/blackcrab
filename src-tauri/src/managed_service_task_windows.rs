@@ -12,7 +12,7 @@
 //! PowerShell to export the registered definition as UTF-8, since `schtasks`
 //! prints in the console code page and would corrupt non-ASCII paths.
 #![cfg(windows)]
-use crate::managed_private_windows::current_user_sid;
+use crate::managed_private_windows::{account_sid, current_user_sid};
 use std::{
     ffi::OsStr,
     io::{self, Read},
@@ -93,21 +93,24 @@ fn unescape(value: &str) -> String {
         .replace("&amp;", "&")
 }
 
-/// The settings every Blackcrab service task has, as (element, value).
-const SETTINGS: [(&str, &str); 12] = [
-    ("MultipleInstancesPolicy", "IgnoreNew"),
-    ("DisallowStartIfOnBatteries", "false"),
-    ("StopIfGoingOnBatteries", "false"),
-    ("AllowHardTerminate", "true"),
-    ("StartWhenAvailable", "false"),
-    ("RunOnlyIfNetworkAvailable", "false"),
-    ("AllowStartOnDemand", "true"),
-    ("Hidden", "false"),
-    ("RunOnlyIfIdle", "false"),
-    ("WakeToRun", "false"),
+/// The settings every Blackcrab service task has, as (element, value, the
+/// value Windows assumes when the element is absent). Windows stores a task
+/// without the elements that are at their defaults, so an absent element
+/// matches only where our value is the default.
+const SETTINGS: [(&str, &str, &str); 12] = [
+    ("MultipleInstancesPolicy", "IgnoreNew", "IgnoreNew"),
+    ("DisallowStartIfOnBatteries", "false", "true"),
+    ("StopIfGoingOnBatteries", "false", "true"),
+    ("AllowHardTerminate", "true", "true"),
+    ("StartWhenAvailable", "false", "false"),
+    ("RunOnlyIfNetworkAvailable", "false", "false"),
+    ("AllowStartOnDemand", "true", "true"),
+    ("Hidden", "false", "false"),
+    ("RunOnlyIfIdle", "false", "false"),
+    ("WakeToRun", "false", "false"),
     // No limit: the service runs for the whole session.
-    ("ExecutionTimeLimit", "PT0S"),
-    ("Priority", "7"),
+    ("ExecutionTimeLimit", "PT0S", "PT72H"),
+    ("Priority", "7", "7"),
 ];
 
 /// The task definition for `user` (an `S-1-…` SID).
@@ -117,7 +120,7 @@ pub(crate) fn render(definition: &Definition, user: &str) -> io::Result<String> 
         return Err(invalid());
     }
     let mut settings = String::new();
-    for (name, value) in SETTINGS {
+    for (name, value, _) in SETTINGS {
         settings.push_str(&format!("    <{name}>{value}</{name}>\r\n"));
         if name == "RunOnlyIfNetworkAvailable" {
             settings.push_str("    <IdleSettings>\r\n      <StopOnIdleEnd>false</StopOnIdleEnd>\r\n      <RestartOnIdle>false</RestartOnIdle>\r\n    </IdleSettings>\r\n");
@@ -158,52 +161,96 @@ fn count(xml: &str, tag: &str) -> usize {
     xml.matches(&format!("<{tag}>")).count() + xml.matches(&format!("<{tag} ")).count()
 }
 
+/// The single `<name …>…</name>` section of `xml`, if there is exactly one.
+fn section<'a>(xml: &'a str, name: &str) -> Option<&'a str> {
+    if count(xml, name) != 1 {
+        return None;
+    }
+    let close = format!("</{name}>");
+    let start = xml.find(&format!("<{name}>")).or_else(|| xml.find(&format!("<{name} ")))?;
+    let body = &xml[start..];
+    let body = &body[body.find('>')? + 1..];
+    Some(&body[..body.find(&close)?])
+}
+
 /// Whether an exported task is exactly the one `definition` describes for
 /// `user`: one sign-in trigger for that user, one program action with our
 /// command, arguments and directory, run as that user without elevation, and
 /// every setting as written. Anything extra or different is not ours.
-pub(crate) fn matches(exported: &str, definition: &Definition, user: &str) -> bool {
+///
+/// Windows rewrites a definition when it stores it: elements at their default
+/// are dropped, sections are reordered, and the trigger's user is recorded by
+/// account name. `resolve` turns such a name into a SID.
+pub(crate) fn matches_with(
+    exported: &str,
+    definition: &Definition,
+    user: &str,
+    resolve: impl Fn(&str) -> Option<String>,
+) -> bool {
     let Ok((command, arguments, directory)) = definition.text() else {
         return false;
     };
-    let one = |name: &str, value: &str| elements(exported, name) == [value.to_string()];
-    let no_other_trigger = [
-        "BootTrigger",
-        "RegistrationTrigger",
-        "IdleTrigger",
-        "TimeTrigger",
-        "EventTrigger",
-        "CalendarTrigger",
-        "SessionStateChangeTrigger",
-        "WnfStateChangeTrigger",
-    ]
-    .iter()
-    .all(|trigger| count(exported, trigger) == 0);
-    let no_other_action = ["ComHandler", "SendEmail", "ShowMessage"]
-        .iter()
-        .all(|action| count(exported, action) == 0);
-    count(exported, "LogonTrigger") == 1
-        && no_other_trigger
-        && count(exported, "Exec") == 1
-        && no_other_action
-        && count(exported, "Principal") == 1
-        && one("Command", &command)
-        // An empty tail may be exported as an absent element.
-        && (one("Arguments", &arguments)
-            || (arguments.is_empty() && elements(exported, "Arguments").is_empty()))
-        && one("WorkingDirectory", &directory)
-        && elements(exported, "UserId") == [user.to_string(), user.to_string()]
-        && one("LogonType", "InteractiveToken")
-        && one("RunLevel", "LeastPrivilege")
-        // The trigger's and the task's.
-        && elements(exported, "Enabled") == ["true".to_string(), "true".to_string()]
-        && SETTINGS.iter().all(|(name, value)| one(name, value))
-        && one("Interval", "PT1M")
-        && one("Count", "999")
-        // None of these may be present at all.
-        && ["Delay", "Repetition", "StartBoundary", "EndBoundary", "DeleteExpiredTaskAfter"]
-            .iter()
-            .all(|name| elements(exported, name).is_empty())
+    let (Some(triggers), Some(principals), Some(settings), Some(actions)) = (
+        section(exported, "Triggers"),
+        section(exported, "Principals"),
+        section(exported, "Settings"),
+        section(exported, "Actions"),
+    ) else {
+        return false;
+    };
+    let one = |xml: &str, name: &str, value: &str| elements(xml, name) == [value.to_string()];
+    // Present with our value, or absent where our value is the default.
+    let set = |xml: &str, name: &str, value: &str, default: &str| {
+        let found = elements(xml, name);
+        found == [value.to_string()] || (found.is_empty() && value == default)
+    };
+    let none = |xml: &str, names: &[&str]| {
+        names.iter().all(|name| count(xml, name) == 0)
+    };
+    let trigger_user = match elements(triggers, "UserId").as_slice() {
+        [name] => name == user || resolve(name).as_deref() == Some(user),
+        _ => false,
+    };
+    count(triggers, "LogonTrigger") == 1
+        && none(
+            triggers,
+            &[
+                "BootTrigger",
+                "RegistrationTrigger",
+                "IdleTrigger",
+                "TimeTrigger",
+                "EventTrigger",
+                "CalendarTrigger",
+                "SessionStateChangeTrigger",
+                "WnfStateChangeTrigger",
+                "Delay",
+                "Repetition",
+                "StartBoundary",
+                "EndBoundary",
+                "ExecutionTimeLimit",
+            ],
+        )
+        && trigger_user
+        && set(triggers, "Enabled", "true", "true")
+        && count(principals, "Principal") == 1
+        && none(principals, &["GroupId"])
+        && one(principals, "UserId", user)
+        && one(principals, "LogonType", "InteractiveToken")
+        && set(principals, "RunLevel", "LeastPrivilege", "LeastPrivilege")
+        && count(actions, "Exec") == 1
+        && none(actions, &["ComHandler", "SendEmail", "ShowMessage"])
+        && one(actions, "Command", &command)
+        && set(actions, "Arguments", &arguments, "")
+        && one(actions, "WorkingDirectory", &directory)
+        && set(settings, "Enabled", "true", "true")
+        && SETTINGS.iter().all(|(name, value, default)| set(settings, name, value, default))
+        && one(settings, "Interval", "PT1M")
+        && one(settings, "Count", "999")
+        && none(settings, &["DeleteExpiredTaskAfter", "NetworkSettings"])
+}
+
+pub(crate) fn matches(exported: &str, definition: &Definition, user: &str) -> bool {
+    matches_with(exported, definition, user, |name| account_sid(name).ok())
 }
 
 fn system_directory() -> io::Result<PathBuf> {
@@ -411,22 +458,27 @@ mod tests {
         }
     }
 
+    fn same(xml: &str, definition: &Definition, user: &str) -> bool {
+        // "HOST\\user" is how Windows records the trigger's account.
+        matches_with(xml, definition, user, |name| (name == r"HOST\user").then(|| USER.to_string()))
+    }
+
     #[test]
     fn a_rendered_definition_matches_itself_and_nothing_altered() {
         let definition = definition();
         let xml = render(&definition, USER).unwrap();
         assert!(xml.contains("<Command>C:\\Users\\A &amp; B\\AppData"));
         assert!(xml.contains("&quot;quoted &lt;value&gt;&quot;"));
-        assert!(matches(&xml, &definition, USER));
+        assert!(same(&xml, &definition, USER));
         // What Windows adds on registration does not make it foreign.
         let registered = xml.replace(
             "<RegistrationInfo>",
             "<RegistrationInfo>\r\n    <Date>2026-11-14T10:00:00</Date>\r\n    <Author>HOST\\user</Author>\r\n    <URI>\\Blackcrab Service 0123456789abcdef0123456789abcdef</URI>",
         );
-        assert!(matches(&registered, &definition, USER));
+        assert!(same(&registered, &definition, USER));
 
         let other_user = "S-1-5-21-1111111111-2222222222-3333333333-1002";
-        assert!(!matches(&xml, &definition, other_user));
+        assert!(!same(&xml, &definition, other_user));
         for (from, to) in [
             ("blackcrab-issuer.exe</Command>", "other.exe</Command>"),
             ("__blackcrab-service-run-v1", "__blackcrab-service-run-v1 --extra"),
@@ -434,6 +486,9 @@ mod tests {
             ("<LogonType>InteractiveToken</LogonType>", "<LogonType>S4U</LogonType>"),
             ("<Hidden>false</Hidden>", "<Hidden>true</Hidden>"),
             ("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>", "<ExecutionTimeLimit>PT1H</ExecutionTimeLimit>"),
+            // Absent means the 72-hour default, not ours.
+            ("    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n", ""),
+            ("    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n", ""),
             ("<Count>999</Count>", "<Count>1</Count>"),
             ("</LogonTrigger>", "</LogonTrigger>\r\n    <BootTrigger><Enabled>true</Enabled></BootTrigger>"),
             ("</LogonTrigger>", "</LogonTrigger>\r\n    <LogonTrigger><Enabled>true</Enabled></LogonTrigger>"),
@@ -441,9 +496,44 @@ mod tests {
             ("</Exec>", "</Exec>\r\n    <ComHandler><ClassId>{00000000-0000-0000-0000-000000000000}</ClassId></ComHandler>"),
             ("<Enabled>true</Enabled>\r\n      <UserId>", "<Enabled>true</Enabled>\r\n      <Delay>PT5M</Delay>\r\n      <UserId>"),
             ("    <Enabled>true</Enabled>\r\n    <Hidden>", "    <Enabled>false</Enabled>\r\n    <Hidden>"),
+            ("<Enabled>true</Enabled>\r\n      <UserId>", "<Enabled>false</Enabled>\r\n      <UserId>"),
+            ("</Principal>", "</Principal>\r\n    <Principal id=\"Other\"><UserId>S-1-5-18</UserId></Principal>"),
         ] {
             assert!(xml.contains(from), "{from}");
-            assert!(!matches(&xml.replacen(from, to, 1), &definition, USER), "{to}");
+            assert!(!same(&xml.replacen(from, to, 1), &definition, USER), "{to}");
+        }
+    }
+
+    #[test]
+    fn the_form_windows_stores_matches_and_its_alterations_do_not() {
+        // As exported by Windows Server 2022 after registering our definition:
+        // defaults dropped, sections reordered, the trigger's user by name.
+        let definition = definition();
+        let stored = format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n\
+  <RegistrationInfo>\r\n    <Description>d</Description>\r\n    <URI>\\Blackcrab Service 0123456789abcdef0123456789abcdef</URI>\r\n  </RegistrationInfo>\r\n\
+  <Principals>\r\n    <Principal id=\"Author\">\r\n      <UserId>{USER}</UserId>\r\n      <LogonType>InteractiveToken</LogonType>\r\n    </Principal>\r\n  </Principals>\r\n\
+  <Settings>\r\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\r\n\
+    <RestartOnFailure>\r\n      <Count>999</Count>\r\n      <Interval>PT1M</Interval>\r\n    </RestartOnFailure>\r\n\
+    <IdleSettings>\r\n      <StopOnIdleEnd>false</StopOnIdleEnd>\r\n      <RestartOnIdle>false</RestartOnIdle>\r\n    </IdleSettings>\r\n  </Settings>\r\n\
+  <Triggers>\r\n    <LogonTrigger>\r\n      <UserId>HOST\\user</UserId>\r\n    </LogonTrigger>\r\n  </Triggers>\r\n\
+  <Actions Context=\"Author\">\r\n    <Exec>\r\n      <Command>{}</Command>\r\n      <Arguments>{}</Arguments>\r\n      <WorkingDirectory>{}</WorkingDirectory>\r\n    </Exec>\r\n  </Actions>\r\n</Task>\r\n",
+            escape(&definition.command.to_string_lossy()),
+            // Windows leaves quotes unescaped in element text.
+            escape(&definition.arguments).replace("&quot;", "\""),
+            escape(&definition.directory.to_string_lossy()),
+        );
+        assert!(same(&stored, &definition, USER));
+        for (from, to) in [
+            ("<UserId>HOST\\user</UserId>", "<UserId>HOST\\other</UserId>"),
+            ("<LogonType>InteractiveToken</LogonType>", "<LogonType>InteractiveToken</LogonType>\r\n      <RunLevel>HighestAvailable</RunLevel>"),
+            ("<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>", "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n    <Enabled>false</Enabled>"),
+            ("    <LogonTrigger>\r\n", "    <LogonTrigger>\r\n      <Enabled>false</Enabled>\r\n"),
+            ("<Count>999</Count>", "<Count>3</Count>"),
+            ("<IdleSettings>", "<Hidden>true</Hidden>\r\n    <IdleSettings>"),
+        ] {
+            assert!(stored.contains(from), "{from}");
+            assert!(!same(&stored.replacen(from, to, 1), &definition, USER), "{to}");
         }
     }
 
@@ -485,11 +575,13 @@ mod tests {
              setInterval(()=>{},1000);",
         )
         .unwrap();
-        let node = Command::new("where").arg("node.exe").output().unwrap();
-        assert!(node.status.success(), "node.exe is required for this test");
+        let node = std::env::split_paths(&std::env::var_os("PATH").unwrap())
+            .map(|directory| directory.join("node.exe"))
+            .find(|candidate| candidate.is_file())
+            .expect("node.exe is required for this test");
         let definition = Definition {
             key,
-            command: PathBuf::from(String::from_utf8(node.stdout).unwrap().lines().next().unwrap().trim()),
+            command: node,
             arguments: format!(
                 "\"{}\" \"{}\" \"an argument with <angle> & ampersand\"",
                 script.display(),

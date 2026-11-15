@@ -435,6 +435,14 @@ the systemd user unit.
   other trigger or action kind. Registration is verified immediately after
   creation. A task with our name that does not match is `Foreign`: it is never
   run, replaced, ended or deleted on our behalf.
+  Windows rewrites a definition when it stores it, as the first CI run
+  showed: elements at their default value are dropped, sections are
+  reordered, and the trigger's user is recorded by account name
+  (`HOST\user`) while the principal keeps the SID. The comparison is
+  therefore by meaning, section by section: an absent element matches only
+  where our value is Windows's default (so a missing `ExecutionTimeLimit`,
+  whose default is 72 hours, does not match our "no limit"), and the
+  trigger's account name is resolved to a SID and compared with the user's.
 - **Tools**: `schtasks.exe` to create, run, end and delete, and Windows
   PowerShell's `Export-ScheduledTask` for the export, because `schtasks`
   prints in the console code page and would corrupt non-ASCII paths. Both are
@@ -449,6 +457,13 @@ the action's arguments and working directory as given, end, unregister.
 
 The clean stop does not go through the task: Root signals the supervisor.
 `end` is the fallback when it does not respond.
+
+A test hazard found here, which does not affect the product: while
+`interrupt` is attached to a service's console, any child another thread
+starts inherits that console and receives the same Ctrl+C. The supervisor
+starts nothing else, but parallel tests do. The tests that interrupt now run
+one at a time in their own invocation, and tests find `node.exe` by searching
+PATH instead of running `where`.
 
 ## Remaining steps
 

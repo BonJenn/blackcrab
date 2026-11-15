@@ -642,10 +642,13 @@ mod tests {
         }
     }
 
+    /// Found by searching PATH directly. A child process started here
+    /// could be on a console another test is interrupting at that moment.
     fn node() -> PathBuf {
-        let found = std::process::Command::new("where").arg("node.exe").output().unwrap();
-        assert!(found.status.success(), "node.exe is required for this test");
-        PathBuf::from(String::from_utf8(found.stdout).unwrap().lines().next().unwrap().trim())
+        std::env::split_paths(&std::env::var_os("PATH").unwrap())
+            .map(|directory| directory.join("node.exe"))
+            .find(|candidate| candidate.is_file())
+            .expect("node.exe is required for this test")
     }
     fn try_line(pipe: &Pipe) -> Result<String, String> {
         let mut bytes = Vec::new();

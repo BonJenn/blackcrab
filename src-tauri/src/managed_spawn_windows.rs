@@ -288,11 +288,14 @@ impl Process {
     }
 }
 
-/// Makes this process survive a Ctrl+C on whatever console it is attached
-/// to, by handling the event. The other way to survive it, the ignore flag
+/// Makes this process survive a Ctrl+C on the console it is attached to
+/// now, by handling the event. The other way to survive it, the ignore flag
 /// (`SetConsoleCtrlHandler(NULL, TRUE)`), is inherited by every child started
 /// afterwards, which would then never see a Ctrl+C at all; a handler routine
 /// is not inherited.
+///
+/// Attaching to a console resets the process's handler list, so this must be
+/// called after every `AttachConsole`, not once.
 fn handle_ctrl_c_here() {
     use windows_sys::Win32::System::Console::{SetConsoleCtrlHandler, CTRL_C_EVENT};
     unsafe extern "system" fn handler(event: u32) -> i32 {
@@ -300,10 +303,7 @@ fn handle_ctrl_c_here() {
         // the process. Every other event keeps its normal treatment.
         i32::from(event == CTRL_C_EVENT)
     }
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| unsafe {
-        SetConsoleCtrlHandler(Some(handler), 1);
-    });
+    unsafe { SetConsoleCtrlHandler(Some(handler), 1) };
 }
 
 /// Serialises changes to this process's Ctrl+C ignore flag with the creation
@@ -335,18 +335,22 @@ pub(crate) fn interrupt(process: &Process) -> io::Result<()> {
     // interleave their detach, attach and raise.
     static CONSOLE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _console = CONSOLE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    handle_ctrl_c_here();
     unsafe {
         // Fails harmlessly when this process has no console.
         FreeConsole();
         if AttachConsole(process.id) == 0 {
             return Err(io::Error::last_os_error());
         }
+        // After attaching: the attach discarded any earlier handler.
+        handle_ctrl_c_here();
         let outcome = if GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) == 0 {
             Err(io::Error::last_os_error())
         } else {
             Ok(())
         };
+        // The event reaches each attached process on a thread of its own.
+        // Stay attached, with the handler in place, until ours has run.
+        std::thread::sleep(Duration::from_millis(200));
         FreeConsole();
         outcome
     }

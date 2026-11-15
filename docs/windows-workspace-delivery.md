@@ -407,6 +407,13 @@ hidden-console child, since an outer launcher or scheduler may have set it (a
 new process group does). A test sets the flag deliberately and then starts
 and stops two children in turn.
 
+A second run then showed that attaching to a console resets the process's
+handler list: a handler registered beforehand was gone when the event was
+raised, and the sender died with `STATUS_CONTROL_C_EXIT`. The ignore flag had
+hidden this because it survives an attach. The handler is now registered
+after every `AttachConsole`, and the sender stays attached briefly so its own
+copy of the event is handled before it detaches.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

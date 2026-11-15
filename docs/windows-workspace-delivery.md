@@ -589,6 +589,27 @@ built helper refused as required on the runner: 64, 64 and 1.
   fresh private directory, install, attach, pair, reopen, stop, start,
   restart, uninstall, with the real payload, helper and Task Scheduler.
 
+Findings from the real runs on the runner (PR323):
+
+- The helper is windowless and the scheduler keeps only an exit code, so the
+  helper writes `<owner>\logs\service-supervisor.log`: each startup step with
+  its time, each request's kind and whether it was answered, and how the run
+  ended. Never a path, frame or secret.
+- Timings: helper ready in about 0.75 s; one full payload verification about
+  0.35–0.55 s in the release helper and 4.5–7.6 s in the unoptimized test
+  build, which is why the test takes about nine minutes.
+- All three stops in each passing run were logged "service stopped cleanly on
+  request".
+- **Open: an intermittent start failure.** In two of five runs the first start
+  failed: the launcher logged "Owned service bootstrap is unavailable" and
+  exited with 1 about two seconds after the helper was ready, leaving the
+  journal prepared (so the uninstall was then refused as needing recovery).
+  Those two runs predate the per-request record, so the failing step is not
+  known. A retry of a refused journal replacement was added on suspicion
+  (a scanner holding the old file open); the two runs since passed **without
+  a single retry**, so that cause is not confirmed. If it recurs, the log now
+  names the step. Do not treat this as fixed.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

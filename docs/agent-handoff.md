@@ -7,7 +7,10 @@ Worktree P/windows-workspace-delivery-044, branch feat/windows-service-control:
 Root's service setup and control on Windows (`managed_service_windows.rs`) and
 the real lifecycle test in managed-windows-host.yml. The full crate cannot be
 type-checked for Windows on the Mac, so CI is the compiler: expect a few rounds.
-Read "Step 4f-2" in docs/windows-workspace-delivery.md. Still to do after it:
+Read "Step 4f-2" in docs/windows-workspace-delivery.md. The real lifecycle passes on
+the runner, but two of five runs failed at the first start for a reason not yet
+identified (see "Open: an intermittent start failure" there); if the Windows
+host job fails, read its printed service-supervisor.log first. Still to do after it:
 4f-3 launch wiring (`launch_verified`, enable `managed_native_entry`), step 5
 browser channel, step 6 packaging and installed acceptance. Nothing is enabled
 for Windows users. Mac payload changed in PR310/311: **redo Mac native

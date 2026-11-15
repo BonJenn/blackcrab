@@ -1,6 +1,20 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 2b: workspace channel modules (payload change)
+## Current checkpoint — Windows step 3a: environment contract (payload change)
+
+Steps1,2a,2b are merged (PR308,309,310; stage c3c92bf67e227e6b59b9bd2bda38a04c1919c4eb).
+The owner said "Start" for step3 on2026-11-14. Worktree
+P/windows-workspace-delivery-044, branch feat/windows-workspace-environment.
+Step 3a gives `environment.mjs` a Windows form; read the "Step 3a" section of
+docs/windows-workspace-delivery.md for the decisions (USERPROFILE/TEMP/TMP,
+case-insensitive names, structural-only directory checks relying on Root's
+DACL). It is a second Mac payload byte change; **Mac native acceptance must be
+redone before0.4.4**. Remaining in step3: Root's Windows launch (profile with
+protected DACL, exact environment, channel servers over pipes) and proof against
+the built Electron workspace.
+**0.4.4 is not published**; consult the owner before any tag or publication.
+
+## Previous checkpoint — Windows step 2b: workspace channel modules (payload change)
 
 PR308 (step1) and PR309 (step 2a) are merged into stage at
 f9b0f8f3f4f06ed512734a379eaa5724358aa059. Worktree

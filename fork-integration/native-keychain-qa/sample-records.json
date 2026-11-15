@@ -82,8 +82,8 @@
     {
       "target": "apps/desktop/src/app/managed-desktop/environment.mjs",
       "phase": "preserved-source",
-      "beforeSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
-      "afterSha256": "54607d51d65a300f3331d8ce0ee63d9933c1547cb46f32fb89d7b45f4e6ed892",
+      "beforeSha256": "907ca715aeceac3ffa7caeff25ef1ecca76f82b2cdf7686b24aa74521e1f20b8",
+      "afterSha256": "907ca715aeceac3ffa7caeff25ef1ecca76f82b2cdf7686b24aa74521e1f20b8",
       "changed": false,
       "afterFixture": "fixtures/sample-after/managed-environment.after.mjs"
     }

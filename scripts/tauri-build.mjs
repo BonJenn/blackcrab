@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -178,7 +179,11 @@ if (managed.desktop !== undefined || managed.host !== undefined || managed.servi
 let issuer;
 try {
   if (managed.serviceHost !== undefined) {
-    issuer = await prepareServiceIssuer({env: embedded.env, target: buildTarget, signed: mode === "signed"});
+    // npm is a command script on Windows and needs a shell to start.
+    const run = process.platform === "win32"
+      ? (command, args, options) => promisify(execFile)(command, args, {...options, shell: /\.cmd$/i.test(command)})
+      : undefined;
+    issuer = await prepareServiceIssuer({env: embedded.env, target: buildTarget, signed: mode === "signed", ...(run ? {run} : {})});
     embedded.env.BLACKCRAB_SERVICE_ISSUER_PATH = issuer.path;
     console.log(JSON.stringify({step: "standalone-service-helper", sha256: issuer.sha256,
       notarizationSubmissionId: issuer.notarizationSubmissionId, signed: mode === "signed"}));
@@ -188,8 +193,11 @@ try {
   throw error;
 }
 const cleanup = async () => { await issuer?.cleanup(); await embedded.cleanup(); };
-const bin = process.platform === "win32" ? "npx.cmd" : "npx";
-const child = spawn(bin, tauriArgs, {
+// A command script cannot be started without a shell on Windows, and a shell
+// would mangle the JSON configuration argument. Start the CLI's own script.
+const windows = process.platform === "win32";
+const bin = windows ? process.execPath : "npx";
+const child = spawn(bin, windows ? [path.resolve("node_modules/@tauri-apps/cli/tauri.js"), ...tauriArgs.slice(1)] : tauriArgs, {
   stdio: "inherit",
   env: embedded.env,
 });

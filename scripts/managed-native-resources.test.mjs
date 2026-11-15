@@ -79,7 +79,8 @@ test('Linux desktop resources roundtrip the native format and reject a Mac targe
  assert.equal(result.env.BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256,sha(await fs.readFile(path.join(root,'blackcrab-managed-desktop.json'))));
  assert.deepEqual(Object.values(result.config.bundle.resources),['managed-desktop-payload.tar.gz']);
  await assert.rejects(prepareManagedNativeResources({desktop:root,target:'aarch64-apple-darwin'}),/provenance/);
- await assert.rejects(prepareManagedNativeResources({desktop:root,target:'x86_64-pc-windows-msvc'}),/darwin-arm64 or linux-x64/);
+ // A Windows target is supported now, so a Linux package is refused as the wrong package, not as an unsupported target.
+ await assert.rejects(prepareManagedNativeResources({desktop:root,target:'x86_64-pc-windows-msvc'}),/provenance/);
 });
 
 test('native wrapper preserves signed/local flags and passes only freshly verified trust to child',async t=>{

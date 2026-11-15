@@ -193,6 +193,12 @@ request (`Alt+F4`). Each session records which one closed it as `normalQuit`
 remains an open finding, not a pass for it. The workspace screenshot is taken
 after a short settle so it shows the loaded window instead of the splash.
 
+Run43684132570 (PR318, no Linux change) failed in the Quit step: after Root
+closed, the driver answered the window query with `unknown error` instead of
+`invalid session id` or `no such window`. The test now accepts any driver
+failure there only when Root's process is actually gone, and still fails
+otherwise.
+
 ## Acceptance and remaining release work
 
 PR307's native Linux job passed on188b2162bf9c26a1f7ea3ca0a115cd62c21d5f50

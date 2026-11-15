@@ -60,6 +60,25 @@ function Get-ServiceEvidence {
     $path = Join-Path $owner $file
     if (Test-Path -LiteralPath $path) { $evidence[$file] = ((Get-Content -LiteralPath $path -Tail 60) -join "`n") -replace '[A-Za-z0-9_\-=]{32,}', '[redacted]' }
   }
+  # Failed work and answered requests in the service's and the workspace's
+  # own traces: which request got the error, and why.
+  $traces = [ordered]@{ service = (Join-Path $owner 'host\userdata\logs\server.trace.ndjson'); workspace = (Join-Path $owner 'native-desktop-profile-v1\userdata\logs\desktop.trace.ndjson') }
+  foreach ($kind in $traces.Keys) {
+    $trace = $traces[$kind]
+    if (-not (Test-Path -LiteralPath $trace)) { $evidence["$kind-trace"] = 'absent'; continue }
+    $lines = Get-Content -LiteralPath $trace
+    $failed = @($lines | Where-Object { $_ -match '"_tag":"Failure"' } | Select-Object -Last 10 | ForEach-Object { ($_ -replace '[A-Za-z0-9_\-=]{32,}', '[redacted]').Substring(0, [Math]::Min(1800, $_.Length)) })
+    $evidence["$kind-failures"] = $failed -join "`n"
+    $answers = @{}
+    foreach ($line in $lines) {
+      if ($line -match '"http\.response\.status_code":(\d+)') {
+        $status = $Matches[1]; $path = '?'
+        if ($line -match '"(?:url\.path|http\.route|http\.target)":"([^"?]{1,120})') { $path = $Matches[1] }
+        $key = "$status $path"; $answers[$key] = 1 + [int]$answers[$key]
+      }
+    }
+    $evidence["$kind-answers"] = (@($answers.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name) x$($_.Value)" }) | Select-Object -First 60) -join "`n"
+  }
   foreach ($route in '/.well-known/t3/environment', '/api/auth/session') {
     try { $reply = Invoke-WebRequest -Uri ("http://127.0.0.1:3773" + $route) -UseBasicParsing -TimeoutSec 20 -SkipHttpErrorCheck
       $evidence[$route] = "$($reply.StatusCode) " + ("$($reply.Content)" -replace '[A-Za-z0-9_\-=]{32,}', '[redacted]').Substring(0, [Math]::Min(1500, "$($reply.Content)".Length))

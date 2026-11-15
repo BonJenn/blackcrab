@@ -1,6 +1,20 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — installed Linux workspace accepted in CI (PR307)
+## Current checkpoint — Windows integration started (private storage, payload cache)
+
+PR307 merged into stage at fde830d1a8ea7ffe9c193463d759f3bff49f0cae. The owner
+asked on2026-11-14 to start Windows. Worktree
+P/windows-workspace-delivery-044, branch feat/windows-workspace-delivery, base
+fde830d. Read docs/windows-workspace-delivery.md: it lists the six steps and
+what step1 (this branch) covers. Step1 adds `managed_private_windows.rs` and
+`managed_payload_windows.rs` and a Windows CI test step in ci.yml's
+`windows-check` job. Nothing is enabled for Windows users. Local evidence is a
+type-check against x86_64-pc-windows-msvc only (rustup target installed; a
+scratch crate includes the two modules); the real tests run only on the Windows
+runner. Next after merge: step2, the workspace bootstrap channels.
+**0.4.4 is not published**; consult the owner before any tag or publication.
+
+## Previous checkpoint — installed Linux workspace accepted in CI (PR307)
 
 PR307's native Linux job passed on188b2162bf9c26a1f7ea3ca0a115cd62c21d5f50
 (run43647348987; all13 checks). From the real Debian package and then the real

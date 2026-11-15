@@ -1,7 +1,8 @@
 //! Opaque embedded payload adoption. No renderer-supplied paths or process authority.
 //! Native startup supplies an existing trusted parent for a dedicated cache root.
 //! Existing unmarked roots/caches are never adopted, replaced, or removed.
-//! Unix private-directory ownership and flock are required; other targets fail closed.
+//! Unix private-directory ownership and flock are required; Windows uses handle
+//! owner/DACL checks and file locks (managed_payload_windows.rs). Other targets fail closed.
 use flate2::read::MultiGzDecoder;
 use sha2::{Digest, Sha256};
 #[cfg(unix)]
@@ -17,6 +18,15 @@ const EXPANDED: u64 = 12 * 1024 * 1024 * 1024;
 const ENTRIES: usize = 250_000;
 const META: u64 = 65_536;
 const MARKER: &str = ".blackcrab-managed-payload-cache-v1";
+#[cfg(windows)]
+#[path = "managed_payload_windows.rs"]
+mod windows;
+// Re-exported for the service and browser modules as they gain Windows support.
+#[cfg(windows)]
+#[allow(unused_imports)]
+pub(super) use windows::{owned_lock, private_dir, publish_no_replace};
+#[cfg(windows)]
+use windows::{cache_lease, extract, initialize_cache_root, regular};
 fn invalid() -> String {
     "Bundled payload is unavailable or failed verification.".into()
 }
@@ -60,8 +70,8 @@ impl EmbeddedPayload {
         manifest_sha256: String,
         cache_root: PathBuf,
     ) -> Result<Self, String> {
-        if !cfg!(unix) {
-            return Err("Bundled workspaces require a supported Unix platform.".into());
+        if !cfg!(any(unix, windows)) {
+            return Err("Bundled workspaces are not supported on this platform.".into());
         }
         if !digest_ok(&archive_sha256) || !digest_ok(&manifest_sha256) {
             return Err("The bundled workspace verification information is invalid.".into());
@@ -69,7 +79,7 @@ impl EmbeddedPayload {
         if !archive.is_absolute() || !cache_root.is_absolute() {
             return Err("The bundled workspace or cache location is not an absolute path.".into());
         }
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         {
             initialize_cache_root(&cache_root)?;
         }
@@ -186,7 +196,42 @@ impl EmbeddedPayload {
         sync_extracted_parent(&self.cache_root, &tree_commit)?;
         Ok(target)
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    fn ensure_with(&self, verify: impl Fn(&Path) -> Result<(), String>) -> Result<PathBuf, String> {
+        let _lease = cache_lease(&self.cache_root)?;
+        let target = self.target_directory();
+        if fs::symlink_metadata(&target).is_ok() {
+            private_dir(&target)?;
+            verify(&target)?;
+            return Ok(target);
+        }
+        // Hash and decode the SAME open handle. No reopen by archive path after trust.
+        let mut archive = regular(&self.archive)?;
+        if archive.metadata().map_err(|_| invalid())?.len() > COMPRESSED {
+            return Err(invalid());
+        }
+        if hash(&mut archive, COMPRESSED)? != self.archive_sha256 {
+            return Err(invalid());
+        }
+        archive.seek(SeekFrom::Start(0)).map_err(|_| invalid())?;
+        let mut nonce = [0u8; 16];
+        getrandom::getrandom(&mut nonce).map_err(|_| invalid())?;
+        let staging = self.cache_root.join(format!(
+            ".staging-{}",
+            nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        ));
+        windows::create_staging(&staging)?;
+        let mut guard = Staging(Some(staging.clone()));
+        // Each extracted file is flushed before the write-through rename, so a
+        // published target is complete; it is never replaced or removed later.
+        extract(archive, &staging)?;
+        verify(&staging)?;
+        publish_no_replace(&staging, &target)?;
+        guard.0 = None;
+        private_dir(&target)?;
+        Ok(target)
+    }
+    #[cfg(not(any(unix, windows)))]
     fn ensure_with(
         &self,
         _verify: impl Fn(&Path) -> Result<(), String>,
@@ -251,7 +296,7 @@ fn regular(path: &Path) -> Result<File, String> {
     }
     Ok(f)
 }
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 fn regular(_path: &Path) -> Result<File, String> {
     Err(invalid())
 }

@@ -677,6 +677,22 @@ Step 4f-3a merged as PR324 (88c2478964e082dcd5de83eccc083788c404b996).
 - The CI open of the real workspace now prints the workspace's own log
   files, to settle the blank-window finding above.
 
+Result on the runner (PR325): the entry and handoff compile, the `%APPDATA%`
+test passes, and the workspace's own records were collected:
+
+- The workspace could not start PowerShell (`pwsh.exe` and `powershell.exe`
+  "NotFound"): the search path it was given had only System32 and the Windows
+  directory. It uses PowerShell to read the user's shell environment. The
+  path now also has `System32\Wbem` and `System32\WindowsPowerShell\v1.0`,
+  still built from `SystemRoot` and never inherited.
+- **The blank window is still unexplained.** A second screenshot 85 seconds
+  after launch is also blank white. The process was still running; the
+  renderer history shows the main page created and "dom-ready" 34 ms later
+  and nothing after; the main-process trace (273 spans) has no error other
+  than the PowerShell ones and no page-load span at all. This cannot tell a
+  page that failed to load from a screen capture that cannot see it. Step 6's
+  installed acceptance must read the page itself, as the Linux one does.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

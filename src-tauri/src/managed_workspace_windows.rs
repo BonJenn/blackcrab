@@ -122,9 +122,15 @@ pub(crate) fn environment(home: &Path, profile: &Path) -> io::Result<Vec<(OsStri
     if !root.is_absolute() {
         return Err(refused());
     }
-    let mut path = root.join("System32").into_os_string();
-    path.push(";");
-    path.push(&root);
+    // The system's own default search path, built from SystemRoot and never
+    // inherited. The workspace reads the user's shell environment through
+    // PowerShell, which lives in its own directory under System32.
+    let system32 = root.join("System32");
+    let mut path = system32.clone().into_os_string();
+    for directory in [root.clone(), system32.join("Wbem"), system32.join("WindowsPowerShell").join("v1.0")] {
+        path.push(";");
+        path.push(directory);
+    }
     let temporary = profile.join("tmp").into_os_string();
     Ok(vec![
         ("SystemRoot".into(), root.clone().into_os_string()),
@@ -308,6 +314,11 @@ mod tests {
         assert_eq!(value("USERPROFILE"), home.as_os_str());
         assert_eq!(value("TEMP"), profile.join("tmp").as_os_str());
         assert_eq!(value("TMP"), value("TEMP"));
+        let root = std::env::var("SystemRoot").unwrap();
+        assert_eq!(
+            value("PATH").to_string_lossy(),
+            format!(r"{root}\System32;{root};{root}\System32\Wbem;{root}\System32\WindowsPowerShell\v1.0")
+        );
     }
 
     #[test]

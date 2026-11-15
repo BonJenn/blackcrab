@@ -1,4 +1,8 @@
 //! Standalone service helper. Never initialize a GUI, even for invalid arguments.
+// On Windows the helper is also what the scheduled task runs. Built for the
+// console subsystem it would open a console window at every sign-in; its
+// private pipes work the same either way.
+#![cfg_attr(windows, windows_subsystem = "windows")]
 fn main() {
     let code = blackcrab_lib::dispatch_private_service_issuer(std::env::args_os().skip(1).collect())
         .unwrap_or(64);

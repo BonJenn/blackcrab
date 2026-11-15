@@ -8,6 +8,11 @@ import {parseArgs} from 'node:util';
 import {buildManagedHost} from '../managed-host/build.mjs';
 import {UPSTREAM, NODE_VERSION, MANIFEST_FILE} from '../managed-host/artifact.mjs';
 import {SERVICE_PROFILE, verifyServiceProfileArtifact} from '../managed-host/service-profile.mjs';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {prepareManagedNativeResources} from './managed-native-resources.mjs';
+import {prepareServiceIssuer} from './prepare-service-issuer.mjs';
+const exec=promisify(execFile);
 
 const {values}=parseArgs({options:{root:{type:'string'},pnpm:{type:'string'}}});
 if(process.platform!=='win32'||process.arch!=='x64'||process.env.GITHUB_ACTIONS!=='true')throw Error('Disposable native Windows x64 CI runner required');
@@ -15,7 +20,8 @@ if(!values.root||!path.isAbsolute(values.root)||!values.pnpm||!path.isAbsolute(v
 await fs.mkdir(values.root);
 const root=await fs.realpath(values.root);
 const report={target:'win32-x64',passed:false,published:false,serviceActivated:false,
-  scope:'Actual pinned host compilation and artifact verification only; no helper, archive, service or launch'};
+  scope:'Actual pinned host compilation, archive and native helper; no service activation or launch'};
+let resources,issuer;
 // The producer runs tools by name. Windows' own tar must come before any
 // other on PATH: GNU tar reads "C:" in a path as a remote host.
 const system=path.join(process.env.SystemRoot,'System32');
@@ -39,12 +45,31 @@ try{
   const manifestSha256=createHash('sha256').update(await fs.readFile(path.join(report.build.output,MANIFEST_FILE))).digest('hex');
   report.artifact={files:manifest.files.length,syntheticPayload:false,entry:manifest.entry,manifestSha256,
     sourcePatches:manifest.sourcePatches.length};
+  // Archive the payload as Root will embed it, then build the helper pinned to it.
+  resources=await prepareManagedNativeResources({serviceHost:report.build.output,env:environment,target:'x86_64-pc-windows-msvc'});
+  // npm is a command script on Windows and needs a shell to start.
+  issuer=await prepareServiceIssuer({env:resources.env,target:'x86_64-pc-windows-msvc',signed:false,
+    run:(command,args,options)=>exec(command,args,{...options,shell:/\.cmd$/i.test(command)})});
+  const hostArchive=path.join(root,'managed-host-payload.tar.gz'),helper=path.join(root,'blackcrab-issuer.exe');
+  await fs.copyFile(Object.keys(resources.config.bundle.resources)[0],hostArchive);
+  await fs.copyFile(issuer.path,helper);
+  const pins=Object.fromEntries(Object.entries(resources.env).filter(([key])=>key.startsWith('BLACKCRAB_EMBEDDED_')));
+  report.helper={sha256:issuer.sha256,format:'PE-x86-64',authenticodeSigned:false};
+  report.pins=pins;
+  // The helper is a windowless program that takes exactly one fixed argument.
+  // Outside its installed location it must refuse without doing anything.
+  const exit=async args=>{try{await exec(helper,args,{timeout:60000});return 0;}catch(error){return error.code;}};
+  report.helper.exits={unknownArgument:await exit(['unexpected']),noArgument:await exit([]),notInstalled:await exit(['__blackcrab-service-issuer-v1'])};
+  if(report.helper.exits.unknownArgument!==64||report.helper.exits.noArgument!==64||report.helper.exits.notInstalled!==1)throw Error('Helper did not refuse as expected');
   report.passed=true;
   if(process.env.GITHUB_ENV)await fs.appendFile(process.env.GITHUB_ENV,
-    `BLACKCRAB_WINDOWS_HOST_ARTIFACT=${report.build.output}\nBLACKCRAB_WINDOWS_HOST_MANIFEST_SHA256=${manifestSha256}\n`);
+    Object.entries({...pins,BLACKCRAB_TEST_HOST_ARCHIVE:hostArchive,BLACKCRAB_SERVICE_ISSUER_PATH:helper,
+      BLACKCRAB_WINDOWS_HOST_ARTIFACT:report.build.output,BLACKCRAB_WINDOWS_HOST_MANIFEST_SHA256:manifestSha256})
+      .map(([key,value])=>`${key}=${value}\n`).join(''));
 }catch(error){
   report.error=error.message;process.exitCode=1;
 }finally{
+  await issuer?.cleanup();await resources?.cleanup();
   await fs.writeFile(path.join(root,'result.json'),JSON.stringify(report,null,2)+'\n',{flag:'wx'});
 }
 console.log(JSON.stringify(report));

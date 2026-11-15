@@ -11,11 +11,11 @@ const exec = promisify(execFile);
 // The signed helper is embedded as bytes in Root, rather than as a Mach-O
 // resource that Tauri might re-sign after its hash/identity has been selected.
 export async function prepareServiceIssuer({env, target, signed, cwd = process.cwd(), run = exec}) {
-  const selected = target || ({'darwin-arm64':'aarch64-apple-darwin','linux-x64':'x86_64-unknown-linux-gnu'}[`${process.platform}-${process.arch}`]);
-  if (!['aarch64-apple-darwin', 'x86_64-unknown-linux-gnu'].includes(selected)) {
-    throw Error('Standalone service helper requires darwin-arm64 or linux-x64');
+  const selected = target || ({'darwin-arm64':'aarch64-apple-darwin','linux-x64':'x86_64-unknown-linux-gnu','win32-x64':'x86_64-pc-windows-msvc'}[`${process.platform}-${process.arch}`]);
+  if (!['aarch64-apple-darwin', 'x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc'].includes(selected)) {
+    throw Error('Standalone service helper requires darwin-arm64, linux-x64 or win32-x64');
   }
-  const mac = selected === 'aarch64-apple-darwin';
+  const mac = selected === 'aarch64-apple-darwin', windows = selected === 'x86_64-pc-windows-msvc';
   const stage = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-service-issuer-'));
   await fs.chmod(stage, 0o700);
   const cleanup = () => fs.rm(stage, {recursive: true, force: true});
@@ -32,11 +32,22 @@ export async function prepareServiceIssuer({env, target, signed, cwd = process.c
     await step('compile', 'cargo', ['build', '--locked', '--release', '--manifest-path', 'src-tauri/Cargo.toml',
       '--features', 'service-issuer', '--bin', 'blackcrab-service-issuer', ...(target ? ['--target', target] : [])], {env: buildEnv});
     const targetRoot = path.resolve(cwd, env.CARGO_TARGET_DIR || 'src-tauri/target');
-    const built = path.join(targetRoot, ...(target ? [target] : []), 'release/blackcrab-service-issuer');
-    const helper = path.join(stage, 'blackcrab-issuer');
+    const suffix = windows ? '.exe' : '';
+    const built = path.join(targetRoot, ...(target ? [target] : []), 'release', 'blackcrab-service-issuer' + suffix);
+    const helper = path.join(stage, 'blackcrab-issuer' + suffix);
     await fs.copyFile(built, helper);
     await fs.chmod(helper, 0o700);
-    if (!mac) {
+    if (windows) {
+      // No signing here: Authenticode belongs to release packaging. Root's
+      // pinned helper digest binds these bytes; reject anything that is not
+      // an x86-64 Windows executable before embedding it.
+      const bytes = await fs.readFile(helper);
+      const offset = bytes.length >= 64 ? bytes.readUInt32LE(60) : 0;
+      if (bytes.length < 64 || bytes.readUInt16LE(0) !== 0x5a4d || offset + 6 > bytes.length ||
+          bytes.readUInt32LE(offset) !== 0x00004550 || bytes.readUInt16LE(offset + 4) !== 0x8664) {
+        throw Error('Standalone service helper must be a PE x86-64 executable');
+      }
+    } else if (!mac) {
       // Linux has no Apple signing step. Root's pinned resource/helper digest
       // binds the native bytes; reject a cross-target build before embedding.
       const header = Buffer.alloc(64);

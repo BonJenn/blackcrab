@@ -1,6 +1,6 @@
 //! Private child of managed_host; service activation/migration remain unavailable.
 //! No renderer constructor, remote endpoint, PID authority, service activation or GUI startup.
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 #[path = "managed_service_boot_session.rs"]
 mod boot_session;
 
@@ -9,16 +9,15 @@ use crate::{managed_artifact, managed_payload};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::io::RawFd;
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::{Read, Write},
-    os::unix::{
-        fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
-        io::RawFd,
-    },
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+use platform::ISSUER_NAME;
 const LIMIT: usize = 64 * 1024;
 const MAX_SAFE: u64 = 9_007_199_254_740_991;
 const AUTH_REGISTRY: &str =
@@ -124,7 +123,7 @@ impl NativeIssuer {
     }
     fn open_installed(executable: &Path, expected: &str) -> Result<Self> {
         // owner/issuer/<selfSHA>/blackcrab-issuer, never a request-selected root.
-        if executable.file_name().and_then(|x| x.to_str()) != Some("blackcrab-issuer") {
+        if executable.file_name().and_then(|x| x.to_str()) != Some(ISSUER_NAME) {
             return Err(invalid());
         }
         let digest_dir = executable.parent().ok_or_else(invalid)?;
@@ -143,17 +142,10 @@ impl NativeIssuer {
         for directory in [owner, issuer, digest_dir] {
             managed_payload::private_dir(directory).map_err(|_| invalid())?;
         }
-        if executable.canonicalize().map_err(|_| invalid())? != executable {
+        if !platform::canonical(executable) {
             return Err(invalid());
         }
-        let meta = fs::symlink_metadata(executable).map_err(|_| invalid())?;
-        if !meta.is_file()
-            || meta.nlink() != 1
-            || meta.uid() != unsafe { libc::geteuid() }
-            || meta.mode() & 0o777 != 0o700
-        {
-            return Err(invalid());
-        }
+        platform::private_executable(executable)?;
         if digest_file(executable, 256 * 1024 * 1024)? != self_sha {
             return Err(invalid());
         }
@@ -254,7 +246,11 @@ impl NativeIssuer {
         {
             return Err(invalid());
         }
+        #[cfg(unix)]
         if let Some(browser) = &config.browser { browser.validate(&self.host.root)?; }
+        // No private browser channel exists on Windows yet; one is never accepted.
+        #[cfg(windows)]
+        if config.browser.is_some() { return Err(invalid()); }
         let envelope = OwnedServiceAuthBootstrap {
             schema: 1,
             kind: "blackcrab-owned-service-auth-v1",
@@ -386,6 +382,7 @@ impl NativeIssuer {
     }
 }
 /// Fixed native entry target. Main dispatch will call this before GUI startup.
+#[cfg(unix)]
 pub(super) fn run_private_stdio() -> Result<()> {
     let mut issuer = NativeIssuer::from_installed_executable()?;
     // Preflight/reconciliation completes before original launcher DB recovery begins.
@@ -394,6 +391,69 @@ pub(super) fn run_private_stdio() -> Result<()> {
     write_private_response(libc::STDOUT_FILENO, &ready)?;
     run_io(&mut issuer, libc::STDIN_FILENO, libc::STDOUT_FILENO)
 }
+// Windows: the inherited standard pipes are synchronous, so the same framing,
+// bounds and deadlines run over issuer_io's blocking threads instead of poll.
+#[cfg(windows)]
+pub(super) fn run_private_stdio() -> Result<()> {
+    let mut issuer = NativeIssuer::from_installed_executable()?;
+    let (mut input, mut output) = super::issuer_io::standard_pipes().map_err(|_| invalid())?;
+    // Preflight/reconciliation completes before original launcher DB recovery begins.
+    let ready = issuer.ready_frame()?;
+    issuer.transcript_bytes = ready.len();
+    write_pipe_response(&mut output, &ready)?;
+    run_pipes(&mut issuer, &mut input, &mut output)
+}
+#[cfg(windows)]
+fn run_pipes(
+    issuer: &mut NativeIssuer,
+    input: &mut super::issuer_io::PrivateInput,
+    output: &mut super::issuer_io::PrivateOutput,
+) -> Result<()> {
+    let mut line = Vec::new();
+    let mut frame_deadline = None;
+    loop {
+        let deadline = match (issuer.delivery_deadline(), frame_deadline) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+        let Some(byte) = input.read_byte(deadline).map_err(|_| invalid())? else {
+            return if line.is_empty()
+                && issuer
+                    .journal
+                    .as_ref()
+                    .is_none_or(|j| j.phase == Phase::Retired)
+            {
+                Ok(())
+            } else {
+                Err(invalid())
+            };
+        };
+        if line.is_empty() {
+            frame_deadline = Some(Instant::now() + Duration::from_secs(30));
+        }
+        line.push(byte);
+        if line.len() > LIMIT {
+            return Err(invalid());
+        }
+        if byte != b'\n' {
+            continue;
+        }
+        let response = issuer.handle_frame(&line)?;
+        line.clear();
+        frame_deadline = None;
+        write_pipe_response(output, &response)?;
+    }
+}
+#[cfg(windows)]
+fn write_pipe_response(output: &mut super::issuer_io::PrivateOutput, response: &[u8]) -> Result<()> {
+    if response.len() > LIMIT {
+        return Err(invalid());
+    }
+    output
+        .write_frame(response, Duration::from_secs(5))
+        .map_err(|_| invalid())
+}
+#[cfg(unix)]
 fn wait_fd(fd: RawFd, events: i16, deadline: Option<Instant>) -> Result<()> {
     loop {
         if deadline.is_some_and(|d| Instant::now() >= d) {
@@ -429,10 +489,12 @@ fn wait_fd(fd: RawFd, events: i16, deadline: Option<Instant>) -> Result<()> {
         }
     }
 }
+#[cfg(unix)]
 struct NonblockingPrivateFd {
     fd: RawFd,
     flags: i32,
 }
+#[cfg(unix)]
 impl NonblockingPrivateFd {
     fn new(fd: RawFd) -> Result<Self> {
         let mut metadata = std::mem::MaybeUninit::<libc::stat>::uninit();
@@ -450,6 +512,7 @@ impl NonblockingPrivateFd {
         Ok(Self { fd, flags })
     }
 }
+#[cfg(unix)]
 impl Drop for NonblockingPrivateFd {
     fn drop(&mut self) {
         unsafe {
@@ -457,6 +520,7 @@ impl Drop for NonblockingPrivateFd {
         }
     }
 }
+#[cfg(unix)]
 fn run_io(issuer: &mut NativeIssuer, input: RawFd, output: RawFd) -> Result<()> {
     // Only this headless process's private pipe/socket descriptors are changed;
     // flags restore on all exits, and no read/write can block after poll readiness.
@@ -510,6 +574,7 @@ fn run_io(issuer: &mut NativeIssuer, input: RawFd, output: RawFd) -> Result<()> 
         write_private_response(output, &response)?;
     }
 }
+#[cfg(unix)]
 fn write_private_response(output: RawFd, response: &[u8]) -> Result<()> {
     if response.len() > LIMIT {
         return Err(invalid());
@@ -565,7 +630,7 @@ fn publish_verified_source(host: &ManagedHost, source: &[u8], expected: &str) ->
         return Err(invalid());
     }
     managed_payload::private_dir(&host.root).map_err(|_| invalid())?;
-    if host.root.canonicalize().map_err(|_| invalid())? != host.root
+    if !platform::canonical(&host.root)
         || private_bytes(&host.root.join(".blackcrab-managed-host"), 64)? != MARKER.as_bytes()
     { return Err(invalid()); }
     let _service = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true).map_err(|_| invalid())?;
@@ -590,34 +655,23 @@ fn install_issuer_copy(host: &ManagedHost, source: &[u8], self_sha: &str) -> Res
     let issuer = host.root.join("issuer");
     private_directory_new_or_existing(&issuer)?;
     let target = issuer.join(self_sha);
-    let installed = target.join("blackcrab-issuer");
+    let installed = target.join(ISSUER_NAME);
     if fs::symlink_metadata(&target).is_ok() {
         verify_installed_copy(&target, &installed, self_sha)?;
     } else {
         let stage = issuer.join(format!(".native-issuer-{}", super::random_secret()?));
-        fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&stage)
-            .map_err(|_| invalid())?;
+        platform::create_private_directory(&stage)?;
         let outcome = (|| {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o700)
-                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-                .open(stage.join("blackcrab-issuer"))
-                .map_err(|_| invalid())?;
+            let mut file = platform::create_executable(&stage.join(ISSUER_NAME))?;
             file.write_all(source)
                 .and_then(|_| file.sync_all())
                 .map_err(|_| invalid())?;
-            verify_installed_copy(&stage, &stage.join("blackcrab-issuer"), self_sha)?;
-            File::open(&stage)
-                .and_then(|f| f.sync_all())
-                .map_err(|_| invalid())?;
+            // Windows cannot rename a directory that holds an open file.
+            drop(file);
+            verify_installed_copy(&stage, &stage.join(ISSUER_NAME), self_sha)?;
+            platform::sync_directory(&stage)?;
             managed_payload::publish_no_replace(&stage, &target).map_err(|_| invalid())?;
-            File::open(&issuer)
-                .and_then(|f| f.sync_all())
-                .map_err(|_| invalid())
+            platform::sync_directory(&issuer)
         })();
         if stage.exists() {
             let _ = fs::remove_dir_all(&stage);
@@ -635,7 +689,7 @@ fn publish_binding(host: &ManagedHost, binding: &Binding, replace: bool) -> Resu
         } else {
             managed_payload::publish_no_replace(&temp, &host.root.join(BINDING)).map_err(|_| invalid())?;
         }
-        File::open(&host.root).and_then(|f| f.sync_all()).map_err(|_| invalid())
+        platform::sync_directory(&host.root)
     })();
     if temp.exists() { let _ = fs::remove_file(&temp); }
     outcome
@@ -666,10 +720,7 @@ fn private_directory_new_or_existing(path: &Path) -> Result<()> {
     match fs::symlink_metadata(path) {
         Ok(_) => managed_payload::private_dir(path).map_err(|_| invalid()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            fs::DirBuilder::new()
-                .mode(0o700)
-                .create(path)
-                .map_err(|_| invalid())?;
+            platform::create_private_directory(path)?;
             managed_payload::private_dir(path).map_err(|_| invalid())
         }
         Err(_) => Err(invalid()),
@@ -677,11 +728,8 @@ fn private_directory_new_or_existing(path: &Path) -> Result<()> {
 }
 fn verify_installed_copy(directory: &Path, file: &Path, expected: &str) -> Result<()> {
     managed_payload::private_dir(directory).map_err(|_| invalid())?;
-    let metadata = fs::symlink_metadata(file).map_err(|_| invalid())?;
-    if metadata.uid() != unsafe { libc::geteuid() }
-        || metadata.mode() & 0o777 != 0o700
-        || digest_file(file, 256 * 1024 * 1024)? != expected
-    {
+    platform::private_executable(file)?;
+    if digest_file(file, 256 * 1024 * 1024)? != expected {
         return Err(invalid());
     }
     Ok(())
@@ -702,7 +750,7 @@ fn attachment_binding(host: &ManagedHost, expected_config: &Configuration) -> Re
     let issuer = host.root.join("issuer");
     managed_payload::private_dir(&issuer).map_err(|_| invalid())?;
     let directory = issuer.join(&binding.self_sha256);
-    verify_installed_copy(&directory, &directory.join("blackcrab-issuer"), &binding.self_sha256)?;
+    verify_installed_copy(&directory, &directory.join(ISSUER_NAME), &binding.self_sha256)?;
     let config = verify_selection(host, &binding)?;
     if serde_json::to_value(&config).map_err(|_| invalid())? != serde_json::to_value(expected_config).map_err(|_| invalid())? {
         return Err(invalid());
@@ -874,13 +922,8 @@ fn hex_digest(x: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 fn private_or_public_regular(path: &Path, limit: usize) -> Result<Vec<u8>> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(path)
-        .map_err(|_| invalid())?;
-    let metadata = file.metadata().map_err(|_| invalid())?;
-    if !metadata.is_file() || metadata.nlink() != 1 || metadata.len() > limit as u64 {
+    let mut file = platform::open_regular(path)?;
+    if file.metadata().map_err(|_| invalid())?.len() > limit as u64 {
         return Err(invalid());
     }
     let mut bytes = Vec::new();
@@ -894,18 +937,8 @@ fn private_or_public_regular(path: &Path, limit: usize) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 fn private_bytes(path: &Path, limit: usize) -> Result<Vec<u8>> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(path)
-        .map_err(|_| invalid())?;
-    let metadata = file.metadata().map_err(|_| invalid())?;
-    if !metadata.is_file()
-        || metadata.nlink() != 1
-        || metadata.len() > limit as u64
-        || metadata.uid() != unsafe { libc::geteuid() }
-        || metadata.mode() & 0o777 != 0o600
-    {
+    let mut file = platform::open_regular(path)?;
+    if file.metadata().map_err(|_| invalid())?.len() > limit as u64 || !platform::private_file(&file) {
         return Err(invalid());
     }
     let mut bytes = Vec::new();
@@ -994,9 +1027,7 @@ fn save_journal(owner: &Path, journal: &Journal) -> Result<()> {
     super::write_new(&temp, &bytes)?;
     let outcome = (|| {
         fs::rename(&temp, owner.join(JOURNAL)).map_err(|_| invalid())?;
-        File::open(owner)
-            .and_then(|f| f.sync_all())
-            .map_err(|_| invalid())
+        platform::sync_directory(owner)
     })();
     if outcome.is_err() {
         let _ = fs::remove_file(temp);
@@ -1031,7 +1062,122 @@ fn frame(value: &Value) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-#[cfg(test)]
+/// The owner and permission checks behind the issuer's private files. Unix
+/// reads UID and mode bits; Windows reads the handle's owner and DACL, where
+/// "private" is what Unix expresses as 0700 and 0600.
+#[cfg(unix)]
+mod platform {
+    use super::{invalid, Result};
+    use std::{
+        fs::{self, File, OpenOptions},
+        os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
+        path::Path,
+    };
+    pub(super) const ISSUER_NAME: &str = "blackcrab-issuer";
+    pub(super) fn canonical(path: &Path) -> bool {
+        path.canonicalize().is_ok_and(|actual| actual == path)
+    }
+    pub(super) fn create_private_directory(path: &Path) -> Result<()> {
+        fs::DirBuilder::new().mode(0o700).create(path).map_err(|_| invalid())
+    }
+    pub(super) fn create_executable(path: &Path) -> Result<File> {
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o700)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(path)
+            .map_err(|_| invalid())
+    }
+    /// A regular single-link file of ours with mode exactly 0700.
+    pub(super) fn private_executable(path: &Path) -> Result<()> {
+        let meta = fs::symlink_metadata(path).map_err(|_| invalid())?;
+        if !meta.is_file()
+            || meta.nlink() != 1
+            || meta.uid() != unsafe { libc::geteuid() }
+            || meta.mode() & 0o777 != 0o700
+        {
+            return Err(invalid());
+        }
+        Ok(())
+    }
+    /// Opens a regular single-link file without following a final symlink.
+    pub(super) fn open_regular(path: &Path) -> Result<File> {
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(path)
+            .map_err(|_| invalid())?;
+        let metadata = file.metadata().map_err(|_| invalid())?;
+        if !metadata.is_file() || metadata.nlink() != 1 {
+            return Err(invalid());
+        }
+        Ok(file)
+    }
+    /// Ours, with mode exactly 0600.
+    pub(super) fn private_file(file: &File) -> bool {
+        file.metadata().is_ok_and(|metadata| {
+            metadata.uid() == unsafe { libc::geteuid() } && metadata.mode() & 0o777 == 0o600
+        })
+    }
+    pub(super) fn sync_directory(path: &Path) -> Result<()> {
+        File::open(path).and_then(|f| f.sync_all()).map_err(|_| invalid())
+    }
+}
+#[cfg(windows)]
+mod platform {
+    use super::{invalid, Result};
+    use crate::managed_private_windows::{self as private, Access};
+    use std::{
+        fs::{File, OpenOptions},
+        path::Path,
+    };
+    pub(super) const ISSUER_NAME: &str = "blackcrab-issuer.exe";
+    /// The path names itself: no link, junction, relative or short-name
+    /// component. canonicalize returns the verbatim form; drive letters and
+    /// names compare without regard to case, as the filesystem does.
+    pub(super) fn canonical(path: &Path) -> bool {
+        path.canonicalize().is_ok_and(|actual| {
+            let actual = actual.to_string_lossy();
+            actual
+                .strip_prefix(r"\\?\")
+                .unwrap_or(&actual)
+                .eq_ignore_ascii_case(&path.to_string_lossy())
+        })
+    }
+    pub(super) fn create_private_directory(path: &Path) -> Result<()> {
+        private::create_private_directory(path).map_err(|_| invalid())
+    }
+    /// Created inside a private directory, whose protected DACL it inherits.
+    pub(super) fn create_executable(path: &Path) -> Result<File> {
+        private::open_file(path, OpenOptions::new().write(true).create_new(true))
+            .map_err(|_| invalid())
+    }
+    fn private_regular(path: &Path) -> Result<File> {
+        let file = open_regular(path)?;
+        private::security(&file, Access::Private).map_err(|_| invalid())?;
+        Ok(file)
+    }
+    pub(super) fn private_executable(path: &Path) -> Result<()> {
+        private_regular(path).map(|_| ())
+    }
+    /// A regular single-link file that is not a reparse point.
+    pub(super) fn open_regular(path: &Path) -> Result<File> {
+        private::open_file(path, OpenOptions::new().read(true)).map_err(|_| invalid())
+    }
+    pub(super) fn private_file(file: &File) -> bool {
+        private::security(file, Access::Private).is_ok()
+    }
+    /// Directory entries cannot be flushed through a plain handle here. Each
+    /// file is flushed and publication renames with write-through.
+    pub(super) fn sync_directory(_path: &Path) -> Result<()> {
+        Ok(())
+    }
+}
+#[cfg(all(test, windows))]
+#[path = "managed_service_issuer_windows_tests.rs"]
+mod windows_tests;
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::{DirBuilderExt, PermissionsExt};

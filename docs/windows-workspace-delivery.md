@@ -746,10 +746,13 @@ client`. In `DesktopEnvironment.ts`, for a packaged Windows build only,
 root on every platform, which is where macOS and Linux look. So on Windows
 the interface is in the package but the workspace looks somewhere else.
 
-Fix not made yet. The direct one is a desktop source record that makes
-`serverRoot` the app root on Windows too. That changes the desktop registry
-and therefore the payload bytes and pins on every platform (macOS acceptance
-is already owed a re-run for PR310/311).
+Fix: desktop source record `windows-interface-under-app-root` (after
+`blackcrab-environment`, same file) makes `serverRoot` the app root on every
+platform. macOS and Linux already took that branch, so their behaviour is
+unchanged, but the registry and therefore the payload bytes change on every
+platform; the keychain-QA whole-registry pin is updated to `cd44caa8…`.
+The owner chose on 2026-11-15 to continue with Windows before releasing.
+**macOS acceptance is owed a re-run** (already so since PR310/311).
 
 How it was found, so the tools are not rebuilt: a test build can keep the
 workspace's output (`BLACKCRAB_TEST_WORKSPACE_OUTPUT`) and open the debugging

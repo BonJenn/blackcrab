@@ -1,0 +1,17 @@
+--- a/apps/desktop/src/app/DesktopEnvironment.ts
++++ b/apps/desktop/src/app/DesktopEnvironment.ts
+@@ -156,10 +156,10 @@
+   });
+   const rootDir = path.resolve(input.dirname, "../../..");
+   const appRoot = input.isPackaged ? input.appPath : rootDir;
+-  const serverRoot =
+-    input.isPackaged && input.platform === "win32"
+-      ? path.join(input.resourcesPath, "server.asar")
+-      : appRoot;
++  // Blackcrab packages the interface under the app root on every platform.
++  // Upstream's Windows installer keeps it in a separate server.asar, which
++  // this package does not have; looking there left the window empty.
++  const serverRoot = appRoot;
+   const branding = resolveDesktopAppBranding({
+     isDevelopment,
+     appVersion: input.appVersion,

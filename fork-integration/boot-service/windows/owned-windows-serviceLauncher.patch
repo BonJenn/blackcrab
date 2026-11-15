@@ -1,0 +1,31 @@
+--- a/apps/server/src/serviceLauncher.ts
++++ b/apps/server/src/serviceLauncher.ts
+@@ -388,9 +388,11 @@
+     NodeFS.constants.O_RDONLY | NodeFS.constants.O_NOFOLLOW | NodeFS.constants.O_NONBLOCK);
+   try {
+     const stat = await handle.stat();
+-    if (typeof process.getuid !== "function" || !stat.isFile() || stat.nlink !== 1 ||
+-        stat.uid !== process.getuid() || !Number.isSafeInteger(stat.size) || stat.size > maximum ||
+-        (privateFile && (stat.mode & 0o777) !== 0o600)) throw new Error("Invalid owned service metadata");
++    // Windows build: there is no UID or mode. Privacy is the protected DACL the
++    // native launcher creates and verifies on the owner directory and its children.
++    void privateFile;
++    if (!stat.isFile() || stat.nlink !== 1 || !Number.isSafeInteger(stat.size) ||
++        stat.size > maximum) throw new Error("Invalid owned service metadata");
+     const bytes = Buffer.alloc(stat.size + 1);
+     let length = 0;
+     while (length < bytes.length) {
+@@ -465,7 +467,12 @@
+   signal: NodeJS.Signals = "SIGTERM",
+ ): Promise<void> {
+   if (child.exitCode !== null || child.signalCode !== null) return;
+-  child.kill(signal);
++  // Windows build: kill() ends a process at once, whatever the signal name, so
++  // it cannot ask the server to stop. Closing the launcher's IPC channel does:
++  // the server interrupts itself when that channel is lost. A console stop has
++  // also reached it directly as SIGINT. It is ended only after the grace.
++  void signal;
++  if (child.connected) child.disconnect();
+   const force = setTimeout(() => child.kill("SIGKILL"), TERMINATE_GRACE_MS);
+   try {
+     await waitForExit(child);

@@ -505,6 +505,35 @@ Unix at run time (`getuid`, mode bits, `O_NOFOLLOW`, a `/usr/bin:/bin` PATH for
 the helper, a helper name without `.exe`). Making the built service start is
 step 4e-2, as Windows-only records.
 
+Step 4e-1 merged as PR320 (4a82d7a57973e248549319ec8e0c493c0a533104). With
+the checkout fixed, the real service payload built and verified on
+windows-2022: 3821 files, entry `t3.exe`, all 71 source records.
+
+## Step 4e-2 — Windows-only service source records
+
+`fork-integration/boot-service/windows/` holds two records applied after the
+71 shared ones, only for a Windows build (see its README for what each
+changes). They were written against the real final sources: the pinned
+upstream archive with the shared plan applied.
+
+`service-profile.mjs` takes the target platform: `serviceProfilePlan(platform)`
+returns the frozen 71 records for anything but `win32`, and those 71 followed
+by the two Windows records for `win32`. Verification of an artifact uses the
+plan for the artifact's platform. This is a third change to that frozen file,
+and the freeze records its new hash. `rawSourceData` and `recordGraphSha256`
+are unchanged, and a new test asserts the macOS and Linux plans equal them
+whatever platform runs the tools, that the Windows plan is exactly that plan
+plus the two records, and that each Windows record starts from the bytes the
+shared records leave.
+
+Local evidence: the Windows plan applies cleanly to the real pinned source
+(every before and after hash in the chain verified), and the host test suite
+passes. The Windows job builds the payload with the records, which
+type-checks the patched server sources.
+
+Still unproven until Root can install a service on Windows: that the patched
+launcher actually starts, finds its helper and stops cleanly.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

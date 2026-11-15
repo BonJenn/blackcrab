@@ -1,0 +1,51 @@
+--- a/apps/server/src/OwnedLauncherBootstrap.ts
++++ b/apps/server/src/OwnedLauncherBootstrap.ts
+@@ -47,7 +47,9 @@
+     const file = await FS.open(path, FSC.O_RDONLY | FSC.O_NOFOLLOW);
+     try {
+         const meta = await file.stat();
+-        if (!meta.isFile() || meta.nlink !== 1 || meta.uid !== process.getuid?.() || (meta.mode & 0o777) !== 0o600 || meta.size > limit)
++        // Windows build: there is no UID or mode. Privacy is the protected DACL the
++        // native launcher creates and verifies on the owner directory and its children.
++        if (!meta.isFile() || meta.nlink !== 1 || meta.size > limit)
+             throw fail();
+         const bytes = await readBounded(file, limit);
+         return bytes;
+@@ -99,7 +101,7 @@
+         const owner = Path.dirname(baseDir);
+         for (const path of [owner, baseDir]) {
+             const m = await FS.lstat(path);
+-            if (!m.isDirectory() || m.isSymbolicLink() || m.uid !== process.getuid?.() || (m.mode & 0o077) !== 0)
++            if (!m.isDirectory() || m.isSymbolicLink() || await FS.realpath(path) !== path)
+                 throw fail();
+         }
+         if ((await privateFile(Path.join(owner, '.blackcrab-managed-host'), 64)).toString() !== 'blackcrab-managed-host-v1\n')
+@@ -107,16 +109,16 @@
+         const binding: unknown = JSON.parse((await privateFile(Path.join(owner, 'native-issuer-binding.json'), LIMIT)).toString());
+         if (!record(binding) || !keys(binding, ['schema', 'selfSha256', 'manifestSha256', 'generation', 'environmentId', 'version']) || binding.schema !== 1 || !hex(binding.selfSha256) || !hex(binding.manifestSha256) || !safe(binding.generation) || typeof binding.environmentId !== 'string' || !binding.environmentId || binding.environmentId.length > 128 || binding.environmentId.trim() !== binding.environmentId || /[\x00-\x1f\x7f]/.test(binding.environmentId) || binding.version !== '0.1.7')
+             throw fail();
+-        const executable = Path.join(owner, 'issuer', binding.selfSha256, 'blackcrab-issuer');
++        const executable = Path.join(owner, 'issuer', binding.selfSha256, 'blackcrab-issuer.exe');
+         for (const path of [Path.join(owner, 'issuer'), Path.dirname(executable)]) {
+             const m = await FS.lstat(path);
+-            if (!m.isDirectory() || m.isSymbolicLink() || m.uid !== process.getuid?.() || (m.mode & 0o077) !== 0)
++            if (!m.isDirectory() || m.isSymbolicLink() || await FS.realpath(path) !== path)
+                 throw fail();
+         }
+         const source = await FS.open(executable, FSC.O_RDONLY | FSC.O_NOFOLLOW);
+         try {
+             const m = await source.stat();
+-            if (!m.isFile() || m.nlink !== 1 || m.uid !== process.getuid?.() || (m.mode & 0o777) !== 0o700 || m.size > 256 * 1024 * 1024)
++            if (!m.isFile() || m.nlink !== 1 || m.size > 256 * 1024 * 1024)
+                 throw fail();
+             const bytes = await readBounded(source, 256 * 1024 * 1024);
+             if (Crypto.createHash('sha256').update(bytes).digest('hex') !== binding.selfSha256)
+@@ -126,7 +128,7 @@
+             await source.close();
+         }
+         // Fixed native binary/argv; no helper path/env authority supplied by service.env.
+-        const child = CP.spawn(executable, ['__blackcrab-service-issuer-v1'], { cwd: owner, env: { PATH: '/usr/bin:/bin', HOME: owner, TMPDIR: owner }, stdio: ['pipe', 'pipe', 'pipe'] });
++        const child = CP.spawn(executable, ['__blackcrab-service-issuer-v1'], { cwd: owner, env: { SystemRoot: process.env.SystemRoot ?? '', USERPROFILE: owner, TEMP: owner, TMP: owner }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+         const peer = new OwnedLauncherBootstrap(child, binding as unknown as NativeBinding, baseDir, 1, onFailure);
+         try {
+             const ready = await peer.#wait(120000);

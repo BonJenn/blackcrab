@@ -20,6 +20,11 @@ const GROUPS=[
  ['browser','fork-integration/boot-service/browser-channel/','object',['owned-browser-auth','owned-browser-config','owned-browser-launcher','owned-browser-policy']],
  ['typecheck','fork-integration/boot-service/typecheck/','object',["owned-types-ManagedOwnerProofIssuer", "owned-types-OwnedLauncherBootstrap", "owned-types-OwnedServiceAuthBootstrap", "owned-types-OwnedServiceProof", "owned-types-config", "owned-types-http"]],
 ];
+// Applied after every shared record, and only when the payload is built for
+// Windows, where the launcher's Unix owner and mode checks cannot hold. The
+// shared groups above, and so the macOS and Linux payloads, do not include it.
+const WINDOWS_GROUP=['windows','fork-integration/boot-service/windows/','object',['owned-windows-OwnedLauncherBootstrap','owned-windows-serviceLauncher']];
+const groupsFor=platform=>platform==='win32'?[...GROUPS,WINDOWS_GROUP]:GROUPS;
 const ENTRY_SOURCES={
  'apps/server/src/bin.ts':'bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598',
  'apps/server/src/cli/serviceLauncher.ts':'b8ced3fa033a95176bf0635814bb423004353ba69d8f89636413e52ceb1ebbdd',
@@ -34,7 +39,7 @@ const SUPERSEDED_IDENTITY_IDS=new Set(['001-own-pairing-app-links','002-own-desk
 const receipts=new WeakMap();
 function relative(value){if(typeof value!=='string'||!value||value.includes('\\')||value.includes(':')||/[\x00-\x1f\x7f]/.test(value)||value.split('/').some(p=>!p||p==='.'||p==='..'))throw Error('Unsafe fixed service source path');return value;}
 async function read(file){const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size>8*1024*1024)throw Error('Service source data must be bounded regular file');return fs.readFile(file);}
-export function validateServiceProfileIDs(group,ids){const expected=GROUPS.find(g=>g[0]===group)?.[3];if(!expected||ids.length!==expected.length||new Set(ids).size!==ids.length||expected.some((id,i)=>ids[i]!==id))throw Error('Unknown or reordered service profile source IDs');}
+export function validateServiceProfileIDs(group,ids){const expected=[...GROUPS,WINDOWS_GROUP].find(g=>g[0]===group)?.[3];if(!expected||ids.length!==expected.length||new Set(ids).size!==ids.length||expected.some((id,i)=>ids[i]!==id))throw Error('Unknown or reordered service profile source IDs');}
 function equivalent(a,b){return a.target===b.target&&a.kind===b.kind&&a.beforeSha256===b.beforeSha256&&a.afterSha256===b.afterSha256&&a.sha256===b.sha256&&JSON.stringify(a.replacements)===JSON.stringify(b.replacements);}
 /** Pure derivation check, not an artifact/source authorization API. */
 export function canonicalIdentityAlias(first,alias){
@@ -46,9 +51,9 @@ export function canonicalIdentityAlias(first,alias){
  return {replacements:[{before,after:a}],proof:{beforeSha256:first.beforeSha256,afterSha256:first.afterSha256,diffSha256:first.sha256,originalReplacementCounts:[first.replacements.length,alias.replacements.length],method:'independent-unique-replacement-execution-on-identical-full-before-bytes'}};
 }
 /** Fixed reviewed record sources only; no caller-selected registries/digests. */
-export async function serviceProfilePlan(){
- const records=[],descriptors=[],data=new Map(),aliases=[],canonical=new Map(),ids=new Set();
- for(const [name,directory,format]of GROUPS){
+export async function serviceProfilePlan(platform=process.platform){
+ const records=[],descriptors=[],data=new Map(),aliases=[],canonical=new Map(),ids=new Set(),groups=groupsFor(platform);
+ for(const [name,directory,format]of groups){
   const base=new URL(directory,roots),raw=await read(new URL('registry.json',base)),registry=JSON.parse(raw),patches=Array.isArray(registry)?registry:registry.patches,added=Array.isArray(registry)?[]:registry.addedSources??[];
   if(!Array.isArray(patches)||!Array.isArray(added))throw Error('Malformed service source registry');
   validateServiceProfileIDs(name,[...patches,...added].map(r=>r.id));data.set(`${name}/registry.original.json`,raw);
@@ -73,13 +78,14 @@ export async function serviceProfilePlan(){
    else{canonical.set(record.id,normalized);records.push(normalized);}
   }
  }
- if(descriptors.length!==71||records.length!==71||aliases.length!==0)throw Error('Service profile composition changed');
+ const total=71+(groups.length-GROUPS.length)*WINDOWS_GROUP[3].length;
+ if(descriptors.length!==total||records.length!==total||aliases.length!==0)throw Error('Service profile composition changed');
  return {profile:SERVICE_PROFILE,protocol:4,version:'0.1.7',records,descriptors,aliases,data,entrySources:{...ENTRY_SOURCES}};
 }
 /** Source consistency API; actual producer below ALWAYS authenticates a fresh archive. */
-export async function applyServiceProfileSource(root){
+export async function applyServiceProfileSource(root,platform=process.platform){
  const stat=await fs.lstat(root);if(!stat.isDirectory()||stat.isSymbolicLink()||(process.platform!=='win32'&&(stat.uid!==process.getuid?.()||(stat.mode&0o777)!==0o700))||await fs.realpath(root)!==path.resolve(root))throw Error('Service preparation requires private canonical fresh source root');
- const plan=await serviceProfilePlan();
+ const plan=await serviceProfilePlan(platform);
  for(const [file,digest]of Object.entries(ENTRY_SOURCES))if(sha(await read(path.join(root,file)))!==digest)throw Error('Original launcher/SEA entry source changed');
  const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-service-profile-data-'));
  try{
@@ -89,7 +95,7 @@ export async function applyServiceProfileSource(root){
  }finally{await fs.rm(temporary,{recursive:true,force:true});}
  const receipt=Object.freeze({root,sourcePatches:Object.freeze(plan.descriptors),profile:SERVICE_PROFILE});receipts.set(receipt,plan);return receipt;
 }
-export async function prepareServiceSourceArchive(archive,cacheDir,options){const {root}=await extractPinnedSourceArchive(archive,cacheDir,options);return applyServiceProfileSource(await fs.realpath(root));}
+export async function prepareServiceSourceArchive(archive,cacheDir,options){const {root}=await extractPinnedSourceArchive(archive,cacheDir,options);return applyServiceProfileSource(await fs.realpath(root),options?.platform);}
 export async function stageServiceProfileEvidence(output,prepared){
  const plan=receipts.get(prepared);if(!plan)throw Error('Service source preparation receipt required');
  const patchRoot=path.join(output,'source-patches');await fs.mkdir(patchRoot,{recursive:false});
@@ -103,7 +109,7 @@ function profileMetadata(plan){ return {schema:1,profile:SERVICE_PROFILE,protoco
 }
 /** Integrity/profile consistency only, not a signature or native selected-artifact grant. */
 export async function verifyServiceProfileArtifact(root,options={}){
- const manifest=await verifyArtifact(root,options),profile=JSON.parse(await read(path.join(root,PROFILE_FILE))),plan=await serviceProfilePlan();
+ const manifest=await verifyArtifact(root,options),profile=JSON.parse(await read(path.join(root,PROFILE_FILE))),plan=await serviceProfilePlan(options.platform);
  if(JSON.stringify(profile)!==JSON.stringify(profileMetadata(plan))||JSON.stringify(manifest.sourcePatches)!==JSON.stringify(plan.descriptors))throw Error('Service artifact profile differs');
  const registry=JSON.parse(await read(path.join(root,'source-patches/registry.json')));
  if(JSON.stringify(registry)!==JSON.stringify({schema:1,profile:SERVICE_PROFILE,protocol:4,records:plan.records,aliases:plan.aliases}))throw Error('Service artifact source chain differs');

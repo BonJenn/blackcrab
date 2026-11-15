@@ -59,9 +59,11 @@ jobs:
           test -n "$PNPM"
           node scripts/build-windows-host-ci.mjs --root "$RUNNER_TEMP/windows-host-build" --pnpm "$(cygpath -w "$PNPM")"
       # The real workspace too, so Root's owner can open it against the service.
-      - run: npm install --global pnpm@12.14.0 --ignore-scripts
+      # Its build wants pnpm as a script. Installed apart from the standalone
+      # executable above: globally the two claim the same command names.
+      - run: npm install --prefix "${{ runner.temp }}/pnpm-script" pnpm@12.14.0 --ignore-scripts
       - name: Compile and verify the actual Windows workspace
-        run: node scripts/build-portable-desktop-ci.mjs --root "${{ runner.temp }}/portable-workspace-build" --pnpm "$(npm root -g)/pnpm/bin/pnpm.mjs"
+        run: node scripts/build-portable-desktop-ci.mjs --root "${{ runner.temp }}/portable-workspace-build" --pnpm "${{ runner.temp }}/pnpm-script/node_modules/pnpm/bin/pnpm.mjs"
       # Root itself, compiled against that payload and helper, sets the service
       # up in a fresh private directory, registers the real scheduled task,
       # attaches to the running service, stops, starts and restarts it, and

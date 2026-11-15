@@ -332,6 +332,12 @@ def inside():
             # Quit the foreground workspace as a user would: its Linux menu
             # shortcut first, then the window manager's close request. Root
             # should then exit through its captured-client exit monitor.
+            def root_running():
+                # The outer launcher's process name, in this fresh account only.
+                names = subprocess.run(["/usr/bin/ps", "-u", str(UID), "-o", "comm="], capture_output=True,
+                                       text=True, timeout=10).stdout.split()
+                return "blackcrab" in names
+
             def root_closed(seconds):
                 deadline = time.monotonic() + seconds
                 while time.monotonic() < deadline:
@@ -341,7 +347,12 @@ def inside():
                     except DriverFailure as error:
                         if str(error) in ("invalid session id", "no such window"):
                             return True
-                        raise
+                        # The driver reports a vanished Root in more than one
+                        # way ("unknown error" among them). Believe it only if
+                        # Root's process really is gone.
+                        if root_running():
+                            raise
+                        return True
                     except (OSError, http.client.HTTPException):
                         return True
                     time.sleep(0.25)

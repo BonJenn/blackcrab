@@ -78,7 +78,7 @@ export async function serviceProfilePlan(){
 }
 /** Source consistency API; actual producer below ALWAYS authenticates a fresh archive. */
 export async function applyServiceProfileSource(root){
- const stat=await fs.lstat(root);if(!stat.isDirectory()||stat.isSymbolicLink()||stat.uid!==process.getuid?.()||(stat.mode&0o777)!==0o700||await fs.realpath(root)!==path.resolve(root))throw Error('Service preparation requires private canonical fresh source root');
+ const stat=await fs.lstat(root);if(!stat.isDirectory()||stat.isSymbolicLink()||(process.platform!=='win32'&&(stat.uid!==process.getuid?.()||(stat.mode&0o777)!==0o700))||await fs.realpath(root)!==path.resolve(root))throw Error('Service preparation requires private canonical fresh source root');
  const plan=await serviceProfilePlan();
  for(const [file,digest]of Object.entries(ENTRY_SOURCES))if(sha(await read(path.join(root,file)))!==digest)throw Error('Original launcher/SEA entry source changed');
  const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-service-profile-data-'));

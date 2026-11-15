@@ -13,18 +13,16 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
-// The issuer that uses this is not ported to Windows yet; its boot identity is.
-#[cfg(windows)]
-#[allow(dead_code)]
-#[path = "managed_service_boot_session.rs"]
-mod boot_session;
 // Windows pipe I/O for the issuer, ahead of the issuer itself. Its logic is
 // platform-neutral, so it is also built for tests everywhere.
 #[cfg(any(windows, test))]
 #[allow(dead_code)]
 #[path = "managed_service_issuer_io.rs"]
 mod issuer_io;
-#[cfg(unix)]
+// On Windows only the standalone helper entry uses the issuer so far; Root's
+// own service control is not ported yet.
+#[cfg(any(unix, windows))]
+#[cfg_attr(windows, allow(dead_code))]
 #[path = "managed_service_issuer.rs"]
 mod service_issuer;
 
@@ -52,9 +50,9 @@ pub(super) mod desktop_policy;
 use self::desktop_policy::{native_pair_expiry, valid_native_pair};
 
 pub(crate) fn run_private_service_issuer() -> Result<(), String> {
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     { service_issuer::run_private_stdio() }
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     { Err("Background service issuer is unavailable on this platform".into()) }
 }
 

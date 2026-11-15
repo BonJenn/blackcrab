@@ -258,6 +258,44 @@ Windows, and the issuer still does not compile there: its file and owner
 checks (`uid`, mode `0700`/`0600`, `O_NOFOLLOW`) and `managed_host.rs`'s
 private file helpers are the next piece.
 
+Step 4b-1 merged as PR314 (6386298d39078acf86d7c8dbbd3881b13ade968a); its three
+tests passed on the Windows runner.
+
+## Step 4b-2 — the issuer on Windows
+
+`managed_service_issuer.rs` now compiles for Windows. The state machine,
+journal, binding, locks and verification logic are shared unchanged; what
+differs sits in a `platform` module with one implementation per family:
+
+| | Unix | Windows |
+|---|---|---|
+| Helper file name | `blackcrab-issuer` | `blackcrab-issuer.exe` |
+| Private executable | regular, one link, our UID, mode `0700` | regular, one link, not a reparse point, owner and DACL private |
+| Private file | our UID, mode `0600` | owner and DACL private |
+| Private directory | `mkdir` with `0700` | created with the protected DACL |
+| Canonical path | `canonicalize() == path` | same, ignoring the verbatim prefix and case |
+| Directory flush | `fsync` on the directory | none; files are flushed and publication renames with write-through |
+| Transport | non-blocking descriptors and `poll` | `issuer_io` threads over the inherited standard pipes |
+
+The framing, 64 KiB frame bound, 30-second frame and delivery deadlines,
+5-second write deadline and end-of-stream rule are the same in both loops. A
+browser capability in the configuration is refused on Windows, where no
+private browser channel exists yet. The Unix path was refactored onto the same
+helper names; its 23 issuer tests pass unchanged.
+
+Windows tests (`managed_service_issuer_windows_tests.rs`): the loop issuing,
+retiring and ending cleanly over real pipes; end of stream while prepared
+leaving the journal prepared; a malformed frame poisoning the session; the
+helper copy installed under its digest and refused once readable by others;
+private files refused when shared, hard-linked or oversized; junction and
+relative paths not canonical.
+
+Only the standalone helper entry reaches the issuer on Windows. Root's
+service control, initialization and attachment are still Unix-only, and
+`managed_host.rs`'s `private_directory`/`private_options` still do nothing
+protective on Windows: that must be fixed before Root creates an owner
+directory there.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

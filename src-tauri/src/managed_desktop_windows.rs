@@ -278,8 +278,20 @@ pub(crate) async fn open_built_workspace_for_test(host: ManagedHost, package: Pa
         return Err("the first open did not start a workspace".into());
     }
     let outcome: Result<(), String> = async {
-        let visible = owner.activate_window().await?;
-        println!("WINDOWS_WORKSPACE visible={visible}");
+        // A live process is not yet a window: Root's launcher asks up to
+        // sixty times, a quarter of a second apart, and so does this.
+        let mut asked = 0;
+        let visible = loop {
+            asked += 1;
+            if owner.activate_window().await? {
+                break true;
+            }
+            if asked == 60 {
+                break false;
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        };
+        println!("WINDOWS_WORKSPACE visible={visible} after {asked} requests");
         if !visible {
             return Err("the workspace did not show its window".into());
         }

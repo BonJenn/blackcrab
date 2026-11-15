@@ -496,6 +496,9 @@ service-profile artifact. The producer starts pnpm directly, so the workflow
 installs the standalone `pnpm.exe`; and Windows' own `tar` is put first on
 PATH, since GNU `tar` reads `C:` in a path as a remote host. The native
 resources archive and the helper build still refuse Windows and are not run.
+The checkout runs with `core.autocrlf false`: the producer hashes every
+reviewed source file, and the first run failed at once because the runner's
+default checkout had rewritten line endings.
 
 This builds the payload from the unchanged service sources. They still assume
 Unix at run time (`getuid`, mode bits, `O_NOFOLLOW`, a `/usr/bin:/bin` PATH for

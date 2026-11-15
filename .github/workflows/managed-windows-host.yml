@@ -23,6 +23,10 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
+      # The producer checks every reviewed source file against its recorded
+      # hash. Those hashes are of the committed bytes, so the checkout must
+      # not rewrite line endings.
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:

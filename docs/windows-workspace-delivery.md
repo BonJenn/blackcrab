@@ -793,6 +793,32 @@ from its components on Windows, and the lifecycle test spells its owner
 directory with a forward slash too. Every earlier Windows test had used a
 backslash path, which is why only the installed app showed it.
 
+Installed runs after that (PR328), in order:
+
+- The launcher set up and started the service and opened the workspace, but
+  the workspace showed "Something went wrong … fetch-session-state (HTTP
+  500)". The first version of this acceptance passed anyway: it checked the
+  window title, and the error screen has the same title.
+- Not the cause: a stale saved sign-in (Credential Manager held none), and
+  the service (it answered every session request 200; the 500 is made inside
+  the workspace).
+- **Cause: path length.** The installed app runs the workspace from the
+  payload cache, whose directory name carried two whole digests: about 216
+  characters before any file of the package. With sixteen characters of each
+  digest the interface loaded. One library was still at 263 characters for an
+  eleven-character account name, so Windows now names the cache `payloads`
+  and each directory by the role's initial and twelve characters of each
+  digest. Contents are verified against the whole digests on every use.
+  macOS and Linux names are unchanged.
+- The acceptance now requires the service to have answered the interface's
+  own authenticated request for its workspace state
+  (`/api/orchestration/shell`, 200), once more per launch. Reading the window
+  through UI Automation returned only the title bar.
+- Seen and not pursued: the service listens on all interfaces
+  (`0.0.0.0:3773`, "remote-reachable") and prints a pairing token into
+  `boot-service.log`, a private file. Whether that matches macOS and Linux
+  was not checked.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

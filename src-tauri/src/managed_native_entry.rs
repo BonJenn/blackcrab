@@ -156,7 +156,10 @@ impl ManagedNativeEntry {
         if !configured || !cfg!(any(unix, windows)) {
             return entry;
         }
-        let cache = app_data.join("managed-payloads-v1");
+        // Every file of both packages lives under this name; on Windows,
+        // where a path over 260 characters fails for many libraries, it is
+        // kept short.
+        let cache = app_data.join(if cfg!(windows) { "payloads" } else { "managed-payloads-v1" });
         if let Err(error) = prepare_app_data(app_data) {
             entry.error = Some(format!(
                 "Blackcrab cannot create its application-data folder ({}).",

@@ -39,15 +39,14 @@ function Get-ServiceTask {
   $rows = & schtasks.exe /Query /FO CSV /NH 2>$null | ConvertFrom-Csv -Header Name, Next, Status
   $rows | Where-Object { $_.Name -like '*Blackcrab Service *' }
 }
-# What the workspace window shows, read as assistive software reads it. The
-# window's title alone is not enough: an error screen has the same title.
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-function Get-WindowText([IntPtr]$handle) {
-  $root = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
-  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-  $names = New-Object System.Collections.Generic.List[string]
-  foreach ($element in $all) { $name = $element.Current.Name; if ($name -and -not $names.Contains($name)) { $names.Add($name) } }
-  ($names -join ' | ')
+# How many times the service has answered the interface's own authenticated
+# request for its workspace state. The window's title alone is not enough: an
+# error screen has the same title, and only a loaded, signed-in interface
+# makes this request.
+function Get-InterfaceAnswers {
+  $trace = Join-Path $appData 'managed-host\v1\host\userdata\logs\server.trace.ndjson'
+  if (-not (Test-Path -LiteralPath $trace)) { return 0 }
+  @(Get-Content -LiteralPath $trace | Where-Object { $_ -match '/api/orchestration/shell' -and $_ -match '"http\.response\.status_code":200' }).Count
 }
 # Evidence for a failure: the service's own records and what it answers.
 function Get-ServiceEvidence {
@@ -62,7 +61,7 @@ function Get-ServiceEvidence {
   }
   # The longest paths in the payload cache: many Windows programs and
   # libraries cannot open a path longer than 260 characters.
-  $cache = Join-Path $appData 'managed-payloads-v1'
+  $cache = Join-Path $appData 'payloads'
   if (Test-Path -LiteralPath $cache) {
     $longest = @(Get-ChildItem -LiteralPath $cache -Recurse -File -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending | Select-Object -First 5)
     $evidence['longest-cache-paths'] = (@($longest | ForEach-Object { "$($_.FullName.Length) $($_.FullName.Substring($appData.Length))" })) -join "`n"
@@ -112,6 +111,7 @@ $result.savedSignInsRemoved = ($result.savedSignInsBefore.Count -gt 0 -and @(Get
 try {
   $before = $null
   foreach ($round in 'first-launch', 'reopen') {
+    $answeredBefore = Get-InterfaceAnswers
     $root = Start-Process -FilePath $launcher -PassThru
     $deadline = (Get-Date).AddSeconds(480); $workspace = $null; $title = ''
     while ((Get-Date) -lt $deadline) {
@@ -128,14 +128,9 @@ try {
     # Let the acknowledged window finish its first paint for the kept image.
     Start-Sleep -Seconds 10
     Save-Screen "$round-workspace.png"
-    $shown = ''
-    for ($attempt = 0; $attempt -lt 20 -and $shown.Length -lt 40; $attempt++) {
-      try { $shown = Get-WindowText $workspace.Process.MainWindowHandle } catch { $shown = '' }
-      if ($shown.Length -lt 40) { Start-Sleep -Seconds 1 }
-    }
-    $result["$round-shown"] = $shown.Substring(0, [Math]::Min(1200, $shown.Length))
-    if ($shown -match 'Something went wrong') { throw 'The workspace opened on its error screen' }
-    if ($shown -notmatch 'Connect your computers|What should we work on') { throw 'The workspace did not show its interface' }
+    $answered = 0
+    for ($attempt = 0; $attempt -lt 60 -and $answered -le $answeredBefore; $attempt++) { $answered = Get-InterfaceAnswers; if ($answered -le $answeredBefore) { Start-Sleep -Seconds 1 } }
+    if ($answered -le $answeredBefore) { throw 'The workspace window opened but its interface never loaded its workspace state' }
     $task = Get-ServiceTask
     if (@($task).Count -ne 1 -or $task.Status -ne 'Running') { throw "Background service task is not running: $(@($task | ForEach-Object { $_.Status }) -join ',')" }
     $identity = Get-Identity
@@ -150,7 +145,7 @@ try {
     if (Get-Launcher) { throw 'Quitting the workspace did not close its launcher' }
     $task = Get-ServiceTask
     if (@($task).Count -ne 1 -or $task.Status -ne 'Running') { throw 'The background service did not survive quitting the workspace' }
-    $result.sessions += [ordered]@{ round = $round; windowTitle = $title; loadedWorkspace = $true; closeQuitBoth = $true; serviceSurvived = $true; identityRetained = $true }
+    $result.sessions += [ordered]@{ round = $round; windowTitle = $title; loadedInterface = $true; closeQuitBoth = $true; serviceSurvived = $true; identityRetained = $true }
   }
   $result.passed = $true
 } catch {

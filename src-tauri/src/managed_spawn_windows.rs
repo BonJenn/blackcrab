@@ -1,0 +1,559 @@
+//! Starts a child with private inherited channels at fixed descriptor numbers,
+//! the Windows counterpart of the Unix `dup2` into descriptors 3 and up.
+//!
+//! Windows has no descriptor table in the kernel. The C runtime in the child
+//! rebuilds one from `STARTUPINFO.lpReserved2`, which is how Node and Electron
+//! children receive extra `stdio` entries. Each channel is one duplex named
+//! pipe with a random name, a single instance, a DACL for the current user
+//! only and remote clients rejected. The child receives exactly the listed
+//! handles: inheritance is restricted with an explicit handle list, so nothing
+//! else this process holds leaks into it.
+#![cfg(windows)]
+use crate::managed_private_windows::Descriptor;
+use std::{
+    ffi::{OsStr, OsString},
+    io,
+    os::windows::{
+        ffi::OsStrExt,
+        io::{AsRawHandle, FromRawHandle, OwnedHandle},
+    },
+    path::Path,
+    ptr,
+    time::Duration,
+};
+use windows_sys::Win32::{
+    Foundation::{
+        GetLastError, ERROR_BROKEN_PIPE, ERROR_IO_PENDING, HANDLE, INVALID_HANDLE_VALUE,
+        WAIT_OBJECT_0, WAIT_TIMEOUT,
+    },
+    Storage::FileSystem::{
+        CreateFileW, ReadFile, WriteFile, FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED,
+        OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
+    },
+    System::{
+        IO::{CancelIoEx, GetOverlappedResult, OVERLAPPED},
+        Pipes::{
+            CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE,
+            PIPE_WAIT,
+        },
+        Threading::{
+            CreateEventW, CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
+            InitializeProcThreadAttributeList, TerminateProcess, UpdateProcThreadAttribute,
+            WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+            LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+            STARTF_USESTDHANDLES, STARTUPINFOEXW,
+        },
+    },
+};
+
+const GENERIC_READ: u32 = 0x8000_0000;
+const GENERIC_WRITE: u32 = 0x4000_0000;
+// C runtime descriptor flags carried in lpReserved2.
+const FOPEN: u8 = 0x01;
+const FPIPE: u8 = 0x08;
+const FDEV: u8 = 0x40;
+/// Highest descriptor number a child may be given.
+pub(crate) const MAX_DESCRIPTOR: u32 = 15;
+
+fn wide(text: &OsStr) -> io::Result<Vec<u16>> {
+    let mut units: Vec<u16> = text.encode_wide().collect();
+    if units.contains(&0) {
+        return Err(io::Error::from(io::ErrorKind::InvalidInput));
+    }
+    units.push(0);
+    Ok(units)
+}
+
+/// Our end of a channel. It is overlapped, so a pending read never blocks a
+/// write on the same pipe and every transfer can be bounded in time. A peer
+/// that has closed reads as end of stream.
+pub(crate) struct Pipe(OwnedHandle);
+impl Pipe {
+    fn transfer(
+        &self,
+        timeout: Option<Duration>,
+        start: impl FnOnce(HANDLE, *mut OVERLAPPED) -> i32,
+    ) -> io::Result<usize> {
+        let handle = self.0.as_raw_handle() as HANDLE;
+        let event = unsafe { CreateEventW(ptr::null(), 1, 0, ptr::null()) };
+        if event.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        let _event = unsafe { OwnedHandle::from_raw_handle(event) };
+        let mut state: OVERLAPPED = unsafe { std::mem::zeroed() };
+        state.hEvent = event;
+        if start(handle, &mut state) == 0 {
+            let code = unsafe { GetLastError() };
+            if code != ERROR_IO_PENDING {
+                return Err(io::Error::from_raw_os_error(code as i32));
+            }
+            let millis = timeout
+                .map(|t| t.as_millis().min(u128::from(u32::MAX - 1)) as u32)
+                .unwrap_or(u32::MAX);
+            if unsafe { WaitForSingleObject(event, millis) } == WAIT_TIMEOUT {
+                // Cancel, then collect the outcome: the transfer may have
+                // completed in the meantime and its bytes must not be lost.
+                unsafe { CancelIoEx(handle, &state) };
+                let mut moved = 0;
+                if unsafe { GetOverlappedResult(handle, &state, &mut moved, 1) } != 0 {
+                    return Ok(moved as usize);
+                }
+                return Err(io::Error::from(io::ErrorKind::TimedOut));
+            }
+        }
+        let mut moved = 0;
+        if unsafe { GetOverlappedResult(handle, &state, &mut moved, 1) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(moved as usize)
+    }
+    /// Reads at most `buffer.len()` bytes; `Ok(0)` means the peer closed.
+    pub(crate) fn read(&self, buffer: &mut [u8], timeout: Option<Duration>) -> io::Result<usize> {
+        let length = buffer.len().min(u32::MAX as usize) as u32;
+        let pointer = buffer.as_mut_ptr();
+        match self.transfer(timeout, |handle, state| unsafe {
+            ReadFile(handle, pointer, length, ptr::null_mut(), state)
+        }) {
+            Err(error) if error.raw_os_error() == Some(ERROR_BROKEN_PIPE as i32) => Ok(0),
+            other => other,
+        }
+    }
+    /// Writes all of `bytes`, each transfer bounded by `timeout`.
+    pub(crate) fn write_all(&self, mut bytes: &[u8], timeout: Option<Duration>) -> io::Result<()> {
+        while !bytes.is_empty() {
+            let length = bytes.len().min(u32::MAX as usize) as u32;
+            let pointer = bytes.as_ptr();
+            let written = self.transfer(timeout, |handle, state| unsafe {
+                WriteFile(handle, pointer, length, ptr::null_mut(), state)
+            })?;
+            if written == 0 {
+                return Err(io::Error::from(io::ErrorKind::WriteZero));
+            }
+            bytes = &bytes[written..];
+        }
+        Ok(())
+    }
+}
+
+/// One private duplex channel: `ours` stays in this process, `theirs` is the
+/// inheritable end handed to exactly one child.
+pub(crate) struct Channel {
+    pub(crate) ours: Pipe,
+    pub(crate) theirs: OwnedHandle,
+}
+
+pub(crate) fn channel() -> io::Result<Channel> {
+    let mut nonce = [0u8; 16];
+    getrandom::getrandom(&mut nonce).map_err(|_| io::Error::other("random unavailable"))?;
+    let name: OsString = format!(
+        r"\\.\pipe\blackcrab-{}",
+        nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
+    .into();
+    let name = wide(&name)?;
+    // Only the current user may open the pipe; SYSTEM and Administrators are
+    // deliberately not granted, since no one else needs to connect.
+    let descriptor = Descriptor::new("D:P(A;;GA;;;{sid})")?;
+    let server = unsafe {
+        CreateNamedPipeW(
+            name.as_ptr(),
+            PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+            1,
+            65536,
+            65536,
+            0,
+            &descriptor.attributes(false),
+        )
+    };
+    if server == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
+    }
+    let ours = Pipe(unsafe { OwnedHandle::from_raw_handle(server) });
+    // The single instance is taken by our own client end immediately. The
+    // child end is synchronous, as Node's own child stdio pipes are, so the
+    // child can read its bootstrap descriptor with a blocking read.
+    let client = unsafe {
+        CreateFileW(
+            name.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            &descriptor.attributes(true),
+            OPEN_EXISTING,
+            0,
+            ptr::null_mut(),
+        )
+    };
+    if client == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(Channel {
+        ours,
+        theirs: unsafe { OwnedHandle::from_raw_handle(client) },
+    })
+}
+
+fn null_device() -> io::Result<OwnedHandle> {
+    let name = wide(OsStr::new("NUL"))?;
+    let descriptor = Descriptor::new("D:P(A;;GA;;;{sid})")?;
+    let handle = unsafe {
+        CreateFileW(
+            name.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            3,
+            &descriptor.attributes(true),
+            OPEN_EXISTING,
+            0,
+            ptr::null_mut(),
+        )
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(unsafe { OwnedHandle::from_raw_handle(handle) })
+}
+
+/// Quotes one argument the way the Microsoft C runtime parses a command line.
+fn quote(argument: &OsStr, line: &mut Vec<u16>) {
+    let units: Vec<u16> = argument.encode_wide().collect();
+    let plain = !units.is_empty()
+        && !units
+            .iter()
+            .any(|u| [b' ', b'\t', b'\n', 0x0b, b'"'].contains(&(*u as u8)) && *u < 128);
+    if plain {
+        line.extend(units);
+        return;
+    }
+    line.push(u16::from(b'"'));
+    let mut backslashes = 0;
+    for unit in units {
+        if unit == u16::from(b'\\') {
+            backslashes += 1;
+        } else {
+            if unit == u16::from(b'"') {
+                // Escape the run of backslashes and the quote itself.
+                line.extend(std::iter::repeat(u16::from(b'\\')).take(backslashes + 1));
+            }
+            backslashes = 0;
+        }
+        line.push(unit);
+    }
+    // Backslashes before the closing quote must be doubled.
+    line.extend(std::iter::repeat(u16::from(b'\\')).take(backslashes));
+    line.push(u16::from(b'"'));
+}
+
+pub(crate) struct Process {
+    handle: OwnedHandle,
+    pub(crate) id: u32,
+}
+impl Process {
+    /// `Some(code)` once the process has exited.
+    pub(crate) fn wait(&self, timeout: Duration) -> io::Result<Option<u32>> {
+        let millis = timeout.as_millis().min(u128::from(u32::MAX - 1)) as u32;
+        match unsafe { WaitForSingleObject(self.handle.as_raw_handle() as HANDLE, millis) } {
+            WAIT_OBJECT_0 => {
+                let mut code = 0;
+                if unsafe { GetExitCodeProcess(self.handle.as_raw_handle() as HANDLE, &mut code) }
+                    == 0
+                {
+                    return Err(io::Error::last_os_error());
+                }
+                Ok(Some(code))
+            }
+            WAIT_TIMEOUT => Ok(None),
+            _ => Err(io::Error::last_os_error()),
+        }
+    }
+    pub(crate) fn terminate(&self) -> io::Result<()> {
+        if unsafe { TerminateProcess(self.handle.as_raw_handle() as HANDLE, 1) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
+}
+
+struct AttributeList(Vec<u64>);
+impl Drop for AttributeList {
+    fn drop(&mut self) {
+        unsafe { DeleteProcThreadAttributeList(self.0.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST) };
+    }
+}
+
+/// Starts `executable` with exactly `environment`, standard streams on the
+/// null device, and each `(number, handle)` in `descriptors` visible to the
+/// child's C runtime as that descriptor. Numbers must be 3..=MAX_DESCRIPTOR
+/// and unique; unlisted numbers below the highest stay closed in the child.
+pub(crate) fn spawn(
+    executable: &Path,
+    arguments: &[OsString],
+    environment: &[(OsString, OsString)],
+    directory: &Path,
+    descriptors: &[(u32, &OwnedHandle)],
+) -> io::Result<Process> {
+    let invalid = || io::Error::from(io::ErrorKind::InvalidInput);
+    let mut count = 3;
+    for (index, (number, _)) in descriptors.iter().enumerate() {
+        if *number < 3
+            || *number > MAX_DESCRIPTOR
+            || descriptors[..index].iter().any(|(other, _)| other == number)
+        {
+            return Err(invalid());
+        }
+        count = count.max(*number as usize + 1);
+    }
+    let null = null_device()?;
+    // int count; unsigned char flags[count]; HANDLE handles[count]; unaligned.
+    let mut flags = vec![0u8; count];
+    let mut handles = vec![INVALID_HANDLE_VALUE; count];
+    for slot in 0..3 {
+        flags[slot] = FOPEN | FDEV;
+        handles[slot] = null.as_raw_handle() as HANDLE;
+    }
+    for (number, handle) in descriptors {
+        flags[*number as usize] = FOPEN | FPIPE;
+        handles[*number as usize] = handle.as_raw_handle() as HANDLE;
+    }
+    let mut reserved = Vec::with_capacity(4 + count + count * 8);
+    reserved.extend_from_slice(&(count as u32).to_ne_bytes());
+    reserved.extend_from_slice(&flags);
+    for handle in &handles {
+        reserved.extend_from_slice(&(*handle as usize).to_ne_bytes());
+    }
+
+    let mut inherited: Vec<HANDLE> = vec![null.as_raw_handle() as HANDLE];
+    inherited.extend(descriptors.iter().map(|(_, h)| h.as_raw_handle() as HANDLE));
+    let mut size = 0usize;
+    unsafe { InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size) };
+    let mut list = AttributeList(vec![0u64; size.div_ceil(8).max(1)]);
+    let attributes = list.0.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
+    if unsafe { InitializeProcThreadAttributeList(attributes, 1, 0, &mut size) } == 0 {
+        let error = io::Error::last_os_error();
+        // Never initialised: nothing to delete.
+        std::mem::forget(list);
+        return Err(error);
+    }
+    if unsafe {
+        UpdateProcThreadAttribute(
+            attributes,
+            0,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize,
+            inherited.as_ptr().cast(),
+            inherited.len() * std::mem::size_of::<HANDLE>(),
+            ptr::null_mut(),
+            ptr::null(),
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+
+    let application = wide(executable.as_os_str())?;
+    let mut line = Vec::new();
+    quote(executable.as_os_str(), &mut line);
+    for argument in arguments {
+        if argument.encode_wide().any(|u| u == 0) {
+            return Err(invalid());
+        }
+        line.push(u16::from(b' '));
+        quote(argument, &mut line);
+    }
+    line.push(0);
+    // "NAME=value\0" entries, sorted without regard to case, then a final NUL.
+    let mut entries: Vec<(String, Vec<u16>)> = Vec::new();
+    for (name, value) in environment {
+        let key: Vec<u16> = name.encode_wide().collect();
+        let text: Vec<u16> = value.encode_wide().collect();
+        if key.is_empty()
+            || key.contains(&0)
+            || key.contains(&u16::from(b'='))
+            || text.contains(&0)
+        {
+            return Err(invalid());
+        }
+        let sort = name.to_string_lossy().to_uppercase();
+        if entries.iter().any(|(other, _)| *other == sort) {
+            return Err(invalid());
+        }
+        let mut entry = key;
+        entry.push(u16::from(b'='));
+        entry.extend(text);
+        entry.push(0);
+        entries.push((sort, entry));
+    }
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut block: Vec<u16> = entries.into_iter().flat_map(|(_, entry)| entry).collect();
+    if block.is_empty() {
+        block.push(0);
+    }
+    block.push(0);
+    let directory = wide(directory.as_os_str())?;
+
+    let mut startup: STARTUPINFOEXW = unsafe { std::mem::zeroed() };
+    startup.StartupInfo.cb = std::mem::size_of::<STARTUPINFOEXW>() as u32;
+    startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    startup.StartupInfo.hStdInput = null.as_raw_handle() as HANDLE;
+    startup.StartupInfo.hStdOutput = null.as_raw_handle() as HANDLE;
+    startup.StartupInfo.hStdError = null.as_raw_handle() as HANDLE;
+    startup.StartupInfo.cbReserved2 = reserved.len() as u16;
+    startup.StartupInfo.lpReserved2 = reserved.as_mut_ptr();
+    startup.lpAttributeList = attributes;
+    let mut created: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+    let ok = unsafe {
+        CreateProcessW(
+            application.as_ptr(),
+            line.as_mut_ptr(),
+            ptr::null(),
+            ptr::null(),
+            1,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            block.as_ptr().cast(),
+            directory.as_ptr(),
+            &startup.StartupInfo,
+            &mut created,
+        )
+    };
+    if ok == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    drop(unsafe { OwnedHandle::from_raw_handle(created.hThread) });
+    Ok(Process {
+        handle: unsafe { OwnedHandle::from_raw_handle(created.hProcess) },
+        id: created.dwProcessId,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn text(line: &[u16]) -> String {
+        String::from_utf16(line).unwrap()
+    }
+    #[test]
+    fn arguments_are_quoted_for_the_c_runtime_parser() {
+        for (argument, expected) in [
+            ("plain", "plain"),
+            ("", "\"\""),
+            ("two words", "\"two words\""),
+            (r"C:\dir\", r"C:\dir\"),
+            (r"C:\a b\", r#""C:\a b\\""#),
+            (r#"say "hi""#, r#""say \"hi\"""#),
+            (r#"back\"slash"#, r#""back\\\"slash""#),
+        ] {
+            let mut line = Vec::new();
+            quote(OsStr::new(argument), &mut line);
+            assert_eq!(text(&line), expected, "{argument}");
+        }
+    }
+
+    fn node() -> PathBuf {
+        let found = std::process::Command::new("where").arg("node.exe").output().unwrap();
+        assert!(found.status.success(), "node.exe is required for this test");
+        PathBuf::from(String::from_utf8(found.stdout).unwrap().lines().next().unwrap().trim())
+    }
+    fn line(pipe: &Pipe) -> String {
+        let mut bytes = Vec::new();
+        let mut buffer = [0u8; 4096];
+        while !bytes.ends_with(b"\n") {
+            let read = pipe.read(&mut buffer, Some(Duration::from_secs(30))).expect("child reply");
+            assert_ne!(read, 0, "child closed the channel");
+            bytes.extend_from_slice(&buffer[..read]);
+        }
+        String::from_utf8(bytes).unwrap()
+    }
+
+    const CHILD: &str = r#"
+const fs = require('fs'), net = require('net');
+let descriptor = Buffer.alloc(0);
+for (;;) { const b = Buffer.alloc(1024); const n = fs.readSync(3, b, 0, 1024, null); if (!n) break; descriptor = Buffer.concat([descriptor, b.subarray(0, n)]); }
+fs.closeSync(3);
+const kind = fd => { try { const s = fs.fstatSync(fd); return s.isFIFO() ? 'pipe' : s.isSocket() ? 'socket' : 'other'; } catch { return 'closed'; } };
+const renewal = new net.Socket({ fd: 4, readable: true, writable: true });
+const lifecycle = new net.Socket({ fd: 6, readable: true, writable: true });
+renewal.on('data', chunk => renewal.write('renewal:' + chunk));
+lifecycle.on('data', chunk => lifecycle.write('lifecycle:' + chunk));
+renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4), five: kind(5), six: kind(6), seven: kind(7),
+  probe: process.env.BLACKCRAB_PROBE, variables: Object.keys(process.env).length, argument: process.argv[process.argv.length - 1], directory: process.cwd() }) + '\n');
+"#;
+
+    #[test]
+    fn a_node_child_receives_only_the_listed_descriptors_and_environment() {
+        let node = node();
+        let (bootstrap, renewal, lifecycle) = (channel().unwrap(), channel().unwrap(), channel().unwrap());
+        let unrelated = channel().unwrap();
+        let directory = std::env::temp_dir();
+        let root = std::env::var_os("SystemRoot").unwrap();
+        let process = spawn(
+            &node,
+            &["-e".into(), CHILD.into(), "an argument with \"quotes\" and spaces".into()],
+            &[("SystemRoot".into(), root), ("BLACKCRAB_PROBE".into(), "only this".into())],
+            &directory,
+            &[(3, &bootstrap.theirs), (4, &renewal.theirs), (6, &lifecycle.theirs)],
+        )
+        .unwrap();
+        // The child holds its own copies; ours would keep the pipes open.
+        drop((bootstrap.theirs, renewal.theirs, lifecycle.theirs));
+        let second = Some(Duration::from_secs(10));
+        bootstrap.ours.write_all(b"{\"version\":1}", second).unwrap();
+        // Closing our end is the end-of-descriptor signal.
+        drop(bootstrap.ours);
+
+        let report = line(&renewal.ours);
+        assert!(report.contains(r#""descriptor":"{\"version\":1}""#), "{report}");
+        assert!(report.contains(r#""four":"pipe""#), "{report}");
+        assert!(report.contains(r#""five":"closed""#), "{report}");
+        assert!(report.contains(r#""six":"pipe""#), "{report}");
+        assert!(report.contains(r#""seven":"closed""#), "{report}");
+        assert!(report.contains(r#""probe":"only this""#), "{report}");
+        assert!(report.contains(r#""argument":"an argument with \"quotes\" and spaces""#), "{report}");
+        // Exactly what was passed: no inherited PATH, USERPROFILE or the like.
+        assert!(report.contains(r#""variables":2"#), "{report}");
+
+        // A read with nothing to receive times out and loses nothing; a
+        // pending read on one channel does not block a write on it.
+        let mut scratch = [0u8; 16];
+        let quiet = renewal.ours.read(&mut scratch, Some(Duration::from_millis(200)));
+        assert_eq!(quiet.unwrap_err().kind(), io::ErrorKind::TimedOut);
+        std::thread::scope(|scope| {
+            let waiting = scope.spawn(|| line(&renewal.ours));
+            std::thread::sleep(Duration::from_millis(200));
+            renewal.ours.write_all(b"ping\n", second).unwrap();
+            assert_eq!(waiting.join().unwrap(), "renewal:ping\n");
+        });
+        lifecycle.ours.write_all(b"activate\n", second).unwrap();
+        assert_eq!(line(&lifecycle.ours), "lifecycle:activate\n");
+
+        assert_eq!(process.wait(Duration::from_millis(50)).unwrap(), None);
+        process.terminate().unwrap();
+        assert_eq!(process.wait(Duration::from_secs(10)).unwrap(), Some(1));
+        // With the child gone its ends are closed: reads report end of stream.
+        assert_eq!(renewal.ours.read(&mut scratch, second).unwrap(), 0);
+        drop(unrelated);
+    }
+
+    #[test]
+    fn invalid_descriptor_numbers_and_environment_are_refused_before_spawning() {
+        let pipe = channel().unwrap();
+        let other = channel().unwrap();
+        let here = std::env::temp_dir();
+        let program = PathBuf::from(r"C:\nonexistent\never-started.exe");
+        for descriptors in [
+            vec![(2u32, &pipe.theirs)],
+            vec![(MAX_DESCRIPTOR + 1, &pipe.theirs)],
+            vec![(3, &pipe.theirs), (3, &other.theirs)],
+        ] {
+            let error = spawn(&program, &[], &[], &here, &descriptors).err().unwrap();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        }
+        for environment in [
+            vec![(OsString::from("A=B"), OsString::from("x"))],
+            vec![(OsString::from(""), OsString::from("x"))],
+            vec![(OsString::from("Path"), OsString::from("x")), (OsString::from("PATH"), OsString::from("y"))],
+        ] {
+            let error = spawn(&program, &[], &environment, &here, &[]).err().unwrap();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        }
+    }
+}

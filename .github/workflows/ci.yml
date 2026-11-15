@@ -190,12 +190,13 @@ jobs:
 
       # Owner/DACL checks, private directories and the payload cache can only
       # be exercised against real NTFS security descriptors.
-      - name: private storage and payload cache tests (windows)
+      # The descriptor spawn test starts the runner's node.exe as the child.
+      - name: private storage, payload cache and descriptor spawn tests (windows)
         working-directory: src-tauri
         env:
           CARGO_PROFILE_DEV_DEBUG: '0'
           CARGO_PROFILE_TEST_DEBUG: '0'
-        run: cargo test --locked --lib -- managed_private_windows managed_payload::windows
+        run: cargo test --locked --lib -- managed_private_windows managed_payload::windows managed_spawn_windows
 
   host-core-prototype:
     name: host core (isolated process smoke)

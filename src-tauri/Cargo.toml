@@ -62,7 +62,7 @@ blackcrab-relay = { path = "../apps/relay" }
 
 [target.'cfg(windows)'.dependencies]
 # Owner/DACL verification and private directory creation for native storage.
-windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Pipes", "Win32_System_Threading"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "=1.8.0"

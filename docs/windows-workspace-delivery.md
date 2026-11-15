@@ -617,6 +617,31 @@ Findings from the real runs on the runner (PR323):
   and stop, start and uninstall are then refused as needing recovery, as on
   macOS and Linux. Windows has no recovery path yet other than signing out.
 
+Step 4f-2 merged as PR323 (758debc6c73a69becb80166a8e741b92a9d46de4).
+
+## Step 4f-3a — Root's Windows workspace launch
+
+- `managed_workspace_windows.rs` (standalone, type-checked off-runner): the
+  account home from the process token (`GetUserProfileDirectoryW`, at its
+  real path, not modifiable by others); `prepare_profile` (private parent,
+  profile created with the protected DACL, marker, real path, private `tmp`);
+  the exact environment of step 3b with `USERPROFILE` from the token; the
+  three channels at descriptors 3, 4 and 6; and window activation over 6.
+- `managed_desktop_windows.rs`: `NativeDesktop`, `NativeDesktopOwner` and
+  `launch` for Windows, in the same order as the Unix launch: verify the
+  package, bind to the running service, start, pair, re-check the binding,
+  write the descriptor once, serve renewals for our captured process only.
+  A working directory cannot be a `\\?\` path, so the canonical package
+  paths are given in plain form.
+- Not on Windows yet: the update channel (descriptor 5) and the browser
+  channel; a binding that carries a browser capability is refused.
+- No entry point reaches this yet: `managed_native_entry` is still Unix-only
+  (step 4f-3b).
+- CI: the Windows host job now also builds the workspace. After the service
+  is attached and paired, the lifecycle test opens the built workspace through
+  `NativeDesktopOwner` and requires `visible: true`, the process still running
+  20 seconds later, a second open to reuse it, and a second activation.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

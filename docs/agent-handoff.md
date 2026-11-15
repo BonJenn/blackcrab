@@ -1,6 +1,18 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 4f-2: Root controls the service
+## Current checkpoint — Windows step 4f-3a: Root's workspace launch
+
+Steps1 to 4f-2 are merged (PR308–323; stage 758debc6c73a69becb80166a8e741b92a9d46de4).
+Worktree P/windows-workspace-delivery-044, branch feat/windows-workspace-launch:
+the Windows `NativeDesktopOwner`/`launch` and a CI open of the real built
+workspace against the real service. Read "Step 4f-3a" in
+docs/windows-workspace-delivery.md. Next: 4f-3b enable `managed_native_entry`
+on Windows, step 5 browser channel, step 6 packaging and installed acceptance.
+Nothing is enabled for Windows users. Mac payload changed in PR310/311: **redo
+Mac native acceptance before0.4.4**. **0.4.4 is not published**; consult the
+owner before any tag or publication.
+
+## Previous checkpoint — Windows step 4f-2: Root controls the service
 
 Steps1 to 4f-1 are merged (PR308–322; stage 452a7a0a2476b0700f2f6b9705fa5512ad62d3d7).
 Worktree P/windows-workspace-delivery-044, branch feat/windows-service-control:

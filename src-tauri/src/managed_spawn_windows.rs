@@ -71,6 +71,12 @@ fn wide(text: &OsStr) -> io::Result<Vec<u16>> {
 /// that has closed reads as end of stream.
 pub(crate) struct Pipe(OwnedHandle);
 impl Pipe {
+    /// Our end of a channel whose other end a test plays itself. The handle
+    /// must be overlapped, as a `ChildEnd::Duplex` child end is.
+    #[cfg(test)]
+    pub(crate) fn adopt(handle: OwnedHandle) -> Self {
+        Self(handle)
+    }
     fn transfer(
         &self,
         timeout: Option<Duration>,
@@ -119,6 +125,24 @@ impl Pipe {
             Err(error) if error.raw_os_error() == Some(ERROR_BROKEN_PIPE as i32) => Ok(0),
             other => other,
         }
+    }
+    /// How many bytes the peer has written that have not been read yet.
+    pub(crate) fn pending(&self) -> io::Result<u32> {
+        let mut available = 0;
+        if unsafe {
+            windows_sys::Win32::System::Pipes::PeekNamedPipe(
+                self.0.as_raw_handle() as HANDLE,
+                ptr::null_mut(),
+                0,
+                ptr::null_mut(),
+                &mut available,
+                ptr::null_mut(),
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(available)
     }
     /// Writes all of `bytes`, each transfer bounded by `timeout`.
     pub(crate) fn write_all(&self, mut bytes: &[u8], timeout: Option<Duration>) -> io::Result<()> {

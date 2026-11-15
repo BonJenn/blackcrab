@@ -19,6 +19,15 @@ mod account_home;
 #[path = "managed_desktop_lifecycle.rs"]
 mod lifecycle;
 
+#[cfg(windows)]
+#[path = "managed_desktop_windows.rs"]
+mod windows_launch;
+#[cfg(windows)]
+#[allow(unused_imports)]
+pub(super) use windows_launch::{launch, NativeDesktop, NativeDesktopOwner};
+#[cfg(all(test, windows))]
+pub(crate) use windows_launch::open_built_workspace_for_test;
+
 #[cfg(unix)]
 pub(crate) fn native_account_home() -> Result<PathBuf, String> {
     account_home::account_home()

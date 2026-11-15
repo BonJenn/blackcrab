@@ -51,7 +51,8 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
  }
  const supported=['darwin-arm64','linux-x64'].includes(`${platform}-${arch}`);
  if(desktop!==undefined && !supported)throw Error('Managed desktop package requires darwin-arm64 or linux-x64 target');
- if(serviceHost!==undefined && !supported)throw Error('Managed service package requires darwin-arm64 or linux-x64 target');
+ // The Windows service payload is archived for native tests and the helper build; the Windows desktop package is not accepted yet.
+ if(serviceHost!==undefined && !supported && `${platform}-${arch}`!=='win32-x64')throw Error('Managed service package requires darwin-arm64, linux-x64 or win32-x64 target');
  const nextEnv={...env};
  delete nextEnv.BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256;
@@ -93,11 +94,13 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
   await fs.chmod(stage,0o700);
   const name=`managed-${role}-payload.tar.gz`, archive=path.join(stage,name);
   const metadataFlags=process.platform==='darwin'?['--no-fflags','--no-mac-metadata']:[];
-  const ownerFlags=process.platform==='darwin'?['--uid','0','--gid','0','--uname','root','--gname','wheel']:['--owner=0','--group=0','--numeric-owner'];
-  await run('/usr/bin/tar',['-czf',archive,'--format','pax','--no-xattrs','--no-acls',...metadataFlags,...ownerFlags,'-C',root,'--',...(await fs.readdir(root)).sort()],{env:{...process.env,COPYFILE_DISABLE:'1'},maxBuffer:1024*1024});
+  // Windows ships bsdtar, which takes the same owner options as macOS.
+  const ownerFlags=process.platform==='linux'?['--owner=0','--group=0','--numeric-owner']:['--uid','0','--gid','0','--uname','root','--gname','wheel'];
+  const tar=process.platform==='win32'?path.join(process.env.SystemRoot??'C:\\Windows','System32','tar.exe'):'/usr/bin/tar';
+  await run(tar,['-czf',archive,'--format','pax','--no-xattrs','--no-acls',...metadataFlags,...ownerFlags,'-C',root,'--',...(await fs.readdir(root)).sort()],{env:{...process.env,COPYFILE_DISABLE:'1'},maxBuffer:1024*1024});
   // Roundtrip into private staging before exposing a resource map; native extraction has its own bounded parser.
   const unpack=path.join(stage,`roundtrip-${role}`);await fs.mkdir(unpack,{mode:0o700});
-  await run('/usr/bin/tar',['-xzpf',archive,'--no-same-owner','--no-acls','--no-xattrs',...metadataFlags,'-C',unpack],{env:{...process.env,COPYFILE_DISABLE:'1'},maxBuffer:1024*1024});
+  await run(tar,['-xzpf',archive,'--no-same-owner','--no-acls','--no-xattrs',...metadataFlags,'-C',unpack],{env:{...process.env,COPYFILE_DISABLE:'1'},maxBuffer:1024*1024});
   await verify(unpack);
   if(verifyRoundtrip)await verifyRoundtrip({role:role==='host'&&serviceHost!==undefined?'serviceHost':role,root:unpack});
   if(JSON.stringify(tree)!==JSON.stringify(await checkArchiveTree(unpack)))throw Error('Archive mode/link topology changed');

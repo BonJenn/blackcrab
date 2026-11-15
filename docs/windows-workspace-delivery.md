@@ -534,6 +534,29 @@ type-checks the patched server sources.
 Still unproven until Root can install a service on Windows: that the patched
 launcher actually starts, finds its helper and stops cleanly.
 
+Step 4e-2 merged as PR321 (8ba647d7f0d5290374e8535cbdd935d95fdf18a7). The
+payload built on windows-2022 with 73 source records, which type-checked the
+patched server sources.
+
+## Step 4f-1 — payload archive and native helper for Windows
+
+- `scripts/managed-native-resources.mjs` archives a Windows **service** payload
+  (the Windows desktop package is still refused there). It runs Windows' own
+  `tar.exe` (bsdtar) by absolute path, with the owner options macOS uses, and
+  keeps the round-trip check: extract, re-verify, compare the tree.
+- `scripts/prepare-service-issuer.mjs` builds the helper for
+  `x86_64-pc-windows-msvc` as `blackcrab-issuer.exe` and requires a PE x86-64
+  executable. No signing: Authenticode belongs to release packaging, and Root's
+  pinned digest binds the bytes.
+- The helper is built for the Windows subsystem. It is also what the scheduled
+  task will run, and a console-subsystem program would open a console window
+  at every sign-in. Its private pipes work the same.
+- The Windows CI job now archives the payload, builds the helper pinned to
+  that payload's manifest, and checks it refuses outside its installed
+  location: exit 64 for no argument or an unknown one, exit 1 for its real
+  argument when not installed. It exports the pins, archive and helper path
+  for the native tests that follow.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

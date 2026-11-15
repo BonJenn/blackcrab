@@ -7,6 +7,10 @@ on:
       - fork-integration/boot-service/**
       - managed-cloud/client-config.mjs
       - scripts/build-windows-host-ci.mjs
+      - scripts/managed-native-resources.mjs
+      - scripts/prepare-service-issuer.mjs
+      - src-tauri/src/service_issuer_main.rs
+      - src-tauri/src/managed_service*.rs
       - .github/workflows/managed-windows-host.yml
   workflow_dispatch:
 
@@ -19,7 +23,7 @@ concurrency:
 
 jobs:
   service-payload:
-    name: Windows service payload build
+    name: Windows service payload and helper
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
@@ -32,11 +36,14 @@ jobs:
         with:
           node-version: '26.12.1'
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
       - run: npm ci --ignore-scripts
       # The producer starts pnpm directly, so it needs the standalone
       # executable, not the script npm would install.
       - run: npm install --global @pnpm/exe@12.14.0 --ignore-scripts
-      - name: Build and verify the real pinned Windows service payload
+      - name: Build the real pinned Windows service payload, its archive and the native helper
         shell: bash
         run: |
           PNPM="$(find "$(npm root -g)" -name pnpm.exe | head -1)"

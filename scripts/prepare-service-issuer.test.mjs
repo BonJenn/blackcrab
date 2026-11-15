@@ -79,6 +79,27 @@ test('Linux embeds the native ELF helper without invoking Apple signing or notar
   await fs.writeFile(built, 'short');
   await assert.rejects(prepareServiceIssuer(f), /ELF64 x86-64/);
   const before=f.calls.length;
-  await assert.rejects(prepareServiceIssuer({...f,target:'x86_64-pc-windows-msvc'}), /darwin-arm64 or linux-x64/);
+  await assert.rejects(prepareServiceIssuer({...f,target:'aarch64-pc-windows-msvc'}), /darwin-arm64, linux-x64 or win32-x64/);
   assert.equal(f.calls.length,before);
+});
+
+test('Windows embeds the native PE helper under its .exe name without Apple signing', async t => {
+  const f = await fixture(t, true);
+  f.target = 'x86_64-pc-windows-msvc';
+  const built = path.join(f.cwd, 'target', f.target, 'release/blackcrab-service-issuer.exe');
+  await fs.mkdir(path.dirname(built), {recursive:true});
+  const pe = Buffer.alloc(256);
+  pe.writeUInt16LE(0x5a4d,0); pe.writeUInt32LE(128,60); pe.writeUInt32LE(0x00004550,128); pe.writeUInt16LE(0x8664,132);
+  await fs.writeFile(built, pe);
+  const result = await prepareServiceIssuer(f); t.after(result.cleanup);
+  assert.equal(path.basename(result.path), 'blackcrab-issuer.exe');
+  assert((await fs.readFile(result.path)).equals(pe));
+  assert.equal(f.calls.some(c=>c.command.startsWith('/usr/bin/')),false);
+  assert.equal(result.notarizationSubmissionId,undefined);
+  for (const change of [b=>b.writeUInt16LE(0x5a4e,0), b=>b.writeUInt32LE(0x00004551,128), b=>b.writeUInt16LE(0xaa64,132), b=>b.writeUInt32LE(4096,60)]) {
+    const wrong=Buffer.from(pe); change(wrong); await fs.writeFile(built,wrong);
+    await assert.rejects(prepareServiceIssuer(f), /PE x86-64/);
+  }
+  await fs.writeFile(built, 'short');
+  await assert.rejects(prepareServiceIssuer(f), /PE x86-64/);
 });

@@ -453,29 +453,44 @@ mod tests {
         assert!(found.status.success(), "node.exe is required for this test");
         PathBuf::from(String::from_utf8(found.stdout).unwrap().lines().next().unwrap().trim())
     }
-    fn line(pipe: &Pipe) -> String {
+    fn try_line(pipe: &Pipe) -> Result<String, String> {
         let mut bytes = Vec::new();
         let mut buffer = [0u8; 4096];
         while !bytes.ends_with(b"\n") {
-            let read = pipe.read(&mut buffer, Some(Duration::from_secs(30))).expect("child reply");
-            assert_ne!(read, 0, "child closed the channel");
-            bytes.extend_from_slice(&buffer[..read]);
+            match pipe.read(&mut buffer, Some(Duration::from_secs(30))) {
+                Ok(0) => return Err("child closed the channel".into()),
+                Ok(read) => bytes.extend_from_slice(&buffer[..read]),
+                Err(error) => return Err(format!("no child reply: {error}")),
+            }
         }
-        String::from_utf8(bytes).unwrap()
+        Ok(String::from_utf8(bytes).unwrap())
+    }
+    fn line(pipe: &Pipe) -> String {
+        try_line(pipe).unwrap()
     }
 
+    // The child's standard streams are the null device, so it records each
+    // step in a file the test prints if the child never reports.
     const CHILD: &str = r#"
 const fs = require('fs'), net = require('net');
+const trace = text => { try { fs.appendFileSync(process.argv[process.argv.length - 2], text + '\n'); } catch {} };
+process.on('uncaughtException', error => { trace('uncaught ' + (error && error.stack)); process.exit(3); });
+const kind = fd => { try { const s = fs.fstatSync(fd); return s.isFIFO() ? 'pipe' : s.isSocket() ? 'socket' : 'other'; } catch (error) { return 'closed'; } };
+trace('started ' + JSON.stringify([0, 1, 2, 3, 4, 5, 6, 7].map(kind)));
 let descriptor = Buffer.alloc(0);
-for (;;) { const b = Buffer.alloc(1024); const n = fs.readSync(3, b, 0, 1024, null); if (!n) break; descriptor = Buffer.concat([descriptor, b.subarray(0, n)]); }
+for (;;) { const b = Buffer.alloc(1024); const n = fs.readSync(3, b, 0, 1024, null); trace('read ' + n); if (!n) break; descriptor = Buffer.concat([descriptor, b.subarray(0, n)]); }
 fs.closeSync(3);
-const kind = fd => { try { const s = fs.fstatSync(fd); return s.isFIFO() ? 'pipe' : s.isSocket() ? 'socket' : 'other'; } catch { return 'closed'; } };
+trace('descriptor complete');
 const renewal = new net.Socket({ fd: 4, readable: true, writable: true });
 const lifecycle = new net.Socket({ fd: 6, readable: true, writable: true });
+trace('sockets open');
+renewal.on('error', error => trace('renewal error ' + error));
+lifecycle.on('error', error => trace('lifecycle error ' + error));
 renewal.on('data', chunk => renewal.write('renewal:' + chunk));
 lifecycle.on('data', chunk => lifecycle.write('lifecycle:' + chunk));
 renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4), five: kind(5), six: kind(6), seven: kind(7),
-  probe: process.env.BLACKCRAB_PROBE, variables: Object.keys(process.env).length, argument: process.argv[process.argv.length - 1], directory: process.cwd() }) + '\n');
+  probe: process.env.BLACKCRAB_PROBE, variables: Object.keys(process.env).length, argument: process.argv[process.argv.length - 1], directory: process.cwd() }) + '\n',
+  error => trace('report written ' + error));
 "#;
 
     #[test]
@@ -485,9 +500,20 @@ renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4),
         let unrelated = channel().unwrap();
         let directory = std::env::temp_dir();
         let root = std::env::var_os("SystemRoot").unwrap();
+        let mut nonce = [0u8; 8];
+        getrandom::getrandom(&mut nonce).unwrap();
+        let trace = directory.join(format!(
+            "blackcrab-spawn-trace-{}.txt",
+            nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        ));
         let process = spawn(
             &node,
-            &["-e".into(), CHILD.into(), "an argument with \"quotes\" and spaces".into()],
+            &[
+                "-e".into(),
+                CHILD.into(),
+                trace.clone().into_os_string(),
+                "an argument with \"quotes\" and spaces".into(),
+            ],
             &[("SystemRoot".into(), root), ("BLACKCRAB_PROBE".into(), "only this".into())],
             &directory,
             &[(3, &bootstrap.theirs), (4, &renewal.theirs), (6, &lifecycle.theirs)],
@@ -500,7 +526,14 @@ renewal.write(JSON.stringify({ descriptor: descriptor.toString(), four: kind(4),
         // Closing our end is the end-of-descriptor signal.
         drop(bootstrap.ours);
 
-        let report = line(&renewal.ours);
+        let report = try_line(&renewal.ours).unwrap_or_else(|failure| {
+            panic!(
+                "{failure}; child exit {:?}; child trace:\n{}",
+                process.wait(Duration::from_millis(0)),
+                std::fs::read_to_string(&trace).unwrap_or_else(|e| format!("<no trace: {e}>"))
+            )
+        });
+        let _ = std::fs::remove_file(&trace);
         assert!(report.contains(r#""descriptor":"{\"version\":1}""#), "{report}");
         assert!(report.contains(r#""four":"pipe""#), "{report}");
         assert!(report.contains(r#""five":"closed""#), "{report}");

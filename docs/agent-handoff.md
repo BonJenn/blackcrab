@@ -1,6 +1,19 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 4f-3b: native entry on Windows
+## Current checkpoint — Windows step 6a: the installer (order changed)
+
+Steps1 to 4f-3b are merged (PR308–325; stage 03568bfc3e8a18948b04bb410c9c3ab685453c7b).
+Step 6 (packaging, installed acceptance) now comes before step 5 (browser
+channel); see "Order change" in docs/windows-workspace-delivery.md. Worktree
+P/windows-workspace-delivery-044, branch feat/windows-installer: resource
+preparation accepts the Windows desktop package, and the Windows host job
+builds, installs and verifies an NSIS installer. Next: 6b installed graphical
+acceptance that reads the page (settles the blank-window finding), then
+signing/updater metadata, then step 5. Mac payload changed in PR310/311:
+**redo Mac native acceptance before0.4.4**. **0.4.4 is not published**;
+consult the owner before any tag or publication.
+
+## Previous checkpoint — Windows step 4f-3b: native entry on Windows
 
 Steps1 to 4f-3a are merged (PR308–324; stage 88c2478964e082dcd5de83eccc083788c404b996).
 Worktree P/windows-workspace-delivery-044, branch feat/windows-native-entry:

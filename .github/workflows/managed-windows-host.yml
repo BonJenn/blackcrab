@@ -20,6 +20,9 @@ on:
       - src-tauri/src/managed_launcher.rs
       - managed-desktop/**
       - scripts/build-portable-desktop-ci.mjs
+      - scripts/build-windows-installers-ci.mjs
+      - scripts/tauri-build.mjs
+      - src-tauri/tauri.conf.json
       - src-tauri/src/managed_spawn_windows.rs
       - src-tauri/src/lib.rs
       - .github/workflows/managed-windows-host.yml
@@ -80,6 +83,10 @@ jobs:
         # verification takes about seven seconds against half a second in a
         # release build, and the launch's eight-second pairing limit is missed.
         run: cargo test --locked --lib --config "profile.dev.package.sha2.opt-level=3" --config "profile.test.package.sha2.opt-level=3" managed_host::windows_service_tests::actual_packaged_windows_service_lifecycle -- --exact --ignored --nocapture
+      # The normal launcher with both real payloads, as an NSIS installer,
+      # installed silently for this user into a directory of this run.
+      - name: Build, install and verify the normal Windows installer
+        run: node scripts/build-windows-installers-ci.mjs --root "${{ runner.temp }}/windows-installers" --host "$env:BLACKCRAB_WINDOWS_HOST_ARTIFACT" --desktop "$env:BLACKCRAB_NATIVE_PACKAGE_ROOT"
       - uses: actions/upload-artifact@v6
         if: always()
         with:
@@ -88,5 +95,7 @@ jobs:
             ${{ runner.temp }}/windows-host-build/result.json
             ${{ runner.temp }}/windows-host-build/workspace-attached*.png
             ${{ runner.temp }}/windows-host-build/workspace-logs/*
+            ${{ runner.temp }}/windows-installers/result.json
+            ${{ runner.temp }}/windows-installers/logs/*.log
             ${{ runner.temp }}/windows-host-build/cache/blackcrab-managed-build-*/*.log
           if-no-files-found: warn

@@ -693,6 +693,34 @@ test passes, and the workspace's own records were collected:
   page that failed to load from a screen capture that cannot see it. Step 6's
   installed acceptance must read the page itself, as the Linux one does.
 
+Step 4f-3b merged as PR325 (03568bfc3e8a18948b04bb410c9c3ab685453c7b). With the
+PowerShell directory on its path the workspace starts Windows PowerShell; only
+the optional `pwsh.exe` is still not found. The blank window did not change.
+
+## Order change (2026-11-15): packaging before the browser channel
+
+Step 6 now comes before step 5. The browser channel is an add-on for in-app
+browser previews and is large: a named-pipe transport on the service side, a
+Windows form of the capability in Root, the issuer and the workspace
+descriptor, and new records in both registries. Packaging is what makes
+anything installable, and its installed acceptance, which must read the page
+itself, is the only way to settle the blank window. Until step 5 a Windows
+workspace runs without the native browser channel.
+
+## Step 6a — the Windows installer
+
+- `scripts/managed-native-resources.mjs` accepts a Windows desktop package.
+- `scripts/tauri-build.mjs` starts the Tauri CLI's own script on Windows (a
+  command script needs a shell there, and a shell would mangle the JSON
+  configuration argument) and builds the helper through a shell-aware runner.
+- `scripts/build-windows-installers-ci.mjs` (CI only): verifies both real
+  payloads, builds the normal launcher with them as an NSIS installer for the
+  current user, installs it silently into a directory of the run, and checks
+  the installed launcher and both payload archives: each archive must unpack
+  to a tree that verifies and carries the same manifest as its input.
+- No code signing and no updater artifacts. An unsigned installer shows a
+  SmartScreen warning on a real PC; signing is a release decision.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

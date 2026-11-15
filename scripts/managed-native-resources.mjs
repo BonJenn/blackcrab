@@ -49,10 +49,10 @@ export async function prepareManagedNativeResources({desktop,host,serviceHost,en
   if(!match)throw Error('Managed resources require a supported single-architecture target');
   arch=match[1]==='aarch64'?'arm64':'x64';platform=match[2]==='apple-darwin'?'darwin':match[2]==='pc-windows-msvc'?'win32':'linux';
  }
- const supported=['darwin-arm64','linux-x64'].includes(`${platform}-${arch}`);
- if(desktop!==undefined && !supported)throw Error('Managed desktop package requires darwin-arm64 or linux-x64 target');
- // The Windows service payload is archived for native tests and the helper build; the Windows desktop package is not accepted yet.
- if(serviceHost!==undefined && !supported && `${platform}-${arch}`!=='win32-x64')throw Error('Managed service package requires darwin-arm64, linux-x64 or win32-x64 target');
+ // A direct (non-service) host is not built for Windows; the desktop package and the service payload are.
+ const supported=['darwin-arm64','linux-x64','win32-x64'].includes(`${platform}-${arch}`);
+ if(desktop!==undefined && !supported)throw Error('Managed desktop package requires darwin-arm64, linux-x64 or win32-x64 target');
+ if(serviceHost!==undefined && !supported)throw Error('Managed service package requires darwin-arm64, linux-x64 or win32-x64 target');
  const nextEnv={...env};
  delete nextEnv.BLACKCRAB_EMBEDDED_DESKTOP_MANIFEST_SHA256;
  delete nextEnv.BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256;

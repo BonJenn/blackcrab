@@ -96,6 +96,13 @@ async fn actual_packaged_windows_service_lifecycle() {
         let runtime = fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)?;
         stage("attached and paired");
 
+        // With a built workspace present, Root's own owner opens it against
+        // this running service and its window must show.
+        if let Some(package) = std::env::var_os("BLACKCRAB_NATIVE_PACKAGE_ROOT") {
+            crate::managed_desktop::open_built_workspace_for_test(host.clone(), PathBuf::from(package)).await?;
+            stage("workspace opened, attached and visible");
+        }
+
         // A second launcher instance must attach to the SAME running service
         // and never replace its process, selection or environment.
         let reopened = ManagedHost::new(owner.clone()).with_bundled_payload(payload);

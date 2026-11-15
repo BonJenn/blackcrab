@@ -200,7 +200,7 @@ jobs:
         # another test starts in that moment is on that console too. The tests
         # that interrupt therefore run one at a time, apart from the rest.
         run: |
-          cargo test --locked --lib -- --nocapture --skip managed_spawn_windows --skip managed_service_run_windows managed_private_windows managed_payload::windows managed_service_task_windows boot_session issuer_io service_issuer
+          cargo test --locked --lib -- --nocapture --skip managed_spawn_windows --skip managed_service_run_windows managed_private_windows managed_payload::windows managed_service_task_windows managed_workspace_windows boot_session issuer_io service_issuer
           cargo test --locked --lib -- --nocapture --test-threads=1 managed_spawn_windows managed_service_run_windows
 
   host-core-prototype:

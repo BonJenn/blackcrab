@@ -617,6 +617,48 @@ Findings from the real runs on the runner (PR323):
   and stop, start and uninstall are then refused as needing recovery, as on
   macOS and Linux. Windows has no recovery path yet other than signing out.
 
+Step 4f-2 merged as PR323 (758debc6c73a69becb80166a8e741b92a9d46de4).
+
+## Step 4f-3a — Root's Windows workspace launch
+
+- `managed_workspace_windows.rs` (standalone, type-checked off-runner): the
+  account home from the process token (`GetUserProfileDirectoryW`, at its
+  real path, not modifiable by others); `prepare_profile` (private parent,
+  profile created with the protected DACL, marker, real path, private `tmp`);
+  the exact environment of step 3b with `USERPROFILE` from the token; the
+  three channels at descriptors 3, 4 and 6; and window activation over 6.
+- `managed_desktop_windows.rs`: `NativeDesktop`, `NativeDesktopOwner` and
+  `launch` for Windows, in the same order as the Unix launch: verify the
+  package, bind to the running service, start, pair, re-check the binding,
+  write the descriptor once, serve renewals for our captured process only.
+  A working directory cannot be a `\\?\` path, so the canonical package
+  paths are given in plain form.
+- Not on Windows yet: the update channel (descriptor 5) and the browser
+  channel; a binding that carries a browser capability is refused.
+- No entry point reaches this yet: `managed_native_entry` is still Unix-only
+  (step 4f-3b).
+- CI: the Windows host job now also builds the workspace. After the service
+  is attached and paired, the lifecycle test opens the built workspace through
+  `NativeDesktopOwner` and requires `visible: true`, the process still running
+  20 seconds later, a second open to reuse it, and a second activation.
+
+Result on the runner (PR324): the built workspace, started by
+`NativeDesktopOwner` against the real service, paired, answered
+`visible: true` on the third request, was still running 20 seconds later, and
+a second open reused it. Findings:
+
+- Unoptimized, one payload verification took about 7 s and the launch missed
+  its eight-second pairing limit. The job now compiles `sha2` optimized for
+  this test (0.67 s). A release build is unaffected.
+- The first activation request is answered "not visible" while the window is
+  still being created; Root's launcher asks up to sixty times, and the test
+  now does the same.
+- **Open: the window's content was blank white in the screenshot**, taken
+  more than 20 seconds after launch. The frame, title bar and taskbar icon
+  are there. Whether the interface failed to load or the runner simply cannot
+  render it is not known; nothing yet reads the page on Windows as the Linux
+  acceptance does. Do not count the Windows interface as shown working.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

@@ -118,7 +118,7 @@ async fn actual_packaged_windows_service_lifecycle() {
     if let Ok(status) = &removed {
         assert!(!status.installed && !status.loaded);
     }
-    assert!(removed.is_ok(), "actual service cleanup failed: {removed:?}");
+    assert!(removed.is_ok(), "actual service cleanup failed: {:?}", removed.as_ref().err());
     result.unwrap();
     assert_eq!(host.status().await.state, "stopped");
     assert!(fs::read(owner.join("configuration.json")).unwrap() == configuration);

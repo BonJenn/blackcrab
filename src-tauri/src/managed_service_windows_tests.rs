@@ -72,7 +72,9 @@ async fn actual_packaged_windows_service_lifecycle() {
 
     // Cleanup stays outside the assertions so an ordinary failure still
     // removes exactly the scheduled task this test registered.
+    let began = std::time::Instant::now();
     let result: Result<(), String> = async {
+        let stage = |name: &str| println!("WINDOWS_SERVICE_STAGE {name} at {}s", began.elapsed().as_secs());
         macro_rules! ensure {
             ($condition:expr, $($message:tt)+) => {
                 if !$condition {
@@ -81,12 +83,14 @@ async fn actual_packaged_windows_service_lifecycle() {
             };
         }
         let installed = host.control_service(ServiceAction::Install).await?;
+        stage("installed");
         ensure!(installed.installed && installed.loaded, "install left the service {}", installed.state);
         ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed");
         let binding = host.desktop_binding().await?;
         ensure!(binding.browser.is_none() && binding.environment_id == identity, "binding differs");
         ensure!(!host.desktop_pair_grant(&binding).await?.credential.is_empty(), "no pair credential");
         let runtime = fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)?;
+        stage("attached and paired");
 
         // A second launcher instance must attach to the SAME running service
         // and never replace its process, selection or environment.
@@ -96,15 +100,19 @@ async fn actual_packaged_windows_service_lifecycle() {
         ensure!(rebound.origin == binding.origin, "reopen changed the origin");
         ensure!(fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)? == runtime, "reopen replaced the service");
         drop(reopened);
+        stage("reopened");
         ensure!(host.status().await.state == "running", "not running after reopen");
 
         let stopped = host.control_service(ServiceAction::Stop).await?;
+        stage("stopped");
         ensure!(stopped.installed && !stopped.loaded, "stop left the service {}", stopped.state);
         ensure!(host.status().await.state == "stopped", "host not stopped");
         ensure!(host.start(None).await.is_err(), "attachment must not restart a stopped service");
         host.control_service(ServiceAction::Start).await?;
+        stage("started");
         ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed after start");
         host.control_service(ServiceAction::Restart).await?;
+        stage("restarted");
         ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed after restart");
         Ok(())
     }
@@ -122,6 +130,11 @@ async fn actual_packaged_windows_service_lifecycle() {
         }
     }
     let removed = host.control_service(ServiceAction::Uninstall).await;
+    println!(
+        "WINDOWS_SERVICE_STAGE uninstalled at {}s\n--- service-supervisor.log\n{}",
+        began.elapsed().as_secs(),
+        tail(&owner.join("logs/service-supervisor.log"), 3000)
+    );
     if let Ok(status) = &removed {
         assert!(!status.installed && !status.loaded);
     }

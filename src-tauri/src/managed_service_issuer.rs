@@ -819,7 +819,7 @@ pub(super) fn run_service_supervisor() -> Result<i32> {
     // lines name a step and a system error, never a path or a secret.
     let outcome = supervise_selected(&owner, &binding);
     let line = match &outcome {
-        Ok(code) => format!("supervisor ended: exit {code}"),
+        Ok((code, how)) => format!("supervisor ended: {how}, exit {code}"),
         Err(reason) => format!("supervisor failed: {reason}"),
     };
     if let Ok(mut log) = fs::OpenOptions::new()
@@ -832,10 +832,10 @@ pub(super) fn run_service_supervisor() -> Result<i32> {
             .map_or(0, |elapsed| elapsed.as_secs());
         let _ = writeln!(log, "{seconds} {line}");
     }
-    outcome.map_err(|_| invalid())
+    outcome.map(|(code, _)| code).map_err(|_| invalid())
 }
 #[cfg(windows)]
-fn supervise_selected(owner: &Path, binding: &Binding) -> Result<i32> {
+fn supervise_selected(owner: &Path, binding: &Binding) -> Result<(i32, &'static str)> {
     use crate::managed_service_run_windows::{supervise, Outcome, Plan};
     use std::ffi::OsString;
     let host = ManagedHost::new(owner.to_path_buf());
@@ -884,10 +884,11 @@ fn supervise_selected(owner: &Path, binding: &Binding) -> Result<i32> {
         session_grace: Duration::from_secs(4),
     };
     match supervise(&plan) {
-        Ok(Outcome::Exited(code)) => Ok(code as i32),
-        Ok(Outcome::Stopped(_)) | Ok(Outcome::Killed) => Ok(0),
+        Ok(Outcome::Exited(code)) => Ok((code as i32, "service exited by itself")),
+        Ok(Outcome::Stopped(_)) => Ok((0, "service stopped cleanly on request")),
+        Ok(Outcome::Killed) => Ok((0, "service did not stop in time and was ended")),
         // Another supervisor already runs this service in this session.
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(0),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok((0, "already running")),
         Err(error) => Err(format!("supervise ({:?}, os {:?})", error.kind(), error.raw_os_error())),
     }
 }

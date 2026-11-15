@@ -60,6 +60,13 @@ function Get-ServiceEvidence {
     $path = Join-Path $owner $file
     if (Test-Path -LiteralPath $path) { $evidence[$file] = ((Get-Content -LiteralPath $path -Tail 60) -join "`n") -replace '[A-Za-z0-9_\-=]{32,}', '[redacted]' }
   }
+  # The longest paths in the payload cache: many Windows programs and
+  # libraries cannot open a path longer than 260 characters.
+  $cache = Join-Path $appData 'managed-payloads-v1'
+  if (Test-Path -LiteralPath $cache) {
+    $longest = @(Get-ChildItem -LiteralPath $cache -Recurse -File -Force -ErrorAction SilentlyContinue | Sort-Object { $_.FullName.Length } -Descending | Select-Object -First 5)
+    $evidence['longest-cache-paths'] = (@($longest | ForEach-Object { "$($_.FullName.Length) $($_.FullName.Substring($appData.Length))" })) -join "`n"
+  }
   # Failed work and answered requests in the service's and the workspace's
   # own traces: which request got the error, and why.
   $traces = [ordered]@{ service = (Join-Path $owner 'host\userdata\logs\server.trace.ndjson'); workspace = (Join-Path $owner 'native-desktop-profile-v1\userdata\logs\desktop.trace.ndjson') }

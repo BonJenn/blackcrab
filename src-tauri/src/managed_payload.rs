@@ -99,12 +99,19 @@ impl EmbeddedPayload {
         }
     }
     pub fn target_directory(&self) -> PathBuf {
-        self.cache_root.join(format!(
-            "{}-{}-{}",
-            self.role.name(),
-            self.manifest_sha256,
-            self.archive_sha256
-        ))
+        // Windows programs and libraries are still commonly limited to paths
+        // of 260 characters, and this name sits above every file of a
+        // package. Two whole digests cost 128 of those; sixteen characters of
+        // each are enough to name a directory whose contents are verified
+        // against the whole digests every time it is used.
+        #[cfg(windows)]
+        let (manifest, archive) = (
+            self.manifest_sha256.get(..16).unwrap_or(&self.manifest_sha256),
+            self.archive_sha256.get(..16).unwrap_or(&self.archive_sha256),
+        );
+        #[cfg(not(windows))]
+        let (manifest, archive) = (&self.manifest_sha256[..], &self.archive_sha256[..]);
+        self.cache_root.join(format!("{}-{manifest}-{archive}", self.role.name()))
     }
     pub fn ensure_verified(&self) -> Result<PathBuf, String> {
         self.ensure_with(|root| {

@@ -1,6 +1,20 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 4e: service payload build (frozen producer touched)
+## Current checkpoint — Windows step 4f-2: Root controls the service
+
+Steps1 to 4f-1 are merged (PR308–322; stage 452a7a0a2476b0700f2f6b9705fa5512ad62d3d7).
+Worktree P/windows-workspace-delivery-044, branch feat/windows-service-control:
+Root's service setup and control on Windows (`managed_service_windows.rs`) and
+the real lifecycle test in managed-windows-host.yml. The full crate cannot be
+type-checked for Windows on the Mac, so CI is the compiler: expect a few rounds.
+Read "Step 4f-2" in docs/windows-workspace-delivery.md. Still to do after it:
+4f-3 launch wiring (`launch_verified`, enable `managed_native_entry`), step 5
+browser channel, step 6 packaging and installed acceptance. Nothing is enabled
+for Windows users. Mac payload changed in PR310/311: **redo Mac native
+acceptance before0.4.4**. **0.4.4 is not published**; consult the owner before
+any tag or publication.
+
+## Previous checkpoint — Windows step 4e: service payload build (frozen producer touched)
 
 Steps1 to 4d are merged (PR308–319; stage cab68022ebebad725073dd754a689fc359b0d685):
 private storage, payload cache, descriptor spawn, workspace modules and

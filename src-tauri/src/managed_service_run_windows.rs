@@ -308,6 +308,23 @@ pub(crate) fn supervise(plan: &Plan) -> io::Result<Outcome> {
     Ok(Outcome::Killed)
 }
 
+/// Whether a supervisor for `key` is running in this session. Its stop event
+/// exists exactly as long as it does.
+pub(crate) fn is_running(key: &str) -> io::Result<bool> {
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    let name = event_name(key)?;
+    let event = unsafe { OpenEventW(SYNCHRONIZE, 0, name.as_ptr()) };
+    if event.is_null() {
+        return if unsafe { GetLastError() } == ERROR_FILE_NOT_FOUND {
+            Ok(false)
+        } else {
+            Err(io::Error::last_os_error())
+        };
+    }
+    drop(unsafe { OwnedHandle::from_raw_handle(event) });
+    Ok(true)
+}
+
 /// Asks the supervisor for `key` in this session to stop its service.
 /// `Ok(false)` means none is running.
 pub(crate) fn request_stop(key: &str) -> io::Result<bool> {

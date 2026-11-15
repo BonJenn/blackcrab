@@ -122,6 +122,23 @@ impl NativeIssuer {
         Self::open_installed(&executable, expected)
     }
     fn open_installed(executable: &Path, expected: &str) -> Result<Self> {
+        let (owner, binding) = installed_layout(executable, expected)?;
+        let owner = owner.as_path();
+        let session_lease = managed_payload::owned_lock(&owner.join("service-owner.lock"), true)
+            .map_err(|_| invalid())?;
+        let host = ManagedHost::new(owner.to_path_buf());
+        // Lock order is service-owner then launcher. Never hold launcher over IPC trial commit.
+        let transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
+            .map_err(|_| invalid())?;
+        verify_selection(&host, &binding)?;
+        Self::open_verified(owner, host, binding, session_lease, transaction)
+    }
+}
+/// The owner directory and binding this helper is installed under. Authority is
+/// the fixed layout around the running executable plus the compiled manifest
+/// pin, never a path or digest supplied by a caller.
+fn installed_layout(executable: &Path, expected: &str) -> Result<(PathBuf, Binding)> {
+    {
         // owner/issuer/<selfSHA>/blackcrab-issuer, never a request-selected root.
         if executable.file_name().and_then(|x| x.to_str()) != Some(ISSUER_NAME) {
             return Err(invalid());
@@ -163,13 +180,17 @@ impl NativeIssuer {
         {
             return Err(invalid());
         }
-        let session_lease = managed_payload::owned_lock(&owner.join("service-owner.lock"), true)
-            .map_err(|_| invalid())?;
-        let host = ManagedHost::new(owner.to_path_buf());
-        // Lock order is service-owner then launcher. Never hold launcher over IPC trial commit.
-        let transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
-            .map_err(|_| invalid())?;
-        verify_selection(&host, &binding)?;
+        Ok((owner.to_path_buf(), binding))
+    }
+}
+impl NativeIssuer {
+    fn open_verified(
+        owner: &Path,
+        host: ManagedHost,
+        binding: Binding,
+        session_lease: File,
+        transaction: File,
+    ) -> Result<Self> {
         let boot_session_id = boot_session::read_boot_session_id()?;
         // Selection remains verified under BOTH leases before reconciling prior-boot state.
         verify_selection(&host, &binding)?;
@@ -764,6 +785,89 @@ pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configu
 /// Native-only selection for an OS service plan. No deserialized caller receipt.
 pub(super) fn control_generation(host: &ManagedHost, expected_config: &Configuration) -> Result<u64> {
     Ok(attachment_binding(host, expected_config)?.generation)
+}
+/// The installed helper, which the Windows scheduled task runs, and the
+/// generation it is bound to. Same read-only selection as attachment.
+#[cfg(windows)]
+pub(super) fn service_helper(host: &ManagedHost, expected_config: &Configuration) -> Result<(PathBuf, u64)> {
+    let binding = attachment_binding(host, expected_config)?;
+    Ok((host.root.join("issuer").join(&binding.self_sha256).join(ISSUER_NAME), binding.generation))
+}
+/// Names one service instance for its scheduled task and its stop request:
+/// unique to the owner directory, generation and environment.
+#[cfg(windows)]
+pub(super) fn service_key(root: &Path, generation: u64, environment: &str) -> String {
+    let mut hash = Sha256::new();
+    hash.update(b"blackcrab-service-instance-v1\0");
+    hash.update(root.to_string_lossy().to_lowercase().as_bytes());
+    hash.update([0]);
+    hash.update(generation.to_le_bytes());
+    hash.update(environment.as_bytes());
+    format!("{:x}", hash.finalize())[..32].to_string()
+}
+/// The Windows scheduled task's action. Starts the selected service launcher
+/// under supervision and returns the process exit code: the launcher's own
+/// when it ends by itself (a failure makes the task restart it), zero after a
+/// requested stop.
+#[cfg(windows)]
+pub(super) fn run_service_supervisor() -> Result<i32> {
+    use crate::managed_service_run_windows::{supervise, Outcome, Plan};
+    use std::ffi::OsString;
+    let executable = std::env::current_exe().map_err(|_| invalid())?;
+    let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256").ok_or_else(invalid)?;
+    let (owner, binding) = installed_layout(&executable, expected)?;
+    let host = ManagedHost::new(owner.clone());
+    let config = {
+        let _transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
+            .map_err(|_| invalid())?;
+        verify_selection(&host, &binding)?
+    };
+    if config.ownership != OwnershipMode::Service {
+        return Err(invalid());
+    }
+    // The service runs provider tools and terminals, so it gets the signed-in
+    // user's ordinary Windows variables, by name, and nothing else inherited.
+    let mut environment: Vec<(OsString, OsString)> = [
+        "SystemRoot", "SystemDrive", "windir", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA",
+        "LOCALAPPDATA", "ProgramData", "ALLUSERSPROFILE", "PUBLIC", "ProgramFiles",
+        "ProgramFiles(x86)", "ProgramW6432", "CommonProgramFiles", "CommonProgramFiles(x86)",
+        "CommonProgramW6432", "ComSpec", "PATHEXT", "TEMP", "TMP", "USERNAME", "USERDOMAIN",
+        "COMPUTERNAME", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "OS",
+    ]
+    .iter()
+    .filter_map(|name| std::env::var_os(name).map(|value| (OsString::from(*name), value)))
+    .collect();
+    let mut path = config.artifact_path.clone().into_os_string();
+    if let Some(inherited) = std::env::var_os("PATH") {
+        path.push(";");
+        path.push(inherited);
+    }
+    let stamp = json!({"schema":1,"root":owner,"manifestSha256":binding.manifest_sha256,
+        "generation":binding.generation,"environmentId":binding.environment_id});
+    environment.extend([
+        (OsString::from("PATH"), path),
+        (OsString::from("T3CODE_HOME"), owner.join("host").into_os_string()),
+        (OsString::from("T3_BOOT_SERVICE_UNIT"), OsString::from("blackcrab.service")),
+        (OsString::from("BLACKCRAB_NATIVE_SERVICE_OWNER"), OsString::from(stamp.to_string())),
+    ]);
+    let plan = Plan {
+        executable: config.artifact_path.join("t3.exe"),
+        arguments: vec!["__service-launcher".into()],
+        environment,
+        directory: owner.clone(),
+        log: Some(owner.join("logs").join("boot-service.log")),
+        key: service_key(&owner, binding.generation, &binding.environment_id),
+        grace: Duration::from_secs(90),
+        // Windows allows a program only a few seconds once a session is ending.
+        session_grace: Duration::from_secs(4),
+    };
+    match supervise(&plan) {
+        Ok(Outcome::Exited(code)) => Ok(code as i32),
+        Ok(Outcome::Stopped(_)) | Ok(Outcome::Killed) => Ok(0),
+        // Another supervisor already runs this service in this session.
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(0),
+        Err(_) => Err(invalid()),
+    }
 }
 
 fn stopped_control_journal(previous: Option<&Journal>, generation: u64, current_boot: &str) -> Result<()> {

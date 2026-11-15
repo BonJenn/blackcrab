@@ -557,6 +557,38 @@ patched server sources.
   argument when not installed. It exports the pins, archive and helper path
   for the native tests that follow.
 
+Step 4f-1 merged as PR322 (452a7a0a2476b0700f2f6b9705fa5512ad62d3d7). The
+built helper refused as required on the runner: 64, 64 and 1.
+
+## Step 4f-2 — Root controls the Windows service
+
+- `managed_service_install.rs`, `managed_service_initialization.rs` and the
+  service parts of `managed_host.rs` now compile on Windows. Files are
+  checked by owner and DACL instead of UID and mode. The private browser
+  channel is not configured on Windows (`browser` stays absent) until step 5.
+- The helper has a second fixed argument, `__blackcrab-service-run-v1`. This
+  is the scheduled task's action. It verifies its own installed location and
+  the selected payload exactly as the issuer does, then supervises
+  `t3.exe __service-launcher` with an allowlisted environment, logging to
+  `<owner>\logs\boot-service.log`.
+- The task and its stop event are named by a key: SHA-256 over the lowercase
+  owner directory, the generation and the environment identity, first 32 hex
+  characters. Two owner directories never share a task.
+- `managed_service_windows.rs` is the control, in the same order as launchd
+  and systemd: one control lock, configuration and generation rechecked under
+  the launcher lock, then the action. "Installed" means our task is registered
+  exactly as written; a different task under that name is reported and left
+  alone. "Loaded" means the supervisor is running. Stop asks the supervisor
+  for a clean stop and ends the task only if that fails. Uninstall removes
+  the task and keeps configuration, issuer, journal and all data.
+- A status poll may reuse a verification of the same task for 30 seconds,
+  because exporting the task through PowerShell takes seconds. Every action
+  that changes or starts the task verifies it again.
+- `managed-windows-host.yml` now runs the ignored test
+  `actual_packaged_windows_service_lifecycle` after the build: set up in a
+  fresh private directory, install, attach, pair, reopen, stop, start,
+  restart, uninstall, with the real payload, helper and Task Scheduler.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

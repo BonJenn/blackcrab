@@ -30,6 +30,7 @@ fn new_environment_id() -> Result<String, String> {
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
     Ok(format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..]))
 }
+#[cfg(unix)]
 fn enable_native_browser(config: &mut Configuration, owner: &Path) -> Result<(), String> {
     let capability = crate::managed_browser::Capability::allocate(owner)?;
     // Browser capabilities require the same schema for Service and Direct owners.
@@ -61,11 +62,13 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
         let mut config = Configuration { schema: 1, ownership: OwnershipMode::Service,
             artifact_path: selected.version_directory().join("payload"), manifest_digest: expected.into(),
             bootstrap_secret: random_secret()?, environment_id: Some(environment_id.clone()), browser: None };
+        // Windows has no private browser channel yet, so none is configured there.
+        #[cfg(unix)]
         if native_browser_supported() && selected.supports_native_browser().map_err(|_| "The bundled service browser capability failed verification")? {
             enable_native_browser(&mut config, &owned.root)?;
         }
         owned.save_config(&config)?;
-        File::open(&owned.root).and_then(|file| file.sync_all()).map_err(io_error)?;
+        sync_directory(&owned.root)?;
         let mut installation = selected.prepare().map_err(|_| "Service runtime preparation failed; setup data was retained")?;
         installation.validate_version().map_err(|_| "Service runtime validation failed; setup data was retained")?;
         installation.commit().map_err(|_| "Service runtime publication failed; setup data was retained")?;
@@ -76,7 +79,7 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
         write_new(&owned.root.join("host/runtime/service-state.json"),
             &serde_json::to_vec(&json!({"protocol":4,"activeVersion":"0.1.7"})).map_err(io_error)?)?;
         for directory in [&userdata, &owned.root.join("host/runtime"), &owned.root.join("host")] {
-            File::open(directory).and_then(|file| file.sync_all()).map_err(io_error)?;
+            sync_directory(directory)?;
         }
         // Issuer publication takes service-owner then launcher. Release this
         // launcher lease before that call; Service configuration already fences Direct.
@@ -87,7 +90,7 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
     Ok(status("stopped", Some(&config)))
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     #[test]

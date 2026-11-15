@@ -1051,6 +1051,12 @@ fn tree_commit_test_point(event: &str) -> std::io::Result<()> {
     })
 }
 
+// Windows: directory entries cannot be flushed through a plain handle. Files
+// are flushed individually and publication renames with write-through.
+#[cfg(windows)]
+pub(super) fn sync_directories(_root: &Path) -> Result<(), String> {
+    Ok(())
+}
 #[cfg(unix)]
 pub(super) fn sync_directories(root: &Path) -> Result<(), String> {
     for entry in fs::read_dir(root).map_err(|_| invalid())? {

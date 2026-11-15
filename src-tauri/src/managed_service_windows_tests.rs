@@ -66,6 +66,7 @@ async fn actual_packaged_windows_service_lifecycle() {
     let configured = host.read_config().unwrap().unwrap();
     // No private browser channel exists on Windows yet.
     assert!(configured.ownership == OwnershipMode::Service && configured.browser.is_none());
+    let configured_path = configured.artifact_path.clone();
     let identity = configured.environment_id.unwrap();
     let retained = owner.join("host/userdata/retained-history-fixture");
     fs::write(&retained, b"retain workspace history\n").unwrap();
@@ -73,6 +74,9 @@ async fn actual_packaged_windows_service_lifecycle() {
     // Cleanup stays outside the assertions so an ordinary failure still
     // removes exactly the scheduled task this test registered.
     let began = std::time::Instant::now();
+    let verify = std::time::Instant::now();
+    let verified = crate::managed_artifact::verify(&configured_path).is_ok();
+    println!("WINDOWS_SERVICE_STAGE payload verification in this unoptimized test build: {} ms ({verified})", verify.elapsed().as_millis());
     let result: Result<(), String> = async {
         let stage = |name: &str| println!("WINDOWS_SERVICE_STAGE {name} at {}s", began.elapsed().as_secs());
         macro_rules! ensure {

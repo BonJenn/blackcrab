@@ -122,21 +122,45 @@ impl NativeIssuer {
         Self::open_installed(&executable, expected)
     }
     fn open_installed(executable: &Path, expected: &str) -> Result<Self> {
+        let began = Instant::now();
         let (owner, binding) = installed_layout(executable, expected)?;
         let owner = owner.as_path();
+        let step = |name: &str| note(owner, &format!("issuer {name} at {} ms", began.elapsed().as_millis()));
+        step("layout verified");
         let session_lease = managed_payload::owned_lock(&owner.join("service-owner.lock"), true)
-            .map_err(|_| invalid())?;
+            .map_err(|_| { step("service-owner lock refused"); invalid() })?;
         let host = ManagedHost::new(owner.to_path_buf());
         // Lock order is service-owner then launcher. Never hold launcher over IPC trial commit.
         let transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
-            .map_err(|_| invalid())?;
-        verify_selection(&host, &binding)?;
-        Self::open_verified(owner, host, binding, session_lease, transaction)
+            .map_err(|_| { step("launcher lock refused"); invalid() })?;
+        step("locks held");
+        verify_selection(&host, &binding).inspect_err(|_| step("selection refused"))?;
+        step("selection verified");
+        let opened = Self::open_verified(owner, host, binding, session_lease, transaction);
+        step(if opened.is_ok() { "open" } else { "reconciliation refused" });
+        opened
     }
 }
 /// The owner directory and binding this helper is installed under. Authority is
 /// the fixed layout around the running executable plus the compiled manifest
 /// pin, never a path or digest supplied by a caller.
+/// A step and its time, beside the service log. Windows only: there the
+/// helper has no console and no journal. Never a path or a secret.
+#[cfg(windows)]
+fn note(owner: &Path, line: &str) {
+    if let Ok(mut log) = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(owner.join("logs").join("service-supervisor.log"))
+    {
+        let seconds = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs());
+        let _ = writeln!(log, "{seconds} {line}");
+    }
+}
+#[cfg(not(windows))]
+fn note(_owner: &Path, _line: &str) {}
 fn installed_layout(executable: &Path, expected: &str) -> Result<(PathBuf, Binding)> {
     {
         // owner/issuer/<selfSHA>/blackcrab-issuer, never a request-selected root.
@@ -822,16 +846,7 @@ pub(super) fn run_service_supervisor() -> Result<i32> {
         Ok((code, how)) => format!("supervisor ended: {how}, exit {code}"),
         Err(reason) => format!("supervisor failed: {reason}"),
     };
-    if let Ok(mut log) = fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(owner.join("logs").join("service-supervisor.log"))
-    {
-        let seconds = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
-        let _ = writeln!(log, "{seconds} {line}");
-    }
+    note(&owner, &line);
     outcome.map(|(code, _)| code).map_err(|_| invalid())
 }
 #[cfg(windows)]
@@ -839,11 +854,13 @@ fn supervise_selected(owner: &Path, binding: &Binding) -> Result<(i32, &'static 
     use crate::managed_service_run_windows::{supervise, Outcome, Plan};
     use std::ffi::OsString;
     let host = ManagedHost::new(owner.to_path_buf());
+    let began = Instant::now();
     let config = {
         let _transaction = managed_payload::owned_lock(&owner.join("launcher.lock"), true)
             .map_err(|_| "launcher lock".to_string())?;
         verify_selection(&host, binding).map_err(|_| "selection".to_string())?
     };
+    note(owner, &format!("supervisor verified selection in {} ms; starting service", began.elapsed().as_millis()));
     if config.ownership != OwnershipMode::Service {
         return Err("ownership".into());
     }

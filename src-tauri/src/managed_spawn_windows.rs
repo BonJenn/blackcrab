@@ -39,7 +39,8 @@ use windows_sys::Win32::{
         Threading::{
             CreateEventW, CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
             InitializeProcThreadAttributeList, TerminateProcess, UpdateProcThreadAttribute,
-            WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+            WaitForSingleObject, CREATE_NO_WINDOW, CREATE_UNICODE_ENVIRONMENT,
+            EXTENDED_STARTUPINFO_PRESENT,
             LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
             STARTF_USESTDHANDLES, STARTUPINFOEXW,
         },
@@ -283,6 +284,36 @@ impl Process {
     }
 }
 
+/// Delivers Ctrl+C to every process on the hidden console `process` was
+/// started with: the only stop a Node program can handle on Windows, where it
+/// arrives as SIGINT. Windows sends console events to a console, not a
+/// process, so this process leaves its own console, joins the child's, ignores
+/// the event itself and raises it there. It stays detached afterwards: the
+/// caller is a background helper with no console to return to.
+pub(crate) fn interrupt(process: &Process) -> io::Result<()> {
+    use windows_sys::Win32::System::Console::{
+        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
+    };
+    unsafe {
+        // Fails harmlessly when this process has no console.
+        FreeConsole();
+        if AttachConsole(process.id) == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // A null handler with TRUE makes this process ignore Ctrl+C. Without
+        // it the event raised below would end this process too.
+        let outcome = if SetConsoleCtrlHandler(None, 1) == 0
+            || GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) == 0
+        {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
+        };
+        FreeConsole();
+        outcome
+    }
+}
+
 struct AttributeList(Vec<u64>);
 impl Drop for AttributeList {
     fn drop(&mut self) {
@@ -300,6 +331,27 @@ pub(crate) fn spawn(
     environment: &[(OsString, OsString)],
     directory: &Path,
     descriptors: &[(u32, &OwnedHandle)],
+) -> io::Result<Process> {
+    spawn_with(executable, arguments, environment, directory, descriptors, Console::Inherited)
+}
+
+/// Which console a console-subsystem child gets.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Console {
+    /// The parent's, if it has one.
+    Inherited,
+    /// A new console of its own with no window. Its descendants share it, and
+    /// `interrupt` can address it without touching any other console.
+    Hidden,
+}
+
+pub(crate) fn spawn_with(
+    executable: &Path,
+    arguments: &[OsString],
+    environment: &[(OsString, OsString)],
+    directory: &Path,
+    descriptors: &[(u32, &OwnedHandle)],
+    console: Console,
 ) -> io::Result<Process> {
     let invalid = || io::Error::from(io::ErrorKind::InvalidInput);
     let mut count = 3;
@@ -416,7 +468,9 @@ pub(crate) fn spawn(
             ptr::null(),
             ptr::null(),
             1,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            EXTENDED_STARTUPINFO_PRESENT
+                | CREATE_UNICODE_ENVIRONMENT
+                | if console == Console::Hidden { CREATE_NO_WINDOW } else { 0 },
             block.as_ptr().cast(),
             directory.as_ptr(),
             &startup.StartupInfo,
@@ -837,6 +891,79 @@ try {
         let _ = process.wait(Duration::from_secs(10));
         let _ = exited;
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    // A stand-in for the service launcher: it handles SIGINT as the launcher
+    // does, and has a child of its own on the same console, as the launcher
+    // has its server.
+    const STOPPABLE: &str = r#"
+const fs = require('fs'), path = require('path'), { spawn } = require('child_process');
+const directory = process.argv[process.argv.length - 1];
+const note = (name, text) => fs.writeFileSync(path.join(directory, name), text);
+// A plain word: Node would take a dashed marker for one of its own options.
+if (process.argv.includes('as-child')) {
+  process.on('SIGINT', () => { note('child-signal', 'SIGINT'); process.exit(0); });
+  setInterval(() => {}, 1000);
+  note('child-ready', String(process.pid));
+} else {
+  const child = spawn(process.execPath, ['-e', fs.readFileSync(path.join(directory, 'script.js'), 'utf8'), 'as-child', directory],
+    { stdio: 'ignore', env: process.env });
+  child.on('exit', (code, signal) => note('child-exit', JSON.stringify({ code, signal })));
+  process.on('SIGINT', () => {
+    note('parent-signal', 'SIGINT');
+    // Orderly work after the signal, as the launcher retires its session.
+    setTimeout(() => { note('parent-stopped', 'clean'); process.exit(0); }, 500);
+  });
+  setInterval(() => {}, 1000);
+  note('parent-ready', String(process.pid));
+}
+"#;
+
+    #[test]
+    fn a_hidden_console_child_handles_an_interrupt_as_sigint_and_exits_cleanly() {
+        let node = node();
+        let mut nonce = [0u8; 8];
+        getrandom::getrandom(&mut nonce).unwrap();
+        let directory = std::env::temp_dir().join(format!(
+            "blackcrab-interrupt-{}",
+            nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::write(directory.join("script.js"), STOPPABLE).unwrap();
+        let process = spawn_with(
+            &node,
+            &["-e".into(), STOPPABLE.into(), directory.clone().into_os_string()],
+            &[("SystemRoot".into(), std::env::var_os("SystemRoot").unwrap())],
+            &directory,
+            &[],
+            Console::Hidden,
+        )
+        .unwrap();
+        let read = |name: &str| std::fs::read_to_string(directory.join(name)).ok();
+        let state = || {
+            ["parent-ready", "child-ready", "parent-signal", "parent-stopped", "child-signal", "child-exit"]
+                .map(|name| format!("{name}={:?}", read(name)))
+                .join(" ")
+        };
+        let deadline = std::time::Instant::now() + Duration::from_secs(60);
+        while read("parent-ready").is_none() || read("child-ready").is_none() {
+            assert!(std::time::Instant::now() < deadline, "not ready: {}", state());
+            assert_eq!(process.wait(Duration::from_millis(100)).unwrap(), None, "{}", state());
+        }
+
+        interrupt(&process).unwrap_or_else(|error| panic!("interrupt failed: {error}; {}", state()));
+        // The program ran its handler and chose its own exit code; a
+        // terminated process would report something else and leave no marker.
+        let code = process.wait(Duration::from_secs(30)).unwrap();
+        assert_eq!(code, Some(0), "{}", state());
+        assert_eq!(read("parent-signal").as_deref(), Some("SIGINT"), "{}", state());
+        assert_eq!(read("parent-stopped").as_deref(), Some("clean"), "{}", state());
+        // What reached the program's own child on the same console is
+        // recorded for the service design, not required.
+        std::thread::sleep(Duration::from_secs(2));
+        println!("WINDOWS_INTERRUPT {}", state());
+        // This process ignored the event and is still running to say so.
+        let _ = std::fs::remove_dir_all(&directory);
     }
 
     #[test]

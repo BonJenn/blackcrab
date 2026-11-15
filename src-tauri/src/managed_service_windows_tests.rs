@@ -18,6 +18,60 @@ fn listing(root: &Path, depth: usize, found: &mut Vec<String>) {
     }
 }
 
+/// One plain GET to the service on loopback: status line, content type and
+/// body. Evidence only; the body is bounded.
+fn get(origin: &str, path: &str) -> Result<(String, String, Vec<u8>), String> {
+    use std::io::{Read, Write};
+    let authority = origin.trim_start_matches("http://").trim_end_matches('/');
+    let mut stream = std::net::TcpStream::connect(authority).map_err(io_error)?;
+    stream.set_read_timeout(Some(Duration::from_secs(20))).map_err(io_error)?;
+    write!(stream, "GET {path} HTTP/1.1\r\nHost: {authority}\r\nAccept: text/html,*/*\r\nConnection: close\r\n\r\n")
+        .map_err(io_error)?;
+    let mut bytes = Vec::new();
+    let _ = stream.take(32 * 1024 * 1024).read_to_end(&mut bytes);
+    let end = bytes.windows(4).position(|part| part == b"\r\n\r\n").ok_or("no response head")?;
+    let head = String::from_utf8_lossy(&bytes[..end]).into_owned();
+    let status = head.lines().next().unwrap_or_default().to_string();
+    let kind = head
+        .lines()
+        .find(|line| line.to_ascii_lowercase().starts_with("content-type:"))
+        .unwrap_or_default()
+        .to_string();
+    Ok((status, kind, bytes[end + 4..].to_vec()))
+}
+/// Does the service serve the interface the workspace window loads from it?
+/// The page itself, then every script and stylesheet the page names.
+fn report_served_interface(origin: &str) {
+    match get(origin, "/") {
+        Err(error) => println!("WINDOWS_INTERFACE page: {error}"),
+        Ok((status, kind, body)) => {
+            let page = String::from_utf8_lossy(&body).into_owned();
+            println!("WINDOWS_INTERFACE page: {status} | {kind} | {} bytes", body.len());
+            let mut named = Vec::new();
+            for marker in ["src=\"", "href=\""] {
+                for part in page.split(marker).skip(1) {
+                    let target = part.split('"').next().unwrap_or_default();
+                    if target.starts_with('/') && (target.ends_with(".js") || target.ends_with(".css")) {
+                        named.push(target.to_string());
+                    }
+                }
+            }
+            println!("WINDOWS_INTERFACE page names {} scripts and stylesheets", named.len());
+            for target in named.iter().take(12) {
+                match get(origin, target) {
+                    Ok((status, kind, body)) => {
+                        println!("WINDOWS_INTERFACE {target}: {status} | {kind} | {} bytes", body.len())
+                    }
+                    Err(error) => println!("WINDOWS_INTERFACE {target}: {error}"),
+                }
+            }
+            if named.is_empty() {
+                println!("WINDOWS_INTERFACE page start: {}", page.chars().take(600).collect::<String>());
+            }
+        }
+    }
+}
+
 async fn running(host: &ManagedHost) -> Result<HostStatus, String> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(180);
     loop {
@@ -95,6 +149,8 @@ async fn actual_packaged_windows_service_lifecycle() {
         ensure!(!host.desktop_pair_grant(&binding).await?.credential.is_empty(), "no pair credential");
         let runtime = fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)?;
         stage("attached and paired");
+        let origin = binding.origin.clone();
+        tokio::task::spawn_blocking(move || report_served_interface(&origin)).await.map_err(io_error)?;
 
         // With a built workspace present, Root's own owner opens it against
         // this running service and its window must show.

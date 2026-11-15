@@ -25,6 +25,9 @@ mod managed_spawn_windows;
 #[cfg(windows)]
 #[allow(dead_code)] // Run by the service helper once its scheduled task exists.
 mod managed_service_run_windows;
+#[cfg(windows)]
+#[allow(dead_code)] // Used by Root's Windows service control, which is not written yet.
+mod managed_service_task_windows;
 mod managed_service_install;
 mod pairing;
 mod provider;

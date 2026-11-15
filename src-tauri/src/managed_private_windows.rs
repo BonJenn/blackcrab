@@ -285,23 +285,28 @@ pub(crate) fn create_private_directory(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// The current user's SID in its `S-1-…` text form.
+pub(crate) fn current_user_sid() -> io::Result<String> {
+    let user = current_user()?;
+    let mut text = ptr::null_mut();
+    if unsafe { ConvertSidToStringSidW(user_sid(&user), &mut text) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let _text = Local(text.cast());
+    let mut length = 0;
+    while unsafe { *text.add(length) } != 0 {
+        length += 1;
+    }
+    String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
+        .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))
+}
+
 /// A security descriptor built from SDDL in which `{sid}` stands for the
 /// current user. It must outlive every use of its `attributes`.
 pub(crate) struct Descriptor(Local);
 impl Descriptor {
     pub(crate) fn new(template: &str) -> io::Result<Self> {
-        let user = current_user()?;
-        let mut text = ptr::null_mut();
-        if unsafe { ConvertSidToStringSidW(user_sid(&user), &mut text) } == 0 {
-            return Err(io::Error::last_os_error());
-        }
-        let _text = Local(text.cast());
-        let mut length = 0;
-        while unsafe { *text.add(length) } != 0 {
-            length += 1;
-        }
-        let sid = String::from_utf16(unsafe { std::slice::from_raw_parts(text, length) })
-            .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
+        let sid = current_user_sid()?;
         let sddl: Vec<u16> = template
             .replace("{sid}", &sid)
             .encode_utf16()

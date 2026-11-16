@@ -18,7 +18,9 @@ const GROUPS=[
  ['backend','fork-integration/boot-service/backend-identity/','fixtures',['owned-proof-config','owned-proof-serviceLauncherClient','owned-proof-http','owned-proof-concrete-source']],
  ['launcher','fork-integration/boot-service/launcher-adapter/','launcher',['owned-service-serviceLauncher','owned-service-cli-server','owned-service-OwnedLauncherBootstrap','owned-service-OwnedServiceLauncherLoss']],
  ['browser','fork-integration/boot-service/browser-channel/','object',['owned-browser-auth','owned-browser-config','owned-browser-launcher','owned-browser-policy']],
- ['typecheck','fork-integration/boot-service/typecheck/','object',["owned-types-ManagedOwnerProofIssuer", "owned-types-OwnedLauncherBootstrap", "owned-types-OwnedServiceAuthBootstrap", "owned-types-OwnedServiceProof", "owned-types-config", "owned-types-http"]],
+ ['typecheck','fork-integration/boot-service/typecheck/','object',["owned-types-ManagedOwnerProofIssuer", "owned-types-OwnedLauncherBootstrap", "owned-types-OwnedServiceAuthBootstrap", "owned-types-OwnedServiceProof", "owned-types-config", "owned-types-http"]], // 0.4.5: IDE mode's guarded file writes and paired model collaboration. Applied
+ // after every earlier shared record; none of them touches these targets again.
+ ['features','managed-host/features/','array',["ide-contract", "ide-host", "ide-ideGuardedWrite-ts", "ide-IdeWorkspaceFileSystem-test-ts", "paired-models-045-ServerEnvironment-ts", "paired-models-045-Orchestrator-ts", "paired-models-045-ThreadLaunchService-ts", "paired-models-045-ThreadManagementService-ts", "paired-models-045-ProviderSwitch-integration-test-ts", "paired-models-045-composerContext-ts", "paired-models-045-environment-ts"]],
 ];
 // Applied after every shared record, and only when the payload is built for
 // Windows, where the launcher's Unix owner and mode checks cannot hold. The
@@ -78,7 +80,7 @@ export async function serviceProfilePlan(platform=process.platform){
    else{canonical.set(record.id,normalized);records.push(normalized);}
   }
  }
- const total=71+(groups.length-GROUPS.length)*WINDOWS_GROUP[3].length;
+ const total=82+(groups.length-GROUPS.length)*WINDOWS_GROUP[3].length;
  if(descriptors.length!==total||records.length!==total||aliases.length!==0)throw Error('Service profile composition changed');
  return {profile:SERVICE_PROFILE,protocol:4,version:'0.1.7',records,descriptors,aliases,data,entrySources:{...ENTRY_SOURCES}};
 }

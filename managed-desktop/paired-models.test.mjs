@@ -9,29 +9,27 @@ import {preparePairedModelsSource} from './paired-models/prepare.mjs';
 import {fileURLToPath} from 'node:url';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-for (const profile of ['host']) {
-  test(`paired ${profile} patches apply exactly and authenticate their payloads`, async () => {
-    const directory = fileURLToPath(new URL(`./paired-models/${profile}/`, import.meta.url));
-    const records = JSON.parse(await fs.readFile(path.join(directory, 'registry.json'), 'utf8'));
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-paired-recipe-'));
-    try {
-      for (const record of records) {
-        assert.equal(sha(await fs.readFile(path.join(directory, record.file))), record.sha256);
-        if (record.kind === 'payload') continue;
-        const before = record.replacements[0].before;
-        assert.equal(sha(before), record.beforeSha256);
-        const target = path.join(root, record.target);
-        await fs.mkdir(path.dirname(target), {recursive: true});
-        await fs.writeFile(target, before);
-      }
-      await applySourcePatchRecords(root, {records, patchDirectory: directory});
-      for (const record of records) assert.equal(sha(await fs.readFile(path.join(root, record.target))), record.afterSha256);
-      await assert.rejects(applySourcePatchRecords(root, {records, patchDirectory: directory}));
-    } finally {
-      await fs.rm(root, {recursive: true, force: true});
+test('paired service records apply exactly and authenticate their payloads', async () => {
+  const directory = fileURLToPath(new URL('../managed-host/features/', import.meta.url));
+  const records = JSON.parse(await fs.readFile(path.join(directory, 'registry.json'), 'utf8')).filter(record => record.id.startsWith('paired-models-045-'));
+  assert.equal(records.length, 7);
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'blackcrab-paired-recipe-'));
+  try {
+    for (const record of records) {
+      assert.equal(sha(await fs.readFile(path.join(directory, record.file))), record.sha256);
+      const before = record.replacements[0].before;
+      assert.equal(sha(before), record.beforeSha256);
+      const target = path.join(root, record.target);
+      await fs.mkdir(path.dirname(target), {recursive: true});
+      await fs.writeFile(target, before);
     }
-  });
-}
+    await applySourcePatchRecords(root, {records, patchDirectory: directory});
+    for (const record of records) assert.equal(sha(await fs.readFile(path.join(root, record.target))), record.afterSha256);
+    await assert.rejects(applySourcePatchRecords(root, {records, patchDirectory: directory}));
+  } finally {
+    await fs.rm(root, {recursive: true, force: true});
+  }
+});
 
 test('the production desktop registry carries the ten paired desktop records', async () => {
   const production = JSON.parse(await fs.readFile(new URL('./patches/registry.json', import.meta.url), 'utf8'))
@@ -48,10 +46,12 @@ test('the production desktop registry carries the ten paired desktop records', a
   ]);
 });
 
-test('the service recipe does not carry paired models until the host records are promoted', async () => {
-  for (const file of ['../managed-host/service-profile.mjs', '../managed-host/patches/registry.json']) {
-    assert.doesNotMatch(await fs.readFile(new URL(file, import.meta.url), 'utf8'), /paired-models|preparePairedModels/);
-  }
+test('the service profile carries the paired records, after every 0.4.4 record', async () => {
+  const {serviceProfilePlan} = await import('../managed-host/service-profile.mjs');
+  const plan = await serviceProfilePlan('linux');
+  assert.equal(plan.records.length, 82);
+  assert.deepEqual(plan.records.slice(75).map(record => record.id.replace('paired-models-045-', '')),
+    ['ServerEnvironment-ts', 'Orchestrator-ts', 'ThreadLaunchService-ts', 'ThreadManagementService-ts', 'ProviderSwitch-integration-test-ts', 'composerContext-ts', 'environment-ts']);
 });
 
 test('unknown paired source profiles fail before preparing source', async () => {

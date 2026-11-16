@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {ideWriteFile} from './ide-mode/payloads/ideGuardedWrite.ts';
+import {ideWriteFile} from '../managed-host/features/ideGuardedWrite.ts';
 import {ideChanges,receiveFile,workspaceRelativePath,selectionContext} from './patches/ide-mode/ideState.ts';
 const fixture=async fn=>{const dir=await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-ide-'));try{await fn(dir);}finally{await fs.rm(dir,{recursive:true,force:true});}};
 test('guarded save preserves old bytes, permissions and an open provider descriptor',()=>fixture(async dir=>{
@@ -49,13 +49,16 @@ test('clean snapshots refresh; dirty drafts keep base and incoming; old hosts st
  assert.equal(receiveFile({...draft,text:'old'},'agent',true,false).text,'agent');
  assert.deepEqual(selectionContext('src/a.ts','a\nb\nc',3,2),{filePath:'src/a.ts',contents:'a\nb\nc',startLine:2,endLine:3});
 });
-test('service records stay in this recipe; renderer records are in the production desktop registry',async()=>{
- const registry=JSON.parse(await fs.readFile(new URL('./ide-mode/registry.json',import.meta.url)));
- assert.deepEqual(registry.map(record=>record.id),['ide-host','ide-ideGuardedWrite-ts','ide-IdeWorkspaceFileSystem-test-ts']);
- for(const record of registry){const bytes=await fs.readFile(new URL('./ide-mode/'+record.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),record.sha256);}
+test('renderer records are in the desktop registry and service records in the service profile',async()=>{
+ const service=JSON.parse(await fs.readFile(new URL('../managed-host/features/registry.json',import.meta.url))).filter(record=>record.id.startsWith('ide-'));
+ assert.deepEqual(service.map(record=>record.id),['ide-contract','ide-host','ide-ideGuardedWrite-ts','ide-IdeWorkspaceFileSystem-test-ts']);
+ for(const record of service){const bytes=await fs.readFile(new URL('../managed-host/features/'+record.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),record.sha256);}
  const production=JSON.parse(await fs.readFile(new URL('./patches/registry.json',import.meta.url))).filter(record=>record.id.startsWith('ide-mode-045-'));
  assert.deepEqual(production.map(record=>record.target),['packages/contracts/src/project.ts','apps/web/src/components/files/FilePreviewPanel.tsx','apps/web/src/components/ChatView.tsx',...['IdePanel.tsx','ideState.ts','ide-mode.css','IdePanel.browser.test.tsx','IdeCodeEditor.browser.test.tsx'].map(name=>'apps/web/src/components/ide/'+name)]);
  for(const record of production)assert.match(record.file,/^ide-mode\/[A-Za-z.-]+$/);
+ // Both sides are built from the same contract: the workspace and its service agree on the fields.
+ const [desktop]=production,[shared]=service;
+ assert.deepEqual([shared.target,shared.sha256,shared.beforeSha256,shared.afterSha256],[desktop.target,desktop.sha256,desktop.beforeSha256,desktop.afterSha256]);
  // The toggle is part of the workspace, not a build option.
  assert.doesNotMatch(JSON.stringify(production),/VITE_BLACKCRAB_IDE_MODE/);
 });

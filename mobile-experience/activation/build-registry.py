@@ -227,6 +227,12 @@ for p in brand_files:
  add(p,replacements)
 # The site answers on www; the apex redirects there, and the legal screen opens a redirect
 # target outside its allowed pages in the browser instead of in the app.
+# React Native's own list calls renderScrollComponent as a plain function from a class render.
+# The compiled NativeScrollView uses a hook, so passing the component itself fails with
+# "Invalid hook call" and the pane shows an error. Rendering it as an element fixes that.
+# Lists from @legendapp/list render the component themselves and are unaffected.
+for native_list_file in ['src/features/review/ReviewSheet.tsx','src/features/pull-requests/PullRequestReviewersScreen.tsx']:
+ add(native_list_file,[('renderScrollComponent={NativeScrollView}','renderScrollComponent={(scrollProps) => <NativeScrollView {...scrollProps} />}',1)])
 add('src/features/settings/lib/legal-document-url.ts',[
  ('https://t3.codes','https://www.blackcrab.app',1),
 ])

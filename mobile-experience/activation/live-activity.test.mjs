@@ -247,3 +247,27 @@ test('a failed account deletion is reported and deletion is offered only when si
   const page = registry.adapters.find(record => record.path === 'src/features/cloud/T3ConnectProfilePage.tsx');
   assert.ok(page.replacements.some(change => change.after.includes('<DeleteAccountSection />')));
 });
+
+test("React Native's own lists receive the scroll wrapper as an element, not as a function to call", () => {
+  // VirtualizedList calls renderScrollComponent from a class render; the compiled wrapper uses a
+  // hook, so the bare component failed with "Invalid hook call" in the Changed files pane.
+  const root = new URL('../../vendor/t3-mobile/apps/mobile/', import.meta.url);
+  for (const path of ['src/features/review/ReviewSheet.tsx', 'src/features/pull-requests/PullRequestReviewersScreen.tsx']) {
+    const record = registry.adapters.find(entry => entry.path === path);
+    assert.equal(record.replacements[0].before, 'renderScrollComponent={NativeScrollView}');
+    assert.equal(record.replacements[0].after, 'renderScrollComponent={(scrollProps) => <NativeScrollView {...scrollProps} />}');
+    assert.match(fs.readFileSync(new URL(path, root), 'utf8'), /import \{[^}]*\bFlatList\b[^}]*\} from "react-native"/s);
+  }
+  // Every other screen that passes the bare wrapper uses a list that renders it itself.
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
+    entry.isDirectory() ? walk(new URL(entry.name + '/', dir)) : entry.name.endsWith('.tsx') ? [new URL(entry.name, dir)] : []);
+  for (const file of walk(new URL('src/', root))) {
+    const source = fs.readFileSync(file, 'utf8');
+    if (!source.includes('renderScrollComponent={NativeScrollView}')) continue;
+    const relative = file.pathname.slice(root.pathname.length);
+    const usesNativeList = /import \{[^}]*\b(FlatList|SectionList|VirtualizedList)\b[^}]*\} from "react-native"/s.test(source);
+    const fixed = registry.adapters.some(entry => entry.path === decodeURIComponent(relative)
+      && entry.replacements?.some(change => change.before === 'renderScrollComponent={NativeScrollView}'));
+    assert.equal(fixed, usesNativeList, relative);
+  }
+});

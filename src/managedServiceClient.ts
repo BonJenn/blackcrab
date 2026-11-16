@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-export type ServiceState = "notAvailable" | "notConfigured" | "direct" | "notInstalled" | "stopped" | "starting" | "running" | "unavailable";
-export type ServiceAction = "install" | "start" | "stop" | "restart" | "uninstall";
+export type ServiceState = "notAvailable" | "notConfigured" | "direct" | "notInstalled" | "stopped" | "starting" | "running" | "unavailable" | "upgradeRequired";
+export type ServiceAction = "install" | "start" | "stop" | "restart" | "uninstall" | "upgrade";
 export type ServiceStatus = { state: ServiceState; canInitialize: boolean; installed: boolean; loaded: boolean; permissionIdentityRestartRequired?: boolean; error?: string };
 export interface ManagedServiceClient {
   status(): Promise<ServiceStatus>;
@@ -10,7 +10,7 @@ export interface ManagedServiceClient {
 export function readServiceStatus(value: unknown): ServiceStatus {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Unexpected background-service response.");
   const result = value as Record<string, unknown>;
-  if (!["notAvailable", "notConfigured", "direct", "notInstalled", "stopped", "starting", "running", "unavailable"].includes(result.state as string)
+  if (!["notAvailable", "notConfigured", "direct", "notInstalled", "stopped", "starting", "running", "unavailable", "upgradeRequired"].includes(result.state as string)
     || ["canInitialize", "installed", "loaded"].some(key => typeof result[key] !== "boolean")
     || (result.error !== undefined && typeof result.error !== "string")
     || (result.permissionIdentityRestartRequired !== undefined && typeof result.permissionIdentityRestartRequired !== "boolean")

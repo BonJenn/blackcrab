@@ -2,16 +2,41 @@
 # running its launcher, and watches from outside: no native command, test-only
 # launcher feature or agent prompt is used. The launcher sets up and starts the
 # background service and opens the workspace by itself.
-param([Parameter(Mandatory = $true)][string]$Report)
+#
+# -Seed <setup.exe> installs the published 0.4.4, opens it once so that it sets
+# up and starts its background service, and records that service's identity in
+# -SeedRecord. A later run with -Report and the same -SeedRecord then opens the
+# candidate over that installation and checks the service was upgraded with
+# its identity and data kept.
+param([string]$Report, [string]$Seed, [string]$SeedRecord)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows') { throw 'Disposable GitHub Windows runner required' }
-$plan = Get-Content -LiteralPath $Report -Raw | ConvertFrom-Json
-if ($plan.passed -ne $true -or $plan.target -ne 'win32-x64' -or $plan.published -ne $false) { throw 'Verified local Windows installer candidate required' }
-$launcher = $plan.launcher
-if ((Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash.ToLower() -ne $plan.installedRootSha256) { throw 'Installed launcher changed after verification' }
+$released = [ordered]@{ version = '0.4.4'; sha256 = '9afeb41f161e5281b1f1b0cda2667e93c99496dcfbe63fd90b0d0d5b1b9f91bb'; manifest = '54e12d14ab2455530dbce83c3028940595eed637181514264059087610097648' }
 $appData = Join-Path $env:APPDATA 'com.bonjenn.blackcrab'
-if (Test-Path -LiteralPath $appData) { throw 'Refusing existing Blackcrab application data' }
-$output = Join-Path (Split-Path -Parent $Report) 'ui-acceptance'
+if ($Seed) {
+  if (-not $SeedRecord) { throw '-SeedRecord is required with -Seed' }
+  if ((Get-FileHash -LiteralPath $Seed -Algorithm SHA256).Hash.ToLower() -ne $released.sha256) { throw 'The released installer to upgrade from is not the published one' }
+  if (Test-Path -LiteralPath $appData) { throw 'Refusing existing Blackcrab application data' }
+  $output = Join-Path (Split-Path -Parent $SeedRecord) 'seed-acceptance'
+  $directory = Join-Path $env:RUNNER_TEMP 'blackcrab-released'
+  if (Test-Path -LiteralPath $directory) { throw 'Refusing an existing released installation directory' }
+  # /D must be last and unquoted. Silent, for this user only, as a person's installation is.
+  $setup = Start-Process -FilePath $Seed -ArgumentList '/S', "/D=$directory" -Wait -PassThru
+  if ($setup.ExitCode -ne 0) { throw "The released installer exited $($setup.ExitCode)" }
+  $launcher = Join-Path $directory 'blackcrab.exe'
+  if (-not (Test-Path -LiteralPath $launcher)) { throw 'The released installer did not install its launcher' }
+  $rounds = @('released')
+} else {
+  if (-not $Report) { throw '-Report is required' }
+  $plan = Get-Content -LiteralPath $Report -Raw | ConvertFrom-Json
+  if ($plan.passed -ne $true -or $plan.target -ne 'win32-x64' -or $plan.published -ne $false) { throw 'Verified local Windows installer candidate required' }
+  $launcher = $plan.launcher
+  if ((Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash.ToLower() -ne $plan.installedRootSha256) { throw 'Installed launcher changed after verification' }
+  if ($SeedRecord) { if (-not (Test-Path -LiteralPath $SeedRecord)) { throw 'The released installation to upgrade was not recorded' } }
+  elseif (Test-Path -LiteralPath $appData) { throw 'Refusing existing Blackcrab application data' }
+  $output = Join-Path (Split-Path -Parent $Report) 'ui-acceptance'
+  $rounds = @('first-launch', 'reopen')
+}
 New-Item -ItemType Directory -Path $output | Out-Null
 $result = [ordered]@{ passed = $false; agentPromptsSent = 0; published = $false; sessions = @() }
 
@@ -92,6 +117,32 @@ function Get-ServiceEvidence {
   }
   $evidence
 }
+# What must survive an upgrade, and what must change: digests and names only.
+function Get-ServiceRecord {
+  $owner = Join-Path $appData 'managed-host\v1'
+  $configuration = Get-Content -LiteralPath (Join-Path $owner 'configuration.json') -Raw | ConvertFrom-Json
+  $binding = Get-Content -LiteralPath (Join-Path $owner 'native-issuer-binding.json') -Raw | ConvertFrom-Json
+  $layout = Get-Content -LiteralPath (Join-Path $owner 'host\runtime\versions\0.1.7\.blackcrab-service-layout.json') -Raw | ConvertFrom-Json
+  $secret = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($configuration.bootstrapSecret))).Replace('-', '')
+  $database = Join-Path $owner 'host\userdata\statev2.sqlite'
+  [ordered]@{ manifest = $configuration.manifestDigest; bindingManifest = $binding.manifestSha256; layoutManifest = $layout.manifestSha256
+    generation = "$($binding.generation)"; secret = $secret
+    environment = (Get-FileHash -LiteralPath (Join-Path $owner 'host\userdata\environment-id') -Algorithm SHA256).Hash
+    database = ((Test-Path -LiteralPath $database) -and (Get-Item -LiteralPath $database).Length -gt 0) }
+}
+function Test-Upgrade($seed) {
+  $owner = Join-Path $appData 'managed-host\v1'
+  $now = Get-ServiceRecord; $old = $seed.manifest
+  if ($old -ne $released.manifest -or $seed.bindingManifest -ne $old -or $seed.layoutManifest -ne $old) { throw 'The released installer did not install the service runtime this check expects' }
+  if ($now.manifest -eq $old -or $now.bindingManifest -ne $now.manifest -or $now.layoutManifest -ne $now.manifest) { throw 'The service runtime was not replaced consistently' }
+  foreach ($key in 'generation', 'environment', 'secret') { if ("$($now[$key])" -ne "$($seed.$key)") { throw "The upgrade changed the service's $key" } }
+  if (-not $seed.database -or -not $now.database) { throw 'The service database is missing' }
+  $retired = Join-Path $owner "host\runtime\retired\$old"
+  $kept = Get-Content -LiteralPath (Join-Path $retired '.blackcrab-service-layout.json') -Raw | ConvertFrom-Json
+  if ($kept.manifestSha256 -ne $old -or -not (Test-Path -LiteralPath (Join-Path $retired 'payload\t3.exe'))) { throw 'The previous runtime was not kept whole' }
+  if (-not (Test-Path -LiteralPath (Join-Path $owner "host\upgrade-backups\$($old.Substring(0, 16))\statev2.sqlite"))) { throw 'The database was not copied before the upgrade' }
+  [ordered]@{ from = $old; to = $now.manifest; identityRetained = $true; previousRuntimeKept = $true; databaseCopied = $true }
+}
 function Get-Identity {
   $owner = Join-Path $appData 'managed-host\v1'
   ('configuration.json', 'host\userdata\environment-id' | ForEach-Object { (Get-FileHash -LiteralPath (Join-Path $owner $_) -Algorithm SHA256).Hash }) -join ':'
@@ -105,12 +156,15 @@ function Get-SavedSignIns {
   @(& cmdkey.exe /list 2>$null | ForEach-Object { if ($_ -match 'Target:\s*(.+)$') { $Matches[1].Trim() } } | Where-Object { $_ -match 'blackcrab|t3code|t3 code' })
 }
 $result.savedSignInsBefore = @(Get-SavedSignIns)
-foreach ($target in $result.savedSignInsBefore) { & cmdkey.exe /delete:$target 2>$null | Out-Null }
-$result.savedSignInsRemoved = ($result.savedSignInsBefore.Count -gt 0 -and @(Get-SavedSignIns).Count -eq 0)
+# Over a released installation the saved sign-in is that installation's own and stays.
+if (-not $SeedRecord -or $Seed) {
+  foreach ($target in $result.savedSignInsBefore) { & cmdkey.exe /delete:$target 2>$null | Out-Null }
+  $result.savedSignInsRemoved = ($result.savedSignInsBefore.Count -gt 0 -and @(Get-SavedSignIns).Count -eq 0)
+}
 
 try {
   $before = $null
-  foreach ($round in 'first-launch', 'reopen') {
+  foreach ($round in $rounds) {
     $answeredBefore = Get-InterfaceAnswers
     $root = Start-Process -FilePath $launcher -PassThru
     $deadline = (Get-Date).AddSeconds(480); $workspace = $null; $title = ''
@@ -136,6 +190,8 @@ try {
     $identity = Get-Identity
     if ($before -and $before -ne $identity) { throw 'Reopening changed the persistent service identity' }
     $before = $identity
+    if ($Seed) { Get-ServiceRecord | ConvertTo-Json | Set-Content -LiteralPath $SeedRecord }
+    elseif ($SeedRecord -and $round -eq 'first-launch') { $result.upgrade = Test-Upgrade (Get-Content -LiteralPath $SeedRecord -Raw | ConvertFrom-Json) }
     # Quit as a person would: close the workspace window. The launcher, hidden
     # since the handoff, must then exit too; the service must not.
     if (-not $workspace.Process.CloseMainWindow()) { throw 'The workspace window refused a close request' }
@@ -159,7 +215,8 @@ try {
   # This run's own launcher, workspace and scheduled task only.
   $cleanup = @()
   Get-Blackcrab | Where-Object { $_.Path -and ($_.Path -ieq $launcher -or $_.Path.StartsWith($appData, [StringComparison]::OrdinalIgnoreCase)) } | ForEach-Object { try { $_.Process.Kill() } catch { } }
-  foreach ($task in @(Get-ServiceTask)) {
+  # The released installation's service stays for the candidate to upgrade.
+  foreach ($task in @(if ($Seed -and $result.passed) { @() } else { Get-ServiceTask })) {
     $name = $task.Name
     & schtasks.exe /End /TN $name 2>$null | Out-Null
     & schtasks.exe /Delete /F /TN $name 2>$null | Out-Null
@@ -169,5 +226,10 @@ try {
   if ($cleanup.Count) { $result.passed = $false }
   $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'result.json')
 }
-if (-not $result.passed -or $result.sessions.Count -ne 2) { Write-Output ($result | ConvertTo-Json -Depth 6); throw 'Installed graphical acceptance did not pass' }
+if (-not $result.passed -or $result.sessions.Count -ne $rounds.Count) { Write-Output ($result | ConvertTo-Json -Depth 6); throw 'Installed graphical acceptance did not pass' }
+if ($Seed) { Write-Output "RELEASED_$($released.version)_INSTALLED_AND_OPENED_FOR_UPGRADE"; return }
+if ($SeedRecord) {
+  if ($result.upgrade.identityRetained -ne $true) { Write-Output ($result | ConvertTo-Json -Depth 6); throw 'The upgrade from the released version was not verified' }
+  Write-Output "UPGRADE_FROM_RELEASED_$($released.version)_KEPT_SERVICE_IDENTITY_AND_DATA"
+}
 Write-Output 'INSTALLED_WINDOWS_WORKSPACE_ACCEPTANCE_PASSED'

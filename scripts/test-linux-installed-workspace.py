@@ -22,6 +22,45 @@ import urllib.request
 
 NAME, UID = "blackcrab-desktop-qa", 1998
 QA_HOME = Path("/home") / NAME
+# The public 0.4.4 package and the service runtime it installs. The upgrade
+# check installs it first, opens it once, then installs the candidate over it.
+RELEASED = {"version": "0.4.4", "sha256": "3109e99cbe53ea5ab2f198d9dbc18b06f411b4b1921eeb0354a08ee326e5e6b5",
+            "manifest": "491d73ac66be7a27338adace318d7dd41f3c107b5e4ec3be68b7e1de7a791775"}
+
+
+def service_record(owner):
+    """What must survive an upgrade, and what must change: digests and names only."""
+    configuration = json.loads((owner / "configuration.json").read_text())
+    binding = json.loads((owner / "native-issuer-binding.json").read_text())
+    layout = json.loads((owner / "host/runtime/versions/0.1.7/.blackcrab-service-layout.json").read_text())
+    database = owner / "host/userdata/statev2.sqlite"
+    return {"manifest": configuration["manifestDigest"], "bindingManifest": binding["manifestSha256"],
+            "layoutManifest": layout["manifestSha256"], "generation": binding["generation"],
+            "environment": digest(owner / "host/userdata/environment-id"),
+            "secret": hashlib.sha256(configuration["bootstrapSecret"].encode()).hexdigest(),
+            "database": database.is_file() and database.stat().st_size > 0}
+
+
+def check_upgrade(owner, seed):
+    now = service_record(owner)
+    old = seed["manifest"]
+    if old != RELEASED["manifest"] or seed["bindingManifest"] != old or seed["layoutManifest"] != old:
+        raise RuntimeError("The released package did not install the service runtime this check expects")
+    if len({now["manifest"], now["bindingManifest"], now["layoutManifest"]}) != 1 or now["manifest"] == old:
+        raise RuntimeError("The service runtime was not replaced consistently")
+    for key in ("generation", "environment", "secret"):
+        if now[key] != seed[key]:
+            raise RuntimeError("The upgrade changed the service's " + key)
+    if not seed["database"] or not now["database"]:
+        raise RuntimeError("The service database is missing")
+    retired = owner / "host/runtime/retired" / old
+    if json.loads((retired / ".blackcrab-service-layout.json").read_text())["manifestSha256"] != old \
+            or not (retired / "payload/t3").is_file():
+        raise RuntimeError("The previous runtime was not kept whole")
+    if not (owner / "host/upgrade-backups" / old[:16] / "statev2.sqlite").is_file():
+        raise RuntimeError("The database was not copied before the upgrade")
+    return {"from": old, "to": now["manifest"], "identityRetained": True, "previousRuntimeKept": True,
+            "databaseCopied": True}
 
 
 def digest(file):
@@ -286,7 +325,7 @@ def workspace_state():
     return state
 
 
-def inside():
+def inside(seed=False):
     if os.geteuid() != UID or Path(pwd.getpwuid(UID).pw_dir) != QA_HOME:
         raise RuntimeError("Fresh graphical QA account required")
     if (QA_HOME / ".blackcrab-desktop-qa").read_text() != "isolated-ci-only\n":
@@ -302,14 +341,17 @@ def inside():
         require_unused_driver_ports()
         for name, command in [("window-manager", ["/usr/bin/openbox"]),
                               ("webdriver", [str(QA_HOME / "tauri-driver"), "--port", "4444", "--native-port", "4445"])]:
-            log = open(QA_HOME / (name + ".private.log"), "xb")
+            log = open(QA_HOME / (name + ("-seed" if seed else "") + ".private.log"), "xb")
             handles.append(log)
             child = subprocess.Popen(command, env=environment, stdout=log, stderr=log, start_new_session=True)
             processes.append(child)
         await_driver(processes[-1])
         owner = QA_HOME / ".local/share/com.bonjenn.blackcrab/managed-host/v1"
         before = None
-        for kind, application in [("deb", "/usr/bin/blackcrab"), ("appimage", str(QA_HOME / "Blackcrab.AppImage"))]:
+        seeded = QA_HOME / "seed.json"
+        packages = [("released", "/usr/bin/blackcrab")] if seed else \
+            [("deb", "/usr/bin/blackcrab"), ("appimage", str(QA_HOME / "Blackcrab.AppImage"))]
+        for kind, application in packages:
             created = request("POST", "/session", {"capabilities": {"alwaysMatch": {
                 "browserName": "wry", "tauri:options": {"application": application}}}})
             session = created["sessionId"]
@@ -329,6 +371,11 @@ def inside():
                 raise RuntimeError("Reopening from AppImage changed the persistent service identity")
             before = current
             run(["/usr/bin/systemctl", "--user", "is-active", "--quiet", "blackcrab.service"])
+            if seed:
+                seeded.write_text(json.dumps(service_record(owner)) + "\n")
+            elif kind == "deb" and seeded.is_file():
+                # The candidate just opened over the released version's service.
+                report["upgrade"] = check_upgrade(owner, json.loads(seeded.read_text()))
             # Quit the foreground workspace as a user would: its Linux menu
             # shortcut first, then the window manager's close request. Root
             # should then exit through its captured-client exit monitor.
@@ -442,10 +489,10 @@ def inside():
         if cleanup_errors:
             report["passed"] = False
             report["cleanupErrors"] = cleanup_errors
-        (QA_HOME / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+        (QA_HOME / ("seed-result.json" if seed else "result.json")).write_text(json.dumps(report, indent=2) + "\n")
 
 
-def main(report_path):
+def main(report_path, released=None):
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != "Linux":
         raise RuntimeError("Disposable GitHub Linux runner required")
     if QA_HOME.exists() or QA_HOME.is_symlink():
@@ -460,6 +507,8 @@ def main(report_path):
     if existing.returncode == 0:
         raise RuntimeError("Refusing to replace an existing installed Blackcrab package")
     packages = verified_installers(report_path)
+    if released is not None and (not released.is_file() or released.is_symlink() or digest(released) != RELEASED["sha256"]):
+        raise RuntimeError("The released package to upgrade from is not the published one")
     output = report_path.parent / "ui-acceptance"
     output.mkdir(mode=0o700)
     driver = Path(os.environ["HOME"]) / ".cargo/bin/tauri-driver"
@@ -470,9 +519,6 @@ def main(report_path):
         # dpkg can leave this newly introduced package partially installed even
         # when its post-install step fails; still retire it in that case.
         installed = True
-        run(["sudo", "dpkg", "--install", packages["deb"]["file"]], timeout=180)
-        if digest("/usr/bin/blackcrab") != packages["deb"]["rootSha256"]:
-            raise RuntimeError("Installed Root differs from the verified installer")
         for source, destination, mode in [(Path(__file__).resolve(), "test.py", "0644"),
                                           (driver, "tauri-driver", "0755"),
                                           (report_path, "plan.json", "0644"),
@@ -485,10 +531,24 @@ def main(report_path):
         # Disposable runner only: let the QA account inspect its own processes'
         # /proc state when collecting failure evidence.
         subprocess.run(["sudo", "sysctl", "-q", "-w", "kernel.yama.ptrace_scope=0"], timeout=30)
-        run(["sudo", "runuser", "-u", NAME, "--", "env", "-i", f"HOME={QA_HOME}", f"USER={NAME}", f"LOGNAME={NAME}",
-             "PATH=/usr/bin:/bin", "LANG=C.UTF-8", f"XDG_RUNTIME_DIR=/run/user/{UID}",
-             f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{UID}/bus", "/usr/bin/xvfb-run", "--auto-servernum",
-             "--server-args=-screen 0 1440x1000x24 -nolisten tcp", "/usr/bin/python3", str(QA_HOME / "test.py"), "--inside"], timeout=600)
+
+        def graphical(*mode):
+            run(["sudo", "runuser", "-u", NAME, "--", "env", "-i", f"HOME={QA_HOME}", f"USER={NAME}", f"LOGNAME={NAME}",
+                 "PATH=/usr/bin:/bin", "LANG=C.UTF-8", f"XDG_RUNTIME_DIR=/run/user/{UID}",
+                 f"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{UID}/bus", "/usr/bin/xvfb-run", "--auto-servernum",
+                 "--server-args=-screen 0 1440x1000x24 -nolisten tcp", "/usr/bin/python3", str(QA_HOME / "test.py"),
+                 "--inside", *mode], timeout=600)
+
+        if released is not None:
+            # A person's existing installation: the published package, opened
+            # once so that it sets up and starts its background service.
+            run(["sudo", "dpkg", "--install", str(released)], timeout=180)
+            graphical("--seed")
+        # Over a released installation this is an ordinary package upgrade.
+        run(["sudo", "dpkg", "--install", packages["deb"]["file"]], timeout=180)
+        if digest("/usr/bin/blackcrab") != packages["deb"]["rootSha256"]:
+            raise RuntimeError("Installed Root differs from the verified installer")
+        graphical()
     finally:
         cleanup_errors = []
         def cleanup(args, accepted=(0,)):
@@ -501,7 +561,8 @@ def main(report_path):
         if created:
             # Export only bounded public result and fresh empty-workspace images.
             # Driver, profile and service logs/configuration remain private.
-            for name in ["result.json", "deb-workspace.png", "appimage-workspace.png", "failure-screen.png"]:
+            for name in ["result.json", "seed-result.json", "released-workspace.png", "deb-workspace.png",
+                         "appimage-workspace.png", "failure-screen.png"]:
                 if (QA_HOME / name).is_file():
                     cleanup(["sudo", "install", "-o", str(os.getuid()), "-m", "0600", str(QA_HOME / name), str(output / name)])
             # Failure evidence: signal and module-level trace of the newest core
@@ -528,6 +589,10 @@ def main(report_path):
     result = json.loads((output / "result.json").read_text())
     if not result.get("passed") or len(result.get("sessions", [])) != 2:
         raise RuntimeError("Installed graphical acceptance did not pass both package paths")
+    if released is not None:
+        if result.get("upgrade", {}).get("identityRetained") is not True:
+            raise RuntimeError("The upgrade from the released version was not verified")
+        print("UPGRADE_FROM_RELEASED_" + RELEASED["version"] + "_KEPT_SERVICE_IDENTITY_AND_DATA")
     print("INSTALLED_LINUX_DEB_AND_APPIMAGE_WORKSPACE_ACCEPTANCE_PASSED")
 
 
@@ -535,10 +600,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path)
     parser.add_argument("--inside", action="store_true")
+    parser.add_argument("--seed", action="store_true")
+    parser.add_argument("--upgrade-from", type=Path)
     args = parser.parse_args()
     if args.inside:
-        inside()
+        inside(args.seed)
     elif args.report:
-        main(args.report.resolve())
+        main(args.report.resolve(), args.upgrade_from.resolve() if args.upgrade_from else None)
     else:
         parser.error("--report required")

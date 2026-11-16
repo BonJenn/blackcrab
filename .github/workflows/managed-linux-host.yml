@@ -77,8 +77,15 @@ jobs:
         run: node scripts/build-linux-installers-ci.mjs --root "${{ runner.temp }}/linux-installers" --host "${{ runner.temp }}/linux-host-build/artifact" --desktop "${{ runner.temp }}/linux-desktop-build/artifact"
       - name: Install the official Tauri WebDriver
         run: cargo install tauri-driver --locked --version 2.1.0
-      - name: Launch installed app, quit and reopen from AppImage with the same service
-        run: python3 scripts/test-linux-installed-workspace.py --report "$BLACKCRAB_LINUX_PACKAGE_REPORT"
+      # The published 0.4.4 package, by digest. It is installed and opened first
+      # so that the candidate upgrades a real earlier installation.
+      - name: Download the released 0.4.4 package to upgrade from
+        run: |
+          curl --fail --location --silent --show-error --retry 3 --output "$RUNNER_TEMP/Blackcrab_0.4.4_amd64.deb" \
+            https://github.com/BonJenn/blackcrab/releases/download/v0.4.4/Blackcrab_0.4.4_amd64.deb
+          echo "3109e99cbe53ea5ab2f198d9dbc18b06f411b4b1921eeb0354a08ee326e5e6b5  $RUNNER_TEMP/Blackcrab_0.4.4_amd64.deb" | sha256sum --check
+      - name: Upgrade a 0.4.4 installation, then quit and reopen from AppImage with the same service
+        run: python3 scripts/test-linux-installed-workspace.py --report "$BLACKCRAB_LINUX_PACKAGE_REPORT" --upgrade-from "$RUNNER_TEMP/Blackcrab_0.4.4_amd64.deb"
       # Only installers that passed everything above. A release attaches these
       # exact files; from a pull request they are a short-lived test download.
       - uses: actions/upload-artifact@v6
@@ -102,6 +109,7 @@ jobs:
             ${{ runner.temp }}/linux-installers/result.json
             ${{ runner.temp }}/linux-installers/logs/*.log
             ${{ runner.temp }}/linux-installers/ui-acceptance/result.json
+            ${{ runner.temp }}/linux-installers/ui-acceptance/seed-result.json
             ${{ runner.temp }}/linux-installers/ui-acceptance/cleanup.json
             ${{ runner.temp }}/linux-installers/ui-acceptance/crash.txt
             ${{ runner.temp }}/linux-installers/ui-acceptance/failure-screen.png

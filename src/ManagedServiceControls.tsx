@@ -8,11 +8,12 @@ const labels: Record<ServiceState, string> = {
   notInstalled: "The background service is prepared and can be installed.",
   stopped: "The background service is stopped.", starting: "The background service is starting. Refresh its status to check readiness.",
   running: "The background service is running.", unavailable: "Background service status is unavailable.",
+  upgradeRequired: "This version of Blackcrab has to update its background service before it can open. Agents that are working now will be stopped; conversations and settings are kept.",
 };
 type Operation = ServiceAction | "initialize" | "refresh";
 const pendingLabels: Record<Operation, string> = {
   initialize: "Enabling background service…", install: "Installing background service…", start: "Starting background service…",
-  stop: "Stopping background service…", restart: "Restarting background service…", uninstall: "Uninstalling background service…", refresh: "Checking background service…",
+  stop: "Stopping background service…", restart: "Restarting background service…", uninstall: "Uninstalling background service…", upgrade: "Updating background service…", refresh: "Checking background service…",
 };
 const message = (error: unknown) => error instanceof Error ? error.message : typeof error === "string" ? error : "Background-service request failed.";
 export function ManagedServiceControls({ client = managedServiceClient, onBusyChange }: { client?: ManagedServiceClient; onBusyChange?: (busy: boolean) => void }) {
@@ -54,8 +55,9 @@ export function ManagedServiceControls({ client = managedServiceClient, onBusyCh
     <div className="managed-workspace-actions">
       {status?.canInitialize && <button type="button" disabled={disabled} onClick={() => { void run("initialize"); }}>Enable background service</button>}
       {status?.state === "notInstalled" && <button type="button" disabled={disabled} onClick={() => { void run("install"); }}>Install background service</button>}
-      {status?.installed && !status.loaded && <button type="button" disabled={disabled} onClick={() => { void run("start"); }}>Start background service</button>}
-      {status?.loaded && <><button type="button" disabled={disabled} onClick={() => { void run("stop"); }}>Stop background service</button><button type="button" disabled={disabled} onClick={() => { void run("restart"); }}>Restart background service</button></>}
+      {status?.state === "upgradeRequired" && <button type="button" disabled={disabled} onClick={() => { void run("upgrade"); }}>Update background service</button>}
+      {status?.installed && !status.loaded && status.state !== "upgradeRequired" && <button type="button" disabled={disabled} onClick={() => { void run("start"); }}>Start background service</button>}
+      {status?.loaded && <><button type="button" disabled={disabled} onClick={() => { void run("stop"); }}>Stop background service</button>{status.state !== "upgradeRequired" && <button type="button" disabled={disabled} onClick={() => { void run("restart"); }}>Restart background service</button>}</>}
       {status?.installed && <button type="button" disabled={disabled} onClick={() => { void run("uninstall"); }}>Uninstall background service</button>}
       <button type="button" disabled={disabled} onClick={() => { void run("refresh"); }}>Refresh service status</button>
     </div>

@@ -305,6 +305,8 @@ impl ServiceUnitPlan {
             Action::Install | Action::Start => start(),
             Action::Stop | Action::Uninstall => vec![vec!["bootout".into(), "--wait".into(), target]],
             Action::Restart => { let mut requests = vec![vec!["bootout".into(), "--wait".into(), target.clone()]];requests.extend(start());requests },
+            // Handled before this plan exists; it has no launchd request of its own.
+            Action::Upgrade => Vec::new(),
         }
     }
 }

@@ -54,6 +54,21 @@ it("hides unavailable installations and preserves loaded controls after readines
     expect(view.button("Stop background service").disabled).toBe(false); expect(view.element.querySelector('[role="alert"]')?.textContent).toBe("Host identity was refused.");
   } finally { view.dispose(); }
 });
+it("offers only the update, stop and uninstall for a service an earlier release installed", async () => {
+  const api = client({
+    status: vi.fn(async () => status("upgradeRequired", { installed: true, loaded: true })),
+    perform: vi.fn(async () => status("running", { installed: true, loaded: true })),
+  }), view = surface(api);
+  try {
+    await act(async () => view.render());
+    expect(view.element.textContent).toContain("conversations and settings are kept");
+    expect([...view.element.querySelectorAll("button")].map(button => button.textContent)).toEqual(
+      ["Update background service", "Stop background service", "Uninstall background service", "Refresh service status"]);
+    await act(async () => view.button("Update background service").click());
+    expect(api.perform).toHaveBeenCalledExactlyOnceWith("upgrade");
+    expect(view.element.textContent).toContain("The background service is running.");
+  } finally { view.dispose(); }
+});
 it("explains the permission-name update without restarting an active service automatically", async () => {
   const api = client({
     status: vi.fn(async () => status("running", { installed: true, loaded: true, permissionIdentityRestartRequired: true })),

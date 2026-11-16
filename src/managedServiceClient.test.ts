@@ -12,5 +12,6 @@ it("accepts only the public service-status contract", () => {
   const value = { state: "running", canInitialize: false, installed: true, loaded: true };
   expect(readServiceStatus(value)).toEqual(value);
   expect(readServiceStatus({ ...value, permissionIdentityRestartRequired: true }).permissionIdentityRestartRequired).toBe(true);
+  expect(readServiceStatus({ ...value, state: "upgradeRequired" }).state).toBe("upgradeRequired");
   for (const invalid of [null, [], { ...value, state: "foreign" }, { ...value, loaded: "yes" }, { ...value, permissionIdentityRestartRequired: "yes" }, { ...value, ownerSecret: "not public" }]) expect(() => readServiceStatus(invalid)).toThrow();
 });

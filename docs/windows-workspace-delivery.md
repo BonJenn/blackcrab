@@ -847,12 +847,17 @@ Not done, and needed before Windows is offered to users:
    administrator account. Not yet seen on a real desktop: sign-out and
    sign-in (the task's trigger), an ordinary non-administrator account, a
    long account name (path length), and the SmartScreen experience.
-3. **Release build wiring.** The release workflow does not build the Windows
-   installer with payloads; only this CI job does.
+3. **Release build wiring.** `release.yml` builds Windows with
+   `managed: false`, that is, without the payloads; only this CI job builds
+   the real installer. The same line builds Linux with `managed: false`, so
+   the Linux installers accepted in CI are not what a release produces
+   either. Only the `managed-apple-silicon` kind bundles payloads.
 4. Known gaps: no update channel in the workspace, no native browser channel
    (step 5), Windows PowerShell's shell-environment read times out at five
-   seconds on the runner, no recovery path after a start that fails mid-way,
-   and the uninstaller leaves the scheduled task and application data.
+   seconds on the runner, and no recovery path after a start that fails
+   mid-way. The uninstaller was never run: it is Tauri's stock one and knows
+   nothing of the scheduled task, so expect the task and the application
+   data to remain after an uninstall until that is checked and handled.
 
 ## Remaining steps
 

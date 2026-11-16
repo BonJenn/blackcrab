@@ -826,6 +826,39 @@ Installed runs after that (PR328), in order:
   `boot-service.log`, a private file. Whether that matches macOS and Linux
   was not checked.
 
+Step 6c merged as PR328 (7f774da2898b3b06a0e590f64095776751107b70). The installed acceptance passed with
+the interface loaded on both launches: service set up and running, closing the
+window quits workspace and launcher, the service survives, and the second
+launch keeps its identity.
+
+## Where Windows stands (2026-11-16)
+
+Proven in CI on windows-2022: the service payload and helper build; the
+service installs, starts, stops cleanly, restarts and uninstalls through Task
+Scheduler; Root launches the workspace against it; the NSIS installer builds
+and installs; and the installed app sets itself up and opens a working
+workspace, twice.
+
+Not done, and needed before Windows is offered to users:
+
+1. **Owner decisions:** code signing (the installer and programs are
+   unsigned, so SmartScreen warns), and updater metadata for Windows.
+2. **A real PC.** Everything above ran on one runner image under an
+   administrator account. Not yet seen on a real desktop: sign-out and
+   sign-in (the task's trigger), an ordinary non-administrator account, a
+   long account name (path length), and the SmartScreen experience.
+3. **Release build wiring.** `release.yml` builds Windows with
+   `managed: false`, that is, without the payloads; only this CI job builds
+   the real installer. The same line builds Linux with `managed: false`, so
+   the Linux installers accepted in CI are not what a release produces
+   either. Only the `managed-apple-silicon` kind bundles payloads.
+4. Known gaps: no update channel in the workspace, no native browser channel
+   (step 5), Windows PowerShell's shell-environment read times out at five
+   seconds on the runner, and no recovery path after a start that fails
+   mid-way. The uninstaller was never run: it is Tauri's stock one and knows
+   nothing of the scheduled task, so expect the task and the application
+   data to remain after an uninstall until that is checked and handled.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

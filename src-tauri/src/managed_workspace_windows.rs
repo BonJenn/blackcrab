@@ -153,15 +153,17 @@ pub(crate) struct Started {
     pub(crate) renewal: Pipe,
     /// Descriptor 6: window activation requests and replies.
     pub(crate) lifecycle: Pipe,
+    /// Descriptor 5: the workspace's update requests to this launcher.
+    pub(crate) updates: Pipe,
 }
 
 /// Starts the verified workspace executable in its package directory with
-/// the exact environment and its three private channels. Its standard
+/// the exact environment and its four private channels. Its standard
 /// streams are the null device.
 pub(crate) fn start(executable: &Path, package: &Path, home: &Path, profile: &Path) -> io::Result<Started> {
-    let (bootstrap, renewal, lifecycle) =
-        (channel(ChildEnd::Blocking)?, channel(ChildEnd::Duplex)?, channel(ChildEnd::Duplex)?);
-    let descriptors = [(3, &bootstrap.theirs), (4, &renewal.theirs), (6, &lifecycle.theirs)];
+    let (bootstrap, renewal, lifecycle, updates) =
+        (channel(ChildEnd::Blocking)?, channel(ChildEnd::Duplex)?, channel(ChildEnd::Duplex)?, channel(ChildEnd::Duplex)?);
+    let descriptors = [(3, &bootstrap.theirs), (4, &renewal.theirs), (5, &updates.theirs), (6, &lifecycle.theirs)];
     // Test builds only: CI can keep what the workspace prints, with
     // Chromium's own logging on, to see why a page did not load. A product
     // build always discards the workspace's output and adds no variable.
@@ -203,12 +205,12 @@ pub(crate) fn start(executable: &Path, package: &Path, home: &Path, profile: &Pa
             &descriptors,
             &Options { console: Console::Inherited, output: Some(&output), job: None },
         )?;
-        return Ok(Started { process, bootstrap: bootstrap.ours, renewal: renewal.ours, lifecycle: lifecycle.ours });
+        return Ok(Started { process, bootstrap: bootstrap.ours, renewal: renewal.ours, lifecycle: lifecycle.ours, updates: updates.ours });
     }
     let process = spawn(executable, &[], &environment(home, profile)?, package, &descriptors)?;
     // Dropping `theirs` here leaves the workspace holding the only other end
     // of each channel, so its exit is seen as end of stream.
-    Ok(Started { process, bootstrap: bootstrap.ours, renewal: renewal.ours, lifecycle: lifecycle.ours })
+    Ok(Started { process, bootstrap: bootstrap.ours, renewal: renewal.ours, lifecycle: lifecycle.ours, updates: updates.ours })
 }
 
 /// Window activation over descriptor 6. The same protocol and deadlines as

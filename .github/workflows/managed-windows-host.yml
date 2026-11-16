@@ -32,7 +32,17 @@ on:
       - .github/workflows/managed-windows-host.yml
   workflow_dispatch:
   # The release workflow runs this same job and publishes what it accepted.
+  # Only a release signs updater artifacts; a pull request never sees the key.
   workflow_call:
+    inputs:
+      sign_updates:
+        type: boolean
+        default: false
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
 
 permissions:
   contents: read
@@ -110,7 +120,10 @@ jobs:
       # The normal launcher with both real payloads, as an NSIS installer,
       # installed silently for this user into a directory of this run.
       - name: Build, install and verify the normal Windows installer
-        run: node scripts/build-windows-installers-ci.mjs --root "${{ runner.temp }}/windows-installers" --host "$env:BLACKCRAB_WINDOWS_HOST_ARTIFACT" --desktop "$env:BLACKCRAB_NATIVE_PACKAGE_ROOT"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.sign_updates && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.sign_updates && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        run: node scripts/build-windows-installers-ci.mjs --root "${{ runner.temp }}/windows-installers" --host "$env:BLACKCRAB_WINDOWS_HOST_ARTIFACT" --desktop "$env:BLACKCRAB_NATIVE_PACKAGE_ROOT" ${{ inputs.sign_updates && '--sign-updates' || '' }}
       # The installed launcher, started as a person starts it: it sets up and
       # starts the service and opens the workspace by itself, twice.
       - name: Open the installed app over the 0.4.4 installation, quit and reopen with the same service
@@ -120,7 +133,9 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: windows-installer
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe.sig
           if-no-files-found: error
           retention-days: 3
           compression-level: 0

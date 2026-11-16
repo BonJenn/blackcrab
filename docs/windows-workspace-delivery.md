@@ -765,6 +765,67 @@ page requests at all, so their absence there meant nothing.
 Also seen: Windows PowerShell is found but the workspace's five-second limit
 on reading the shell environment through it is missed on the runner.
 
+Step 6b merged as PR327 (acdc35d88d326bae4b794a6dad3a3f28d3df14ef). With the
+fix the page is `blackcrab://app/#/welcome`, titled "Blackcrab (Beta)", 719
+elements, its script and stylesheet loaded and its requests to the service
+answered 200; the screenshot shows the onboarding screen, as on Linux. The
+Linux installed acceptance passed with the changed payload.
+
+## Step 6c — installed acceptance
+
+`scripts/test-windows-installed-workspace.ps1` (CI only) runs the installed
+launcher as a person does and watches from outside; it calls no native
+command and sends no agent prompt. Twice over: the launcher must set up and
+start the service and open the workspace by itself; a workspace window from
+the payload cache must take the interface's title; the service's scheduled
+task must be running; closing the workspace window must quit the workspace
+and its hidden launcher but not the service; and the second launch must keep
+the service's identity. Unlike the Linux acceptance it does not read the
+launcher's own status line (that needs a WebView2 driver); the loaded
+workspace window is the evidence instead.
+
+First installed run (PR328): the launcher drew its own page and refused with
+"The bundled runtime does not support background-service setup". The
+application names its owner directory `managed-host/v1` with a forward slash;
+Windows opens that, but the owner check compares the path with its canonical
+spelling, which has only backslashes. `ManagedHost::new` now rebuilds the path
+from its components on Windows, and the lifecycle test spells its owner
+directory with a forward slash too. Every earlier Windows test had used a
+backslash path, which is why only the installed app showed it.
+
+Installed runs after that (PR328), in order:
+
+- The launcher set up and started the service and opened the workspace, but
+  the workspace showed "Something went wrong … fetch-session-state (HTTP
+  500)". The first version of this acceptance passed anyway: it checked the
+  window title, and the error screen has the same title.
+- Not the cause: a stale saved sign-in (Credential Manager held none), and
+  the service (it answered every session request 200; the 500 is made inside
+  the workspace).
+- **Cause: path length.** The installed app runs the workspace from the
+  payload cache, whose directory name carried two whole digests: about 216
+  characters before any file of the package. With sixteen characters of each
+  digest the interface loaded. One library was still at 263 characters for an
+  eleven-character account name, so Windows now names the cache `payloads`
+  and each directory by the role's initial and twelve characters of each
+  digest. Contents are verified against the whole digests on every use.
+  macOS and Linux names are unchanged.
+- The acceptance now requires the service to have answered the interface's
+  own authenticated request for its workspace state
+  (`/api/orchestration/shell`, 200), once more per launch. Reading the window
+  through UI Automation returned only the title bar.
+- One run's service setup then failed at "Service runtime publication
+  failed". Publication renames a directory of 3,824 files that were just
+  written, and Windows refuses that while any file inside is open, as a
+  virus scanner's are. The underlying error is not kept, so this cause is
+  inferred, not observed. `rename_no_replace` now retries access-denied and
+  sharing-violation refusals for up to twenty seconds, unless the target
+  already exists.
+- Seen and not pursued: the service listens on all interfaces
+  (`0.0.0.0:3773`, "remote-reachable") and prints a pairing token into
+  `boot-service.log`, a private file. Whether that matches macOS and Linux
+  was not checked.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

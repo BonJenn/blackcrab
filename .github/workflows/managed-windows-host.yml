@@ -22,6 +22,9 @@ on:
       - scripts/build-portable-desktop-ci.mjs
       - scripts/build-windows-installers-ci.mjs
       - scripts/probe-workspace-page.mjs
+      - scripts/test-windows-installed-workspace.ps1
+      - src/workspaceStartup.ts
+      - src/App.tsx
       - scripts/tauri-build.mjs
       - src-tauri/tauri.conf.json
       - src-tauri/src/managed_spawn_windows.rs
@@ -90,6 +93,10 @@ jobs:
       # installed silently for this user into a directory of this run.
       - name: Build, install and verify the normal Windows installer
         run: node scripts/build-windows-installers-ci.mjs --root "${{ runner.temp }}/windows-installers" --host "$env:BLACKCRAB_WINDOWS_HOST_ARTIFACT" --desktop "$env:BLACKCRAB_NATIVE_PACKAGE_ROOT"
+      # The installed launcher, started as a person starts it: it sets up and
+      # starts the service and opens the workspace by itself, twice.
+      - name: Launch the installed app, quit and reopen with the same service
+        run: ./scripts/test-windows-installed-workspace.ps1 -Report "$env:BLACKCRAB_WINDOWS_PACKAGE_REPORT"
       - uses: actions/upload-artifact@v6
         if: always()
         with:
@@ -100,5 +107,6 @@ jobs:
             ${{ runner.temp }}/windows-host-build/workspace-logs/*
             ${{ runner.temp }}/windows-installers/result.json
             ${{ runner.temp }}/windows-installers/logs/*.log
+            ${{ runner.temp }}/windows-installers/ui-acceptance/*
             ${{ runner.temp }}/windows-host-build/cache/blackcrab-managed-build-*/*.log
           if-no-files-found: warn

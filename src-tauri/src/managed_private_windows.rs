@@ -378,11 +378,28 @@ impl Descriptor {
 
 /// Renames within one volume and never replaces an existing destination.
 pub(crate) fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {
+    let target = to.to_path_buf();
     let (from, to) = (wide(from)?, wide(to)?);
-    if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } == 0 {
-        return Err(io::Error::last_os_error());
+    // A directory cannot be renamed while any file inside it is open, and a
+    // virus scanner opens files that were just written. That refusal (access
+    // denied or a sharing violation) is retried for a bounded time. The move
+    // never replaces anything, so trying again cannot overwrite a target that
+    // appeared in the meantime.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    loop {
+        if unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_WRITE_THROUGH) } != 0 {
+            return Ok(());
+        }
+        let error = io::Error::last_os_error();
+        // Moving onto an existing directory is also reported as access
+        // denied; that is final.
+        let busy = matches!(error.raw_os_error(), Some(5) | Some(32))
+            && std::fs::symlink_metadata(&target).is_err();
+        if !busy || std::time::Instant::now() >= deadline {
+            return Err(error);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
-    Ok(())
 }
 
 #[cfg(test)]

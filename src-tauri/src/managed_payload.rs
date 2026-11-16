@@ -99,6 +99,25 @@ impl EmbeddedPayload {
         }
     }
     pub fn target_directory(&self) -> PathBuf {
+        // Windows programs and libraries are still commonly limited to paths
+        // of 260 characters, and this name sits above every file of a
+        // package. Two whole digests cost 128 of those; sixteen characters of
+        // each are enough to name a directory whose contents are verified
+        // against the whole digests every time it is used. With sixteen, one
+        // library in the workspace package still came to 263 characters for an
+        // eleven-character account name, so Windows uses twelve and the
+        // role's initial.
+        #[cfg(windows)]
+        {
+            let short = |digest: &str| digest.get(..12).unwrap_or(digest).to_string();
+            let initial = &self.role.name()[..1];
+            self.cache_root.join(format!(
+                "{initial}-{}-{}",
+                short(&self.manifest_sha256),
+                short(&self.archive_sha256)
+            ))
+        }
+        #[cfg(not(windows))]
         self.cache_root.join(format!(
             "{}-{}-{}",
             self.role.name(),

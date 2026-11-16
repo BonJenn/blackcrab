@@ -110,9 +110,13 @@ def stop(child):
 def require_unused_driver_ports():
     # Refuse an existing listener instead of accidentally talking to another
     # session's driver. This runner/account is otherwise disposable and private.
+    # The upgrade check runs two sessions in a row. A port the first session's
+    # driver just closed lingers for a while and may be reused; one with a live
+    # listener is still refused.
     with socket.socket() as public, socket.socket() as native:
-        public.bind(("127.0.0.1", 4444))
-        native.bind(("127.0.0.1", 4445))
+        for probe, port in ((public, 4444), (native, 4445)):
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind(("127.0.0.1", port))
 
 
 class DriverFailure(Exception):

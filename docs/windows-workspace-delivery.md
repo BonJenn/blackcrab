@@ -911,3 +911,24 @@ published on 2026-11-16 (UTC); see docs/release-0.4.4.md.
 Long paths are a known risk for step 6: the cache directory name carries two
 64-character digests, so files inside a package can exceed 260 characters.
 Extraction handles that; whether Electron loads from such paths is untested.
+
+## Step 8 — the in-app browser channel (0.4.5)
+
+0.4.4 shipped Windows without the private channel the service uses to drive
+the workspace's browser pane, so the pane did not work there. From 0.4.5 the
+channel is a named pipe on Windows:
+
+- The launcher allocates `\\.\pipe\blackcrab-browser-<32 hex>`, a key and a
+  generation at service setup, exactly as it allocates a socket path on Unix
+  (`managed_browser.rs`). A service upgraded from 0.4.4 gets its capability
+  during the runtime upgrade. The launcher waits for the service to create the
+  pipe before it opens the workspace, asking only whether the pipe exists.
+- The service accepts and listens on that name through two Windows-only
+  source records (`fork-integration/boot-service/windows/README.md`). The
+  macOS and Linux service payloads are unchanged.
+- The workspace checks the name and connects (`descriptor.mjs`, `gate-c-5.ts`).
+
+Tested: the launcher's capability unit test; the real packaged service
+lifecycle test now requires the capability and requires the running service to
+be serving the pipe; the installed-app job opens the workspace with it.
+Not tested: loading a page in the pane on Windows, by a person or in CI.

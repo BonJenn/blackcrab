@@ -1544,8 +1544,8 @@ mod tests {
             expires_at: now_ms().unwrap() + 60_000,
         };
         if cfg!(windows) {
-            // The frozen browser fixture is a Unix socket path. Windows must not
-            // accept it as a native absolute capability before transport is ported.
+            // The frozen browser fixture is a Unix socket path, which is not an
+            // absolute path on Windows; the pipe form is covered in managed_browser.rs.
             assert!(descriptor(&b, Path::new("/private/owned"), &grant).is_err());
             return;
         }

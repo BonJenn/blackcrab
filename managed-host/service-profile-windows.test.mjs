@@ -20,10 +20,10 @@ test('the Windows plan is the frozen plan followed by exactly the Windows record
  const shared=await serviceProfilePlan('linux'),windows=await serviceProfilePlan('win32');
  assert.deepEqual(windows.records.slice(0,82),shared.records);
  assert.deepEqual(windows.descriptors.slice(0,82),shared.descriptors);
- assert.deepEqual(windows.records.slice(82).map(record=>record.id),['owned-windows-OwnedLauncherBootstrap','owned-windows-serviceLauncher']);
+ assert.deepEqual(windows.records.slice(82).map(record=>record.id),['owned-windows-OwnedLauncherBootstrap','owned-windows-serviceLauncher','owned-windows-OwnedServiceBrowser','owned-windows-leasedDesktopBrowser']);
  for(const [name,bytes]of shared.data)assert.equal(sha(windows.data.get(name)),sha(bytes),name);
  assert.deepEqual([...windows.data.keys()].filter(name=>!shared.data.has(name)).sort(),
-  ['windows/owned-windows-OwnedLauncherBootstrap.patch','windows/owned-windows-serviceLauncher.patch','windows/registry.original.json']);
+  ['windows/owned-windows-OwnedLauncherBootstrap.patch','windows/owned-windows-OwnedServiceBrowser.patch','windows/owned-windows-leasedDesktopBrowser.patch','windows/owned-windows-serviceLauncher.patch','windows/registry.original.json']);
  // Each Windows record continues from the file as the shared records leave it.
  for(const record of windows.records.slice(82)){
   const previous=shared.records.filter(other=>other.target===record.target).at(-1);

@@ -211,6 +211,77 @@ impl Capability {
     }
 }
 
+#[cfg(unix)]
+impl Capability {
+    /// Whether the service has created its listener.
+    pub(super) fn listening(&self) -> bool {
+        fs::symlink_metadata(&self.path).is_ok()
+    }
+}
+
+/// On Windows the channel is a named pipe. There is no directory, owner or
+/// mode to inspect: the name is random, stays in the launcher's private
+/// configuration, and each side proves the shared key to the other before any
+/// frame is accepted. Another account on the same PC can see that a pipe of
+/// this name exists and could occupy it; it cannot read or forge a frame.
+#[cfg(windows)]
+const PIPE_PREFIX: &str = r"\\.\pipe\blackcrab-browser-";
+#[cfg(windows)]
+impl Capability {
+    pub(super) fn allocate(_owner: &Path) -> Result<Self, String> {
+        let mut bytes = [0u8; 56];
+        getrandom::getrandom(&mut bytes).map_err(|_| refused())?;
+        let hex = |input: &[u8]| input.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        Ok(Self {
+            path: PathBuf::from(format!("{PIPE_PREFIX}{}", hex(&bytes[..16]))),
+            key: hex(&bytes[16..48]),
+            generation: u64::from_be_bytes(bytes[48..56].try_into().unwrap()) % MAX_GENERATION + 1,
+        })
+    }
+    pub(super) fn validate(&self, _owner: &Path) -> Result<(), String> {
+        let name = self.path.to_str().and_then(|path| path.strip_prefix(PIPE_PREFIX));
+        if !lower_hex(&self.key, 64)
+            || !(1..=MAX_GENERATION).contains(&self.generation)
+            || !name.is_some_and(|name| lower_hex(name, 32))
+        {
+            return Err(refused());
+        }
+        Ok(())
+    }
+    /// Nothing to restore after a reboot: a pipe exists only while it is served.
+    pub(super) fn ensure_runtime_directory(&self, owner: &Path) -> Result<(), String> {
+        self.validate(owner)
+    }
+    /// Whether the service has created its listener. Asks only whether the
+    /// pipe exists; it does not connect, so it takes no connection from the workspace.
+    pub(super) fn listening(&self) -> bool {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::{Foundation::{GetLastError, ERROR_FILE_NOT_FOUND}, System::Pipes::WaitNamedPipeW};
+        let name: Vec<u16> = self.path.as_os_str().encode_wide().chain(Some(0)).collect();
+        unsafe { WaitNamedPipeW(name.as_ptr(), 1) != 0 || GetLastError() != ERROR_FILE_NOT_FOUND }
+    }
+}
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+    #[test]
+    fn a_pipe_capability_is_a_random_name_with_its_own_key_and_generation() {
+        let owner = Path::new(r"C:\owner");
+        let (first, second) = (Capability::allocate(owner).unwrap(), Capability::allocate(owner).unwrap());
+        first.validate(owner).unwrap();
+        first.ensure_runtime_directory(owner).unwrap();
+        assert!(first.path != second.path && first.key != second.key);
+        assert!(first.path.to_str().unwrap().starts_with(PIPE_PREFIX) && first.path.as_os_str().len() == PIPE_PREFIX.len() + 32);
+        assert!(!first.listening());
+        for path in [r"\\.\pipe\other-0123456789abcdef0123456789abcdef", r"\\.\pipe\blackcrab-browser-0123", r"C:\tmp\blackcrab-browser-0123456789abcdef0123456789abcdef", r"\\server\pipe\blackcrab-browser-0123456789abcdef0123456789abcdef"] {
+            assert!(Capability { path: path.into(), ..first.clone() }.validate(owner).is_err(), "{path}");
+        }
+        assert!(Capability { key: "A".repeat(64), ..first.clone() }.validate(owner).is_err());
+        assert!(Capability { generation: 0, ..first.clone() }.validate(owner).is_err());
+        assert!(!format!("{first:?}").contains(&first.key));
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;

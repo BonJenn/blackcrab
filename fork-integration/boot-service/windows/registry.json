@@ -52,6 +52,38 @@
           "after": "  if (child.exitCode !== null || child.signalCode !== null) return;\n  // Windows build: kill() ends a process at once, whatever the signal name, so\n  // it cannot ask the server to stop. Closing the launcher's IPC channel does:\n  // the server interrupts itself when that channel is lost. A console stop has\n  // also reached it directly as SIGINT. It is ended only after the grace.\n  void signal;\n  if (child.connected) child.disconnect();\n  const force = setTimeout(() => child.kill(\"SIGKILL\"), TERMINATE_GRACE_MS);"
         }
       ]
+    },
+    {
+      "id": "owned-windows-OwnedServiceBrowser",
+      "file": "owned-windows-OwnedServiceBrowser.patch",
+      "target": "apps/server/src/OwnedServiceBrowser.ts",
+      "sha256": "43c45af09abc46febae8b3c24c515b2a5dd28bd66a4253319757f7e51e0c650c",
+      "beforeSha256": "f7893988097bafa573bcfaa5237b67b4dd0921706da1e472d186e6c8812e0de0",
+      "afterSha256": "5b34a19b2492646b92576f06576696fb71da1800bee222dd369c411b20f207d7",
+      "replacements": [
+        {
+          "before": "  &&/^\\/(?:private\\/)?tmp\\/blackcrab-browser-[a-f0-9]{32}\\/b\\.sock$/.test(socket.path)",
+          "after": "  &&/^\\\\\\\\\\.\\\\pipe\\\\blackcrab-browser-[a-f0-9]{32}$/.test(socket.path)"
+        }
+      ]
+    },
+    {
+      "id": "owned-windows-leasedDesktopBrowser",
+      "file": "owned-windows-leasedDesktopBrowser.patch",
+      "target": "packages/shared/src/leasedDesktopBrowser.ts",
+      "sha256": "cdca8184619ddd57dff3fd68db0be327be799000a14ca9af076f911a31ffd4b9",
+      "beforeSha256": "b6e236bbec9b31d9a7300f91cfa3885908d3bed8233e16993ae06b0e10317cf0",
+      "afterSha256": "b865b61ba2a612e3f1491cc481838577e0cfdfae6cdcfcd71d9e8104d7961710",
+      "replacements": [
+        {
+          "before": "if(process.platform==='win32')throw Error('Gate C Windows pipe ACL/lifecycle is not certified');",
+          "after": "if(process.platform==='win32'){\n  // A named pipe has no directory, owner or mode to inspect. Its name is random and kept in the launcher's private configuration, and each side proves the shared key to the other before any frame is accepted.\n  if(!/^\\\\\\\\\\.\\\\pipe\\\\blackcrab-browser-[a-f0-9]{32}$/.test(config.path))throw Error('Invalid private browser transport configuration');\n  return;\n }"
+        },
+        {
+          "before": "try{await fs.chmod(",
+          "after": "try{if(process.platform!=='win32')await fs.chmod("
+        }
+      ]
     }
   ],
   "addedSources": []

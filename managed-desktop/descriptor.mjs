@@ -33,7 +33,9 @@ export function readDescriptor(fd = 3) {
 export function publicIdentity(descriptor) { return { version: descriptor.version, generation: descriptor.owner.generation, environmentId: descriptor.owner.environmentId, origin: descriptor.owner.origin, namespace: descriptor.profile.namespace, control: descriptor.control.kind }; }
 
 export function inspectBrowserCapability(descriptor){
- const b=descriptor.browser;if(!b)return;if(process.platform==='win32')throw Error('Native browser Unix transport is unavailable on Windows');
+ const b=descriptor.browser;if(!b)return;
+ // Windows: a private named pipe, checked by name. The service proves the shared key before any frame is accepted.
+ if(process.platform==='win32'){if(!/^\\\\\.\\pipe\\blackcrab-browser-[a-f0-9]{32}$/.test(b.path))throw Error('Native browser capability unavailable or unsafe');return;}
  try{const dir=path.dirname(b.path),parent=fs.lstatSync(dir);if(!parent.isDirectory()||parent.isSymbolicLink()||fs.realpathSync(dir)!==dir||parent.uid!==process.getuid()||(parent.mode&0o777)!==0o700)throw Error('unsafe directory');try{const socket=fs.lstatSync(b.path);if(!socket.isSocket()||socket.uid!==process.getuid()||(socket.mode&0o777)!==0o600)throw Error('unsafe socket');}catch(error){if(error.code!=='ENOENT')throw error;}}
  catch{throw Error('Native browser capability unavailable or unsafe');}
 }

@@ -34,6 +34,30 @@ type Result<T> = std::result::Result<T, String>;
 fn invalid() -> String {
     "Background service issuer is unavailable".into()
 }
+/// Service runtimes that earlier releases installed, by manifest digest: 0.4.0
+/// to 0.4.4 on Apple silicon, and 0.4.4 on Linux and Windows. One is accepted
+/// only to stop and unregister that service and then replace its runtime. It is
+/// never attached to, started, or issued credentials.
+#[cfg(target_os = "macos")]
+const PREDECESSORS: &[&str] = &["c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83"];
+#[cfg(target_os = "linux")]
+const PREDECESSORS: &[&str] = &["491d73ac66be7a27338adace318d7dd41f3c107b5e4ec3be68b7e1de7a791775"];
+#[cfg(windows)]
+const PREDECESSORS: &[&str] = &["54e12d14ab2455530dbce83c3028940595eed637181514264059087610097648"];
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
+const PREDECESSORS: &[&str] = &[];
+#[cfg(test)]
+thread_local! { static TEST_PREDECESSOR: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) }; }
+fn predecessor(digest: &str) -> bool {
+    #[cfg(test)]
+    if TEST_PREDECESSOR.with(|value| value.borrow().as_deref() == Some(digest)) {
+        return true;
+    }
+    PREDECESSORS.contains(&digest)
+}
+fn compiled_manifest() -> Result<&'static str> {
+    option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256").filter(|value| hex_digest(value)).ok_or_else(invalid)
+}
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Binding {
@@ -790,8 +814,20 @@ fn verify_installed_copy(directory: &Path, file: &Path, expected: &str) -> Resul
 /// an envelope, changes the journal, or starts a process. The caller owns the
 /// configuration snapshot is checked; the compiled manifest remains the trust anchor.
 fn attachment_binding(host: &ManagedHost, expected_config: &Configuration) -> Result<Binding> {
-    let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256")
-        .filter(|value| hex_digest(value)).ok_or_else(invalid)?;
+    selected_binding(host, expected_config, compiled_manifest()?, true)
+}
+/// Selection for stopping or unregistering a service, and for confirming it has
+/// stopped. Besides this build's own runtime it accepts a predecessor that the
+/// configuration, binding and installed layout all name, so that the service an
+/// earlier release installed can be stopped before its runtime is replaced.
+fn control_binding(host: &ManagedHost, expected_config: &Configuration) -> Result<Binding> {
+    let installed = expected_config.manifest_digest.as_str();
+    if predecessor(installed) && compiled_manifest().ok() != Some(installed) {
+        return selected_binding(host, expected_config, installed, false);
+    }
+    attachment_binding(host, expected_config)
+}
+fn selected_binding(host: &ManagedHost, expected_config: &Configuration, expected: &str, current: bool) -> Result<Binding> {
     let binding: Binding = serde_json::from_slice(&private_bytes(&host.root.join(BINDING), LIMIT)?)
         .map_err(|_| invalid())?;
     if binding.schema != 1 || !hex_digest(&binding.self_sha256)
@@ -803,7 +839,7 @@ fn attachment_binding(host: &ManagedHost, expected_config: &Configuration) -> Re
     managed_payload::private_dir(&issuer).map_err(|_| invalid())?;
     let directory = issuer.join(&binding.self_sha256);
     verify_installed_copy(&directory, &directory.join(ISSUER_NAME), &binding.self_sha256)?;
-    let config = verify_selection(host, &binding)?;
+    let config = verify_selection_as(host, &binding, current)?;
     if serde_json::to_value(&config).map_err(|_| invalid())? != serde_json::to_value(expected_config).map_err(|_| invalid())? {
         return Err(invalid());
     }
@@ -815,13 +851,13 @@ pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configu
 }
 /// Native-only selection for an OS service plan. No deserialized caller receipt.
 pub(super) fn control_generation(host: &ManagedHost, expected_config: &Configuration) -> Result<u64> {
-    Ok(attachment_binding(host, expected_config)?.generation)
+    Ok(control_binding(host, expected_config)?.generation)
 }
 /// The installed helper, which the Windows scheduled task runs, and the
 /// generation it is bound to. Same read-only selection as attachment.
 #[cfg(windows)]
 pub(super) fn service_helper(host: &ManagedHost, expected_config: &Configuration) -> Result<(PathBuf, u64)> {
-    let binding = attachment_binding(host, expected_config)?;
+    let binding = control_binding(host, expected_config)?;
     Ok((host.root.join("issuer").join(&binding.self_sha256).join(ISSUER_NAME), binding.generation))
 }
 /// Names one service instance for its scheduled task and its stop request:
@@ -934,23 +970,209 @@ pub(super) fn require_stopped_for_control(host: &ManagedHost, config: &Configura
     let _session = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true)
         .map_err(|_| "The native service session is still active".to_owned())?;
     let _transaction = managed_payload::owned_lock(&host.root.join("launcher.lock"), true).map_err(|_| invalid())?;
-    let binding = attachment_binding(host, config)?;
+    let binding = control_binding(host, config)?;
     stopped_control_journal(read_journal(&host.root)?.as_ref(), binding.generation, &boot_session::read_boot_session_id()?)
 }
 
+const RUNTIME_VERSION: &str = "0.1.7";
+/// Where the installed service runtime stands relative to this build.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum UpgradePhase {
+    /// This build's runtime, or something the ordinary checks will refuse.
+    Current,
+    /// An earlier release's runtime, complete and consistent.
+    Legacy,
+    /// A replacement that began and did not finish.
+    Replacing,
+}
+fn installed_binding(host: &ManagedHost) -> Result<Binding> {
+    let binding: Binding = serde_json::from_slice(&private_bytes(&host.root.join(BINDING), LIMIT)?)
+        .map_err(|_| invalid())?;
+    if binding.schema != 1 || !hex_digest(&binding.self_sha256) || !hex_digest(&binding.manifest_sha256)
+        || !safe_number(binding.generation) || binding.version != RUNTIME_VERSION
+        || !valid_environment(&binding.environment_id) {
+        return Err(invalid());
+    }
+    Ok(binding)
+}
+/// The manifest the installed version directory was published for, if there is one.
+fn layout_manifest(host: &ManagedHost) -> Result<Option<String>> {
+    let version = host.root.join("host/runtime/versions").join(RUNTIME_VERSION);
+    match fs::symlink_metadata(&version) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(invalid()),
+        Ok(_) => {}
+    }
+    let layout: Value = serde_json::from_slice(&private_bytes(&version.join(".blackcrab-service-layout.json"), LIMIT)?)
+        .map_err(|_| invalid())?;
+    match layout["manifestSha256"].as_str() {
+        Some(digest) if hex_digest(digest) => Ok(Some(digest.to_owned())),
+        _ => Err(invalid()),
+    }
+}
+/// Read-only. A runtime this build does not know is reported as `Current`, so
+/// that the ordinary checks refuse it exactly as before.
+pub(super) fn upgrade_phase(host: &ManagedHost, config: &Configuration) -> Result<UpgradePhase> {
+    let Ok(compiled) = compiled_manifest() else { return Ok(UpgradePhase::Current) };
+    upgrade_phase_for(host, config, compiled)
+}
+fn upgrade_phase_for(host: &ManagedHost, config: &Configuration, compiled: &str) -> Result<UpgradePhase> {
+    if config.ownership != OwnershipMode::Service || fs::symlink_metadata(host.root.join(BINDING)).is_err() {
+        return Ok(UpgradePhase::Current);
+    }
+    let binding = installed_binding(host)?;
+    let layout = layout_manifest(host)?;
+    let values = [Some(config.manifest_digest.as_str()), Some(binding.manifest_sha256.as_str()), layout.as_deref()];
+    if values.iter().all(|value| *value == Some(compiled))
+        || !values.iter().flatten().all(|value| *value == compiled || predecessor(value)) {
+        return Ok(UpgradePhase::Current);
+    }
+    let installed = config.manifest_digest.as_str();
+    Ok(if installed != compiled && values.iter().all(|value| *value == Some(installed)) {
+        UpgradePhase::Legacy
+    } else {
+        UpgradePhase::Replacing
+    })
+}
+/// Replaces the runtime of a stopped, unregistered service with the one this
+/// build bundles. Conversations, settings, credentials, the environment
+/// identity and the service generation are kept; the previous runtime is moved
+/// aside whole and the database is copied first. Each step is skipped if an
+/// earlier attempt completed it, so an interrupted replacement is finished by
+/// calling this again.
+pub(super) fn replace_runtime(host: &ManagedHost, payload: &managed_payload::EmbeddedPayload) -> Result<()> {
+    let compiled = compiled_manifest()?;
+    if payload.expected_host_manifest_sha256() != Some(compiled) {
+        return Err("The bundled service runtime differs from this build".into());
+    }
+    replace_runtime_with(host, compiled, bundled_issuer_source()?, |owner| {
+        crate::managed_service_install::SelectedServiceRuntime::from_embedded(owner, payload)
+            .map_err(|_| "The bundled runtime does not support background-service setup".to_owned())
+    })
+}
+fn replace_runtime_with(
+    host: &ManagedHost,
+    compiled: &str,
+    issuer: &[u8],
+    select: impl FnOnce(PathBuf) -> Result<crate::managed_service_install::SelectedServiceRuntime>,
+) -> Result<()> {
+    let _service = managed_payload::owned_lock(&host.root.join("service-owner.lock"), true)
+        .map_err(|_| "The native service session is still active".to_owned())?;
+    let _transaction = managed_payload::owned_lock(&host.root.join("launcher.lock"), true).map_err(|_| invalid())?;
+    let mut config = host.read_config()?.ok_or_else(invalid)?;
+    let binding = installed_binding(host)?;
+    if config.ownership != OwnershipMode::Service
+        || config.environment_id.as_deref() != Some(binding.environment_id.as_str())
+        || issuer.is_empty() || issuer.len() > 256 * 1024 * 1024 {
+        return Err(invalid());
+    }
+    stopped_control_journal(read_journal(&host.root)?.as_ref(), binding.generation, &boot_session::read_boot_session_id()?)?;
+    let layout = layout_manifest(host)?;
+    let named = [Some(config.manifest_digest.clone()), Some(binding.manifest_sha256.clone()), layout.clone()];
+    if !named.iter().flatten().all(|value| value == compiled || predecessor(value)) {
+        return Err(invalid());
+    }
+    let previous: Vec<&String> = named.iter().flatten().filter(|value| *value != compiled).collect();
+    if previous.windows(2).any(|pair| pair[0] != pair[1]) {
+        return Err(invalid());
+    }
+    // 1. The runtime. After this the version directory is this build's.
+    if layout.as_deref() != Some(compiled) {
+        let previous = previous.first().ok_or_else(invalid)?.as_str();
+        let retired = host.root.join("host/runtime/retired");
+        private_directory_new_or_existing(&retired)?;
+        let retired = retired.join(previous);
+        if layout.is_some() {
+            backup_user_data(host, previous)?;
+        } else if fs::symlink_metadata(&retired).is_err() {
+            // Neither the installed runtime nor the one this would have retired.
+            return Err(invalid());
+        }
+        let mut installation = select(host.root.clone())?.prepare_replacement()
+            .map_err(|_| "Service runtime preparation failed; the installed service was not changed".to_owned())?;
+        installation.validate_version()
+            .map_err(|_| "Service runtime validation failed; the installed service was not changed".to_owned())?;
+        installation.commit_replacing(&retired)
+            .map_err(|_| "Service runtime publication failed; reopen Blackcrab to try again".to_owned())?;
+    }
+    // 2. The configuration names the new runtime. Its path is unchanged.
+    if config.manifest_digest != compiled {
+        config.manifest_digest = compiled.into();
+        host.save_config(&config)?;
+        platform::sync_directory(&host.root)?;
+    }
+    // 3. This build's helper, bound to the same generation and environment.
+    let self_sha = format!("{:x}", Sha256::digest(issuer));
+    if binding.manifest_sha256 != compiled || binding.self_sha256 != self_sha {
+        let installed = install_issuer_copy(host, issuer, &self_sha)?;
+        let next = Binding { schema: 1, self_sha256: self_sha.clone(), manifest_sha256: compiled.into(),
+            generation: binding.generation, environment_id: binding.environment_id.clone(), version: RUNTIME_VERSION.into() };
+        verify_payload_config(host, &next)?;
+        verify_installed_copy(installed.parent().ok_or_else(invalid)?, &installed, &self_sha)?;
+        publish_binding(host, &next, true)?;
+    }
+    Ok(())
+}
+/// Copies the stopped service's database and settings beside its data before
+/// its runtime is replaced. The copy is never read back automatically.
+fn backup_user_data(host: &ManagedHost, previous: &str) -> Result<()> {
+    let source = host.root.join("host/userdata");
+    if fs::symlink_metadata(&source).is_err() {
+        return Ok(());
+    }
+    let backups = host.root.join("host/upgrade-backups");
+    private_directory_new_or_existing(&backups)?;
+    let target = backups.join(&previous[..16]);
+    if fs::symlink_metadata(&target).is_ok() {
+        return Ok(());
+    }
+    let stage = backups.join(format!(".backup-{}", super::random_secret()?));
+    platform::create_private_directory(&stage)?;
+    let outcome = (|| {
+        for name in ["statev2.sqlite", "statev2.sqlite-wal", "statev2.sqlite-shm", "settings.json", "keybindings.json"] {
+            let from = source.join(name);
+            match fs::symlink_metadata(&from) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Ok(metadata) if metadata.is_file() => {}
+                _ => return Err(invalid()),
+            }
+            let copy = stage.join(name);
+            fs::copy(&from, &copy).map_err(|_| invalid())?;
+            // Flushing needs a writable handle on Windows.
+            fs::OpenOptions::new().write(true).open(&copy).and_then(|file| file.sync_all()).map_err(|_| invalid())?;
+        }
+        platform::sync_directory(&stage)?;
+        managed_payload::publish_no_replace(&stage, &target).map_err(|_| invalid())?;
+        platform::sync_directory(&backups)
+    })();
+    if stage.exists() {
+        let _ = fs::remove_dir_all(&stage);
+    }
+    outcome.map_err(|_: String| "The service database could not be copied; the installed service was not changed".to_owned())
+}
+
 fn verify_selection(host: &ManagedHost, binding: &Binding) -> Result<Configuration> {
+    verify_selection_as(host, binding, true)
+}
+fn verify_selection_as(host: &ManagedHost, binding: &Binding, current: bool) -> Result<Configuration> {
     managed_payload::private_dir(&host.root).map_err(|_| invalid())?;
     if private_bytes(&host.root.join(".blackcrab-managed-host"), 64)? != MARKER.as_bytes() {
         return Err(invalid());
     }
-    let current: Binding = serde_json::from_slice(&private_bytes(&host.root.join(BINDING), LIMIT)?)
+    let installed: Binding = serde_json::from_slice(&private_bytes(&host.root.join(BINDING), LIMIT)?)
         .map_err(|_| invalid())?;
-    if &current != binding {
+    if &installed != binding {
         return Err(invalid());
     }
-    verify_payload_config(host, binding)
+    verify_payload_config_as(host, binding, current)
 }
 fn verify_payload_config(host: &ManagedHost, binding: &Binding) -> Result<Configuration> {
+    verify_payload_config_as(host, binding, true)
+}
+/// `current` is false only for a predecessor being stopped. Its identity,
+/// layout and payload integrity are checked as usual; the source records this
+/// build requires of its own runtime are not, since a predecessor is never run.
+fn verify_payload_config_as(host: &ManagedHost, binding: &Binding, current: bool) -> Result<Configuration> {
     // Retain original native configuration validation, and bind the resulting value
     // to a bounded no-follow private descriptor read under the configuration lease.
     let config = host.read_config()?.ok_or_else(invalid)?;
@@ -993,6 +1215,9 @@ fn verify_payload_config(host: &ManagedHost, binding: &Binding) -> Result<Config
     let artifact = managed_artifact::verify(&payload).map_err(|_| invalid())?;
     if artifact.manifest_digest != binding.manifest_sha256 || artifact.version != binding.version {
         return Err(invalid());
+    }
+    if !current {
+        return Ok(config);
     }
     let manifest: Value = serde_json::from_slice(&private_or_public_regular(
         &payload.join("blackcrab-managed-host.json"),
@@ -1895,6 +2120,91 @@ mod tests {
         assert!(output.stderr.is_empty());
         assert!(!host.root.join(JOURNAL).exists());
         println!("Standalone Developer ID helper passed real private readiness and clean EOF; stopped upgrade retained configuration/generation; zero auth requests or provider commands");
+    }
+    const OLD: &str = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const NEW: &str = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    fn installed(config_manifest: &str, binding_manifest: &str, layout: Option<&str>, ownership: OwnershipMode) -> (Fixture, ManagedHost, Configuration) {
+        TEST_PREDECESSOR.with(|value| *value.borrow_mut() = Some(OLD.into()));
+        let fixture = Fixture::new();
+        let host = ManagedHost::new(fixture.0.clone());
+        let version = fixture.0.join("host/runtime/versions/0.1.7");
+        let config = Configuration { schema: 1, ownership, artifact_path: version.join("payload"),
+            manifest_digest: config_manifest.into(), bootstrap_secret: "b".repeat(64),
+            environment_id: Some("env_fixture".into()), browser: None };
+        host.save_config(&config).unwrap();
+        publish_binding(&host, &Binding { schema: 1, self_sha256: "a".repeat(64), manifest_sha256: binding_manifest.into(),
+            generation: 7, environment_id: "env_fixture".into(), version: "0.1.7".into() }, false).unwrap();
+        if let Some(manifest) = layout {
+            fs::DirBuilder::new().mode(0o700).recursive(true).create(&version).unwrap();
+            super::super::write_new(&version.join(".blackcrab-service-layout.json"),
+                &serde_json::to_vec(&json!({"schema":1,"profile":"blackcrab-local-service-layout-v1","protocol":4,"version":"0.1.7","manifestSha256":manifest})).unwrap()).unwrap();
+        }
+        (fixture, host, config)
+    }
+    #[test]
+    fn upgrade_phase_recognizes_only_a_complete_predecessor_or_an_unfinished_replacement() {
+        use OwnershipMode::{Direct, Service};
+        let phase = |config: &str, binding: &str, layout: Option<&str>, ownership| {
+            let (_fixture, host, configuration) = installed(config, binding, layout, ownership);
+            upgrade_phase_for(&host, &configuration, NEW).unwrap()
+        };
+        assert_eq!(phase(NEW, NEW, Some(NEW), Service), UpgradePhase::Current);
+        assert_eq!(phase(OLD, OLD, Some(OLD), Service), UpgradePhase::Legacy);
+        // Every interruption point of the replacement: runtime retired, runtime
+        // published, configuration rewritten; the binding is rewritten last.
+        for (config, binding, layout) in [(OLD, OLD, None), (OLD, OLD, Some(NEW)), (NEW, OLD, Some(NEW)), (NEW, NEW, None)] {
+            assert_eq!(phase(config, binding, layout, Service), UpgradePhase::Replacing);
+        }
+        // A runtime this build does not know, or a direct owner, is not upgraded.
+        let unknown = "d".repeat(64);
+        assert_eq!(phase(&unknown, &unknown, Some(&unknown), Service), UpgradePhase::Current);
+        assert_eq!(phase(OLD, &unknown, Some(OLD), Service), UpgradePhase::Current);
+        assert_eq!(phase(OLD, OLD, Some(OLD), Direct), UpgradePhase::Current);
+        assert!(predecessor(OLD) && !predecessor(NEW) && !predecessor(&unknown));
+    }
+    #[test]
+    fn replacement_refuses_an_active_session_an_unknown_runtime_and_mixed_predecessors() {
+        let select = |_: PathBuf| -> Result<crate::managed_service_install::SelectedServiceRuntime> { panic!("no runtime may be selected") };
+        let (fixture, host, _) = installed(OLD, OLD, Some(OLD), OwnershipMode::Service);
+        super::super::write_new(&fixture.0.join(".blackcrab-managed-host"), super::super::MARKER.as_bytes()).unwrap();
+        let before = fs::read(fixture.0.join("configuration.json")).unwrap();
+        let active = managed_payload::owned_lock(&fixture.0.join("service-owner.lock"), true).unwrap();
+        assert_eq!(replace_runtime_with(&host, NEW, b"helper", select).unwrap_err(), "The native service session is still active");
+        drop(active);
+        let unknown = "d".repeat(64);
+        for (config, binding, layout) in [(unknown.as_str(), OLD, Some(OLD)), (OLD, unknown.as_str(), Some(OLD)), (OLD, OLD, Some(unknown.as_str()))] {
+            let (fixture, host, _) = installed(config, binding, layout, OwnershipMode::Service);
+            super::super::write_new(&fixture.0.join(".blackcrab-managed-host"), super::super::MARKER.as_bytes()).unwrap();
+            assert!(replace_runtime_with(&host, NEW, b"helper", select).is_err());
+        }
+        // Retired and installed runtimes both missing: nothing to publish over.
+        let (fixture2, host2, _) = installed(OLD, OLD, None, OwnershipMode::Service);
+        super::super::write_new(&fixture2.0.join(".blackcrab-managed-host"), super::super::MARKER.as_bytes()).unwrap();
+        fs::DirBuilder::new().mode(0o700).recursive(true).create(fixture2.0.join("host/runtime")).unwrap();
+        assert!(replace_runtime_with(&host2, NEW, b"helper", select).is_err());
+        assert_eq!(fs::read(fixture.0.join("configuration.json")).unwrap(), before);
+    }
+    #[test]
+    fn database_backup_is_a_private_copy_made_once_and_never_changes_the_original() {
+        let (fixture, host, _) = installed(OLD, OLD, Some(OLD), OwnershipMode::Service);
+        let data = fixture.0.join("host/userdata");
+        fs::DirBuilder::new().mode(0o700).create(&data).unwrap();
+        fs::write(data.join("statev2.sqlite"), b"conversations").unwrap();
+        fs::write(data.join("statev2.sqlite-wal"), b"recent").unwrap();
+        fs::write(data.join("settings.json"), b"{}").unwrap();
+        fs::write(data.join("unrelated-large-cache"), b"not copied").unwrap();
+        backup_user_data(&host, OLD).unwrap();
+        let copy = fixture.0.join("host/upgrade-backups").join(&OLD[..16]);
+        assert_eq!(fs::read(copy.join("statev2.sqlite")).unwrap(), b"conversations");
+        assert_eq!(fs::read(copy.join("statev2.sqlite-wal")).unwrap(), b"recent");
+        assert!(!copy.join("unrelated-large-cache").exists() && !copy.join("keybindings.json").exists());
+        assert_eq!(fs::metadata(&copy).unwrap().permissions().mode() & 0o777, 0o700);
+        // A second attempt keeps the first copy even though the database moved on.
+        fs::write(data.join("statev2.sqlite"), b"newer").unwrap();
+        backup_user_data(&host, OLD).unwrap();
+        assert_eq!(fs::read(copy.join("statev2.sqlite")).unwrap(), b"conversations");
+        assert_eq!(fs::read(data.join("statev2.sqlite")).unwrap(), b"newer");
+        assert_eq!(fs::read_dir(fixture.0.join("host/upgrade-backups")).unwrap().count(), 1);
     }
     #[test]
     fn native_binding_publication_never_migrates_direct_or_replaces_binding() {

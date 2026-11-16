@@ -84,7 +84,7 @@ pub(crate) struct HostStatus {
 }
 #[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all="camelCase")]
-pub(crate) enum ServiceAction {Status,Install,Start,Stop,Restart,Uninstall}
+pub(crate) enum ServiceAction {Status,Install,Start,Stop,Restart,Uninstall,Upgrade}
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub(crate) struct ServiceStatus {
@@ -262,7 +262,47 @@ impl ManagedHost {
             Probe::Attached(_) => Ok(status("running", Some(&config))),
         }
     }
+    /// Service control, with the stopped runtime upgrade in front of it. A
+    /// service an earlier release installed reports `upgradeRequired`; it can be
+    /// stopped or unregistered but not started, and `Upgrade` stops it, replaces
+    /// its runtime keeping all of its data, and registers and starts it again.
     pub(crate) async fn control_service(&self,action:ServiceAction)->Result<ServiceStatus,String>{
+        #[cfg(any(target_os="macos",target_os="linux",windows))]
+        {
+            use service_issuer::UpgradePhase as Phase;
+            let phase={
+                let _operation=self.operation.lock().await;
+                self.prepare()?;let _lease=self.lease().await?;self.initialize_locked()?;
+                match self.read_config()?{Some(config)=>service_issuer::upgrade_phase(self,&config)?,None=>Phase::Current}
+            };
+            let pending=|installed:bool,loaded:bool|ServiceStatus{state:"upgradeRequired",can_initialize:false,installed,loaded,permission_identity_restart_required:false,error:None};
+            return match (phase,action){
+                (Phase::Current,ServiceAction::Upgrade)=>self.platform_service(ServiceAction::Status).await,
+                (Phase::Current,action)=>self.platform_service(action).await,
+                (Phase::Legacy,ServiceAction::Status|ServiceAction::Stop|ServiceAction::Uninstall)=>{
+                    let status=self.platform_service(action).await?;
+                    Ok(pending(status.installed,status.loaded))
+                }
+                (Phase::Replacing,ServiceAction::Status)=>Ok(pending(false,false)),
+                (phase,ServiceAction::Upgrade)=>{
+                    // Unregistering stops the service and confirms it stopped. A
+                    // replacement that already began did this before it started.
+                    if phase==Phase::Legacy{self.platform_service(ServiceAction::Uninstall).await?;}
+                    let payload=self.bundled_payload.clone().ok_or("A bundled background-service runtime is required")?;
+                    let owned=self.clone();
+                    {
+                        let _operation=self.operation.lock().await;
+                        tokio::task::spawn_blocking(move||service_issuer::replace_runtime(&owned,&payload)).await.map_err(io_error)??;
+                    }
+                    self.platform_service(ServiceAction::Install).await
+                }
+                _=>Err("Blackcrab has to update its background service before it can be started. Reopen Blackcrab to finish the update.".into()),
+            };
+        }
+        #[cfg(not(any(target_os="macos",target_os="linux",windows)))]
+        self.platform_service(action).await
+    }
+    async fn platform_service(&self,action:ServiceAction)->Result<ServiceStatus,String>{
         #[cfg(target_os="macos")]
         {service_control::control(self,action).await}
         #[cfg(target_os="linux")]

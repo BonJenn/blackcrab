@@ -36,6 +36,11 @@ export async function startWorkspace(client: WorkspaceStartupClient, signal: Abo
     } else if (service.state === "notInstalled") {
       progress("Installing the background service…");
       service = await client.service.perform("install"); current();
+    } else if (service.state === "upgradeRequired") {
+      // An earlier release installed this service. Its runtime is replaced
+      // while it is stopped; conversations, settings and sign-ins are kept.
+      progress("Updating the background service. Your conversations are kept…");
+      service = await client.service.perform("upgrade"); current();
     } else if (service.state === "stopped") {
       progress("Starting the background service…");
       service = await client.service.perform("start"); current();

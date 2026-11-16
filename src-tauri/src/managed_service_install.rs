@@ -92,10 +92,18 @@ impl SelectedServiceRuntime {
         self.owner.join("host/runtime/versions").join(&self.version)
     }
     pub(super) fn prepare(self) -> Result<ServiceInstallTransaction> {
+        self.prepare_beside(false)
+    }
+    /// For the stopped runtime upgrade only: stage beside an installed version
+    /// of the same number, which `commit_replacing` then retires.
+    pub(super) fn prepare_replacement(self) -> Result<ServiceInstallTransaction> {
+        self.prepare_beside(true)
+    }
+    fn prepare_beside(self, installed: bool) -> Result<ServiceInstallTransaction> {
         check_owner(&self.owner)?;
         let lease = managed_payload::owned_lock(&self.owner.join(".service-install.lock"), true)
             .map_err(|_| InstallError::Owner)?;
-        if fs::symlink_metadata(self.version_directory()).is_ok() {
+        if !installed && fs::symlink_metadata(self.version_directory()).is_ok() {
             return Err(InstallError::Exists);
         }
         let mut parent = self.owner.clone();
@@ -164,14 +172,60 @@ impl ServiceInstallTransaction {
         mut self,
         sync_parent: impl FnOnce(&Path) -> Result<()>,
     ) -> Result<PublishedServiceRuntime> {
-        if !self.validated {
-            return Err(InstallError::NotValidated);
-        }
-        self.verify()?;
         let target = self.selection.version_directory();
         if fs::symlink_metadata(&target).is_ok() {
             return Err(InstallError::Exists);
         }
+        self.seal()?;
+        managed_payload::publish_no_replace(self.directory(), &target)
+            .map_err(|_| InstallError::Exists)?;
+        self.stage = None; // A failed post-publication fsync must never delete or retry the published tree.
+        sync_parent(target.parent().ok_or(InstallError::Io)?)?;
+        Ok(PublishedServiceRuntime {
+            entry: target.join("payload").join(ENTRY),
+            version_directory: target,
+            manifest_sha256: self.selection.manifest.clone(),
+        })
+    }
+    /// Moves the installed version directory to `retired`, whole and unmodified,
+    /// then publishes this one in its place. Only for a service the caller has
+    /// stopped and unregistered and whose leases it holds. If the new directory
+    /// cannot be published the old one is put back. An interruption between the
+    /// two renames leaves no version directory; the caller's next attempt finds
+    /// the retired one and publishes without retiring again.
+    pub(super) fn commit_replacing(mut self, retired: &Path) -> Result<PublishedServiceRuntime> {
+        let target = self.selection.version_directory();
+        self.seal()?;
+        let present = fs::symlink_metadata(&target).is_ok();
+        if present {
+            if fs::symlink_metadata(retired).is_ok() {
+                return Err(InstallError::Exists);
+            }
+            managed_payload::publish_no_replace(&target, retired).map_err(|_| InstallError::Io)?;
+        }
+        if managed_payload::publish_no_replace(self.directory(), &target).is_err() {
+            if present {
+                let _ = managed_payload::publish_no_replace(retired, &target);
+            }
+            return Err(InstallError::Io);
+        }
+        self.stage = None;
+        sync_parent_directory(target.parent().ok_or(InstallError::Io)?)?;
+        if let Some(parent) = retired.parent() {
+            sync_parent_directory(parent)?;
+        }
+        Ok(PublishedServiceRuntime {
+            entry: target.join("payload").join(ENTRY),
+            version_directory: target,
+            manifest_sha256: self.selection.manifest.clone(),
+        })
+    }
+    /// Writes the layout and completion records beside the verified payload.
+    fn seal(&mut self) -> Result<()> {
+        if !self.validated {
+            return Err(InstallError::NotValidated);
+        }
+        self.verify()?;
         // Metadata is OUTSIDE payload. Publish only the complete durable wrapper.
         let layout = json!({"schema":1,"profile":PROFILE,"protocol":4,"version":self.selection.version,"manifestSha256":self.selection.manifest});
         write_private(
@@ -182,16 +236,7 @@ impl ServiceInstallTransaction {
             &self.directory().join(".install-complete"),
             format!("{}\n", self.selection.version).as_bytes(),
         )?;
-        managed_payload::sync_directories(self.directory()).map_err(|_| InstallError::Io)?;
-        managed_payload::publish_no_replace(self.directory(), &target)
-            .map_err(|_| InstallError::Exists)?;
-        self.stage = None; // A failed post-publication fsync must never delete or retry the published tree.
-        sync_parent(target.parent().ok_or(InstallError::Io)?)?;
-        Ok(PublishedServiceRuntime {
-            entry: target.join("payload").join(ENTRY),
-            version_directory: target,
-            manifest_sha256: self.selection.manifest.clone(),
-        })
+        managed_payload::sync_directories(self.directory()).map_err(|_| InstallError::Io)
     }
 }
 impl Drop for ServiceInstallTransaction {
@@ -889,6 +934,50 @@ mod tests {
         assert!(!stage.exists());
         assert!(!target.exists());
         assert!(f.root.join("source/t3").exists());
+    }
+    #[test]
+    fn replacement_retires_the_installed_version_whole_and_finishes_an_interrupted_one() {
+        let f = Fixture::new();
+        let first = f.selection(VALID, true);
+        let target = first.version_directory();
+        let again = || {
+            let source = f.root.join("source");
+            let artifact = managed_artifact::verify(&source).unwrap();
+            SelectedServiceRuntime { owner: f.root.join("owner"), source, manifest: artifact.manifest_digest, version: artifact.version }
+        };
+        let mut transaction = first.prepare().unwrap();
+        transaction.validate_version().unwrap();
+        transaction.commit().unwrap();
+        fs::write(target.join("installed-by-an-earlier-release"), b"old").unwrap();
+        let retired = f.root.join("owner/host/runtime/retired");
+        fs::DirBuilder::new().mode(0o700).create(&retired).unwrap();
+        let retired = retired.join("previous");
+        // An ordinary installation still refuses an installed version.
+        assert_eq!(again().prepare().err(), Some(InstallError::Exists));
+        // An unvalidated replacement changes nothing.
+        assert_eq!(again().prepare_replacement().unwrap().commit_replacing(&retired).err(), Some(InstallError::NotValidated));
+        assert!(target.join("installed-by-an-earlier-release").exists() && !retired.exists());
+        let mut transaction = again().prepare_replacement().unwrap();
+        transaction.validate_version().unwrap();
+        let published = transaction.commit_replacing(&retired).unwrap();
+        assert_eq!(published.version_directory, target);
+        assert_eq!(fs::read(retired.join("installed-by-an-earlier-release")).unwrap(), b"old");
+        managed_artifact::verify(&retired.join("payload")).unwrap();
+        assert!(!target.join("installed-by-an-earlier-release").exists());
+        managed_artifact::verify(&target.join("payload")).unwrap();
+        assert!(target.join(".install-complete").exists());
+        // The retired runtime is never overwritten by a later replacement.
+        let mut transaction = again().prepare_replacement().unwrap();
+        transaction.validate_version().unwrap();
+        assert_eq!(transaction.commit_replacing(&retired).err(), Some(InstallError::Exists));
+        assert!(target.join(".install-complete").exists());
+        // Interrupted after retiring: no version directory. The next attempt publishes.
+        fs::rename(&target, f.root.join("owner/host/runtime/versions/.lost")).unwrap();
+        let mut transaction = again().prepare_replacement().unwrap();
+        transaction.validate_version().unwrap();
+        transaction.commit_replacing(&retired).unwrap();
+        managed_artifact::verify(&target.join("payload")).unwrap();
+        assert_eq!(fs::read(retired.join("installed-by-an-earlier-release")).unwrap(), b"old");
     }
     #[test]
     fn prepublication_tamper_and_existing_version_fail_closed() {

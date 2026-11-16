@@ -21,6 +21,15 @@ describe("workspace startup", () => {
   it.each([["notInstalled", "install"], ["stopped", "start"]] as const)("recovers %s through one %s action", async (value, action) => {
     const api = fixture(value); await run(api); expect(api.service.perform).toHaveBeenCalledExactlyOnceWith(action); expect(api.handoff).toHaveBeenCalledOnce();
   });
+  it("updates a service an earlier release installed, once, then waits for it", async () => {
+    const api = fixture("upgradeRequired"); api.service.perform.mockResolvedValue(state("starting"));
+    api.service.status.mockResolvedValueOnce(state("upgradeRequired")).mockResolvedValueOnce(state("starting")).mockResolvedValue(state("running"));
+    const progress = vi.fn(); await startWorkspace(api, new AbortController().signal, progress, async () => {});
+    expect(api.service.perform).toHaveBeenCalledExactlyOnceWith("upgrade"); expect(api.desktop.open).toHaveBeenCalledOnce();
+    expect(progress).toHaveBeenCalledWith(expect.stringContaining("conversations are kept"));
+    const failed = fixture("upgradeRequired"); failed.service.perform.mockRejectedValue(new Error("Service runtime validation failed; the installed service was not changed"));
+    await expect(run(failed)).rejects.toThrow("was not changed"); expect(failed.desktop.open).not.toHaveBeenCalled();
+  });
   it("initializes only a fresh configurable host", async () => {
     const api = fixture("notConfigured"); await run(api); expect(api.service.initialize).toHaveBeenCalledOnce();
     const refused = fixture("notConfigured"); refused.service.status.mockResolvedValue({ ...state("notConfigured"), canInitialize: false });

@@ -98,14 +98,23 @@ jobs:
         # verification takes about seven seconds against half a second in a
         # release build, and the launch's eight-second pairing limit is missed.
         run: cargo test --locked --lib --config "profile.dev.package.sha2.opt-level=3" --config "profile.test.package.sha2.opt-level=3" managed_host::windows_service_tests::actual_packaged_windows_service_lifecycle -- --exact --ignored --nocapture
+      # A person's existing installation: the published 0.4.4 installer, by
+      # digest, installed and opened once so that it sets up its service. The
+      # candidate is then installed and opened over it.
+      - name: Install and open the released 0.4.4 to upgrade from
+        run: |
+          $setup = Join-Path $env:RUNNER_TEMP 'Blackcrab_0.4.4_x64-setup.exe'
+          curl.exe --fail --location --silent --show-error --retry 3 --output $setup https://github.com/BonJenn/blackcrab/releases/download/v0.4.4/Blackcrab_0.4.4_x64-setup.exe
+          New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP 'windows-upgrade') | Out-Null
+          ./scripts/test-windows-installed-workspace.ps1 -Seed $setup -SeedRecord (Join-Path $env:RUNNER_TEMP 'windows-upgrade\seed.json')
       # The normal launcher with both real payloads, as an NSIS installer,
       # installed silently for this user into a directory of this run.
       - name: Build, install and verify the normal Windows installer
         run: node scripts/build-windows-installers-ci.mjs --root "${{ runner.temp }}/windows-installers" --host "$env:BLACKCRAB_WINDOWS_HOST_ARTIFACT" --desktop "$env:BLACKCRAB_NATIVE_PACKAGE_ROOT"
       # The installed launcher, started as a person starts it: it sets up and
       # starts the service and opens the workspace by itself, twice.
-      - name: Launch the installed app, quit and reopen with the same service
-        run: ./scripts/test-windows-installed-workspace.ps1 -Report "$env:BLACKCRAB_WINDOWS_PACKAGE_REPORT"
+      - name: Open the installed app over the 0.4.4 installation, quit and reopen with the same service
+        run: ./scripts/test-windows-installed-workspace.ps1 -Report "$env:BLACKCRAB_WINDOWS_PACKAGE_REPORT" -SeedRecord (Join-Path $env:RUNNER_TEMP 'windows-upgrade\seed.json')
       # Only an installer that passed everything above. A release attaches this
       # exact file; from a pull request it is a short-lived test download.
       - uses: actions/upload-artifact@v6
@@ -126,5 +135,6 @@ jobs:
             ${{ runner.temp }}/windows-installers/result.json
             ${{ runner.temp }}/windows-installers/logs/*.log
             ${{ runner.temp }}/windows-installers/ui-acceptance/*
+            ${{ runner.temp }}/windows-upgrade/seed-acceptance/*
             ${{ runner.temp }}/windows-host-build/cache/blackcrab-managed-build-*/*.log
           if-no-files-found: warn

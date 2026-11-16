@@ -1,6 +1,37 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.4 is published (2026-11-16 UTC)
+## Current checkpoint — building 0.4.5 (owner request, 2026-11-16)
+
+The owner asked for 0.4.5, released on all three platforms, with: Windows and
+Linux self-update using the free updater signature only (no Authenticode);
+the in-app browser on Windows; IDE mode and paired model collaboration; and an
+easy-to-find Blackcrab account sign-in in the desktop app. "Do all of this for
+0.4.5 and release it."
+
+Order of work and state:
+
+1. PR #334 (feat/045-desktop-features): IDE mode renderer records, paired
+   models desktop records and a sidebar sign-in entry in the production desktop
+   registry. Sign-in already existed, only in the Settings footer.
+2. This branch (feat/045-service-upgrade): the stopped service runtime upgrade,
+   docs/service-upgrade.md. Paired models and IDE saving need new service code,
+   so the Mac runtime `c04c4d44…` changes for the first time; this is the
+   data-preserving migration the standing rule required.
+3. Next: promote the service records (paired models host, IDE host and
+   contract) into the service profile and refresh the build freeze from a real
+   build; Windows browser channel (named pipe form of the leased socket);
+   updater artifacts and signatures for Linux and Windows, one merged
+   latest.json, the Windows in-workspace update control.
+4. Then: version 0.4.5, Mac payloads built, signed and notarized locally as
+   for 0.4.4 (now including a new service payload), draft release, owner test
+   of the Mac upgrade on their own machine before publication, publish,
+   website.
+
+The owner's Mac runs the production service with their data. Do not run a
+0.4.5 launcher on it before the upgrade has passed CI on Linux and Windows and
+the owner has agreed to test the draft.
+
+## Previous checkpoint — 0.4.4 is published (2026-11-16 UTC)
 
 v0.4.4 is public for Apple-silicon Mac, Windows x64 and Linux x64, tag on
 02afb2ed98d9cffff8fc7c768058cf6803922c8c; digests and acceptance are in

@@ -6,6 +6,7 @@ import {buildManagedDesktop} from '../managed-desktop/build.mjs';
 import {desktopTarget} from '../managed-desktop/targets.mjs';
 import {UPSTREAM,MANIFEST,fileDigest,verifyArtifact} from '../managed-desktop/artifact.mjs';
 import {verifyPortableMetadata} from '../managed-desktop/portable-metadata.mjs';
+import {cloudEnvironmentFrom} from './ci-cloud-environment.mjs';
 
 const {values}=parseArgs({options:{root:{type:'string'},pnpm:{type:'string'}}});
 if(!values.root||!path.isAbsolute(values.root)||!values.pnpm||!path.isAbsolute(values.pnpm))throw Error('Absolute new CI root and pnpm entry required');
@@ -23,7 +24,7 @@ try{
  const archive=path.join(values.root,'source.tar.gz'),electronArchive=path.join(values.root,'electron.zip');
  await download(`https://api.github.com/repos/${UPSTREAM.repository}/tarball/${UPSTREAM.commit}`,archive);
  await download(target.electron.url,electronArchive);
- const result=await buildManagedDesktop({archive,electronArchive,cacheDir:path.join(values.root,'cache'),output:path.join(values.root,'artifact'),node:process.execPath,pnpm:values.pnpm,buildOnlyTarget:target.id,cloudEnvironment:{}});
+ const result=await buildManagedDesktop({archive,electronArchive,cacheDir:path.join(values.root,'cache'),output:path.join(values.root,'artifact'),node:process.execPath,pnpm:values.pnpm,buildOnlyTarget:target.id,cloudEnvironment:cloudEnvironmentFrom()});
  const manifestSha256=await fileDigest(path.join(result.output,MANIFEST));
  const manifest=await verifyArtifact(result.output,{expectedTarget:target.id,expectedManifestSha256:manifestSha256});
  const provenance=JSON.parse(await fs.readFile(path.join(result.output,'BUILD-PROVENANCE.json'),'utf8'));

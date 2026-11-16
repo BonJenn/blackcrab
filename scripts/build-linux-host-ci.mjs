@@ -11,6 +11,7 @@ import {UPSTREAM, NODE_VERSION, MANIFEST_FILE} from '../managed-host/artifact.mj
 import {SERVICE_PROFILE, verifyServiceProfileArtifact} from '../managed-host/service-profile.mjs';
 import {prepareManagedNativeResources} from './managed-native-resources.mjs';
 import {prepareServiceIssuer} from './prepare-service-issuer.mjs';
+import {cloudEnvironmentFrom} from './ci-cloud-environment.mjs';
 
 const {values}=parseArgs({options:{root:{type:'string'},pnpm:{type:'string'}}});
 if(process.platform!=='linux'||process.arch!=='x64'||process.env.GITHUB_ACTIONS!=='true')throw Error('Disposable native Linux x64 CI runner required');
@@ -37,7 +38,7 @@ try{
   await download(`https://raw.githubusercontent.com/nodejs/node/v${NODE_VERSION}/LICENSE`,nodeLicense);
   report.nodeLicenseSha256=createHash('sha256').update(await fs.readFile(nodeLicense)).digest('hex');
   report.build=await buildManagedHost({archive,nodeLicense,cacheDir:path.join(root,'cache'),output:path.join(root,'artifact'),
-    node:process.execPath,pnpm:values.pnpm,profile:SERVICE_PROFILE,environment,cloudEnvironment:{},processControl:control});
+    node:process.execPath,pnpm:values.pnpm,profile:SERVICE_PROFILE,environment,cloudEnvironment:cloudEnvironmentFrom(),processControl:control});
   const manifest=await verifyServiceProfileArtifact(report.build.output,{platform:'linux',arch:'x64'});
   report.artifact={files:manifest.files.length,syntheticPayload:false,
     manifestSha256:createHash('sha256').update(await fs.readFile(path.join(report.build.output,MANIFEST_FILE))).digest('hex')};

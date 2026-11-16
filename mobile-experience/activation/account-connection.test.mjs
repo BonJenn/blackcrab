@@ -80,13 +80,14 @@ test('the actual Settings account row remains actionable before auth loads', () 
   const source = adapted('src/features/settings/SettingsRouteScreen.tsx');
   const ast = ts.createSourceFile('settings.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const fn = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name.text === 'ConfiguredSettingsRouteScreen');
-  let loaded = false, signedIn = false, status = 'loading', destination;
+  let loaded = false, signedIn = false, status = 'loading', destination, deletionRequested = false;
   const { ConfiguredSettingsRouteScreen: render } = evaluate('export ' + fn.getText(ast), {
     useNavigation: () => ({ navigate: value => { destination = value; } }),
     useAuth: () => ({ isLoaded: loaded, isSignedIn: signedIn }),
     useUser: () => ({ user: { primaryEmailAddress: { emailAddress: 'fixture@example.test' } } }),
     useSavedRemoteConnections: () => ({ savedConnectionsById: { retained: {} } }),
     useAccountConnectionStatus: () => status,
+    useAccountDeletion: () => ({ available: loaded && signedIn, deleting: false, requestDeletion: () => { deletionRequested = true; } }),
     SettingsList: 'list', environmentsRow: count => ({ count }),
   });
   for (const expected of ['Connecting…', 'Unavailable']) {
@@ -98,7 +99,12 @@ test('the actual Settings account row remains actionable before auth loads', () 
     status = 'unavailable';
   }
   loaded = true; assert.equal(render().props.connections[0].value, 'Sign in');
+  // Account deletion is offered in Settings only to a signed-in account.
+  assert.equal(render().props.connections.some(row => row.id === 'deleteAccount'), false);
   signedIn = true; assert.equal(render().props.connections[0].value, 'fixture@example.test');
+  const deletion = render().props.connections.find(row => row.id === 'deleteAccount');
+  assert.equal(deletion.label, 'Delete account'); assert.ok(!deletion.disabled);
+  deletion.onPress(); assert.equal(deletionRequested, true);
 });
 
 test('auth route renders recovery instead of an empty page and Connect sign-in stays reachable', () => {

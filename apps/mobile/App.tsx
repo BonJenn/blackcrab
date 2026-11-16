@@ -31,7 +31,7 @@ export default function App() {
     <View style={styles.root}>
       <View style={styles.managed} pointerEvents={managedVisible ? "auto" : "none"} accessibilityElementsHidden={!managedVisible} importantForAccessibility={managedVisible ? "auto" : "no-hide-descendants"}>
         {FullApp ? <FullApp /> : <View style={styles.loading}>
-          {failed ? <Text accessibilityRole="alert" style={styles.message}>The workspace could not start. Close and reopen Blackcrab Remote to try again.</Text> : <ActivityIndicator accessibilityLabel="Starting workspace" />}
+          {failed ? <Text accessibilityRole="alert" style={styles.message}>The workspace could not start. Close and reopen Blackcrab to try again.</Text> : <ActivityIndicator accessibilityLabel="Starting workspace" />}
         </View>}
       </View>
       <Modal visible={!managedVisible} presentationStyle="fullScreen" animationType="slide" onRequestClose={showManaged} supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}>

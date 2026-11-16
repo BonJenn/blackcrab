@@ -7,7 +7,7 @@ export function createManagedOwnershipGuard() {
       legacyConstructed = true;
     },
     claimFullRoot() {
-      if (legacyConstructed) throw new Error('Restart Blackcrab Remote to activate the full workspace.');
+      if (legacyConstructed) throw new Error('Restart Blackcrab to activate the full workspace.');
       fullRootClaimed = true;
     },
   });

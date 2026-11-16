@@ -49,8 +49,8 @@
       "beforeSha256": "a0645e6bdf01bf45a9a8a1ba521b8d63d661827203f4d3121b91ec6b70342587",
       "kind": "template",
       "template": "adapters/BrandMark.tsx",
-      "templateSha256": "f816161d8e1735bea7236dfc56cc9fa5a05bb2d836e2234cfbb560422e7a4b0a",
-      "afterSha256": "f816161d8e1735bea7236dfc56cc9fa5a05bb2d836e2234cfbb560422e7a4b0a"
+      "templateSha256": "acf5155e9550af3c9aaee3b098bebc854e62b07a4f00d0cf9919d593e1bb7e5f",
+      "afterSha256": "acf5155e9550af3c9aaee3b098bebc854e62b07a4f00d0cf9919d593e1bb7e5f"
     },
     {
       "path": "src/features/layout/workspace/WorkspaceNativeTabs.ios.tsx",
@@ -208,9 +208,19 @@
           "before": "if (process.env.EXPO_PUBLIC_SHOWCASE === \"1\") {",
           "after": "if (false) { // Never activate upstream showcase from inherited build flags.",
           "count": 1
+        },
+        {
+          "before": "import { installAppUpdateChecks } from \"./features/updates/app-updates\";",
+          "after": "import { installLiveActivityProgress } from \"./features/agent-awareness/liveActivityProgress\";\nimport { installAppUpdateChecks } from \"./features/updates/app-updates\";",
+          "count": 1
+        },
+        {
+          "before": "  installAppUpdateChecks(),\n",
+          "after": "  installAppUpdateChecks(),\n  installLiveActivityProgress(),\n",
+          "count": 1
         }
       ],
-      "afterSha256": "a7335ecf9b0a2320d5808a40d0015d0ee1a28cd88764d2b421013ba6cbffce02"
+      "afterSha256": "dae7079d538f4db55570677744b078688bff44b359dc4189ca5bd40da9107b44"
     },
     {
       "path": "src/features/voice-input/GlobalVoiceInputControl.tsx",
@@ -337,11 +347,11 @@
       "replacements": [
         {
           "before": "label: \"T3 Code Mobile\"",
-          "after": "label: \"Blackcrab Remote\"",
+          "after": "label: \"Blackcrab Mobile\"",
           "count": 1
         }
       ],
-      "afterSha256": "9ae6c11858cfe1e7a019f96167731d0e09b0d1d23b9d8cae8f712d5de2e885db"
+      "afterSha256": "1feafee17ab6916987ae9c76a7364a2396f87799af63ffee7211a19213d1b3a4"
     },
     {
       "path": "src/components/CompactBrandTitle.tsx",
@@ -359,20 +369,10 @@
     {
       "path": "src/widgets/AgentActivity.tsx",
       "beforeSha256": "ba397e11e66e1360d74597c5693b701dfc050cf8f07b2636cabfd41b5bf66a82",
-      "kind": "replace",
-      "replacements": [
-        {
-          "before": "`t3code://${",
-          "after": "`blackcrab-remote://${",
-          "count": 1
-        },
-        {
-          "before": "<Image assetName=\"T3Mark\" modifiers={[resizable()]} />",
-          "after": "<Text modifiers={[font({ size: height, weight: \"bold\" })]}>BC</Text>",
-          "count": 1
-        }
-      ],
-      "afterSha256": "07ba7fd51dc27611708f61bc72f05ffc2c90b5ae99f16fb595ff35d499370708"
+      "kind": "template",
+      "template": "adapters/AgentActivity.tsx",
+      "templateSha256": "c259bb70b8044c4becf3284fe7498561990c2b6dbd59b222f0a75e072dd29e6f",
+      "afterSha256": "c259bb70b8044c4becf3284fe7498561990c2b6dbd59b222f0a75e072dd29e6f"
     },
     {
       "path": "src/widgets/SubscriptionUsage.tsx",
@@ -602,12 +602,22 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import {\n  deregisterManagedRelayEnvironmentCommand,",
+          "after": "import { DeleteAccountSection } from \"./AccountDeletion\";\nimport {\n  deregisterManagedRelayEnvironmentCommand,",
+          "count": 1
+        },
+        {
+          "before": "        Connections on this device are managed in Settings.\n      </Text>\n",
+          "after": "        Connections on this device are managed in Settings.\n      </Text>\n      <DeleteAccountSection />\n",
+          "count": 1
+        },
+        {
           "before": "T3 Connect",
           "after": "Blackcrab Connect",
           "count": 3
         }
       ],
-      "afterSha256": "ff4698ec4bd64b1fa0c3029ee8688840c019a283eb028adecf9b529b703b6bb0"
+      "afterSha256": "b38da54c88168c7e0eebfc9aab2a13e815ebf8372c00c2d09cea631d8f028996"
     },
     {
       "path": "src/features/cloud/ConnectOnboardingRouteScreen.tsx",
@@ -644,7 +654,17 @@
         },
         {
           "before": "import { useAuth, useUser } from \"@clerk/expo\";",
-          "after": "import { useAuth, useUser } from \"@clerk/expo\";\nimport { useAccountConnectionStatus } from \"../cloud/AccountConnectionStatus\";",
+          "after": "import { useAuth, useUser } from \"@clerk/expo\";\nimport { useAccountConnectionStatus } from \"../cloud/AccountConnectionStatus\";\nimport { useAccountDeletion } from \"../cloud/AccountDeletion\";",
+          "count": 1
+        },
+        {
+          "before": "  const { savedConnectionsById } = useSavedRemoteConnections();\n  const accountLabel",
+          "after": "  const { savedConnectionsById } = useSavedRemoteConnections();\n  const accountDeletion = useAccountDeletion();\n  const accountLabel",
+          "count": 1
+        },
+        {
+          "before": "          label: \"Notifications\",\n          target: \"SettingsNotifications\",\n        },\n",
+          "after": "          label: \"Notifications\",\n          target: \"SettingsNotifications\",\n        },\n        ...(accountDeletion.available\n          ? [{ id: \"deleteAccount\", icon: \"trash\" as const, label: \"Delete account\", disabled: accountDeletion.deleting, onPress: accountDeletion.requestDeletion }]\n          : []),\n",
           "count": 1
         },
         {
@@ -663,7 +683,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "47297e83c5607763c4009adb8b5a20f1a39ad60a32a211a4aee71ac62fec81f0"
+      "afterSha256": "83efd0302857aaf27679ddabb416104ad4d685641c2a90270e40e0282a6d443c"
     },
     {
       "path": "src/features/settings/SettingsAuthRouteScreen.tsx",
@@ -713,11 +733,11 @@
       "replacements": [
         {
           "before": "T3 Code",
-          "after": "Blackcrab Remote",
+          "after": "Blackcrab",
           "count": 1
         }
       ],
-      "afterSha256": "17483996ab1488927c7ea4644ca5711b099f040440a4816f805cb4c45e67005a"
+      "afterSha256": "7084497e7bc17ce6f79fdd16bf878249788b5bbdca30bad1340dce300caf1335"
     },
     {
       "path": "src/features/settings/SettingsNotificationsRouteScreen.tsx",
@@ -725,17 +745,27 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import { setLiveActivityUpdatesEnabled } from \"../agent-awareness/liveActivityPreferences\";",
+          "after": "import { setLiveActivityUpdatesEnabled } from \"../agent-awareness/liveActivityPreferences\";\nimport { showSampleLiveActivity } from \"../agent-awareness/liveActivityProgress\";",
+          "count": 1
+        },
+        {
+          "before": "          {liveActivityStatus === \"signed-out\" && canClearLiveActivitiesPreference ? (",
+          "after": "          {Platform.OS === \"ios\" ? (\n            <SettingsRow\n              icon=\"bolt.circle\"\n              label=\"Show a sample Live Activity\"\n              onPress={() => {\n                if (showSampleLiveActivity()) {\n                  Dialog.alert(\n                    \"Sample started\",\n                    \"Lock your phone or go to the Home Screen to see it. It ends by itself after about a minute.\",\n                  );\n                } else {\n                  Dialog.alert(\n                    \"Live Activities are off\",\n                    \"Turn on Live Activities for Blackcrab in the iOS Settings app, then try again.\",\n                  );\n                }\n              }}\n            />\n          ) : null}\n          {liveActivityStatus === \"signed-out\" && canClearLiveActivitiesPreference ? (",
+          "count": 1
+        },
+        {
           "before": "T3 Connect",
           "after": "Blackcrab Connect",
           "count": 5
         },
         {
           "before": "T3 Code",
-          "after": "Blackcrab Remote",
+          "after": "Blackcrab",
           "count": 2
         }
       ],
-      "afterSha256": "36422f73754cc30d8ddae2b7d87b0b1fd812c36a89b30fae7254ef2810756d9c"
+      "afterSha256": "15a8fc195582bd64e30122a813318a9de322934713afe04fa9522667da5180ed"
     },
     {
       "path": "src/features/settings/SettingsScheduledTasksRouteScreen.tsx",
@@ -796,11 +826,11 @@
       "replacements": [
         {
           "before": "T3 Code",
-          "after": "Blackcrab Remote",
+          "after": "Blackcrab",
           "count": 1
         }
       ],
-      "afterSha256": "76d9c93f1d6c466e325a1b92097b8a2a3e830e45896df4076349376a88784249"
+      "afterSha256": "fb3f3ab37206db6c513c59415f4a8b185e3033d125362dc642b4090e4414bb21"
     },
     {
       "path": "src/features/layout/workspace/PullRequestToolbar.android.tsx",
@@ -861,11 +891,11 @@
       "replacements": [
         {
           "before": "T3 Code",
-          "after": "Blackcrab Remote",
+          "after": "Blackcrab",
           "count": 1
         }
       ],
-      "afterSha256": "7682f5438c9d64e6ce1ebe49902511cd9177b44f6316dadab6d6eee54cd1f0c4"
+      "afterSha256": "46eb3df428671c54c24b137fbf8740cd665dade735dcda614d67349805a96928"
     },
     {
       "path": "src/features/showcase/showcaseAgentActivity.ts",
@@ -1000,6 +1030,16 @@
       "path": "src/features/layout/workspace/navigationHaptics.ts",
       "template": "adapters/navigationHaptics.ts",
       "sha256": "06c79fd71513a96c1aa1cf615245d63629f59e21acf03de6ae91bb041bcac863"
+    },
+    {
+      "path": "src/features/agent-awareness/liveActivityProgress.ts",
+      "template": "adapters/liveActivityProgress.ts",
+      "sha256": "e187c62ba694b63ea96bbe8d89cb4d5e7cc82470df561129f6fc751a76d98249"
+    },
+    {
+      "path": "src/features/cloud/AccountDeletion.tsx",
+      "template": "adapters/AccountDeletion.tsx",
+      "sha256": "ee1a5f1d9a870e112b1a2fcba1c1d5a7284b257ba3cffddea82ce5d1c5482653"
     }
   ],
   "rootAdditions": [
@@ -1052,7 +1092,7 @@
       "Restart process after foundation changes; no retry after partial module-install failure."
     ],
     "identity": {
-      "name": "Blackcrab Remote",
+      "name": "Blackcrab",
       "scheme": "blackcrab-remote",
       "iosBundleIdentifier": "dev.blackcrab.remote",
       "upstreamCloudEnabled": false,

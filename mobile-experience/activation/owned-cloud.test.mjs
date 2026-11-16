@@ -66,7 +66,7 @@ test('secret keys and invalid templates cannot activate the public build', () =>
   assert.throws(() => cloud.cloudConfigFromEnvironment({ ...env, BLACKCRAB_CLERK_JWT_TEMPLATE: 'bad\nprivate' }), error => !error.message.includes('private'));
 });
 test('build output discards injected cloud extras and preserves unrelated owned configuration', () => {
-  const input = { name: 'Blackcrab Remote', extra: { eas: { projectId: 'owned-project' }, managedNativeFeatures: { nativeExtensionsRequireSigning: true }, blackcrabCloud: valid } };
+  const input = { name: 'Blackcrab', extra: { eas: { projectId: 'owned-project' }, managedNativeFeatures: { nativeExtensionsRequireSigning: true }, blackcrabCloud: valid } };
   const original = JSON.stringify(input), off = cloud.configureOwnedCloud(input, {}), on = cloud.configureOwnedCloud(input, env);
   assert.equal(off.extra.blackcrabCloud, undefined); assert.equal(off.extra.managedNativeFeatures.cloudConfigured, false);
   assert.deepEqual(on.extra.blackcrabCloud, valid); assert.equal(on.extra.managedNativeFeatures.cloudConfigured, true);

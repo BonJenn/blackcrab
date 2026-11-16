@@ -100,7 +100,7 @@ export function makeManagedConnectionSignals(network: ManagedNetwork = Network, 
 function nativePresentation(): AuthClientPresentationMetadata {
   const osMajorVersion = Number.parseInt(String(Platform.Version), 10);
   return {
-    label: "Blackcrab Remote", surface: "mobile", appVersion: mobilePackage.version,
+    label: "Blackcrab Mobile", surface: "mobile", appVersion: mobilePackage.version,
     deviceType: Platform.OS === "ios" && Platform.isPad ? "tablet" : "mobile",
     ...(Platform.OS === "ios" ? { os: "iOS" } : Platform.OS === "android" ? { os: "Android" } : {}),
     ...(Number.isFinite(osMajorVersion) && osMajorVersion > 0 ? { osMajorVersion } : {}),

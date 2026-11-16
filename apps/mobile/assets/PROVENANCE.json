@@ -3,5 +3,17 @@
   "asset": "blackcrab.png",
   "source": "src-tauri/icons/icon.png",
   "sha256": "8def339575078d99231f51baa067379247219fd76b3ae53441fa1c03813c2bcf",
-  "adaptation": "Unchanged owned Blackcrab icon bytes; Expo performs target icon rasterization."
+  "adaptation": "Unchanged owned Blackcrab icon bytes; Expo performs target icon rasterization.",
+  "derived": [
+    {
+      "asset": "app-icon.png",
+      "use": "iOS app icon",
+      "adaptation": "The crab outline from blackcrab.png, redrawn in black on an opaque white 1024x1024 canvas at 87% of its former size and centred."
+    },
+    {
+      "asset": "widget/BlackcrabMark.png, widget/BlackcrabMark@2x.png, widget/BlackcrabMark@3x.png",
+      "use": "Template image for the Live Activity (widget extension asset catalog)",
+      "adaptation": "The crab outline from blackcrab.png with thickened strokes so it stays legible at 12 to 16 points; alpha only, tinted by the system."
+    }
+  ]
 }

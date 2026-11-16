@@ -14,7 +14,7 @@ const mobile = path.resolve(here, '../../apps/mobile');
 const projectId = '11111111-2222-4333-8444-555555555555';
 const env = { BLACKCRAB_EAS_PROJECT_ID: projectId, BLACKCRAB_UPDATE_CHANNEL: 'production' };
 const inherited = {
-  name: 'Blackcrab Remote', slug: 'blackcrab-remote', version: '1.2.3',
+  name: 'Blackcrab', slug: 'blackcrab-remote', version: '1.2.3',
   runtimeVersion: 'foreign-root',
   ios: { bundleIdentifier: 'dev.blackcrab.remote', runtimeVersion: 'foreign-ios' },
   android: { package: 'dev.blackcrab.remote', runtimeVersion: 'foreign-android' },

@@ -1022,6 +1022,32 @@
       "afterSha256": "c08207c48a8bbcb9ee7076010185f420228d314f645cf7271728e9fb53c15246"
     },
     {
+      "path": "src/features/review/ReviewSheet.tsx",
+      "beforeSha256": "70bf346ebe7262b3606a8642b4cbbba52abeba8e219f87e13eb71bad36c0b55c",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "renderScrollComponent={NativeScrollView}",
+          "after": "renderScrollComponent={(scrollProps) => <NativeScrollView {...scrollProps} />}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "d26ec1bd1b6a0245eaff6172f020d19a2dc9f8100999f80b9ccabf7b0b652527"
+    },
+    {
+      "path": "src/features/pull-requests/PullRequestReviewersScreen.tsx",
+      "beforeSha256": "83b7471fa1f978d0c61295ca4cf656fe81af410263fb070f66c9a5284d227961",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "renderScrollComponent={NativeScrollView}",
+          "after": "renderScrollComponent={(scrollProps) => <NativeScrollView {...scrollProps} />}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "6048afdd1529d375bf46f22678076519de8a5103d5663db5b2d1d4cbf4c86f0a"
+    },
+    {
       "path": "src/features/settings/lib/legal-document-url.ts",
       "beforeSha256": "7c5e2dfabffd98d32672ae2c451a832d1afaa1d6886afc8217a6c6f24ab9c995",
       "kind": "replace",

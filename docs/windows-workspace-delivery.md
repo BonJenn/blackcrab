@@ -847,17 +847,46 @@ Not done, and needed before Windows is offered to users:
    administrator account. Not yet seen on a real desktop: sign-out and
    sign-in (the task's trigger), an ordinary non-administrator account, a
    long account name (path length), and the SmartScreen experience.
-3. **Release build wiring.** `release.yml` builds Windows with
-   `managed: false`, that is, without the payloads; only this CI job builds
-   the real installer. The same line builds Linux with `managed: false`, so
-   the Linux installers accepted in CI are not what a release produces
-   either. Only the `managed-apple-silicon` kind bundles payloads.
+3. **Release build wiring.** Done in step 7a below, apart from a first real
+   run against a draft release.
 4. Known gaps: no update channel in the workspace, no native browser channel
    (step 5), Windows PowerShell's shell-environment read times out at five
    seconds on the runner, and no recovery path after a start that fails
    mid-way. The uninstaller was never run: it is Tauri's stock one and knows
    nothing of the scheduled task, so expect the task and the application
    data to remain after an uninstall until that is checked and handled.
+
+## Step 7a — release wiring for Linux and Windows
+
+Owner's answers after step 6c: wire the release build (yes); rely on CI for
+now, no real PC; Windows ships unsigned unless the owner says otherwise (the
+owner asked what unsigned means and had not decided when this was written).
+
+`release.yml` has a third kind, `managed-linux-windows`. It does not build
+anything of its own. It calls `managed-linux-host.yml` and
+`managed-windows-host.yml` as reusable workflows, so the installers are built
+and accepted by exactly the jobs every pull request runs, and then attaches
+the files those jobs uploaded (`linux-installers`: one deb and one AppImage;
+`windows-installer`: one NSIS setup program) to the release.
+
+Guards: the tag must be `v` plus the version in `tauri.conf.json`; the
+release must already exist and be a draft, checked before the builds and
+again before the upload; exactly one file of each kind, each carrying the
+version in its name. The workflow never creates a tag or a release and never
+publishes. The old `publish` job is skipped for this kind.
+
+What these installers are not: Authenticode-signed, or known to the updater.
+They are built in local mode, so there are no updater signatures and
+`latest.json` stays Apple-silicon only. A Linux or Windows user installs
+0.4.4 by download and gets later versions the same way until an updater
+decision is made and tested.
+
+The two accepted-installer artifacts are also uploaded from pull-request runs
+and kept three days, as a way to try a build by hand.
+
+Not yet exercised: the `managed-linux-windows` kind itself. It needs a draft
+release for the bumped version, which waits on the owner. The reusable jobs
+and their artifact uploads ran on this step's pull request.
 
 ## Remaining steps
 

@@ -26,6 +26,8 @@ on:
       - scripts/test-linux-installed-workspace.test.py
       - .github/workflows/managed-linux-host.yml
   workflow_dispatch:
+  # The release workflow runs this same job and publishes what it accepted.
+  workflow_call:
 
 permissions:
   contents: read
@@ -71,6 +73,17 @@ jobs:
         run: cargo install tauri-driver --locked --version 2.1.0
       - name: Launch installed app, quit and reopen from AppImage with the same service
         run: python3 scripts/test-linux-installed-workspace.py --report "$BLACKCRAB_LINUX_PACKAGE_REPORT"
+      # Only installers that passed everything above. A release attaches these
+      # exact files; from a pull request they are a short-lived test download.
+      - uses: actions/upload-artifact@v6
+        with:
+          name: linux-installers
+          path: |
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
       - uses: actions/upload-artifact@v6
         if: always()
         with:

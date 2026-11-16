@@ -1,6 +1,18 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows works installed in CI; owner decisions next
+## Current checkpoint — release wiring for Linux and Windows
+
+Branch release/linux-windows-installers: `release.yml` kind
+`managed-linux-windows` reruns the Linux and Windows CI acceptance jobs and
+attaches their installers to an existing draft release (see "Step 7a" in
+docs/windows-workspace-delivery.md). Owner said: wire the release (yes), rely
+on CI for now, signing undecided so unsigned. Left for 0.4.4: redo Mac native
+acceptance (payload changed in PR310/311 and PR327), version bump, draft
+release, Mac managed release, then this kind for Linux and Windows.
+**0.4.4 is not published**; consult the owner before any tag, draft release
+or publication.
+
+## Previous checkpoint — Windows works installed in CI; owner decisions next
 
 Steps1 to 6c are merged (PR308–328; stage 7f774da2898b3b06a0e590f64095776751107b70). The installed Windows app
 sets itself up and opens a working workspace in CI. Read "Where Windows

@@ -4,12 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: "Managed Apple-silicon release, or the historical root-only recipe"
+        description: "Managed Apple-silicon release, Linux and Windows installers for an existing draft, or the historical root-only recipe"
         required: true
         default: managed-apple-silicon
         type: choice
         options:
           - managed-apple-silicon
+          - managed-linux-windows
           - legacy-root-only
       payload_sha256:
         description: "SHA-256 of blackcrab-managed-payloads.zip on the draft release (managed mode)"
@@ -31,8 +32,89 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Linux and Windows x64. The installers are built and accepted by the same
+  # jobs every pull request runs, then attached to a release that already
+  # exists and is still a draft. Nothing here creates a tag, publishes, signs
+  # with Authenticode or adds these platforms to the updater feed.
+  installer-preflight:
+    name: Check the draft release for Linux and Windows installers
+    if: inputs.kind == 'managed-linux-windows'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Require a draft release whose tag is this source's version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            echo "::error::Tag $RELEASE_TAG does not match source version $version."
+            exit 1
+          fi
+          [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]
+
+  linux-installers:
+    needs: installer-preflight
+    permissions:
+      contents: read
+    uses: ./.github/workflows/managed-linux-host.yml
+
+  windows-installer:
+    needs: installer-preflight
+    permissions:
+      contents: read
+    uses: ./.github/workflows/managed-windows-host.yml
+
+  attach-installers:
+    name: Attach accepted Linux and Windows installers to the draft
+    needs: [linux-installers, windows-installer]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: linux-installers
+          path: ${{ runner.temp }}/installers/linux
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-installer
+          path: ${{ runner.temp }}/installers/windows
+      - name: Attach exactly one deb, one AppImage and one Windows installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          files=()
+          for suffix in .deb .AppImage -setup.exe; do
+            found=()
+            while IFS= read -r -d '' file; do found+=("$file"); done \
+              < <(find "$RUNNER_TEMP/installers" -type f -name "*$suffix" -print0)
+            if [ "${#found[@]}" -ne 1 ]; then
+              echo "::error::Expected exactly one *$suffix, found ${#found[@]}."
+              exit 1
+            fi
+            case "$(basename "${found[0]}")" in
+              *"_${version}_"*) ;;
+              *) echo "::error::$(basename "${found[0]}") is not version $version."; exit 1 ;;
+            esac
+            files+=("${found[0]}")
+          done
+          sha256sum "${files[@]}"
+          # Still a draft: the builds above take most of an hour.
+          [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
   publish:
     name: Build and publish (${{ matrix.platform }})
+    if: inputs.kind != 'managed-linux-windows'
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 90
     strategy:

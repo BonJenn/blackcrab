@@ -814,6 +814,13 @@ Installed runs after that (PR328), in order:
   own authenticated request for its workspace state
   (`/api/orchestration/shell`, 200), once more per launch. Reading the window
   through UI Automation returned only the title bar.
+- One run's service setup then failed at "Service runtime publication
+  failed". Publication renames a directory of 3,824 files that were just
+  written, and Windows refuses that while any file inside is open, as a
+  virus scanner's are. The underlying error is not kept, so this cause is
+  inferred, not observed. `rename_no_replace` now retries access-denied and
+  sharing-violation refusals for up to twenty seconds, unless the target
+  already exists.
 - Seen and not pursued: the service listens on all interfaces
   (`0.0.0.0:3773`, "remote-reachable") and prints a pairing token into
   `boot-service.log`, a private file. Whether that matches macOS and Linux

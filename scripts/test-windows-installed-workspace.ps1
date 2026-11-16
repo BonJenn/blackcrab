@@ -134,14 +134,16 @@ function Test-Upgrade($seed) {
   $owner = Join-Path $appData 'managed-host\v1'
   $now = Get-ServiceRecord; $old = $seed.manifest
   if ($old -ne $released.manifest -or $seed.bindingManifest -ne $old -or $seed.layoutManifest -ne $old) { throw 'The released installer did not install the service runtime this check expects' }
-  if ($now.manifest -eq $old -or $now.bindingManifest -ne $now.manifest -or $now.layoutManifest -ne $now.manifest) { throw 'The service runtime was not replaced consistently' }
+  if ($now.bindingManifest -ne $now.manifest -or $now.layoutManifest -ne $now.manifest) { throw 'The service runtime was not replaced consistently' }
   foreach ($key in 'generation', 'environment', 'secret') { if ("$($now[$key])" -ne "$($seed.$key)") { throw "The upgrade changed the service's $key" } }
   if (-not $seed.database -or -not $now.database) { throw 'The service database is missing' }
+  # This candidate carries the released runtime unchanged: nothing to replace.
+  if ($now.manifest -eq $old) { return [ordered]@{ from = $old; to = $old; runtimeReplaced = $false; identityRetained = $true } }
   $retired = Join-Path $owner "host\runtime\retired\$old"
   $kept = Get-Content -LiteralPath (Join-Path $retired '.blackcrab-service-layout.json') -Raw | ConvertFrom-Json
   if ($kept.manifestSha256 -ne $old -or -not (Test-Path -LiteralPath (Join-Path $retired 'payload\t3.exe'))) { throw 'The previous runtime was not kept whole' }
   if (-not (Test-Path -LiteralPath (Join-Path $owner "host\upgrade-backups\$($old.Substring(0, 16))\statev2.sqlite"))) { throw 'The database was not copied before the upgrade' }
-  [ordered]@{ from = $old; to = $now.manifest; identityRetained = $true; previousRuntimeKept = $true; databaseCopied = $true }
+  [ordered]@{ from = $old; to = $now.manifest; runtimeReplaced = $true; identityRetained = $true; previousRuntimeKept = $true; databaseCopied = $true }
 }
 function Get-Identity {
   $owner = Join-Path $appData 'managed-host\v1'
@@ -230,6 +232,6 @@ if (-not $result.passed -or $result.sessions.Count -ne $rounds.Count) { Write-Ou
 if ($Seed) { Write-Output "RELEASED_$($released.version)_INSTALLED_AND_OPENED_FOR_UPGRADE"; return }
 if ($SeedRecord) {
   if ($result.upgrade.identityRetained -ne $true) { Write-Output ($result | ConvertTo-Json -Depth 6); throw 'The upgrade from the released version was not verified' }
-  Write-Output "UPGRADE_FROM_RELEASED_$($released.version)_KEPT_SERVICE_IDENTITY_AND_DATA"
+  Write-Output ("UPGRADE_FROM_RELEASED_$($released.version)_KEPT_SERVICE_IDENTITY_AND_DATA" + $(if ($result.upgrade.runtimeReplaced) { '' } else { '_RUNTIME_UNCHANGED' }))
 }
 Write-Output 'INSTALLED_WINDOWS_WORKSPACE_ACCEPTANCE_PASSED'

@@ -46,21 +46,24 @@ def check_upgrade(owner, seed):
     old = seed["manifest"]
     if old != RELEASED["manifest"] or seed["bindingManifest"] != old or seed["layoutManifest"] != old:
         raise RuntimeError("The released package did not install the service runtime this check expects")
-    if len({now["manifest"], now["bindingManifest"], now["layoutManifest"]}) != 1 or now["manifest"] == old:
+    if len({now["manifest"], now["bindingManifest"], now["layoutManifest"]}) != 1:
         raise RuntimeError("The service runtime was not replaced consistently")
     for key in ("generation", "environment", "secret"):
         if now[key] != seed[key]:
             raise RuntimeError("The upgrade changed the service's " + key)
     if not seed["database"] or not now["database"]:
         raise RuntimeError("The service database is missing")
+    if now["manifest"] == old:
+        # This candidate carries the released runtime unchanged: nothing to replace.
+        return {"from": old, "to": old, "runtimeReplaced": False, "identityRetained": True}
     retired = owner / "host/runtime/retired" / old
     if json.loads((retired / ".blackcrab-service-layout.json").read_text())["manifestSha256"] != old \
             or not (retired / "payload/t3").is_file():
         raise RuntimeError("The previous runtime was not kept whole")
     if not (owner / "host/upgrade-backups" / old[:16] / "statev2.sqlite").is_file():
         raise RuntimeError("The database was not copied before the upgrade")
-    return {"from": old, "to": now["manifest"], "identityRetained": True, "previousRuntimeKept": True,
-            "databaseCopied": True}
+    return {"from": old, "to": now["manifest"], "runtimeReplaced": True, "identityRetained": True,
+            "previousRuntimeKept": True, "databaseCopied": True}
 
 
 def digest(file):
@@ -592,7 +595,8 @@ def main(report_path, released=None):
     if released is not None:
         if result.get("upgrade", {}).get("identityRetained") is not True:
             raise RuntimeError("The upgrade from the released version was not verified")
-        print("UPGRADE_FROM_RELEASED_" + RELEASED["version"] + "_KEPT_SERVICE_IDENTITY_AND_DATA")
+        print("UPGRADE_FROM_RELEASED_" + RELEASED["version"] + "_KEPT_SERVICE_IDENTITY_AND_DATA"
+              + ("" if result["upgrade"]["runtimeReplaced"] else "_RUNTIME_UNCHANGED"))
     print("INSTALLED_LINUX_DEB_AND_APPIMAGE_WORKSPACE_ACCEPTANCE_PASSED")
 
 

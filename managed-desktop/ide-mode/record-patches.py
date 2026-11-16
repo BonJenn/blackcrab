@@ -1,4 +1,8 @@
-"""Record reviewed literal edits against a freshly prepared production desktop source."""
+"""Record reviewed literal edits against a freshly prepared production desktop source.
+
+Historical: since 0.4.5 the renderer and contract records live in ../patches/ide-mode and the
+production registry. Only the service records remain here; do not rerun this unchanged.
+"""
 import sys, pathlib, json, hashlib, difflib
 root=pathlib.Path(sys.argv[1]); here=pathlib.Path(__file__).parent
 sha=lambda b:hashlib.sha256(b).hexdigest()
@@ -29,7 +33,7 @@ patch('ide-editor-helper','apps/web/src/components/files/FilePreviewPanel.tsx',[
  ('function useEditableAfterHighlight(file: FileContents)', 'export function useEditableAfterHighlight(file: FileContents)')])
 patch('ide-chat','apps/web/src/components/ChatView.tsx',[
  ('import { workspaceAreaProps }', 'import IdePanel from "./ide/IdePanel";\nimport { workspaceAreaProps }'),
- ('  const [workspaceLayoutElement, setWorkspaceLayoutElement]', '  const [ideMode, setIdeMode] = useState(false);\n  const ideEnabled = import.meta.env.VITE_BLACKCRAB_IDE_MODE === "1" && !embedded;\n  const [workspaceLayoutElement, setWorkspaceLayoutElement]'),
+ ('  const [workspaceLayoutElement, setWorkspaceLayoutElement]', '  const [ideMode, setIdeMode] = useState(false);\n  const ideEnabled = !embedded;\n  const [workspaceLayoutElement, setWorkspaceLayoutElement]'),
  ('            {pane ? <PaneHeaderControls', '            {ideEnabled ? <button type="button" className="shrink-0 rounded border px-2 py-1 text-xs [-webkit-app-region:no-drag]" aria-pressed={ideMode} onClick={() => setIdeMode(!ideMode)}>{ideMode ? "Chat mode" : "IDE mode"}</button> : null}\n            {pane ? <PaneHeaderControls'),
  ('        <div className="relative flex min-h-0 min-w-0 flex-1">\n          <ThreadFindCanvas', '        <div className="relative flex min-h-0 min-w-0 flex-1">\n          {ideEnabled && ideMode && activeWorkspaceRoot ? <IdePanel key={`${activeThreadKey}:${environmentId}:${activeWorkspaceRoot}`} environmentId={environmentId} cwd={activeWorkspaceRoot} projectName={activeProject?.title ?? "Workspace"} composerDraftTarget={composerDraftTarget} items={serverVisibleTurnItems} workspaceMutationId={workspaceMutationId} /> : null}\n          <ThreadFindCanvas')])
 for file in ['IdePanel.tsx','ideState.ts','ide-mode.css','IdePanel.browser.test.tsx','IdeCodeEditor.browser.test.tsx']:

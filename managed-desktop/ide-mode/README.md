@@ -1,4 +1,12 @@
-# IDE mode — 0.4.5 draft
+# IDE mode — 0.4.5
+
+**Status, 0.4.5:** the renderer and shared-contract records are in the production
+desktop registry (`../patches/registry.json`, ids `ide-mode-045-*`, files in
+`../patches/ide-mode/`) and the toggle is always present in the workspace. The service
+records (`ide-host`, `ideGuardedWrite.ts`) are not yet in the service profile, so
+against a host without them IDE mode is read-only. The text below is the original
+draft description; its statements about being inactive apply only to those service
+records now.
 
 This is an opt-in source experiment against BonJenn/t3code
 `7f02de2eb8e253e0ec23f005b3cfff8e2c963be8`, after the current managed desktop

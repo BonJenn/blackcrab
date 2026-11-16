@@ -1,0 +1,63 @@
+--- a/apps/web/src/components/chat/useComposerSend.ts
++++ b/apps/web/src/components/chat/useComposerSend.ts
+@@ -494,6 +494,14 @@
+         : null;
+     const answeringQuestion =
+       Boolean(activePendingProgress) && sendCtx?.answeringPendingUserInput !== false;
++    if (
++      !answeringQuestion &&
++      promptAtSend.trimStart().startsWith("/") &&
++      useComposerDraftStore.getState().getComposerDraft(composerDraftTarget)?.pairedModel
++    ) {
++      setThreadError(activeThread.id, "Remove the second model before sending a slash command.");
++      return;
++    }
+     // Where side chats are unavailable, `/side` text can still be a literal answer.
+     if (sideChatDisabledReason !== null && sideChatCommand && !answeringQuestion) {
+       toastManager.add(
+@@ -905,8 +913,34 @@
+     // Records bind attachments by the id each side knows: the local id for the optimistic
+     // row, the upload id (or local id on the data-URL path) on the wire; the server
+     // rebinds them to the persisted id.
+-    const buildOutgoingMessageContext = (attachmentIds: ReadonlyArray<string>) =>
+-      buildMessageContext({
++    const pairedModel = useComposerDraftStore
++      .getState()
++      .getComposerDraft(composerDraftTarget)?.pairedModel;
++    if (pairedModel) {
++      const config = appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId);
++      const entry = providerInstanceEntries.find(
++        (candidate) => candidate.instanceId === pairedModel.instanceId,
++      );
++      const reason =
++        config?.environment.capabilities.pairedModels !== true
++          ? "Update this environment's host to use two models together."
++          : multipleModelSelections !== null
++            ? "Choose paired work or separate model threads before sending."
++            : !entry?.enabled || !entry.isAvailable || entry.status !== "ready"
++              ? "The second model's provider is unavailable. Choose another model or remove it."
++              : pairedModel.instanceId === ctxSelectedModelSelection.instanceId &&
++                  pairedModel.model === ctxSelectedModelSelection.model
++                ? "Choose a different second model or remove it."
++                : messageTextForSend.trimStart().startsWith("/")
++                  ? "Remove the second model before sending a slash command."
++                  : null;
++      if (reason) {
++        setThreadError(threadIdForSend, reason);
++        return;
++      }
++    }
++    const buildOutgoingMessageContext = (attachmentIds: ReadonlyArray<string>) => {
++      const context = buildMessageContext({
+         terminalContexts: composerTerminalContextsSnapshot,
+         reviewComments: composerReviewCommentsSnapshot,
+         previewAnnotations: composerPreviewAnnotationsSnapshot,
+@@ -917,6 +951,8 @@
+           attachmentId: attachmentIds[index] ?? attachment.id,
+         })),
+       });
++      return pairedModel ? { version: 1 as const, records: [], ...context, pairedModel } : context;
++    };
+     const outgoingMessageContext = buildOutgoingMessageContext(
+       composerAttachmentsSnapshot.map((attachment) => attachment.id),
+     );

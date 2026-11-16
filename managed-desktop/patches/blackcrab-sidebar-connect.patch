@@ -1,0 +1,42 @@
+--- a/apps/web/src/components/sidebar/SidebarChrome.tsx
++++ b/apps/web/src/components/sidebar/SidebarChrome.tsx
+@@ -1,6 +1,6 @@
+ import { ArrowLeftIcon, ArrowRightIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
+ import type { ReactNode } from "react";
+-import { memo } from "react";
++import { lazy, memo, Suspense } from "react";
+ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+ 
+ import { useAtomValue } from "@effect/atom-react";
+@@ -40,6 +40,18 @@
+ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
+ import { observeResize } from "~/lib/observeResize";
+ 
++// Blackcrab Connect sign-in is otherwise only in the Settings footer, where people do not look.
++const SidebarConnectSignIn = lazy(() =>
++  import("../clerk/T3ConnectSidebarSignIn").then((module) => ({
++    default: module.T3ConnectSidebarSignIn,
++  })),
++);
++const SidebarConnectAvatar = lazy(() =>
++  import("../clerk/T3ConnectSidebarSignIn").then((module) => ({
++    default: module.T3ConnectSidebarAvatar,
++  })),
++);
++
+ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
+   isElectron,
+ }: {
+@@ -296,6 +308,12 @@
+     <SidebarFooter>
+       <SidebarProviderUpdatePill />
+       <SidebarUpdateArchitectureWarning />
++      <Suspense fallback={null}>
++        <SidebarConnectSignIn />
++      </Suspense>
++      <Suspense fallback={null}>
++        <SidebarConnectAvatar />
++      </Suspense>
+       <SidebarUtilityMenu />
+     </SidebarFooter>
+   );

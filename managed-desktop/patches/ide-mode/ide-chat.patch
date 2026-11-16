@@ -11,7 +11,7 @@
      useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY) || pane !== null;
    const isMobileViewport = useMediaQuery("max-sm");
 +  const [ideMode, setIdeMode] = useState(false);
-+  const ideEnabled = import.meta.env.VITE_BLACKCRAB_IDE_MODE === "1" && !embedded;
++  const ideEnabled = !embedded;
    const [workspaceLayoutElement, setWorkspaceLayoutElement] = useState<HTMLDivElement | null>(null);
    const threadPanelPopoverAnchorRef = useRef<HTMLElement | null>(null);
    const [terminalUiLaunchContext, setTerminalUiLaunchContext] =

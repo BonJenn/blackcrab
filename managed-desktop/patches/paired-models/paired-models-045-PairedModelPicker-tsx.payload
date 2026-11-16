@@ -1,0 +1,60 @@
+import type { ComponentProps } from "react";
+import type { ModelSelection } from "@t3tools/contracts";
+import { XIcon } from "lucide-react";
+import { ComposerControl } from "./ComposerControl";
+import { ProviderModelPicker } from "./ProviderModelPicker";
+
+export function PairedModelPicker(
+  props: Pick<
+    ComponentProps<typeof ProviderModelPicker>,
+    "environmentId" | "instanceEntries" | "modelOptionsByInstance" | "size"
+  > & {
+    lead: ModelSelection;
+    partner: ModelSelection | undefined;
+    supported: boolean;
+    disabled: boolean;
+    onChange: (selection: ModelSelection | undefined) => void;
+  },
+) {
+  const selection = props.partner ?? props.lead;
+  return (
+    <div className="flex min-w-0 shrink-0 items-center gap-1" data-paired-model-picker>
+      <ProviderModelPicker
+        environmentId={props.environmentId}
+        activeInstanceId={selection.instanceId}
+        model={selection.model}
+        lockedProvider={null}
+        instanceEntries={props.instanceEntries}
+        modelOptionsByInstance={props.modelOptionsByInstance}
+        size={props.size ?? "sm"}
+        disabled={props.disabled || !props.supported}
+        isComposerOwned
+        {...(props.partner ? {} : { triggerLabel: "+" })}
+        triggerAriaLabel={
+          props.partner ? `Second model: ${props.partner.model}` : "Add a second model"
+        }
+        triggerDetail={
+          props.supported
+            ? "Lead works, partner reviews, lead resolves. Three passes use both models. Stop pauses the remaining passes."
+            : "Update this environment's host to use two models together."
+        }
+        getModelDisabledReason={(instanceId, model) =>
+          instanceId === props.lead.instanceId && model === props.lead.model
+            ? "Choose a different model from the lead."
+            : null
+        }
+        onInstanceModelChange={(instanceId, model) => props.onChange({ instanceId, model })}
+      />
+      {props.partner ? (
+        <ComposerControl
+          type="button"
+          size={props.size ?? "sm"}
+          aria-label="Remove second model"
+          onClick={() => props.onChange(undefined)}
+        >
+          <XIcon aria-hidden="true" className="size-3.5" />
+        </ComposerControl>
+      ) : null}
+    </div>
+  );
+}

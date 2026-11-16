@@ -1,0 +1,27 @@
+--- a/apps/server/src/orchestration-v2/ThreadManagementService.ts
++++ b/apps/server/src/orchestration-v2/ThreadManagementService.ts
+@@ -713,11 +713,19 @@
+       case "message.dispatch":
+         return orchestrator.getThreadRecords(command.threadId, []).pipe(
+           Effect.flatMap((projection) =>
+-            assertProviderInstanceEnabled({
+-              projectId: projection.thread.projectId,
+-              commandId: command.commandId,
+-              instanceId: (command.modelSelection ?? projection.thread.modelSelection).instanceId,
+-            }),
++            Effect.forEach(
++              [
++                command.modelSelection ?? projection.thread.modelSelection,
++                ...(command.context?.pairedModel ? [command.context.pairedModel] : []),
++              ],
++              (selection) =>
++                assertProviderInstanceEnabled({
++                  projectId: projection.thread.projectId,
++                  commandId: command.commandId,
++                  instanceId: selection.instanceId,
++                }),
++              { discard: true },
++            ),
+           ),
+         );
+       case "delegated_task.request":

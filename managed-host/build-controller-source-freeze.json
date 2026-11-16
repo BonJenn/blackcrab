@@ -12,7 +12,7 @@
     "managed-cloud/client-config.mjs": "cbf43d4576676f88f8448379c1a40c2a8de711e0715597ee451acb72b6c6b233",
     "mobile-experience/activation/adapters/owned-cloud-config.cjs": "f3ec7ac587f5907c08661a6fb59c671a100b460bcd585bb19d4283a2fa9cc0b5",
     "managed-host/source.mjs": "a4ac79f5ae8439ad9c376109f52c21c910654b50c378ea853daa3ee41d7ccb99",
-    "managed-host/service-profile.mjs": "c3ff37303695dc196921aa3165281c4f0fe23216c95791d83ea92b4ec4f29678",
+    "managed-host/service-profile.mjs": "de0c3671fa2f309988e80ac3c314485df15a23ff2866c676f5904d10ec8ca737",
     "managed-host/artifact.mjs": "949b113af52f60ad8c55618a0b8c93e664c78c859cfe7f6164fde58be348b401",
     "managed-host/rust-notices.mjs": "58a442a8be62cff766d28f74e81ef299c4bbc537d97923d1c0e902c7c0848f84",
     "managed-host/registry-metadata.mjs": "3c0dd43b632d0fac96d8f0cd5c5ac654cdcc3594f1ee89ddebe6c56e2cd2bb21",
@@ -21,7 +21,7 @@
     "scripts/build-managed-host.mjs": "83ca0ae69c05757816c020156e4238d2e5cf00713824900f61db8b394cefaa64"
   },
   "upstream": "eab8b879f121a8f917a654f9eb2d145295152082a700095fbb6c1024c0db83b6",
-  "recordGraphSha256": "10ce3806a565edd7d67294120d0731b39bcc7a93423ccd1a99fda5e42c8f4910",
+  "recordGraphSha256": "b25c5d50bf974ad4a3507dec86090cfa1d4f77e419224e83eb345f5a6219d8ce",
   "registryMetadataManifestSha256": "73a6174790b01d1213f2c87d21d56c21f1e90cfd097992fcd9ba82354217ebfb",
   "rawSourceData": {
     "identity/registry.original.json": "d558f1baada414f0b8010113fc0f985ae799d2570d0cbbd22265dff4bc4cc72b",
@@ -103,6 +103,18 @@
     "typecheck/owned-types-OwnedServiceAuthBootstrap.patch": "9b4c5080ba253ac238beae8b2ed4b09c73f56f14d5774023df926e75765da6bd",
     "typecheck/owned-types-OwnedServiceProof.patch": "a02dc5f890ca73c2629ea3cab71a868a1df4ac3edee356e264c15bfa84d625fd",
     "typecheck/owned-types-config.patch": "4ee236145ea40ffd3a1c4e4709803008d3934bf4a2a097c185c64963593ddf5c",
-    "typecheck/owned-types-http.patch": "fdc7f878b464bfc9fad245255d26dcccfb8fe6030a667a32db1dd57e2377773f"
+    "typecheck/owned-types-http.patch": "fdc7f878b464bfc9fad245255d26dcccfb8fe6030a667a32db1dd57e2377773f",
+    "features/registry.original.json": "8d279f8b97f859faf24aa71c4253eb67f365da05748e0747e1e3cff90dc6bb26",
+    "features/ide-contract.patch": "39fff1837c7648a171583d24431ce256943af58d585d9f7d76634e5a9799652b",
+    "features/ide-host.patch": "6c940c2971b3b712d79530e9f984f37c3e21d1643c69f1972fb36c7ee90807eb",
+    "features/ideGuardedWrite.ts": "e257ba51f293c741f93fb9555961142f76b32cc4529673c50ab68977cd787abb",
+    "features/IdeWorkspaceFileSystem.test.ts": "8db971b9edcc82dd52eedf6127e1692c92d2185aa944dc7be9f141252322fc67",
+    "features/paired-models-045-ServerEnvironment-ts.patch": "5ebef9c6e4f46b0f24b4bf7cccfe8a57e7fa295df8317b75310a844a111d39ce",
+    "features/paired-models-045-Orchestrator-ts.patch": "a0596e591bdce03436d141aa233a21399f7dcb8747622a24ea2544a11e4ec6fa",
+    "features/paired-models-045-ThreadLaunchService-ts.patch": "bdf9e7398eee10c4dd7acac90d5d48ed19b86c45f9486e6a058f60a4b6e22f43",
+    "features/paired-models-045-ThreadManagementService-ts.patch": "21c2e7e65306291489fccd2f120141901a0ce57afd15b678d3a12a99b226b50a",
+    "features/paired-models-045-ProviderSwitch-integration-test-ts.patch": "53dfb3227c6df0d8f997f49849e253fdf5464da328e66ce96be4c5b872ac369c",
+    "features/paired-models-045-composerContext-ts.patch": "141881776bf989ab41506ff9f0b775339048a38df5eebe00e93720031e312c5b",
+    "features/paired-models-045-environment-ts.patch": "f13f0112627bcf11bf28faf45a39a2b5261087a2111a3bf9cff03cefe9fe6b07"
   }
 }

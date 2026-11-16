@@ -17,11 +17,22 @@ Order of work and state:
    docs/service-upgrade.md. Paired models and IDE saving need new service code,
    so the Mac runtime `c04c4d44…` changes for the first time; this is the
    data-preserving migration the standing rule required.
-3. Next: promote the service records (paired models host, IDE host and
-   contract) into the service profile and refresh the build freeze from a real
-   build; Windows browser channel (named pipe form of the leased socket);
-   updater artifacts and signatures for Linux and Windows, one merged
-   latest.json, the Windows in-workspace update control.
+3. PR #334 and #335 are merged. #336 (self-update for Linux and Windows) is
+   open. Branch feat/045-service-features adds the eleven service records for
+   paired models and IDE saving as the service profile's last shared group
+   (`managed-host/features/`, 82 records, 84 on Windows) and refreshes the
+   build freeze from a real local Apple-silicon build of that commit
+   (P/release-045-dev/mac-host-1, manifest 0ebfc932…, unsigned; the server
+   typecheck, browser-channel regression and 130 service tests passed). The
+   release payload must be rebuilt from the release commit, then signed and
+   notarized. `P/release-045-dev/build-mac-host.mjs` is the local build script.
+   Still to do: the Windows browser channel (a named-pipe form of the leased
+   socket; launcher gates in managed_browser.rs, managed_host.rs, the issuer
+   and managed_desktop_windows.rs; service payload 014 and its copies under
+   managed-desktop/host-browser-requirements; descriptor.mjs). Blackcrab
+   Connect sign-in was broken in every desktop release because the Clerk
+   instance did not allow the origin `blackcrab://app`; that origin and the
+   redirect `blackcrab://app/` were added on 2026-11-16 at the owner's request.
 4. Then: version 0.4.5, Mac payloads built, signed and notarized locally as
    for 0.4.4 (now including a new service payload), draft release, owner test
    of the Mac upgrade on their own machine before publication, publish,

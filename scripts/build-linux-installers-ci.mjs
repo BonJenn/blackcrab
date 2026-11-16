@@ -13,7 +13,10 @@ import {verifyServiceProfileArtifact} from '../managed-host/service-profile.mjs'
 import {readBlackcrabVersion} from '../managed-desktop/release-version.mjs';
 
 const exec=promisify(execFile),repository=fileURLToPath(new URL('../',import.meta.url));
-const {values}=parseArgs({options:{root:{type:'string'},host:{type:'string'},desktop:{type:'string'}}});
+const {values}=parseArgs({options:{root:{type:'string'},host:{type:'string'},desktop:{type:'string'},'sign-updates':{type:'boolean'}}});
+// A release signs its updater artifacts with the updater key. Pull requests never see the key.
+const signUpdates=values['sign-updates']===true;
+if(signUpdates&&!process.env.TAURI_SIGNING_PRIVATE_KEY?.trim())throw Error('Signing updates requires the updater key');
 if(process.platform!=='linux'||process.arch!=='x64'||process.env.GITHUB_ACTIONS!=='true')throw Error('Disposable native Linux x64 CI required');
 if(!['root','host','desktop'].every(k=>values[k]&&path.isAbsolute(values[k])))throw Error('Absolute new output and input paths required');
 await fs.mkdir(values.root,{mode:0o700});
@@ -21,6 +24,7 @@ const root=await fs.realpath(values.root),logs=path.join(root,'logs');await fs.m
 const report={passed:false,published:false,updaterSigned:false,uiAcceptance:'pending',target:'linux-x64',packages:[]};
 const environment=Object.fromEntries(['PATH','HOME','LANG','LC_ALL','CARGO_HOME','RUSTUP_HOME'].filter(k=>process.env[k]).map(k=>[k,process.env[k]]));
 Object.assign(environment,{CI:'true',CARGO_BUILD_JOBS:'2',CARGO_PROFILE_RELEASE_DEBUG:'0',APPIMAGE_EXTRACT_AND_RUN:'1'});
+if(signUpdates)for(const key of ['TAURI_SIGNING_PRIVATE_KEY','TAURI_SIGNING_PRIVATE_KEY_PASSWORD'])if(process.env[key]!==undefined)environment[key]=process.env[key];
 async function digest(file){const hash=createHash('sha256');for await(const bytes of createReadStream(file))hash.update(bytes);return hash.digest('hex');}
 async function step(name,command,args,cwd=repository){return runBuildStep({name,command,args,cwd,env:environment,logs,timeoutMs:60*60*1000});}
 async function one(directory,suffix){const files=(await fs.readdir(directory)).filter(n=>n.endsWith(suffix));if(files.length!==1)throw Error('Expected exactly one '+suffix+' installer');return path.join(directory,files[0]);}
@@ -54,7 +58,7 @@ try{
   const host=await verifyServiceProfileArtifact(values.host,{platform:'linux',arch:'x64'});
   report.manifests={desktop:await digest(path.join(values.desktop,'blackcrab-managed-desktop.json')),host:await digest(path.join(values.host,'blackcrab-managed-host.json'))};
   report.files={desktop:desktop.files.length,host:host.files.length};
-  await step('tauri-installers',process.execPath,[path.join(repository,'scripts/tauri-build.mjs'),'--local','--target','x86_64-unknown-linux-gnu','--bundles','deb,appimage','--managed-desktop',values.desktop,'--managed-service-host',values.host]);
+  await step('tauri-installers',process.execPath,[path.join(repository,'scripts/tauri-build.mjs'),signUpdates?'--updates':'--local','--target','x86_64-unknown-linux-gnu','--bundles','deb,appimage','--managed-desktop',values.desktop,'--managed-service-host',values.host]);
   const release=path.join(repository,'src-tauri/target/x86_64-unknown-linux-gnu/release');
   const binaryHash=await digest(path.join(release,'blackcrab'));
   report.compiledRootSha256=binaryHash;
@@ -94,8 +98,15 @@ try{
         if(role==='desktop')await verifyArtifact(unpack,{expectedTarget:'linux-x64'});else await verifyServiceProfileArtifact(unpack,{platform:'linux',arch:'x64'});
       }
     }
-    report.packages.push({kind,file:installer,bytes:(await fs.stat(installer)).size,sha256:await digest(installer),rootSha256:rootHash,payloadHashes:hashes});
+    const item={kind,file:installer,bytes:(await fs.stat(installer)).size,sha256:await digest(installer),rootSha256:rootHash,payloadHashes:hashes};
+    if(signUpdates){
+      // The signature beside the installer is what the update manifest carries.
+      const signature=installer+'.sig';let text=null;try{text=(await fs.readFile(signature,'utf8')).trim();}catch(error){if(error.code!=='ENOENT')throw error;}
+      if(text)Object.assign(item,{signatureFile:signature});else if(kind==='appimage')throw Error('The AppImage has no updater signature');
+    }
+    report.packages.push(item);
   }
+  report.updaterSigned=signUpdates;
   report.passed=true;
   if(process.env.GITHUB_ENV)await fs.appendFile(process.env.GITHUB_ENV,`BLACKCRAB_LINUX_PACKAGE_REPORT=${path.join(root,'result.json')}\n`);
 }catch(error){report.error=error.message;process.exitCode=1;}

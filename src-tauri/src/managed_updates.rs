@@ -257,13 +257,13 @@ async fn install(app: &tauri::AppHandle) {
     crate::managed_launcher::show(app, "blackcrab-open-settings");
     // Keep progress/recovery visible while the captured workspace closes normally.
     // The independent background service and its running agents are untouched.
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     let closed = app
         .state::<crate::managed_native_entry::ManagedNativeEntry>()
         .close_for_update()
         .await
         .is_ok();
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     let closed = true;
     if !closed {
         change(app, |inner| {
@@ -364,6 +364,49 @@ pub(crate) fn serve(mut stream: std::os::unix::net::UnixStream, app: tauri::AppH
                     }
                 }
                 Err(_) => break,
+            }
+        }
+    });
+}
+
+/// The same exchange over the private pipe a Windows workspace inherits as
+/// descriptor 5: one JSON request per line, one reply per request.
+#[cfg(all(windows, not(test)))]
+pub(crate) fn serve_pipe(pipe: crate::managed_spawn_windows::Pipe, app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let (mut frame, mut chunk, mut waited) = (Vec::new(), [0u8; 256], 0u32);
+        loop {
+            let read = match pipe.read(&mut chunk, Some(Duration::from_secs(1))) {
+                Ok(0) => break,
+                Ok(read) => read,
+                Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+                    // An idle channel waits; half a request must finish within five seconds.
+                    if !frame.is_empty() {
+                        waited += 1;
+                        if waited >= 5 {
+                            break;
+                        }
+                    }
+                    continue;
+                }
+                Err(_) => break,
+            };
+            waited = 0;
+            for byte in &chunk[..read] {
+                if *byte != b'\n' {
+                    frame.push(*byte);
+                    if frame.len() > 1024 {
+                        return;
+                    }
+                    continue;
+                }
+                let Ok(request) = serde_json::from_slice::<Request>(&frame) else { return };
+                frame.clear();
+                let Ok(mut reply) = serde_json::to_vec(&self::request(&app, request)) else { return };
+                reply.push(b'\n');
+                if pipe.write_all(&reply, Some(Duration::from_secs(5))).is_err() {
+                    return;
+                }
             }
         }
     });

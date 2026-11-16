@@ -24,7 +24,7 @@ never pass a process environment or secret key. That public configuration and al
 17 producer modules are included in the prepared input fingerprint. Refresh
 build-controller-source-freeze.json only from a completed successful build with
 unchanged protected inputs and quiescent captured children, never just to make
-its test pass. The current combined service graph contains 71 ordered records.
+its test pass. The current combined service graph contains 82 ordered records: the 71 of 0.4.4 and the 11 feature records of 0.4.5.
 
 ## Lifecycle and protocol
 

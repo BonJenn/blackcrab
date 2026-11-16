@@ -48,7 +48,7 @@ jobs:
           if (!response.ok || !response.body) throw Error(`Source download failed: ${response.status}`);
           await pipeline(Readable.fromWeb(response.body), createWriteStream(archive, {flags: 'wx'}));
           const result = await preparePairedModelsSource({profile: process.env.PAIRED_PROFILE, archive, cacheDir: parent});
-          if (result.releaseEligible !== (process.env.PAIRED_PROFILE === 'desktop')) throw Error('Only the desktop profile is in the production recipe');
+          if (result.releaseEligible !== true) throw Error('Both profiles are production recipes');
           await fs.appendFile(process.env.GITHUB_OUTPUT, `root=${result.root}\n`);
           JS
       - name: install frozen source dependencies

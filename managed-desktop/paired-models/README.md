@@ -1,8 +1,8 @@
 # Paired models — 0.4.5
 
 **Status, 0.4.5:** the desktop records are in the production desktop registry
-(`../patches/registry.json`, files in `../patches/paired-models/`). The host records are not
-yet in the service profile; against a host without them the picker is shown disabled
+(`../patches/registry.json`, files in `../patches/paired-models/`). The host records are in the
+service profile (`../../managed-host/features/`); against an older service the picker is shown disabled
 with "Update this environment's host to use two models together."
 
 This opt-in source recipe adds the composer partner picker and the host's bounded

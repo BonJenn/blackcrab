@@ -1,6 +1,16 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — Windows step 6c: installed acceptance
+## Current checkpoint — Windows works installed in CI; owner decisions next
+
+Steps1 to 6c are merged (PR308–328; stage 7f774da2898b3b06a0e590f64095776751107b70). The installed Windows app
+sets itself up and opens a working workspace in CI. Read "Where Windows
+stands" in docs/windows-workspace-delivery.md for what is proven and the four
+things still needed (signing and updater decisions, a real PC, release build
+wiring, known gaps). Step 5 (browser channel) is not started. Mac payload
+changed in PR310/311 and PR327: **redo Mac native acceptance before0.4.4**.
+**0.4.4 is not published**; consult the owner before any tag or publication.
+
+## Previous checkpoint — Windows step 6c: installed acceptance
 
 Steps1 to 6b are merged (PR308–327; stage acdc35d88d326bae4b794a6dad3a3f28d3df14ef).
 The Windows workspace now draws its interface (see "Step 6b"). Worktree

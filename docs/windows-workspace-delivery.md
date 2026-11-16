@@ -826,6 +826,34 @@ Installed runs after that (PR328), in order:
   `boot-service.log`, a private file. Whether that matches macOS and Linux
   was not checked.
 
+Step 6c merged as PR328 (7f774da2898b3b06a0e590f64095776751107b70). The installed acceptance passed with
+the interface loaded on both launches: service set up and running, closing the
+window quits workspace and launcher, the service survives, and the second
+launch keeps its identity.
+
+## Where Windows stands (2026-11-16)
+
+Proven in CI on windows-2022: the service payload and helper build; the
+service installs, starts, stops cleanly, restarts and uninstalls through Task
+Scheduler; Root launches the workspace against it; the NSIS installer builds
+and installs; and the installed app sets itself up and opens a working
+workspace, twice.
+
+Not done, and needed before Windows is offered to users:
+
+1. **Owner decisions:** code signing (the installer and programs are
+   unsigned, so SmartScreen warns), and updater metadata for Windows.
+2. **A real PC.** Everything above ran on one runner image under an
+   administrator account. Not yet seen on a real desktop: sign-out and
+   sign-in (the task's trigger), an ordinary non-administrator account, a
+   long account name (path length), and the SmartScreen experience.
+3. **Release build wiring.** The release workflow does not build the Windows
+   installer with payloads; only this CI job does.
+4. Known gaps: no update channel in the workspace, no native browser channel
+   (step 5), Windows PowerShell's shell-environment read times out at five
+   seconds on the runner, no recovery path after a start that fails mid-way,
+   and the uninstaller leaves the scheduled task and application data.
+
 ## Remaining steps
 
 3. **Workspace launch, profile and environment contract.** Port

@@ -4820,7 +4820,7 @@
   {
     "id": "ide-mode-045-contract",
     "target": "packages/contracts/src/project.ts",
-    "file": "../ide-mode/patches/ide-contract.patch",
+    "file": "ide-mode/ide-contract.patch",
     "sha256": "39fff1837c7648a171583d24431ce256943af58d585d9f7d76634e5a9799652b",
     "beforeSha256": "2aa9a4ae236beb65de35aaead9552cf3dabfc283149431db4c5791d6aa2ac374",
     "afterSha256": "7cb151d04f6cec71e3568b5f2adba49312705a37f4ef36bab2991024c8837dc9",
@@ -4834,7 +4834,7 @@
   {
     "id": "ide-mode-045-editor-helper",
     "target": "apps/web/src/components/files/FilePreviewPanel.tsx",
-    "file": "../ide-mode/patches/ide-editor-helper.patch",
+    "file": "ide-mode/ide-editor-helper.patch",
     "sha256": "40a24930efcd126c131fe779c488e133c476c62e05a08a62a74d39f16643842a",
     "beforeSha256": "36e423d02ae1be32594e55d039f1b817fecc5cbd9025e26d1bda6cbb49376424",
     "afterSha256": "3d2e46ade1c4203a5666bca061eb48f3c92741316215aa4a18eab59a680f99a2",
@@ -4848,7 +4848,7 @@
   {
     "id": "ide-mode-045-chat",
     "target": "apps/web/src/components/ChatView.tsx",
-    "file": "../ide-mode/patches/ide-chat.patch",
+    "file": "ide-mode/ide-chat.patch",
     "sha256": "7d5a349f921f066f1c6996f10fd7b812baaf96d976d90ebf6b8b463c500eef9e",
     "beforeSha256": "e20c9def039f5d096373482390496bbd1b33dd5ab1922d44773710fabd8cf912",
     "afterSha256": "b1b1d7d354598a09c0e5deb49a9add5d8b92e403c014518725dddeecb46b013a",
@@ -4863,7 +4863,7 @@
     "id": "ide-mode-045-IdePanel-tsx",
     "target": "apps/web/src/components/ide/IdePanel.tsx",
     "kind": "payload",
-    "file": "../ide-mode/payloads/IdePanel.tsx",
+    "file": "ide-mode/IdePanel.tsx",
     "sha256": "c6d5f9ffca9abae8fbb93bcf93e65e2f0b3e16ffa175f4150d1b8676c04653d4",
     "beforeSha256": null,
     "afterSha256": "c6d5f9ffca9abae8fbb93bcf93e65e2f0b3e16ffa175f4150d1b8676c04653d4"
@@ -4872,7 +4872,7 @@
     "id": "ide-mode-045-ideState-ts",
     "target": "apps/web/src/components/ide/ideState.ts",
     "kind": "payload",
-    "file": "../ide-mode/payloads/ideState.ts",
+    "file": "ide-mode/ideState.ts",
     "sha256": "b799724573d423aa20c5f894ac3755bf82e028d422e409d2ec59bc4709aa0718",
     "beforeSha256": null,
     "afterSha256": "b799724573d423aa20c5f894ac3755bf82e028d422e409d2ec59bc4709aa0718"
@@ -4881,7 +4881,7 @@
     "id": "ide-mode-045-ide-mode-css",
     "target": "apps/web/src/components/ide/ide-mode.css",
     "kind": "payload",
-    "file": "../ide-mode/payloads/ide-mode.css",
+    "file": "ide-mode/ide-mode.css",
     "sha256": "7de1789afab7048f45543e0f0ddfc0e30c12c927bf9201dd1143828896fbc2a3",
     "beforeSha256": null,
     "afterSha256": "7de1789afab7048f45543e0f0ddfc0e30c12c927bf9201dd1143828896fbc2a3"
@@ -4890,7 +4890,7 @@
     "id": "ide-mode-045-IdePanel-browser-test-tsx",
     "target": "apps/web/src/components/ide/IdePanel.browser.test.tsx",
     "kind": "payload",
-    "file": "../ide-mode/payloads/IdePanel.browser.test.tsx",
+    "file": "ide-mode/IdePanel.browser.test.tsx",
     "sha256": "21d0f8ecac3b18cccdaabf78ac19bd7b14c233d79de3cf489cba06c008c6072e",
     "beforeSha256": null,
     "afterSha256": "21d0f8ecac3b18cccdaabf78ac19bd7b14c233d79de3cf489cba06c008c6072e"
@@ -4899,14 +4899,14 @@
     "id": "ide-mode-045-editor-browser-test",
     "target": "apps/web/src/components/ide/IdeCodeEditor.browser.test.tsx",
     "kind": "payload",
-    "file": "../ide-mode/payloads/IdeCodeEditor.browser.test.tsx",
+    "file": "ide-mode/IdeCodeEditor.browser.test.tsx",
     "sha256": "c8ccb6123820629f2dfd006786952144417883cf1886deaaec22d73717626143",
     "beforeSha256": null,
     "afterSha256": "c8ccb6123820629f2dfd006786952144417883cf1886deaaec22d73717626143"
   },
   {
     "id": "paired-models-045-ChatComposer-tsx",
-    "file": "../paired-models/desktop/paired-models-045-ChatComposer-tsx.patch",
+    "file": "paired-models/paired-models-045-ChatComposer-tsx.patch",
     "target": "apps/web/src/components/chat/ChatComposer.tsx",
     "sha256": "7f4ae642a4e9b8c387109ffcfef9f0928162ad6e251232deb371692435ba6a14",
     "beforeSha256": "1a055ccc74f2bacf1e1540e57847a9d73f1fb595f410fbdfc3a7a6f24b205444",
@@ -4920,7 +4920,7 @@
   },
   {
     "id": "paired-models-045-ComposerControlsBar-tsx",
-    "file": "../paired-models/desktop/paired-models-045-ComposerControlsBar-tsx.patch",
+    "file": "paired-models/paired-models-045-ComposerControlsBar-tsx.patch",
     "target": "apps/web/src/components/chat/ComposerControlsBar.tsx",
     "sha256": "243905726631c13fde5b85c4b7b991b67246c2cff39e995ed5807f877b38852e",
     "beforeSha256": "ca6efc3d54c85a1a71e3bb0adeb0785191f976e76ac9f7d466099934ec4d835f",
@@ -4934,7 +4934,7 @@
   },
   {
     "id": "paired-models-045-useComposerSend-ts",
-    "file": "../paired-models/desktop/paired-models-045-useComposerSend-ts.patch",
+    "file": "paired-models/paired-models-045-useComposerSend-ts.patch",
     "target": "apps/web/src/components/chat/useComposerSend.ts",
     "sha256": "4b32945ff697ec96619ff02454dde4ed8550656f83d686cb374a67ccd17b04bc",
     "beforeSha256": "8e244c254cf44c50ca311c6f6fb898daa9c00321a5dad0f4f436bba4e3574315",
@@ -4948,7 +4948,7 @@
   },
   {
     "id": "paired-models-045-composerDraftStore-test-ts",
-    "file": "../paired-models/desktop/paired-models-045-composerDraftStore-test-ts.patch",
+    "file": "paired-models/paired-models-045-composerDraftStore-test-ts.patch",
     "target": "apps/web/src/composerDraftStore.test.ts",
     "sha256": "5498ff68869eb48336ea45691b4163841b82a6ef81b59334f04f82c0fce06602",
     "beforeSha256": "bda44e3e84f5c71e0685c829e1085cb0b4b1536f40a1961fee5c030d9b6c92f9",
@@ -4962,7 +4962,7 @@
   },
   {
     "id": "paired-models-045-composerDraftStore-ts",
-    "file": "../paired-models/desktop/paired-models-045-composerDraftStore-ts.patch",
+    "file": "paired-models/paired-models-045-composerDraftStore-ts.patch",
     "target": "apps/web/src/composerDraftStore.ts",
     "sha256": "56c4333d4dae096e85d1163cc354693b6252b9cef446309ad6d6aa40726404f4",
     "beforeSha256": "d8a446edc9ea109e96f4d16acab86110e543cd975d72a93f262cf3a244e97a7b",
@@ -4976,7 +4976,7 @@
   },
   {
     "id": "paired-models-045-composerContext-ts",
-    "file": "../paired-models/desktop/paired-models-045-composerContext-ts.patch",
+    "file": "paired-models/paired-models-045-composerContext-ts.patch",
     "target": "packages/contracts/src/composerContext.ts",
     "sha256": "141881776bf989ab41506ff9f0b775339048a38df5eebe00e93720031e312c5b",
     "beforeSha256": "8e7aee5259f8a152051b77c32689fd81c77c9effb2a06705934dc8d269a24e77",
@@ -4990,7 +4990,7 @@
   },
   {
     "id": "paired-models-045-environment-ts",
-    "file": "../paired-models/desktop/paired-models-045-environment-ts.patch",
+    "file": "paired-models/paired-models-045-environment-ts.patch",
     "target": "packages/contracts/src/environment.ts",
     "sha256": "f13f0112627bcf11bf28faf45a39a2b5261087a2111a3bf9cff03cefe9fe6b07",
     "beforeSha256": "df30ca8b575d4ecac494e6f387c48d6c0c17996744278561601ffe3e015e2a8a",
@@ -5006,7 +5006,7 @@
     "id": "paired-models-045-PairedModelPicker-tsx",
     "target": "apps/web/src/components/chat/PairedModelPicker.tsx",
     "kind": "payload",
-    "file": "../paired-models/desktop/paired-models-045-PairedModelPicker-tsx.payload",
+    "file": "paired-models/paired-models-045-PairedModelPicker-tsx.payload",
     "sha256": "e95574974cecb5ec87fc1e4b22c6a82713f7f43e191647a3017ef2358f4baa55",
     "beforeSha256": null,
     "afterSha256": "e95574974cecb5ec87fc1e4b22c6a82713f7f43e191647a3017ef2358f4baa55"
@@ -5015,7 +5015,7 @@
     "id": "paired-models-045-PairedModelPicker-browser-test-tsx",
     "target": "apps/web/src/components/chat/PairedModelPicker.browser.test.tsx",
     "kind": "payload",
-    "file": "../paired-models/desktop/paired-models-045-PairedModelPicker-browser-test-tsx.payload",
+    "file": "paired-models/paired-models-045-PairedModelPicker-browser-test-tsx.payload",
     "sha256": "49a855adb3454f763c9fa7c609ac69b5506cacb941e1daa3b72f6885c20f2f29",
     "beforeSha256": null,
     "afterSha256": "49a855adb3454f763c9fa7c609ac69b5506cacb941e1daa3b72f6885c20f2f29"
@@ -5024,7 +5024,7 @@
     "id": "paired-models-045-pairedModels-config-ts",
     "target": "apps/web/test/pairedModels.config.ts",
     "kind": "payload",
-    "file": "../paired-models/desktop/paired-models-045-pairedModels-config-ts.payload",
+    "file": "paired-models/paired-models-045-pairedModels-config-ts.payload",
     "sha256": "da91fd6fb85b31cc0af84210137f9e8adc67aba6da31daba46d8fabf658051b6",
     "beforeSha256": null,
     "afterSha256": "da91fd6fb85b31cc0af84210137f9e8adc67aba6da31daba46d8fabf658051b6"

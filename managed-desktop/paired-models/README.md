@@ -1,7 +1,7 @@
 # Paired models — 0.4.5
 
 **Status, 0.4.5:** the desktop records are in the production desktop registry
-(`../patches/registry.json`, referenced from `desktop/`). The host records are not
+(`../patches/registry.json`, files in `../patches/paired-models/`). The host records are not
 yet in the service profile; against a host without them the picker is shown disabled
 with "Update this environment's host to use two models together."
 

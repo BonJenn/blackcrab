@@ -1,4 +1,8 @@
-"""Record reviewed literal edits against a freshly prepared production desktop source."""
+"""Record reviewed literal edits against a freshly prepared production desktop source.
+
+Historical: since 0.4.5 the renderer and contract records live in ../patches/ide-mode and the
+production registry. Only the service records remain here; do not rerun this unchanged.
+"""
 import sys, pathlib, json, hashlib, difflib
 root=pathlib.Path(sys.argv[1]); here=pathlib.Path(__file__).parent
 sha=lambda b:hashlib.sha256(b).hexdigest()

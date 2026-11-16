@@ -33,8 +33,17 @@ for (const profile of ['desktop', 'host']) {
   });
 }
 
-test('production recipes and registries do not enable paired models', async () => {
-  for (const file of ['source.mjs', 'build.mjs', 'patches/registry.json', '../managed-host/service-profile.mjs', '../managed-host/patches/registry.json']) {
+test('the production desktop registry carries exactly the paired desktop records', async () => {
+  const production = JSON.parse(await fs.readFile(new URL('./patches/registry.json', import.meta.url), 'utf8'));
+  const desktop = JSON.parse(await fs.readFile(new URL('./paired-models/desktop/registry.json', import.meta.url), 'utf8'));
+  assert.deepEqual(
+    production.filter(record => record.id.startsWith('paired-models-045-')),
+    desktop.map(record => ({...record, file: '../paired-models/desktop/' + record.file})),
+  );
+});
+
+test('the service recipe does not carry paired models until the host records are promoted', async () => {
+  for (const file of ['../managed-host/service-profile.mjs', '../managed-host/patches/registry.json']) {
     assert.doesNotMatch(await fs.readFile(new URL(file, import.meta.url), 'utf8'), /paired-models|preparePairedModels/);
   }
 });

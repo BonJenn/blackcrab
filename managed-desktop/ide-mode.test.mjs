@@ -49,8 +49,12 @@ test('clean snapshots refresh; dirty drafts keep base and incoming; old hosts st
  assert.equal(receiveFile({...draft,text:'old'},'agent',true,false).text,'agent');
  assert.deepEqual(selectionContext('src/a.ts','a\nb\nc',3,2),{filePath:'src/a.ts',contents:'a\nb\nc',startLine:2,endLine:3});
 });
-test('experimental payload hashes match and production recipes do not enable IDE',async()=>{
+test('recipe hashes match and the production desktop registry carries the renderer records',async()=>{
  const registry=JSON.parse(await fs.readFile(new URL('./ide-mode/registry.json',import.meta.url)));
  for(const record of registry){const bytes=await fs.readFile(new URL('./ide-mode/'+record.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),record.sha256);}
- for(const name of ['source.mjs','build.mjs']) assert.doesNotMatch(await fs.readFile(new URL(name,import.meta.url),'utf8'),/applyIdeMode|ide-mode\/apply/);
+ const production=JSON.parse(await fs.readFile(new URL('./patches/registry.json',import.meta.url)));
+ for(const record of registry){const promoted=production.find(item=>item.target===record.target&&item.afterSha256===record.afterSha256);
+  if(record.target.startsWith('apps/server/'))assert.equal(promoted,undefined,record.id);
+  else{assert(promoted,record.id);assert.equal(promoted.file,'../ide-mode/'+record.file);assert.equal(promoted.sha256,record.sha256);}}
+ assert.doesNotMatch(JSON.stringify(production),/VITE_BLACKCRAB_IDE_MODE/);
 });

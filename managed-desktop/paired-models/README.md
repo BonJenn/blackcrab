@@ -1,4 +1,9 @@
-# Paired models — 0.4.5 draft
+# Paired models — 0.4.5
+
+**Status, 0.4.5:** the desktop records are in the production desktop registry
+(`../patches/registry.json`, referenced from `desktop/`). The host records are not
+yet in the service profile; against a host without them the picker is shown disabled
+with "Update this environment's host to use two models together."
 
 This opt-in source recipe adds the composer partner picker and the host's bounded
 lead → review → resolve execution. See [behavior and validation](../../docs/paired-models-045.md)

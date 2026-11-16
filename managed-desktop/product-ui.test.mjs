@@ -51,3 +51,13 @@ test('remaining UI copy changes retain executable identifiers except reviewed be
   if(!structural.has(p.target))assert.deepEqual(identifiers(after),identifiers(before),p.target);
  }
 });
+test('the main sidebar footer offers Blackcrab Connect sign-in, not only Settings',()=>{
+ const record=registry.find(p=>p.id==='blackcrab-sidebar-connect');
+ assert.equal(record.target,'apps/web/src/components/sidebar/SidebarChrome.tsx');
+ const {before,after}=record.replacements[0];
+ assert.doesNotMatch(before,/T3ConnectSidebarSignIn/);
+ // Lazy, so an unconfigured build never loads the account client; both components hide themselves
+ // when no account service is configured.
+ assert.match(after,/const SidebarConnectSignIn = lazy\(\(\) =>\s+import\("\.\.\/clerk\/T3ConnectSidebarSignIn"\)/);
+ assert.match(after,/<SidebarConnectSignIn \/>[\s\S]*<SidebarConnectAvatar \/>[\s\S]*<SidebarUtilityMenu \/>/);
+});

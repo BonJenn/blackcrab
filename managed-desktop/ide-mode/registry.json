@@ -69,9 +69,9 @@
     "id": "ide-chat",
     "target": "apps/web/src/components/ChatView.tsx",
     "file": "patches/ide-chat.patch",
-    "sha256": "96e2714d5667a37a98c6469223f1f3045ea000e9d5fb1607b043268c19f0913b",
+    "sha256": "7d5a349f921f066f1c6996f10fd7b812baaf96d976d90ebf6b8b463c500eef9e",
     "beforeSha256": "e20c9def039f5d096373482390496bbd1b33dd5ab1922d44773710fabd8cf912",
-    "afterSha256": "9055198ff83077951cc5c507d0fd981ff8869b9a27ec2207f54b740e44e50eef",
+    "afterSha256": "b1b1d7d354598a09c0e5deb49a9add5d8b92e403c014518725dddeecb46b013a",
     "replacements": [
       {
         "before": "import { workspaceAreaProps }",
@@ -79,7 +79,7 @@
       },
       {
         "before": "  const [workspaceLayoutElement, setWorkspaceLayoutElement]",
-        "after": "  const [ideMode, setIdeMode] = useState(false);\n  const ideEnabled = import.meta.env.VITE_BLACKCRAB_IDE_MODE === \"1\" && !embedded;\n  const [workspaceLayoutElement, setWorkspaceLayoutElement]"
+        "after": "  const [ideMode, setIdeMode] = useState(false);\n  const ideEnabled = !embedded;\n  const [workspaceLayoutElement, setWorkspaceLayoutElement]"
       },
       {
         "before": "            {pane ? <PaneHeaderControls",

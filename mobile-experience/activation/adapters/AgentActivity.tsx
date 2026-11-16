@@ -358,7 +358,9 @@ function AgentActivity(
       </Text>
       {/* Bare texts share shrinkage proportionally; project frames or layoutPriority would prevent balanced truncation. */}
       <Text modifiers={[font({ size: 11 }), foregroundStyle(secondaryForeground), lineLimit(1)]}>
-        {row.projectTitle}
+        {row.detail && !isTerminal(row.phase) && row.phase !== "stale"
+          ? row.detail
+          : row.projectTitle}
       </Text>
       <Spacer minLength={6} />
       {renderStatus(row, 11)}

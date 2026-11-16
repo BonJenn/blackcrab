@@ -100,7 +100,14 @@ add('src/features/prompt-links/prompt-link-actions.ts',[
  ('buildNewThreadLink({ prompt }), { target: "prompt link" }', '(DEFAULT_HOSTED_APP_URL ? buildNewThreadLink({ prompt }) : promptLinkDeepLink("/new?" + new URLSearchParams({ prompt }).toString())), { target: "prompt link" }',1),
 ])
 add('src/lib/authClientMetadata.ts',[( 'label: "T3 Code Mobile"','label: "Blackcrab Mobile"',1)])
-add('src/components/CompactBrandTitle.tsx',[( '"T3 Code, Threads"','"Blackcrab, Threads"',1)])
+# The list title is the product name alone: no upstream "Code" suffix and no stage badge.
+# App Review rejects apps that present themselves as beta software.
+add('src/components/CompactBrandTitle.tsx',[
+ ('"T3 Code, Threads"','"Blackcrab, Threads"',1),
+ ('      <T3Wordmark colorClassName="accent-icon" height={Math.round(15 * scale)} />\n','',1),
+ ('        className="font-t3-medium text-foreground-muted"\n        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}\n      >\n        Code\n','        className="font-t3-medium text-foreground"\n        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}\n      >\n        Blackcrab\n',1),
+ ('  const showStage =\n    !props.fit || availableWidth === null || fullWidth === null || fullWidth <= availableWidth;','  const showStage = false as boolean; // No stage badge in a store build.\n  void fullWidth;',1),
+])
 # The Live Activity layout is Blackcrab's own; see adapters/AgentActivity.tsx.
 add('src/widgets/AgentActivity.tsx',template='adapters/AgentActivity.tsx')
 for widget in ['src/widgets/SubscriptionUsage.tsx','src/widgets/SubscriptionUsage.android.tsx']:
@@ -150,6 +157,11 @@ brand_files = [
  'src/widgets/subscriptionUsageSnapshot.ts',
 ]
 account_recovery = {
+ 'src/features/connection/ConnectionsNewRouteScreen.tsx': [
+  ('Scan the code from t3 pair or desktop Connections settings', "Scan the code in the desktop app's Connections settings", 1),
+  ('          disabled={!isLoaded}\n', '', 1),
+  ('const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 'const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 1),
+ ],
  # In-app account deletion: on the Blackcrab Connect page of the account screen.
  'src/features/cloud/T3ConnectProfilePage.tsx': [
   ('import {\n  deregisterManagedRelayEnvironmentCommand,', 'import { DeleteAccountSection } from "./AccountDeletion";\nimport {\n  deregisterManagedRelayEnvironmentCommand,', 1),
@@ -194,10 +206,6 @@ account_recovery = {
   ('  const navigation = useNavigation();', '  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const navigation = useNavigation();', 1),
   ('      ) : null}', '      ) : <AccountConnectionPending status={accountConnectionStatus === "unavailable" ? "unavailable" : "loading"} onBack={handleHostBack} />}', 1),
  ],
- 'src/features/connection/ConnectionsNewRouteScreen.tsx': [
-  ('          disabled={!isLoaded}\n', '', 1),
-  ('const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 'const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 1),
- ],
 }
 for p in brand_files:
  text=(src/p).read_text(); replacements=account_recovery.get(p, []).copy()
@@ -217,8 +225,10 @@ for p in brand_files:
    text=text.replace(before,after)
  assert replacements, ('Expected product copy',p)
  add(p,replacements)
+# The site answers on www; the apex redirects there, and the legal screen opens a redirect
+# target outside its allowed pages in the browser instead of in the app.
 add('src/features/settings/lib/legal-document-url.ts',[
- ('https://t3.codes','https://blackcrab.app',1),
+ ('https://t3.codes','https://www.blackcrab.app',1),
 ])
 entry='''/** Root must invoke once at process boot with proof that no old managed reader was ever started. */
 import type {ComponentType} from "react";

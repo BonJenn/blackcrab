@@ -345,8 +345,11 @@ export function installLiveActivityProgress(): () => void {
   };
 }
 
-/** A fixed example shown from Settings so people can see the card without running an agent. */
-export function sampleProgressActivity(nowMs: number): AgentActivityProps {
+/**
+ * Fixed examples shown from Settings so people can see the card without running an agent:
+ * several agents at once, one agent at work, and finished work.
+ */
+export function sampleProgressActivity(nowMs: number, variant = 0): AgentActivityProps {
   const at = (minutesAgo: number) => new Date(nowMs - minutesAgo * 60_000).toISOString();
   const row = (
     id: string,
@@ -367,47 +370,90 @@ export function sampleProgressActivity(nowMs: number): AgentActivityProps {
     deepLink: "/",
     ...extra,
   });
-  return {
-    title: "Blackcrab",
-    subtitle: "Agent work in progress",
-    activeCount: 2,
-    updatedAt: at(0),
-    activities: [
-      row("sample-1", "Fix flaky checkout test", "storefront", "running", 4, {
-        detail: "Running the checkout suite again with the retry removed.",
-        detailAt: at(0),
-        startedAt: at(4),
-        steps: 37,
-      }),
-      row("sample-2", "Add CSV export", "reports", "waiting_for_approval", 1, { steps: 12 }),
-      row("sample-3", "Update README badges", "storefront", "completed", 6, { steps: 9 }),
-    ],
-  };
+  const working = row("sample-1", "Fix flaky checkout test", "storefront", "running", 4, {
+    detail: "Running the checkout suite again with the retry removed.",
+    detailAt: at(0),
+    startedAt: at(4),
+    steps: 37,
+  });
+  switch (((variant % 3) + 3) % 3) {
+    case 1:
+      return {
+        title: "Blackcrab",
+        subtitle: "Agent work in progress",
+        activeCount: 1,
+        updatedAt: at(0),
+        activities: [working],
+      };
+    case 2:
+      return {
+        title: "Blackcrab",
+        subtitle: "Agent work completed",
+        activeCount: 0,
+        updatedAt: at(0),
+        activities: [
+          row("sample-1", "Fix flaky checkout test", "storefront", "completed", 0, { steps: 41 }),
+          row("sample-3", "Update README badges", "storefront", "completed", 6, { steps: 9 }),
+        ],
+      };
+    default:
+      return {
+        title: "Blackcrab",
+        subtitle: "Agent work in progress",
+        activeCount: 2,
+        updatedAt: at(0),
+        activities: [
+          working,
+          row("sample-2", "Add CSV export", "reports", "waiting_for_approval", 1, { steps: 12 }),
+          row("sample-3", "Update README badges", "storefront", "completed", 6, { steps: 9 }),
+        ],
+      };
+  }
 }
 
-/** Shows the example card. Returns false when the system would not start it. */
+let sampleId: string | null = null;
+let sampleVariant = 0;
+let sampleTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Shows an example card, or the next example when one is already showing. Returns false when
+ * the system would not start it.
+ */
 export function showSampleLiveActivity(): boolean {
   if (Platform.OS !== "ios") return false;
   try {
-    // A real card, if one is showing, is more useful than the example.
-    if (getAgentLiveActivities().length > 0) return true;
     const now = Date.now();
     // A short stale window ends the example's claim that agents are working, even if the app
     // is suspended before the timer below can remove the card.
-    const sample = startAgentLiveActivity(sampleProgressActivity(now), new Date(now + 2 * 60_000));
-    if (sample === null) return false;
-    const sampleId = sample.getId();
-    setTimeout(() => {
+    const staleDate = new Date(now + 2 * 60_000);
+    const existing = getAgentLiveActivities();
+    const showing = existing.find((activity) => activity.getId() === sampleId);
+    if (showing) {
+      sampleVariant += 1;
+      showing.update(sampleProgressActivity(now, sampleVariant), staleDate).catch(() => undefined);
+    } else {
+      // A real card, if one is showing, is more useful than the example.
+      if (existing.length > 0) return true;
+      sampleVariant = 0;
+      const sample = startAgentLiveActivity(sampleProgressActivity(now, 0), staleDate);
+      if (sample === null) return false;
+      sampleId = sample.getId();
+    }
+    const endingId = sampleId;
+    if (sampleTimer !== null) clearTimeout(sampleTimer);
+    sampleTimer = setTimeout(() => {
+      sampleTimer = null;
       try {
         for (const activity of getAgentLiveActivities()) {
           // Real progress written into the card since then makes it a real card: keep it.
-          if (activity.getId() === sampleId && lastWritten === null) {
+          if (activity.getId() === endingId && lastWritten === null) {
             activity.end("immediate").catch(() => undefined);
           }
         }
       } catch {
         // The system removes a stale card by itself.
       }
+      if (sampleId === endingId) sampleId = null;
     }, 75_000);
     return true;
   } catch {

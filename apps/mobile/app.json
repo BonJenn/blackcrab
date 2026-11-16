@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "dev.blackcrab.remote",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Blackcrab connects to your agents on your local network or private tailnet.",
+        "NSLocalNetworkUsageDescription": "Blackcrab connects to the Blackcrab desktop app on your computer over your local network or private tailnet.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryAddUsageDescription": "Blackcrab saves images you choose to your photo library.",
         "NSMicrophoneUsageDescription": "Blackcrab uses your microphone for voice input.",
@@ -69,14 +69,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Blackcrab uses the camera to scan pairing QR codes from your desktop."
+          "cameraPermission": "Blackcrab uses the camera to scan pairing QR codes from your computer and to take photos you attach to a message."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Blackcrab needs photo access to attach images to a message.",
-          "cameraPermission": "Blackcrab needs camera access to take a photo to attach to a message."
+          "photosPermission": "Blackcrab uses your photo library to attach images you choose to a message.",
+          "cameraPermission": "Blackcrab uses the camera to scan pairing QR codes from your computer and to take photos you attach to a message."
         }
       ],
       "./plugins/with-ios-pod-floor.cjs",

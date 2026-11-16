@@ -13,7 +13,7 @@ The name a connected computer shows for the phone is "Blackcrab Mobile".
 
 | Requirement | Where |
 | --- | --- |
-| Privacy policy | `https://www.blackcrab.app/privacy-policy` (BonJenn/blackcrab-landing). In the app: Settings → About → Legal, which loads `https://blackcrab.app/legal`. Also set as the privacy policy URL in App Store Connect. |
+| Privacy policy | `https://www.blackcrab.app/privacy-policy` (BonJenn/blackcrab-landing). In the app: Settings → About → Legal, which loads `https://www.blackcrab.app/legal` (the apex host redirects, and the legal screen would hand a redirect to the browser). Also set as the privacy policy URL in App Store Connect. |
 | Terms, security policy | `/terms-of-service`, `/security-policy` on the same site. |
 | Support URL | `https://www.blackcrab.app/support`. The domain receives no email; GitHub Issues is the contact channel. |
 | Account deletion | Settings → Delete account (shown while signed in), and Settings → Blackcrab Account → Blackcrab Connect → Delete account. |
@@ -65,7 +65,11 @@ forward them (the relay drops `headline` and `detail` when it builds rows; see
 host and relay change, not an app change.
 
 Settings → Notifications → "Show a sample Live Activity" starts an example card
-without an agent, an account or a computer. It ends by itself.
+without an agent, an account or a computer; tapping again moves it through three
+examples (several agents, one agent at work, finished). It ends by itself.
+
+The list title reads "Blackcrab" with no stage badge. Do not bring back the
+upstream "Beta" pill: App Review rejects apps that present themselves as beta.
 
 ## Building and submitting
 

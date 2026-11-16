@@ -362,17 +362,32 @@
           "before": "\"T3 Code, Threads\"",
           "after": "\"Blackcrab, Threads\"",
           "count": 1
+        },
+        {
+          "before": "      <T3Wordmark colorClassName=\"accent-icon\" height={Math.round(15 * scale)} />\n",
+          "after": "",
+          "count": 1
+        },
+        {
+          "before": "        className=\"font-t3-medium text-foreground-muted\"\n        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}\n      >\n        Code\n",
+          "after": "        className=\"font-t3-medium text-foreground\"\n        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}\n      >\n        Blackcrab\n",
+          "count": 1
+        },
+        {
+          "before": "  const showStage =\n    !props.fit || availableWidth === null || fullWidth === null || fullWidth <= availableWidth;",
+          "after": "  const showStage = false as boolean; // No stage badge in a store build.\n  void fullWidth;",
+          "count": 1
         }
       ],
-      "afterSha256": "5004306a5307a87cca3a171f78555e8d8592732dd09fc0a8d733eebe98028c7f"
+      "afterSha256": "4ff3ac946d40bd5eb13f6ff34f249ef72ad502f8e2f1b2beb9151652bf43aa4b"
     },
     {
       "path": "src/widgets/AgentActivity.tsx",
       "beforeSha256": "ba397e11e66e1360d74597c5693b701dfc050cf8f07b2636cabfd41b5bf66a82",
       "kind": "template",
       "template": "adapters/AgentActivity.tsx",
-      "templateSha256": "c259bb70b8044c4becf3284fe7498561990c2b6dbd59b222f0a75e072dd29e6f",
-      "afterSha256": "c259bb70b8044c4becf3284fe7498561990c2b6dbd59b222f0a75e072dd29e6f"
+      "templateSha256": "1ff4e41c733f269efcd373436a13f7c2b6dd924291b89ebe091e36a75a5bd778",
+      "afterSha256": "1ff4e41c733f269efcd373436a13f7c2b6dd924291b89ebe091e36a75a5bd778"
     },
     {
       "path": "src/widgets/SubscriptionUsage.tsx",
@@ -566,6 +581,11 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "Scan the code from t3 pair or desktop Connections settings",
+          "after": "Scan the code in the desktop app's Connections settings",
+          "count": 1
+        },
+        {
           "before": "          disabled={!isLoaded}\n",
           "after": "",
           "count": 1
@@ -581,7 +601,7 @@
           "count": 1
         }
       ],
-      "afterSha256": "22b6c6f484e20ea49c510cbfe7f5689389990e3b7642818f33042856ea7d9428"
+      "afterSha256": "6f0a8486c1f11894adce91a799b5e4041b1b1b3ddd20e397de799628dd6d8b4d"
     },
     {
       "path": "src/features/connection/CloudEnvironmentRows.tsx",
@@ -1008,11 +1028,11 @@
       "replacements": [
         {
           "before": "https://t3.codes",
-          "after": "https://blackcrab.app",
+          "after": "https://www.blackcrab.app",
           "count": 1
         }
       ],
-      "afterSha256": "d18caa59bad05805834dbd15baf89684db9054c67e08f71c771a0884b91d79ff"
+      "afterSha256": "6349a92d813a3f7f61d937d5cd3a82563dc1fc7488ac4d727ec4fcf7d138e15b"
     }
   ],
   "additions": [
@@ -1034,7 +1054,7 @@
     {
       "path": "src/features/agent-awareness/liveActivityProgress.ts",
       "template": "adapters/liveActivityProgress.ts",
-      "sha256": "e187c62ba694b63ea96bbe8d89cb4d5e7cc82470df561129f6fc751a76d98249"
+      "sha256": "ebe604a01553bb0b7dc8eed13ae5660c51e8fb0221eed8ec39d55cb1c17443cc"
     },
     {
       "path": "src/features/cloud/AccountDeletion.tsx",

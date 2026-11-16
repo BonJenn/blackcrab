@@ -63,6 +63,12 @@ test('the registry ships the owned Live Activity layout, progress writer and bra
   assert.match(layout, /assetName="BlackcrabMark"/); assert.doesNotMatch(layout, /T3Mark|t3code:/);
   assert.match(layout, /`blackcrab-remote:\/\/\$\{/);
   assert.match(layout, /dateStyle="timer"/); assert.match(layout, /<ProgressView/);
+  // The list title is the product name alone, and the legal screen opens the site's own host.
+  const title = registry.adapters.find(record => record.path === 'src/components/CompactBrandTitle.tsx');
+  assert.ok(title.replacements.some(change => change.after.includes('Blackcrab\n') && change.before.includes('Code\n')));
+  assert.ok(title.replacements.some(change => change.after.startsWith('  const showStage = false')));
+  const legal = registry.adapters.find(record => record.path === 'src/features/settings/lib/legal-document-url.ts');
+  assert.equal(legal.replacements[0].after, 'https://www.blackcrab.app');
   const config = JSON.parse(fs.readFileSync(new URL('../../apps/mobile/app.json', import.meta.url))).expo;
   const names = config.plugins.map(entry => Array.isArray(entry) ? entry[0] : entry);
   // Native mods run in reverse: the mark is added after expo-widgets creates its target.
@@ -165,15 +171,24 @@ test('progress is written only into an existing card, and again when the app lea
   assert.equal(progressModule({ os: 'android' }).exports.installLiveActivityProgress()(), undefined);
 });
 
-test('the sample card is an example with every kind of row', () => {
+test('the sample card cycles through three examples and is left alone when a real card shows', () => {
   const { exports, state } = progressModule();
   const sample = exports.sampleProgressActivity(NOW);
   assert.equal(sample.activities.map(row => row.phase).join(), 'running,waiting_for_approval,completed');
   assert.equal(sample.activeCount, 2); assert.doesNotMatch(JSON.stringify(sample), /T3/);
+  assert.equal(exports.sampleProgressActivity(NOW, 1).activities.map(row => row.phase).join(), 'running');
+  assert.equal(exports.sampleProgressActivity(NOW, 1).activities[0].detail, 'Running the checkout suite again with the retry removed.');
+  assert.equal(exports.sampleProgressActivity(NOW, 2).activeCount, 0);
+  assert.equal(exports.sampleProgressActivity(NOW, 3).activeCount, 2);
   assert.equal(exports.showSampleLiveActivity(), true); assert.equal(state.started.length, 1);
-  // A card already on screen is left alone.
-  state.activities = [{ getId: () => 'real' }];
-  assert.equal(exports.showSampleLiveActivity(), true); assert.equal(state.started.length, 1);
+  // A second tap moves the same card to the next example instead of starting another.
+  const updates = []; state.started[0].update = async props => { updates.push(props); };
+  state.activities = [state.started[0]];
+  assert.equal(exports.showSampleLiveActivity(), true);
+  assert.equal(state.started.length, 1); assert.equal(updates.length, 1); assert.equal(updates[0].activeCount, 1);
+  // A real card already on screen is left alone.
+  const fresh = progressModule(); fresh.state.activities = [{ getId: () => 'real' }];
+  assert.equal(fresh.exports.showSampleLiveActivity(), true); assert.equal(fresh.state.started.length, 0);
 });
 
 test('account deletion unlinks computers and unregisters the phone before deleting the account', async () => {

@@ -371,7 +371,7 @@ pub(crate) fn serve(mut stream: std::os::unix::net::UnixStream, app: tauri::AppH
 
 /// The same exchange over the private pipe a Windows workspace inherits as
 /// descriptor 5: one JSON request per line, one reply per request.
-#[cfg(windows)]
+#[cfg(all(windows, not(test)))]
 pub(crate) fn serve_pipe(pipe: crate::managed_spawn_windows::Pipe, app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let (mut frame, mut chunk, mut waited) = (Vec::new(), [0u8; 256], 0u32);

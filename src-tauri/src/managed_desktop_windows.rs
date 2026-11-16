@@ -206,7 +206,13 @@ async fn launch_verified(host: ManagedHost, package: VerifiedDesktop) -> Result<
     descriptor["lifecycle"] = json!({"kind":"launcher-lifecycle-fd-v1","fd":6});
     // Only the production workspace may ask its launcher to update. Without a
     // launcher to answer, our end closes and the workspace reports no updater.
+    // A test program links none of this: the updater's interface needs Windows
+    // library entry points that a test program, which has no application
+    // manifest, cannot load.
+    #[cfg(not(test))]
     let update_app = if identity == DesktopIdentity::Production { crate::managed_updates::bridge_app() } else { None };
+    #[cfg(test)]
+    let update_app: Option<()> = None;
     if update_app.is_some() {
         descriptor["control"] = json!({"kind":"launcher-updates-fd-v1","fd":5});
     }
@@ -216,10 +222,13 @@ async fn launch_verified(host: ManagedHost, package: VerifiedDesktop) -> Result<
         .await
         .map_err(|_| error())?
         .map_err(|_| error())?;
+    #[cfg(not(test))]
     match update_app {
         Some(app) => crate::managed_updates::serve_pipe(updates, app),
         None => drop(updates),
     }
+    #[cfg(test)]
+    drop(updates);
     let runtime = tokio::runtime::Handle::current();
     std::thread::spawn(move || serve_broker(renewal, process, detached, host, binding, runtime));
     Ok(owner)

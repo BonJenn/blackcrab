@@ -2,6 +2,16 @@
 
 ## Current checkpoint — building 0.4.5 (owner request, 2026-11-16)
 
+**State on 2026-11-16:** all five feature PRs are merged (#334 workspace
+features and sidebar sign-in, #335 service upgrade, #336 self-update for
+Linux and Windows, #337 service features, #338 Windows browser channel).
+Branch release/0.4.5 bumps the version; docs/release-0.4.5.md has the notes,
+limits and release order. Next: Mac payloads from the release commit (the
+service payload is new this time, see P/release-045-dev/build-mac-host.mjs),
+sign, notarize, draft, Mac release workflow, then the Linux and Windows kind,
+then the owner's test of the Mac draft. A separate thread is working on the
+iOS app and its App Store submission; it uses its own worktree.
+
 The owner asked for 0.4.5, released on all three platforms, with: Windows and
 Linux self-update using the free updater signature only (no Authenticode);
 the in-app browser on Windows; IDE mode and paired model collaboration; and an

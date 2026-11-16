@@ -41,8 +41,9 @@ jobs:
     if: inputs.kind == 'managed-linux-windows'
     runs-on: ubuntu-22.04
     timeout-minutes: 5
+    # A draft release is visible only with write access to contents.
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v6
       - name: Require a draft release whose tag is this source's version

@@ -1,6 +1,19 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — preparing 0.4.4 (owner said "do 1-5" on 2026-11-15)
+## Current checkpoint — 0.4.4 is published (2026-11-16 UTC)
+
+v0.4.4 is public for Apple-silicon Mac, Windows x64 and Linux x64, tag on
+02afb2ed98d9cffff8fc7c768058cf6803922c8c; digests and acceptance are in
+docs/release-0.4.4.md. The owner installed the draft Mac DMG and said
+"publish". Never overwrite the v0.4.4 tag or its files. Evidence is in
+P/mac-release-040-v2llrqsa/workspace-044-delivery (publication-result.json).
+The website change is BonJenn/blackcrab-landing PR #21. main is fast-forwarded
+to stage after this record merges. Notes in older checkpoints below that say
+"0.4.4 is not published" are history. Open after this release: Windows code
+signing, an updater feed for Windows and Linux, the Windows browser channel,
+and a check on a person's Windows or Linux PC.
+
+## Previous checkpoint — preparing 0.4.4 (owner said "do 1-5" on 2026-11-15)
 
 The owner authorized, in order: version bump, Mac build as a draft, Mac
 acceptance, Linux and Windows installers on the same draft, then publication

@@ -247,8 +247,8 @@
     "target": "apps/desktop/src/app/managed-desktop/descriptor.mjs",
     "file": "../descriptor.mjs",
     "beforeSha256": null,
-    "afterSha256": "b74d350edf8af154f178e1d77eef40064821619ec03dc2085ea4507b2e8fa68f",
-    "sha256": "b74d350edf8af154f178e1d77eef40064821619ec03dc2085ea4507b2e8fa68f"
+    "afterSha256": "a26088357819e9f95341851f2ef95816871863aef2283fac2a8dc419de17d056",
+    "sha256": "a26088357819e9f95341851f2ef95816871863aef2283fac2a8dc419de17d056"
   },
   {
     "id": "payload-attachment.mjs",
@@ -834,8 +834,8 @@
     "target": "packages/shared/src/leasedDesktopBrowser.ts",
     "file": "gate-c-5.ts",
     "beforeSha256": null,
-    "afterSha256": "42bb4eeab32b7b5bdafdebcfbca9901dfea78c1677366c12c6639bdc7c4eea63",
-    "sha256": "42bb4eeab32b7b5bdafdebcfbca9901dfea78c1677366c12c6639bdc7c4eea63",
+    "afterSha256": "fa1bb5d9ed1d20b0b474146f5a88a30f61828e4374811b7e80f279565f0eae4d",
+    "sha256": "fa1bb5d9ed1d20b0b474146f5a88a30f61828e4374811b7e80f279565f0eae4d",
     "kind": "payload"
   },
   {

@@ -1,0 +1,11 @@
+--- a/apps/server/src/OwnedServiceBrowser.ts
++++ b/apps/server/src/OwnedServiceBrowser.ts
+@@ -5,7 +5,7 @@
+  const socket=value as Record<string,unknown>;
+  return Object.keys(socket).sort().join(",")==="generation,key,path"
+   &&typeof socket.path==="string"&&socket.path.length<=100
+-  &&/^\/(?:private\/)?tmp\/blackcrab-browser-[a-f0-9]{32}\/b\.sock$/.test(socket.path)
++  &&/^\\\\\.\\pipe\\blackcrab-browser-[a-f0-9]{32}$/.test(socket.path)
+   &&typeof socket.key==="string"&&/^[a-f0-9]{64}$/.test(socket.key)
+   &&typeof socket.generation==="number"&&Number.isSafeInteger(socket.generation)&&socket.generation>0;
+ }

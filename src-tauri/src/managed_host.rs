@@ -400,12 +400,12 @@ impl ManagedHost {
             .read_config()?
             .ok_or("Managed host unavailable")?
             .browser;
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         if let Some(capability) = &browser {
             let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
             loop {
                 capability.validate(&self.root)?;
-                if fs::symlink_metadata(&capability.path).is_ok() {
+                if capability.listening() {
                     break;
                 }
                 if tokio::time::Instant::now() >= deadline {
@@ -697,7 +697,7 @@ impl ManagedHost {
             if config.schema != 2 {
                 return Err("Incompatible native browser configuration".into());
             }
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             {
                 if !native_browser_supported() {
                     return Err(
@@ -710,7 +710,7 @@ impl ManagedHost {
                 // Restore a reboot-cleared temp directory, not user/service data.
                 capability.ensure_runtime_directory(&self.root)?;
             }
-            #[cfg(not(unix))]
+            #[cfg(not(any(unix, windows)))]
             return Err("Private native browser transport is unavailable on this platform".into());
         }
         Ok(Some(config))
@@ -1145,7 +1145,7 @@ impl ManagedHost {
         }))
     }
 }
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 fn native_browser_supported() -> bool {
     // Only a fully verified artifact with every reviewed host delta may receive
     // the private capability. A proof9-only host never advertises this transport.

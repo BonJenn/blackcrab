@@ -1,0 +1,24 @@
+--- a/packages/shared/src/leasedDesktopBrowser.ts
++++ b/packages/shared/src/leasedDesktopBrowser.ts
+@@ -38,7 +38,11 @@
+ function equal(a:unknown,b:string){return typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));}
+ function validConfig(config:SocketConfig,role:'listen'|'connect'){
+  if(typeof config.key!=='string'||!/^[a-f0-9]{64}$/.test(config.key)||typeof config.environmentId!=='string'||!config.environmentId||config.environmentId.trim()!==config.environmentId||config.environmentId.length>256||!Number.isSafeInteger(config.generation)||config.generation<1||typeof config.path!=='string'||!path.isAbsolute(config.path)||config.path.includes('\0')||path.resolve(config.path)!==config.path||Buffer.byteLength(config.path)>100||!Number.isSafeInteger(frameLimit(config))||frameLimit(config)<1024||frameLimit(config)>64*1024*1024)throw Error('Invalid private browser transport configuration');
+- if(process.platform==='win32')throw Error('Gate C Windows pipe ACL/lifecycle is not certified');
++ if(process.platform==='win32'){
++  // A named pipe has no directory, owner or mode to inspect. Its name is random and kept in the launcher's private configuration, and each side proves the shared key to the other before any frame is accepted.
++  if(!/^\\\\\.\\pipe\\blackcrab-browser-[a-f0-9]{32}$/.test(config.path))throw Error('Invalid private browser transport configuration');
++  return;
++ }
+  let parent;let canonical;try{parent=fsSync.lstatSync(path.dirname(config.path));canonical=fsSync.realpathSync(path.dirname(config.path));}catch{throw Error('Browser socket directory unavailable');}
+  if(!parent.isDirectory()||parent.isSymbolicLink()||canonical!==path.dirname(config.path)||parent.uid!==process.getuid!()||(parent.mode&0o777)!==0o700)throw Error('Browser socket directory is not private and owned');
+  try{const socket=fsSync.lstatSync(config.path);if(role==='listen')throw Error('Refuse existing browser socket path');if(!socket.isSocket()||socket.uid!==process.getuid!()||(socket.mode&0o777)!==0o600)throw Error('Browser socket is not private and owned');}catch(error:any){if(error.code!=='ENOENT')throw Error('Browser socket path unavailable or unsafe');}
+@@ -85,7 +89,7 @@
+   (socket as any).__browserSend=(expected:Attachment|string,payload:Payload,current?:()=>boolean)=>state.send(expected,()=>writeSigned(socket,config,nonce,peerNonce,'command',epoch,++outgoing,typeof expected==='string'?null:expected.incarnation,payload),current);
+  });
+  await new Promise<void>((resolve,reject)=>{server.once('error',()=>reject(Error('Browser listener unavailable')));server.listen(config.path,()=>{server.off('error',reject);resolve();});});
+- try{await fs.chmod(config.path,0o600);}catch(error){for(const socket of connections)socket.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));throw Error('Browser listener permissions unavailable');}
++ try{if(process.platform!=='win32')await fs.chmod(config.path,0o600);}catch(error){for(const socket of connections)socket.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));throw Error('Browser listener permissions unavailable');}
+  return {state,send(expected:Attachment|string,payload:Payload,current?:()=>boolean){const epoch=typeof expected==='string'?expected:expected.peerEpoch;const socket=leases.get(epoch);return socket?(socket as any).__browserSend(expected,payload,current) as Promise<boolean>:Promise.resolve(false);},async close(){for(const socket of connections)socket.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));}};
+ }
+ export type PeerHooks={validateCommand:(value:unknown)=>boolean;ready:(epoch:string)=>void;command:(payload:Payload,identity:Attachment|string)=>void;retired:(epoch:string)=>void};

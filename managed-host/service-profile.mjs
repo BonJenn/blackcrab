@@ -25,7 +25,7 @@ const GROUPS=[
 // Applied after every shared record, and only when the payload is built for
 // Windows, where the launcher's Unix owner and mode checks cannot hold. The
 // shared groups above, and so the macOS and Linux payloads, do not include it.
-const WINDOWS_GROUP=['windows','fork-integration/boot-service/windows/','object',['owned-windows-OwnedLauncherBootstrap','owned-windows-serviceLauncher']];
+const WINDOWS_GROUP=['windows','fork-integration/boot-service/windows/','object',['owned-windows-OwnedLauncherBootstrap','owned-windows-serviceLauncher','owned-windows-OwnedServiceBrowser','owned-windows-leasedDesktopBrowser']];
 const groupsFor=platform=>platform==='win32'?[...GROUPS,WINDOWS_GROUP]:GROUPS;
 const ENTRY_SOURCES={
  'apps/server/src/bin.ts':'bfd166e85864948da79bee79bb7ba36eae5f6d3ab4871eb07dcaf8f6870b0598',

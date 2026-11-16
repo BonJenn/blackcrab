@@ -12,7 +12,7 @@
     "managed-cloud/client-config.mjs": "cbf43d4576676f88f8448379c1a40c2a8de711e0715597ee451acb72b6c6b233",
     "mobile-experience/activation/adapters/owned-cloud-config.cjs": "f3ec7ac587f5907c08661a6fb59c671a100b460bcd585bb19d4283a2fa9cc0b5",
     "managed-host/source.mjs": "a4ac79f5ae8439ad9c376109f52c21c910654b50c378ea853daa3ee41d7ccb99",
-    "managed-host/service-profile.mjs": "de0c3671fa2f309988e80ac3c314485df15a23ff2866c676f5904d10ec8ca737",
+    "managed-host/service-profile.mjs": "2f0fbcb90ea430d186902f9e5f4d425f5619f03e667ccab1dc77a8a746ad9244",
     "managed-host/artifact.mjs": "949b113af52f60ad8c55618a0b8c93e664c78c859cfe7f6164fde58be348b401",
     "managed-host/rust-notices.mjs": "58a442a8be62cff766d28f74e81ef299c4bbc537d97923d1c0e902c7c0848f84",
     "managed-host/registry-metadata.mjs": "3c0dd43b632d0fac96d8f0cd5c5ac654cdcc3594f1ee89ddebe6c56e2cd2bb21",

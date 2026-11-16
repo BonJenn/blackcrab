@@ -166,9 +166,6 @@ pub(in crate) async fn launch(
 async fn launch_verified(host: ManagedHost, package: VerifiedDesktop) -> Result<NativeDesktop, String> {
     let identity = package.identity;
     let binding = host.desktop_binding().await?;
-    if binding.browser.is_some() {
-        return Err(error());
-    }
     let profile_root = host.desktop_profile_root();
     let (executable, package_root) = (plain(&package.executable), plain(&package.root));
     let (profile, started) = tokio::task::spawn_blocking(move || -> Result<_, String> {

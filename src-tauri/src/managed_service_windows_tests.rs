@@ -119,8 +119,9 @@ async fn actual_packaged_windows_service_lifecycle() {
     assert_eq!(host.initialize_service().await.unwrap().state, "stopped");
     let configuration = fs::read(owner.join("configuration.json")).unwrap();
     let configured = host.read_config().unwrap().unwrap();
-    // No private browser channel exists on Windows yet.
-    assert!(configured.ownership == OwnershipMode::Service && configured.browser.is_none());
+    // The in-app browser's private channel is a named pipe configured at setup.
+    let pipe = configured.browser.as_ref().expect("a browser capability").path.to_string_lossy().into_owned();
+    assert!(configured.ownership == OwnershipMode::Service && configured.schema == 2 && pipe.starts_with(r"\\.\pipe\blackcrab-browser-"));
     let configured_path = configured.artifact_path.clone();
     let identity = configured.environment_id.unwrap();
     let retained = owner.join("host/userdata/retained-history-fixture");
@@ -146,7 +147,8 @@ async fn actual_packaged_windows_service_lifecycle() {
         ensure!(installed.installed && installed.loaded, "install left the service {}", installed.state);
         ensure!(running(&host).await?.environment_id.as_deref() == Some(identity.as_str()), "environment changed");
         let binding = host.desktop_binding().await?;
-        ensure!(binding.browser.is_none() && binding.environment_id == identity, "binding differs");
+        // desktop_binding waited for the running service to create that pipe.
+        ensure!(binding.browser.as_ref().is_some_and(|browser| browser.listening()) && binding.environment_id == identity, "binding differs or the browser channel is not served");
         ensure!(!host.desktop_pair_grant(&binding).await?.credential.is_empty(), "no pair credential");
         let runtime = fs::read(owner.join("host/userdata/server-runtime.json")).map_err(io_error)?;
         stage("attached and paired");

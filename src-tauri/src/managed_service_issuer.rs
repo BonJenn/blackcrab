@@ -316,11 +316,7 @@ impl NativeIssuer {
         {
             return Err(invalid());
         }
-        #[cfg(unix)]
         if let Some(browser) = &config.browser { browser.validate(&self.host.root)?; }
-        // No private browser channel exists on Windows yet; one is never accepted.
-        #[cfg(windows)]
-        if config.browser.is_some() { return Err(invalid()); }
         let envelope = OwnedServiceAuthBootstrap {
             schema: 1,
             kind: "blackcrab-owned-service-auth-v1",
@@ -1096,8 +1092,18 @@ fn replace_runtime_with(
             .map_err(|_| "Service runtime publication failed; reopen Blackcrab to try again".to_owned())?;
     }
     // 2. The configuration names the new runtime. Its path is unchanged.
-    if config.manifest_digest != compiled {
+    // Windows releases before 0.4.5 had no in-app browser channel; a service
+    // upgraded from one gets its capability here, as a fresh setup would.
+    #[cfg(windows)]
+    let without_browser = config.browser.is_none();
+    #[cfg(not(windows))]
+    let without_browser = false;
+    if config.manifest_digest != compiled || without_browser {
         config.manifest_digest = compiled.into();
+        #[cfg(windows)]
+        if without_browser {
+            super::service_initialization::enable_native_browser(&mut config, &host.root)?;
+        }
         host.save_config(&config)?;
         platform::sync_directory(&host.root)?;
     }

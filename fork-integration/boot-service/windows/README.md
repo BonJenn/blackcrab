@@ -24,6 +24,23 @@ changes only what cannot hold on Windows:
   launcher's IPC channel, which the server treats as a stop, because `kill()`
   ends a Windows process at once whatever signal is named.
 
+- **`owned-windows-OwnedServiceBrowser`** and
+  **`owned-windows-leasedDesktopBrowser`** (0.4.5): the in-app browser's
+  private channel. On Unix it is a socket in a private directory under `/tmp`;
+  on Windows it is a named pipe, `\\.\pipe\blackcrab-browser-<32 hex>`. The
+  first record accepts only that name in the sign-in envelope; the second
+  checks the name where the Unix code checks the directory's owner and mode,
+  and skips `chmod`. The protocol is unchanged: both sides prove the shared
+  key before any frame is accepted and every frame is authenticated. The
+  workspace's copy of this module (`managed-desktop/patches/gate-c-5.ts`)
+  carries the same two changes on every platform.
+
+  What a pipe cannot give: Node cannot set a pipe's access list, and pipe
+  names can be listed by any account on the PC. Another account could
+  therefore connect to the pipe, or create one of that name before the service
+  starts, and so stop the browser pane from working. It cannot read or send a
+  frame, since it does not have the key.
+
 Windows has no UID or mode bits, and JavaScript cannot read owners or DACLs.
 Privacy of the owner directory on Windows is the protected DACL the native
 launcher creates and verifies; these sources check structure only.

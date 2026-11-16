@@ -30,8 +30,8 @@ fn new_environment_id() -> Result<String, String> {
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
     Ok(format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..]))
 }
-#[cfg(unix)]
-fn enable_native_browser(config: &mut Configuration, owner: &Path) -> Result<(), String> {
+#[cfg(any(unix, windows))]
+pub(super) fn enable_native_browser(config: &mut Configuration, owner: &Path) -> Result<(), String> {
     let capability = crate::managed_browser::Capability::allocate(owner)?;
     // Browser capabilities require the same schema for Service and Direct owners.
     config.schema = 2;
@@ -62,8 +62,7 @@ pub(super) async fn initialize(host: &ManagedHost) -> Result<HostStatus, String>
         let mut config = Configuration { schema: 1, ownership: OwnershipMode::Service,
             artifact_path: selected.version_directory().join("payload"), manifest_digest: expected.into(),
             bootstrap_secret: random_secret()?, environment_id: Some(environment_id.clone()), browser: None };
-        // Windows has no private browser channel yet, so none is configured there.
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         if native_browser_supported() && selected.supports_native_browser().map_err(|_| "The bundled service browser capability failed verification")? {
             enable_native_browser(&mut config, &owned.root)?;
         }

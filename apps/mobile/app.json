@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Blackcrab Remote",
+    "name": "Blackcrab",
     "slug": "blackcrab-remote",
     "scheme": ["blackcrab-remote", "blackcrab"],
     "version": "1.0.0",
@@ -12,10 +12,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "dev.blackcrab.remote",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Blackcrab Remote connects to your agents on your local network or private tailnet.",
+        "NSLocalNetworkUsageDescription": "Blackcrab connects to the Blackcrab desktop app on your computer over your local network or private tailnet.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryAddUsageDescription": "Blackcrab Remote saves images you choose to your photo library.",
-        "NSMicrophoneUsageDescription": "Blackcrab Remote uses your microphone for voice input.",
+        "NSPhotoLibraryAddUsageDescription": "Blackcrab saves images you choose to your photo library.",
+        "NSMicrophoneUsageDescription": "Blackcrab uses your microphone for voice input.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
@@ -69,14 +69,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Blackcrab Remote uses the camera to scan pairing QR codes from your desktop."
+          "cameraPermission": "Blackcrab uses the camera to scan pairing QR codes from your computer and to take photos you attach to a message."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Blackcrab Remote needs photo access to attach images to a message.",
-          "cameraPermission": "Blackcrab Remote needs camera access to take a photo to attach to a message."
+          "photosPermission": "Blackcrab uses your photo library to attach images you choose to a message.",
+          "cameraPermission": "Blackcrab uses the camera to scan pairing QR codes from your computer and to take photos you attach to a message."
         }
       ],
       "./plugins/with-ios-pod-floor.cjs",
@@ -112,7 +112,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Blackcrab Remote uses your microphone for voice input.",
+          "microphonePermission": "Blackcrab uses your microphone for voice input.",
           "recordAudioAndroid": true,
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
@@ -143,6 +143,7 @@
         }
       ],
       "./plugins/with-owned-share-name.cjs",
+      "./plugins/with-widget-brand-mark.cjs",
       [
         "expo-sharing",
         {
@@ -284,7 +285,7 @@
       "enabled": false,
       "checkAutomatically": "NEVER"
     },
-    "icon": "./assets/blackcrab.png",
+    "icon": "./assets/app-icon.png",
     "owner": "bonjenn"
   }
 }

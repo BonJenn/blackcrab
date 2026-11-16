@@ -69,7 +69,7 @@ describe("native managed platform", () => {
         expect(Option.isNone(yield* (yield* ClientCapabilities.CloudSession).identity)).toBe(true);
         expect(Option.isNone(yield* (yield* ClientCapabilities.RelayDeviceIdentity).deviceId)).toBe(true);
         expect(Option.isNone(yield* (yield* ClientCapabilities.PrimaryEnvironmentAuth).bearerToken)).toBe(true);
-        expect((yield* ClientCapabilities.ClientPresentation).metadata).toMatchObject({ label: "Blackcrab Remote", os: "iOS", surface: "mobile" });
+        expect((yield* ClientCapabilities.ClientPresentation).metadata).toMatchObject({ label: "Blackcrab Mobile", os: "iOS", surface: "mobile" });
         expect((yield* Effect.flip((yield* ClientCapabilities.CloudSession).clerkToken)).reason).toBe("authentication");
         expect((yield* Effect.flip((yield* ManagedRelay.ManagedRelayDpopSigner).thumbprint))._tag).toBe("ManagedRelayDpopKeyLoadError");
         const relay = yield* ManagedRelay.ManagedRelayClient;

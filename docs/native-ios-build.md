@@ -1,6 +1,6 @@
 # Native iOS builds
 
-Blackcrab Remote uses Expo SDK 58.0.14 / React Native 0.88.0 / React 19.3.0. Its checked-in source
+The Blackcrab iOS app (formerly Blackcrab Remote) uses Expo SDK 58.0.14 / React Native 0.88.0 / React 19.3.0. Its checked-in source
 can live on `G-DRIVE PRO`; native builds run in a separate physical workspace
 whose path contains no whitespace. Expo Constants and Updates currently have
 upstream build scripts that split paths containing spaces. Staging avoids

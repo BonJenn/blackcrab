@@ -373,7 +373,7 @@ export default function LegacyApp() {
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
       <View style={styles.header}>
-        <Text style={styles.title}>Blackcrab Remote</Text>
+        <Text style={styles.title}>Blackcrab</Text>
         <Text style={styles.subtitle}>Connect to your agents and workspaces</Text>
         <Text style={styles.subtitle}>{activeHostId ? `${storedHosts.find(host => host.hostId === activeHostId)?.displayName ?? "Selected host"} · ${connected ? "connected" : "not connected"}` : "No host selected"}</Text>
       </View>

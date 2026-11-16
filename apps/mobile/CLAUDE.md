@@ -1,4 +1,4 @@
-# Blackcrab Remote — mobile guide
+# Blackcrab — mobile guide
 
 Keep this file and CLAUDE.md identical. Read the repository root guide first.
 Current status and release blockers are in ../../docs/agent-handoff.md.
@@ -75,3 +75,15 @@ selection haptics and compose uses a light impact; unsupported/failing feedback
 must never block navigation. expo-haptics is already part of the native graph.
 Social buttons come from Clerk AuthView's configured providers. Do not add
 nonfunctional custom buttons or put provider client secrets in mobile config.
+
+## App Store name, icon, Live Activity and account deletion
+
+The app's name is Blackcrab (formerly Blackcrab Remote). The bundle identifier,
+extension identifiers, app group, URL schemes and Expo slug keep `remote` in
+them on purpose: changing one makes a different App Store app and loses stored
+pairings. `assets/app-icon.png` is the iOS icon (opaque, 1024 px); the shared
+`assets/blackcrab.png` still feeds the splash screen, Android and the hosted web
+icon. The Live Activity layout, its progress writer, the widget crab mark and
+in-app account deletion are owned adapters; read ../../docs/mobile-app-store.md
+before changing them or anything App Review depends on (legal URLs, deletion,
+permission strings). Do not test a build against the owner's real desktop.

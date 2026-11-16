@@ -55,6 +55,9 @@ add('src/App.tsx',[
  ('import { installShowcaseCapture } from "./features/showcase/ShowcaseCaptureCoordinator";\n','',1),
  ('  installShowcaseCapture(rootPathnameFromState),','  () => undefined, // Upstream showcase capture is not activated.',1),
  ('if (process.env.EXPO_PUBLIC_SHOWCASE === "1") {','if (false) { // Never activate upstream showcase from inherited build flags.',1),
+ # Keep the Live Activity current from the app's own connection while it runs.
+ ('import { installAppUpdateChecks } from "./features/updates/app-updates";','import { installLiveActivityProgress } from "./features/agent-awareness/liveActivityProgress";\nimport { installAppUpdateChecks } from "./features/updates/app-updates";',1),
+ ('  installAppUpdateChecks(),\n','  installAppUpdateChecks(),\n  installLiveActivityProgress(),\n',1),
 ])
 add('src/features/voice-input/GlobalVoiceInputControl.tsx',[
  ('import { useState, type ReactNode } from "react";', 'import { useState, useLayoutEffect, useSyncExternalStore, type ReactNode } from "react";\nimport { managedRootLifecycle } from "../../../../../owned-root-lifecycle.mjs";',1),
@@ -96,9 +99,17 @@ add('src/features/prompt-links/prompt-link-actions.ts',[
  ('import { buildNewThreadLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";', 'import { buildNewThreadLink, promptLinkDeepLink, type LinkedPrompt } from "@t3tools/shared/promptLinks";\nimport { DEFAULT_HOSTED_APP_URL } from "@t3tools/shared/connectAuth";',1),
  ('buildNewThreadLink({ prompt }), { target: "prompt link" }', '(DEFAULT_HOSTED_APP_URL ? buildNewThreadLink({ prompt }) : promptLinkDeepLink("/new?" + new URLSearchParams({ prompt }).toString())), { target: "prompt link" }',1),
 ])
-add('src/lib/authClientMetadata.ts',[( 'label: "T3 Code Mobile"','label: "Blackcrab Remote"',1)])
-add('src/components/CompactBrandTitle.tsx',[( '"T3 Code, Threads"','"Blackcrab, Threads"',1)])
-add('src/widgets/AgentActivity.tsx',[( '`t3code://${','`blackcrab-remote://${',1),('<Image assetName="T3Mark" modifiers={[resizable()]} />','<Text modifiers={[font({ size: height, weight: "bold" })]}>BC</Text>',1)])
+add('src/lib/authClientMetadata.ts',[( 'label: "T3 Code Mobile"','label: "Blackcrab Mobile"',1)])
+# The list title is the product name alone: no upstream "Code" suffix and no stage badge.
+# App Review rejects apps that present themselves as beta software.
+add('src/components/CompactBrandTitle.tsx',[
+ ('"T3 Code, Threads"','"Blackcrab, Threads"',1),
+ ('      <T3Wordmark colorClassName="accent-icon" height={Math.round(15 * scale)} />\n','',1),
+ ('        className="font-t3-medium text-foreground-muted"\n        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}\n      >\n        Code\n','        className="font-t3-medium text-foreground"\n        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}\n      >\n        Blackcrab\n',1),
+ ('  const showStage =\n    !props.fit || availableWidth === null || fullWidth === null || fullWidth <= availableWidth;','  const showStage = false as boolean; // No stage badge in a store build.\n  void fullWidth;',1),
+])
+# The Live Activity layout is Blackcrab's own; see adapters/AgentActivity.tsx.
+add('src/widgets/AgentActivity.tsx',template='adapters/AgentActivity.tsx')
 for widget in ['src/widgets/SubscriptionUsage.tsx','src/widgets/SubscriptionUsage.android.tsx']:
  text=(src/widget).read_text(); replacements=[]
  for a,b in [('Open T3','Open Blackcrab'),('in T3','in Blackcrab')]:
@@ -145,17 +156,48 @@ brand_files = [
  'src/features/pull-requests/pullRequestAgentTasks.ts',
  'src/widgets/subscriptionUsageSnapshot.ts',
 ]
-mobile_app_name_files = {
- 'src/features/settings/SettingsVoiceRouteScreen.tsx',
- 'src/features/settings/SettingsNotificationsRouteScreen.tsx',
- 'src/features/agent-awareness/remoteRegistration.ts',
- 'src/features/diagnostics/crash-log-model.ts',
-}
 account_recovery = {
+ 'src/features/connection/ConnectionsNewRouteScreen.tsx': [
+  ('Scan the code from t3 pair or desktop Connections settings', "Scan the code in the desktop app's Connections settings", 1),
+  ('          disabled={!isLoaded}\n', '', 1),
+  ('const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 'const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 1),
+ ],
+ # In-app account deletion: on the Blackcrab Connect page of the account screen.
+ 'src/features/cloud/T3ConnectProfilePage.tsx': [
+  ('import {\n  deregisterManagedRelayEnvironmentCommand,', 'import { DeleteAccountSection } from "./AccountDeletion";\nimport {\n  deregisterManagedRelayEnvironmentCommand,', 1),
+  ('        Connections on this device are managed in Settings.\n      </Text>\n', '        Connections on this device are managed in Settings.\n      </Text>\n      <DeleteAccountSection />\n', 1),
+ ],
+ # A sample card, so the Live Activity can be seen without running an agent.
+ 'src/features/settings/SettingsNotificationsRouteScreen.tsx': [
+  ('import { setLiveActivityUpdatesEnabled } from "../agent-awareness/liveActivityPreferences";', 'import { setLiveActivityUpdatesEnabled } from "../agent-awareness/liveActivityPreferences";\nimport { showSampleLiveActivity } from "../agent-awareness/liveActivityProgress";', 1),
+  ('          {liveActivityStatus === "signed-out" && canClearLiveActivitiesPreference ? (', '''          {Platform.OS === "ios" ? (
+            <SettingsRow
+              icon="bolt.circle"
+              label="Show a sample Live Activity"
+              onPress={() => {
+                if (showSampleLiveActivity()) {
+                  Dialog.alert(
+                    "Sample started",
+                    "Lock your phone or go to the Home Screen to see it. It ends by itself after about a minute.",
+                  );
+                } else {
+                  Dialog.alert(
+                    "Live Activities are off",
+                    "Turn on Live Activities for Blackcrab in the iOS Settings app, then try again.",
+                  );
+                }
+              }}
+            />
+          ) : null}
+          {liveActivityStatus === "signed-out" && canClearLiveActivitiesPreference ? (''', 1),
+ ],
  'src/features/settings/SettingsRouteScreen.tsx': [
   ('import { Platform, View } from "react-native";', 'import { Alert, Keyboard, Platform, View } from "react-native";\nimport { managedRootLifecycle } from "../../../../../owned-root-lifecycle.mjs";', 1),
   ('{ title: "Connections", rows: props.connections }', '{ title: "Connections", rows: [...props.connections, { id: "previousHosts", icon: "server.rack" as const, label: "Previously paired hosts", onPress: () => {\n      if (managedRootLifecycle.requestLegacy()) Keyboard.dismiss();\n      else Alert.alert("Voice input is active", "Finish or cancel voice input before opening previously paired hosts.");\n    } }] }', 1),
-  ('import { useAuth, useUser } from "@clerk/expo";', 'import { useAuth, useUser } from "@clerk/expo";\nimport { useAccountConnectionStatus } from "../cloud/AccountConnectionStatus";', 1),
+  ('import { useAuth, useUser } from "@clerk/expo";', 'import { useAuth, useUser } from "@clerk/expo";\nimport { useAccountConnectionStatus } from "../cloud/AccountConnectionStatus";\nimport { useAccountDeletion } from "../cloud/AccountDeletion";', 1),
+  # In-app account deletion: directly in Settings, shown while signed in.
+  ('  const { savedConnectionsById } = useSavedRemoteConnections();\n  const accountLabel', '  const { savedConnectionsById } = useSavedRemoteConnections();\n  const accountDeletion = useAccountDeletion();\n  const accountLabel', 1),
+  ('          label: "Notifications",\n          target: "SettingsNotifications",\n        },\n', '          label: "Notifications",\n          target: "SettingsNotifications",\n        },\n        ...(accountDeletion.available\n          ? [{ id: "deleteAccount", icon: "trash" as const, label: "Delete account", disabled: accountDeletion.deleting, onPress: accountDeletion.requestDeletion }]\n          : []),\n', 1),
   ('  const accountLabel = !isLoaded\n    ? "Checking"', '  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const accountLabel = !isLoaded\n    ? (accountConnectionStatus === "unavailable" ? "Unavailable" : "Connecting…")', 1),
   ('          disabled: !isLoaded,\n', '', 1),
  ],
@@ -163,10 +205,6 @@ account_recovery = {
   ('import { hasCloudPublicConfig } from "../cloud/publicConfig";', 'import { hasCloudPublicConfig } from "../cloud/publicConfig";\nimport { AccountConnectionPending, useAccountConnectionStatus } from "../cloud/AccountConnectionStatus";', 1),
   ('  const navigation = useNavigation();', '  const accountConnectionStatus = useAccountConnectionStatus(isLoaded);\n  const navigation = useNavigation();', 1),
   ('      ) : null}', '      ) : <AccountConnectionPending status={accountConnectionStatus === "unavailable" ? "unavailable" : "loading"} onBack={handleHostBack} />}', 1),
- ],
- 'src/features/connection/ConnectionsNewRouteScreen.tsx': [
-  ('          disabled={!isLoaded}\n', '', 1),
-  ('const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 'const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 1),
  ],
 }
 for p in brand_files:
@@ -178,7 +216,7 @@ for p in brand_files:
   ('T3 Connect','Blackcrab Connect'),
   ('T3 Account','Blackcrab Account'),
   ('T3 account','Blackcrab account'),
-  ('T3 Code','Blackcrab Remote' if p in mobile_app_name_files else 'Blackcrab'),
+  ('T3 Code','Blackcrab'),
   ('Open T3','Open Blackcrab'),
   ("T3's", "Blackcrab's"),
  ]:
@@ -187,8 +225,10 @@ for p in brand_files:
    text=text.replace(before,after)
  assert replacements, ('Expected product copy',p)
  add(p,replacements)
+# The site answers on www; the apex redirects there, and the legal screen opens a redirect
+# target outside its allowed pages in the browser instead of in the app.
 add('src/features/settings/lib/legal-document-url.ts',[
- ('https://t3.codes','https://blackcrab.app',1),
+ ('https://t3.codes','https://www.blackcrab.app',1),
 ])
 entry='''/** Root must invoke once at process boot with proof that no old managed reader was ever started. */
 import type {ComponentType} from "react";
@@ -204,5 +244,7 @@ export function activateFullNativeUI(verifyExclusiveOwnership:()=>void|Promise<v
 additions=[{'path':'src/connection/owned-catalog-state.ts','template':'catalog-state.ts','sha256':sha((root/'catalog-state.ts').read_bytes())}]
 additions.append({'path':'src/features/cloud/AccountConnectionStatus.tsx','template':'adapters/AccountConnectionStatus.tsx','sha256':sha((root/'adapters/AccountConnectionStatus.tsx').read_bytes())})
 additions.append({'path':'src/features/layout/workspace/navigationHaptics.ts','template':'adapters/navigationHaptics.ts','sha256':sha((root/'adapters/navigationHaptics.ts').read_bytes())})
-(root/'registry.json').write_text(json.dumps({'schema':1,'kind':'blackcrab-full-mobile-ui-owned-adapters','generatorSha256':sha((root/'generator.mjs').read_bytes()),'upstreamCommit':'7f02de2eb8e253e0ec23f005b3cfff8e2c963be8','adapters':records,'additions':additions,'rootAdditions':[{'path':'owned-cloud-config.cjs','template':'adapters/owned-cloud-config.cjs','sha256':sha((root/'adapters/owned-cloud-config.cjs').read_bytes())},{'path':'owned-cloud-config.d.cts','template':'adapters/owned-cloud-config.d.cts','sha256':sha((root/'adapters/owned-cloud-config.d.cts').read_bytes())},{'path':'owned-root-lifecycle.mjs','template':'adapters/owned-root-lifecycle.mjs','sha256':sha((root/'adapters/owned-root-lifecycle.mjs').read_bytes())},{'path':'owned-root-lifecycle.d.mts','template':'adapters/owned-root-lifecycle.d.mts','sha256':sha((root/'adapters/owned-root-lifecycle.d.mts').read_bytes())},{'path':'OwnedActivation.ts','template':'adapters/OwnedActivation.ts','sha256':sha((root/'adapters/OwnedActivation.ts').read_bytes())},{'path':'owned-activation-owner.mjs','template':'owner.mjs','sha256':sha((root/'owner.mjs').read_bytes())},{'path':'owned-activation-owner.d.mts','template':'owner.d.mts','sha256':sha((root/'owner.d.mts').read_bytes())}], 'handoff':{'readyForMount':False,'sourceIntegrated':True,'nativeValidationPending':True,'owner':'process-lifetime; one original foundation/connection registry','requiredBeforeImport':['Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.','On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.','Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.','Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.','Restart process after foundation changes; no retry after partial module-install failure.'],'identity':{'name':'Blackcrab Remote','scheme':'blackcrab-remote','iosBundleIdentifier':'dev.blackcrab.remote','upstreamCloudEnabled':False,'ownedCloudConfiguration':'explicit BLACKCRAB public build variables; no inherited upstream account or relay','upstreamOTAEnabled':False,'ownedOTAConfiguration':'explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration'},'serviceLifetime':{'moduleAppInitializers':['SplashScreen.preventAutoHideAsync','hydrateWorkspaceSelections','installUiRuntimeMemoryWarningGc','subscribeComposerDraftModelReconciliation','installAppearanceRuntime','installSubscriptionUsageRefresh','installPermissionUpdateNotice','installThreadOutboxDelivery','installComposerAttachmentUploads','startIncomingShareInbox','installAgentNotificationNavigation','installAppShortcuts','installAppUpdateChecks (owned native configuration)','installShowcaseCapture (owned disabled)'],'foundations':['lib/runtime.runtime','connection/runtime.connectionAtomRuntime','state/atom-registry.appAtomRegistry','derived Atom runtimes sharing Runtime.layer']}}},indent=2)+'\n')
+additions.append({'path':'src/features/agent-awareness/liveActivityProgress.ts','template':'adapters/liveActivityProgress.ts','sha256':sha((root/'adapters/liveActivityProgress.ts').read_bytes())})
+additions.append({'path':'src/features/cloud/AccountDeletion.tsx','template':'adapters/AccountDeletion.tsx','sha256':sha((root/'adapters/AccountDeletion.tsx').read_bytes())})
+(root/'registry.json').write_text(json.dumps({'schema':1,'kind':'blackcrab-full-mobile-ui-owned-adapters','generatorSha256':sha((root/'generator.mjs').read_bytes()),'upstreamCommit':'7f02de2eb8e253e0ec23f005b3cfff8e2c963be8','adapters':records,'additions':additions,'rootAdditions':[{'path':'owned-cloud-config.cjs','template':'adapters/owned-cloud-config.cjs','sha256':sha((root/'adapters/owned-cloud-config.cjs').read_bytes())},{'path':'owned-cloud-config.d.cts','template':'adapters/owned-cloud-config.d.cts','sha256':sha((root/'adapters/owned-cloud-config.d.cts').read_bytes())},{'path':'owned-root-lifecycle.mjs','template':'adapters/owned-root-lifecycle.mjs','sha256':sha((root/'adapters/owned-root-lifecycle.mjs').read_bytes())},{'path':'owned-root-lifecycle.d.mts','template':'adapters/owned-root-lifecycle.d.mts','sha256':sha((root/'adapters/owned-root-lifecycle.d.mts').read_bytes())},{'path':'OwnedActivation.ts','template':'adapters/OwnedActivation.ts','sha256':sha((root/'adapters/OwnedActivation.ts').read_bytes())},{'path':'owned-activation-owner.mjs','template':'owner.mjs','sha256':sha((root/'owner.mjs').read_bytes())},{'path':'owned-activation-owner.d.mts','template':'owner.d.mts','sha256':sha((root/'owner.d.mts').read_bytes())}], 'handoff':{'readyForMount':False,'sourceIntegrated':True,'nativeValidationPending':True,'owner':'process-lifetime; one original foundation/connection registry','requiredBeforeImport':['Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.','On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.','Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.','Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.','Restart process after foundation changes; no retry after partial module-install failure.'],'identity':{'name':'Blackcrab','scheme':'blackcrab-remote','iosBundleIdentifier':'dev.blackcrab.remote','upstreamCloudEnabled':False,'ownedCloudConfiguration':'explicit BLACKCRAB public build variables; no inherited upstream account or relay','upstreamOTAEnabled':False,'ownedOTAConfiguration':'explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration'},'serviceLifetime':{'moduleAppInitializers':['SplashScreen.preventAutoHideAsync','hydrateWorkspaceSelections','installUiRuntimeMemoryWarningGc','subscribeComposerDraftModelReconciliation','installAppearanceRuntime','installSubscriptionUsageRefresh','installPermissionUpdateNotice','installThreadOutboxDelivery','installComposerAttachmentUploads','startIncomingShareInbox','installAgentNotificationNavigation','installAppShortcuts','installAppUpdateChecks (owned native configuration)','installShowcaseCapture (owned disabled)'],'foundations':['lib/runtime.runtime','connection/runtime.connectionAtomRuntime','state/atom-registry.appAtomRegistry','derived Atom runtimes sharing Runtime.layer']}}},indent=2)+'\n')
 print('Pinned adapters',len(records))

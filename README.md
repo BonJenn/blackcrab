@@ -17,7 +17,7 @@ See [release notes](docs/release-0.4.2.md) and the
 
 - Manage coding-agent threads and projects in the shared workspace.
 - Work with source control, terminals, previews, approvals and queued follow-ups.
-- Connect the Blackcrab Remote iOS app to a managed environment.
+- Connect the Blackcrab iOS app to a managed environment.
 - Keep the independently owned background service available when the workspace
   closes; reopen the app to return to it.
 - Recover startup failures and manage the background service or updates through
@@ -80,7 +80,7 @@ Never replace public release assets with an unvalidated candidate.
 - `managed-desktop/`: pinned Electron source patches, branding, producer and verification.
 - `managed-host/`, `fork-integration/`: independent host ownership and service integration.
 - `managed-cloud/`: Blackcrab-owned remote-service and client configuration.
-- `apps/mobile/`: Expo/React Native Blackcrab Remote iOS application.
+- `apps/mobile/`: Expo/React Native Blackcrab iOS application.
 - `docs/agent-handoff.md`: current source, evidence, delivery state and remaining work.
 - `docs/t3-parity-plan.md`, `docs/t3-parity-ledger.md`: implementation and acceptance scope.
 - `docs/hosted-service-plan.md`: free local/self-hosted use and paid hosted-service rollout.

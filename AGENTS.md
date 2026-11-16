@@ -9,7 +9,7 @@ current user instructions and verified repository state take precedence.
 Deliver functionality parity with BonJenn/t3code pinned at
 `7f02de2eb8e253e0ec23f005b3cfff8e2c963be8`, including the full remote iOS app.
 The user explicitly wants a current Blackcrab build installed on their Mac and
-Blackcrab Remote available to them in TestFlight before their acceptance session.
+the Blackcrab iOS app available to them in TestFlight before their acceptance session.
 Merged PRs, imported source, green CI, and simulator builds alone do not finish
 that request. Keep implementation, integration, runtime evidence, and delivery
 status separate. Do not invent a percentage from PR or scenario counts.

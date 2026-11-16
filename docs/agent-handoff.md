@@ -42,6 +42,26 @@ The owner's Mac runs the production service with their data. Do not run a
 0.4.5 launcher on it before the upgrade has passed CI on Linux and Windows and
 the owner has agreed to test the draft.
 
+## Mobile checkpoint — Blackcrab for the App Store (owner request, 2026-11-16)
+
+Separate from the 0.4.5 desktop work above; it uses worktree
+P/ios-app-store-submission and does not touch the desktop release branches.
+The owner asked for: a white app icon with a black, slightly smaller crab; a
+richer Live Activity that shows progress; everything App Review needs (privacy
+policy, in-app account deletion and the rest); the name Blackcrab instead of
+Blackcrab Remote; and submission to Apple, which they authorized in that
+request.
+
+State: the app changes are in this PR (branch feat/ios-app-store-submission).
+Read docs/mobile-app-store.md for what was built and the limits of the Live
+Activity. The website's legal and support pages are live (BonJenn/blackcrab-landing
+PR #22). The App Store Connect listing for app 6780360079 is being filled through
+the API (name Blackcrab, category Developer Tools, free, all territories, age
+rating 4+, privacy policy and support URLs, description). Next: build number 6
+from the merged commit, upload, screenshots, review notes, submit. The record of
+what was submitted follows in the next checkpoint. Do not repeat an upload that
+a later checkpoint records.
+
 ## Previous checkpoint — 0.4.4 is published (2026-11-16 UTC)
 
 v0.4.4 is public for Apple-silicon Mac, Windows x64 and Linux x64, tag on

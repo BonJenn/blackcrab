@@ -884,9 +884,11 @@ decision is made and tested.
 The two accepted-installer artifacts are also uploaded from pull-request runs
 and kept three days, as a way to try a build by hand.
 
-Not yet exercised: the `managed-linux-windows` kind itself. It needs a draft
-release for the bumped version, which waits on the owner. The reusable jobs
-and their artifact uploads ran on this step's pull request.
+First real use, for 0.4.4: run 43800346962 failed in the preflight with
+"release not found", because a job with `contents: read` cannot see a draft
+release. PR #332 gives the preflight `contents: write`; run 43802591991 from
+that branch built, accepted and attached all three installers. v0.4.4 was
+published on 2026-11-16 (UTC); see docs/release-0.4.4.md.
 
 ## Remaining steps
 

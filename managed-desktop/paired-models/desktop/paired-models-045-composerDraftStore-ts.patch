@@ -1,0 +1,123 @@
+--- a/apps/web/src/composerDraftStore.ts
++++ b/apps/web/src/composerDraftStore.ts
+@@ -251,6 +251,7 @@
+   modelSelectionByProvider: Schema.optionalKey(Schema.Record(ProviderInstanceId, ModelSelection)),
+   activeProvider: Schema.optionalKey(Schema.NullOr(ProviderInstanceId)),
+   modelSelectionExplicit: Schema.optionalKey(Schema.Boolean),
++  pairedModel: Schema.optionalKey(ModelSelection),
+   runtimeMode: Schema.optionalKey(RuntimeMode),
+   interactionMode: Schema.optionalKey(ProviderInteractionMode),
+ });
+@@ -375,6 +376,7 @@
+   modelSelectionByProvider: Partial<Record<ProviderInstanceId, ModelSelection>>;
+   activeProvider: ProviderInstanceId | null;
+   modelSelectionExplicit?: boolean;
++  pairedModel?: ModelSelection;
+   runtimeMode: RuntimeMode | null;
+   interactionMode: ProviderInteractionMode | null;
+ }
+@@ -625,6 +627,7 @@
+     threadRef: ComposerThreadTarget,
+     attachments: PersistedComposerImageAttachment[],
+   ) => Promise<void>;
++  setPairedModel: (threadRef: ComposerThreadTarget, model: ModelSelection | undefined) => void;
+   clearComposerContent: (threadRef: ComposerThreadTarget) => void;
+   /** Clears text and attachments, preserving terminal/element contexts, preview annotations, and review comments. */
+   clearComposerPromptAndImages: (threadRef: ComposerThreadTarget) => void;
+@@ -868,6 +871,14 @@
+   return normalizedContexts;
+ }
+ 
++function copyPairedModel(model: ModelSelection): DeepMutable<ModelSelection> {
++  const { options, ...selection } = model;
++  return {
++    ...selection,
++    ...(options ? { options: options.map((option) => ({ ...option })) } : {}),
++  };
++}
++
+ function shouldRemoveDraft(draft: ComposerThreadDraftState): boolean {
+   return (
+     draft.prompt.length === 0 &&
+@@ -879,6 +890,7 @@
+     draft.reviewComments.length === 0 &&
+     draft.threadContexts.length === 0 &&
+     draft.environmentContexts.length === 0 &&
++    draft.pairedModel === undefined &&
+     Object.keys(draft.modelSelectionByProvider).length === 0 &&
+     draft.activeProvider === null &&
+     draft.runtimeMode === null &&
+@@ -1982,6 +1994,7 @@
+       threadContexts.length === 0 &&
+       environmentContexts.length === 0 &&
+       !hasModelData &&
++      !draftCandidate.pairedModel &&
+       !runtimeMode &&
+       !interactionMode
+     ) {
+@@ -2000,6 +2013,9 @@
+                 : threadKeyOrId;
+             })();
+     nextDraftsByThreadKey[normalizedThreadKey] = {
++      ...(Schema.is(ModelSelection)(draftCandidate.pairedModel)
++        ? { pairedModel: copyPairedModel(draftCandidate.pairedModel) }
++        : {}),
+       prompt,
+       attachments,
+       ...(files.length > 0 ? { files } : {}),
+@@ -2113,12 +2129,14 @@
+       draft.threadContexts.length === 0 &&
+       draft.environmentContexts.length === 0 &&
+       !hasModelData &&
++      !draft.pairedModel &&
+       draft.runtimeMode === null &&
+       draft.interactionMode === null
+     ) {
+       continue;
+     }
+     const persistedDraft: DeepMutable<PersistedComposerThreadDraftState> = {
++      ...(draft.pairedModel ? { pairedModel: copyPairedModel(draft.pairedModel) } : {}),
+       prompt: draft.prompt,
+       attachments: draft.persistedAttachments,
+       ...(draft.files.length > 0
+@@ -2424,6 +2442,7 @@
+     })) ?? [];
+ 
+   return {
++    ...(persistedDraft.pairedModel ? { pairedModel: persistedDraft.pairedModel } : {}),
+     prompt: ensureInlineContextReferences(persistedDraft.prompt, [
+       ...(persistedDraft.reviewComments ?? []).map(reviewCommentContextReference),
+       ...(persistedDraft.previewAnnotations ?? []).map(previewAnnotationContextReference),
+@@ -4034,6 +4053,20 @@
+           });
+           await Promise.resolve();
+           verifyPersistedAttachments(threadKey, attachments, set);
++        },
++        setPairedModel: (threadRef, model) => {
++          const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
++          if (!threadKey) return;
++          set((state) => {
++            const current = state.draftsByThreadKey[threadKey] ?? createEmptyThreadDraft();
++            const { pairedModel: _previous, ...rest } = current;
++            return {
++              draftsByThreadKey: {
++                ...state.draftsByThreadKey,
++                [threadKey]: { ...rest, ...(model ? { pairedModel: model } : {}) },
++              },
++            };
++          });
+         },
+         clearComposerContent: (threadRef) => {
+           const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
+@@ -4265,7 +4298,10 @@
+     const matches: Array<readonly [string, ComposerThreadDraftState]> = [];
+     for (const [key, draft] of Object.entries(state.draftsByThreadKey)) {
+       // Local drafts can materialize a shell before their first turn is submitted.
+-      if (state.draftThreadsByThreadKey[key] || draft.activeProvider === null) continue;
++      // A paired task temporarily changes the durable model for its review pass.
++      // Keep the user's lead pinned until they remove the partner.
++      if (state.draftThreadsByThreadKey[key] || draft.activeProvider === null || draft.pairedModel)
++        continue;
+       const ref = parseScopedThreadKey(key);
+       const pick = draft.modelSelectionByProvider[draft.activeProvider];
+       if (!ref || !pick || !threadKeys.has(key)) continue;

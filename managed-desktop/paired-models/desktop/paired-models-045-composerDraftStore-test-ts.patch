@@ -1,0 +1,61 @@
+--- a/apps/web/src/composerDraftStore.test.ts
++++ b/apps/web/src/composerDraftStore.test.ts
+@@ -1557,6 +1557,27 @@
+     h.update({ modelSelection: pick }, "synchronizing");
+     expect(draftFor(threadId, TEST_ENVIRONMENT_ID)).toEqual(before);
+     h.setStatus("live");
++    expect(draftFor(threadId, TEST_ENVIRONMENT_ID)).toBeUndefined();
++  });
++
++  it("keeps the paired lead across durable review switches, then reconciles when pairing is removed", () => {
++    const h = modelReconciliationHarness(TEST_ENVIRONMENT_ID, threadId);
++    const lead = h.model();
++    const partner = modelSelection(CLAUDE_AGENT_DRIVER, "review-model");
++    const store = useComposerDraftStore.getState();
++    store.setPairedModel(threadRef, partner);
++    store.setModelSelection(threadRef, lead, { explicit: true });
++    h.flush();
++    expect(draftFor(threadId, TEST_ENVIRONMENT_ID)?.activeProvider).toBe(lead.instanceId);
++    h.update({ modelSelection: partner, status: "running" });
++    expect(
++      draftFor(threadId, TEST_ENVIRONMENT_ID)?.modelSelectionByProvider[lead.instanceId],
++    ).toEqual(lead);
++    h.update({ modelSelection: lead, status: "completed" });
++    expect(draftFor(threadId, TEST_ENVIRONMENT_ID)?.pairedModel).toEqual(partner);
++    expect(draftFor(threadId, TEST_ENVIRONMENT_ID)?.activeProvider).toBe(lead.instanceId);
++    store.setPairedModel(threadRef, undefined);
++    h.flush();
+     expect(draftFor(threadId, TEST_ENVIRONMENT_ID)).toBeUndefined();
+   });
+ 
+@@ -2574,3 +2595,30 @@
+     );
+   });
+ });
++
++it("persists paired selection per composer through clear and hydration without changing lead settings", () => {
++  resetComposerDraftStore();
++  const first = scopeThreadRef(TEST_ENVIRONMENT_ID, ThreadId.make("paired-first"));
++  const second = scopeThreadRef(TEST_ENVIRONMENT_ID, ThreadId.make("paired-second"));
++  const partner = {
++    instanceId: CLAUDE_AGENT_INSTANCE,
++    model: "peer",
++    options: [{ id: "effort", value: "high" }],
++  };
++  const store = useComposerDraftStore.getState();
++  store.setPairedModel(first, partner);
++  store.clearComposerContent(first);
++  expect(useComposerDraftStore.getState().getComposerDraft(first)?.pairedModel).toEqual(partner);
++  expect(useComposerDraftStore.getState().getComposerDraft(second)?.pairedModel).toBeUndefined();
++  const state = useComposerDraftStore.getState();
++  const persisted = partializeComposerDraftStoreState(state);
++  const restored = useComposerDraftStore.persist.getOptions().merge!(
++    persisted,
++    useComposerDraftStore.getInitialState(),
++  );
++  useComposerDraftStore.setState(restored);
++  expect(useComposerDraftStore.getState().getComposerDraft(first)?.pairedModel).toEqual(partner);
++  expect(useComposerDraftStore.getState().getComposerDraft(first)?.activeProvider).toBeNull();
++  useComposerDraftStore.getState().setPairedModel(first, undefined);
++  expect(useComposerDraftStore.getState().getComposerDraft(first)?.pairedModel).toBeUndefined();
++});

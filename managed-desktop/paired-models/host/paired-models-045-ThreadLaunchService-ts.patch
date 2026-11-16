@@ -1,0 +1,16 @@
+--- a/apps/server/src/orchestration-v2/ThreadLaunchService.ts
++++ b/apps/server/src/orchestration-v2/ThreadLaunchService.ts
+@@ -867,6 +867,13 @@
+         commandId: input.commandId,
+         instanceId: input.modelSelection.instanceId,
+       });
++      if (input.initialMessage?.context?.pairedModel) {
++        yield* threads.assertProviderInstanceEnabled({
++          projectId: input.projectId,
++          commandId: input.commandId,
++          instanceId: input.initialMessage.context.pairedModel.instanceId,
++        });
++      }
+       return yield* Effect.gen(function* () {
+         // Recover ids from accepted launch receipts before allocating; retries have no client id and new ids collide with receipts.
+         const reusableLaunchReceipt =

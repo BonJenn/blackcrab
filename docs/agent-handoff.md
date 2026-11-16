@@ -1,6 +1,20 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — release wiring for Linux and Windows
+## Current checkpoint — preparing 0.4.4 (owner said "do 1-5" on 2026-11-15)
+
+The owner authorized, in order: version bump, Mac build as a draft, Mac
+acceptance, Linux and Windows installers on the same draft, then publication
+and stage-to-main. Branch release/0.4.4 bumps the version and gives the Linux
+and Windows builds the public Connect settings from repository variables
+(docs/release-0.4.4.md). The 0.4.3 recipe is in
+P/mac-release-040-v2llrqsa/workspace-043-delivery; two of its inputs were in
+/private/tmp and are gone: the notarization key (keys 72NTXRGCL9 and
+L5P85SVL55 in the owner's Downloads both work with the same issuer) and the
+Connect settings file (values recovered from the public 0.4.3 workspace). The
+shipped c04c4d44 Mac service payload is inside that directory's
+blackcrab-managed-payloads.zip. Windows ships unsigned.
+
+## Previous checkpoint — release wiring for Linux and Windows
 
 Branch release/linux-windows-installers: `release.yml` kind
 `managed-linux-windows` reruns the Linux and Windows CI acceptance jobs and

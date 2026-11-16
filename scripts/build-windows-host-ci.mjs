@@ -13,6 +13,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {prepareManagedNativeResources} from './managed-native-resources.mjs';
 import {prepareServiceIssuer} from './prepare-service-issuer.mjs';
+import {cloudEnvironmentFrom} from './ci-cloud-environment.mjs';
 const exec=promisify(execFile);
 
 const {values}=parseArgs({options:{root:{type:'string'},pnpm:{type:'string'}}});
@@ -41,7 +42,7 @@ try{
   // The producer's own PATH is rebuilt from this environment.
   process.env.PATH=environment.PATH;
   report.build=await buildManagedHost({archive,nodeLicense,cacheDir:path.join(root,'cache'),output:path.join(root,'artifact'),
-    node:process.execPath,pnpm:values.pnpm,profile:SERVICE_PROFILE,environment,cloudEnvironment:{}});
+    node:process.execPath,pnpm:values.pnpm,profile:SERVICE_PROFILE,environment,cloudEnvironment:cloudEnvironmentFrom()});
   const manifest=await verifyServiceProfileArtifact(report.build.output,{platform:'win32',arch:'x64'});
   const manifestSha256=createHash('sha256').update(await fs.readFile(path.join(report.build.output,MANIFEST_FILE))).digest('hex');
   report.artifact={files:manifest.files.length,syntheticPayload:false,entry:manifest.entry,manifestSha256,

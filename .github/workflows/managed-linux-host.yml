@@ -43,7 +43,13 @@ jobs:
     # Ubuntu24's newer glibc in every downloaded Linux installer.
     runs-on: ubuntu-22.04
     timeout-minutes: 120
+    # Public Connect settings, so what is accepted here is what a release ships.
     env:
+      BLACKCRAB_CLERK_PUBLISHABLE_KEY: ${{ vars.BLACKCRAB_CLERK_PUBLISHABLE_KEY }}
+      BLACKCRAB_CLERK_JWT_TEMPLATE: ${{ vars.BLACKCRAB_CLERK_JWT_TEMPLATE }}
+      BLACKCRAB_RELAY_URL: ${{ vars.BLACKCRAB_RELAY_URL }}
+      BLACKCRAB_HOSTED_APP_URL: ${{ vars.BLACKCRAB_HOSTED_APP_URL }}
+      BLACKCRAB_CLERK_CLI_OAUTH_CLIENT_ID: ${{ vars.BLACKCRAB_CLERK_CLI_OAUTH_CLIENT_ID }}
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
     steps:

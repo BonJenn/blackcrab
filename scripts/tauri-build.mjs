@@ -22,6 +22,8 @@ function usage() {
 Modes:
   --local    Build local app/installers without updater artifacts. Default.
   --signed   Build release app/installers with updater artifacts and signing.
+  --updates  Linux and Windows releases: updater artifacts signed with the
+             updater key, and no platform code signing.
   --managed-desktop <directory>  Bundle a verified full desktop package.
   --managed-host <directory>     Bundle a verified direct workspace runtime.
   --managed-service-host <directory>  Bundle the verified background-service profile.
@@ -40,6 +42,10 @@ for (const arg of rawArgs) {
   }
   if (arg === "--signed" || arg === "--release") {
     mode = "signed";
+    continue;
+  }
+  if (arg === "--updates") {
+    mode = "updates";
     continue;
   }
   passThrough.push(arg);
@@ -72,6 +78,13 @@ if (mode === "signed") {
     process.exit(1);
   }
   console.log("Building signed native release with updater artifacts...");
+} else if (mode === "updates") {
+  // Apple releases are signed and notarized as well; they use --signed.
+  if (process.platform === "darwin" || !hasUpdaterKey) {
+    console.error("--updates needs TAURI_SIGNING_PRIVATE_KEY and a Linux or Windows build.");
+    process.exit(1);
+  }
+  console.log("Building native installers with signed updater artifacts...");
 } else {
   if (localMacDefaultBundle) {
     tauriArgs.push("--bundles", "app");

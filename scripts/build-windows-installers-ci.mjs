@@ -14,7 +14,10 @@ import {verifyServiceProfileArtifact} from '../managed-host/service-profile.mjs'
 import {readBlackcrabVersion} from '../managed-desktop/release-version.mjs';
 
 const exec=promisify(execFile),repository=fileURLToPath(new URL('../',import.meta.url));
-const {values}=parseArgs({options:{root:{type:'string'},host:{type:'string'},desktop:{type:'string'}}});
+const {values}=parseArgs({options:{root:{type:'string'},host:{type:'string'},desktop:{type:'string'},'sign-updates':{type:'boolean'}}});
+// A release signs its updater artifacts with the updater key. Pull requests never see the key.
+const signUpdates=values['sign-updates']===true;
+if(signUpdates&&!process.env.TAURI_SIGNING_PRIVATE_KEY?.trim())throw Error('Signing updates requires the updater key');
 if(process.platform!=='win32'||process.arch!=='x64'||process.env.GITHUB_ACTIONS!=='true')throw Error('Disposable native Windows x64 CI required');
 if(!['root','host','desktop'].every(k=>values[k]&&path.isAbsolute(values[k])))throw Error('Absolute new output and input paths required');
 await fs.mkdir(values.root);
@@ -23,7 +26,7 @@ const report={passed:false,published:false,updaterSigned:false,authenticodeSigne
 // Windows' own tar first: GNU tar reads "C:" in a path as a remote host.
 const system=path.join(process.env.SystemRoot,'System32');
 const environment={...process.env,PATH:[system,process.env.PATH].join(path.delimiter),CI:'true',CARGO_BUILD_JOBS:'2',CARGO_PROFILE_RELEASE_DEBUG:'0'};
-for(const key of Object.keys(environment))if(/^(BLACKCRAB_EMBEDDED_|BLACKCRAB_SERVICE_ISSUER_PATH$|TAURI_SIGNING_)/.test(key))delete environment[key];
+for(const key of Object.keys(environment))if(/^(BLACKCRAB_EMBEDDED_|BLACKCRAB_SERVICE_ISSUER_PATH$)/.test(key)||(!signUpdates&&/^TAURI_SIGNING_/.test(key)))delete environment[key];
 async function digest(file){const hash=createHash('sha256');for await(const bytes of createReadStream(file))hash.update(bytes);return hash.digest('hex');}
 async function step(name,command,args,cwd=repository){return runBuildStep({name,command,args,cwd,env:environment,logs,timeoutMs:90*60*1000});}
 async function named(directory,name){
@@ -37,7 +40,7 @@ try{
   const host=await verifyServiceProfileArtifact(values.host,{platform:'win32',arch:'x64'});
   report.manifests={desktop:await digest(path.join(values.desktop,'blackcrab-managed-desktop.json')),host:await digest(path.join(values.host,'blackcrab-managed-host.json'))};
   report.files={desktop:desktop.files.length,host:host.files.length};
-  await step('tauri-installer',process.execPath,[path.join(repository,'scripts/tauri-build.mjs'),'--local','--target','x86_64-pc-windows-msvc','--bundles','nsis','--managed-desktop',values.desktop,'--managed-service-host',values.host]);
+  await step('tauri-installer',process.execPath,[path.join(repository,'scripts/tauri-build.mjs'),signUpdates?'--updates':'--local','--target','x86_64-pc-windows-msvc','--bundles','nsis','--managed-desktop',values.desktop,'--managed-service-host',values.host]);
   const release=path.join(repository,'src-tauri/target/x86_64-pc-windows-msvc/release');
   const compiled=path.join(release,'blackcrab.exe');
   report.compiledRootSha256=await digest(compiled);
@@ -47,6 +50,11 @@ try{
   const installer=path.join(bundle,installers[0]);
   if(!installers[0].includes(report.version))throw Error('Installer name lacks the product version');
   report.installer={file:installer,bytes:(await fs.stat(installer)).size,sha256:await digest(installer)};
+  if(signUpdates){
+    // The signature beside the installer is what the update manifest carries.
+    if(!(await fs.readFile(installer+'.sig','utf8')).trim())throw Error('The installer has no updater signature');
+    report.installer.signatureFile=installer+'.sig';report.updaterSigned=true;
+  }
 
   // Install for the current user, silently, into a directory of this run.
   const installed=path.join(root,'installed');

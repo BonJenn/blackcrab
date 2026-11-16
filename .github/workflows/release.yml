@@ -34,8 +34,10 @@ env:
 jobs:
   # Linux and Windows x64. The installers are built and accepted by the same
   # jobs every pull request runs, then attached to a release that already
-  # exists and is still a draft. Nothing here creates a tag, publishes, signs
-  # with Authenticode or adds these platforms to the updater feed.
+  # exists and is still a draft. Their updater artifacts are signed with the
+  # updater key and added to the draft's update manifest, which the
+  # Apple-silicon release must already have written. Nothing here creates a
+  # tag, publishes or signs with Authenticode.
   installer-preflight:
     name: Check the draft release for Linux and Windows installers
     if: inputs.kind == 'managed-linux-windows'
@@ -59,18 +61,34 @@ jobs:
             exit 1
           fi
           [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]
+          # The update manifest these installers are added to is written by
+          # the Apple-silicon release. Find out now, not after an hour of builds.
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx latest.json; then
+            echo "::error::Run the Apple-silicon release for $RELEASE_TAG first: the draft has no latest.json."
+            exit 1
+          fi
 
   linux-installers:
     needs: installer-preflight
     permissions:
       contents: read
     uses: ./.github/workflows/managed-linux-host.yml
+    with:
+      sign_updates: true
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
   windows-installer:
     needs: installer-preflight
     permissions:
       contents: read
     uses: ./.github/workflows/managed-windows-host.yml
+    with:
+      sign_updates: true
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
   attach-installers:
     name: Attach accepted Linux and Windows installers to the draft
@@ -78,6 +96,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "26.12.1"
       - uses: actions/download-artifact@v7
         with:
           name: linux-installers
@@ -86,7 +108,7 @@ jobs:
         with:
           name: windows-installer
           path: ${{ runner.temp }}/installers/windows
-      - name: Attach exactly one deb, one AppImage and one Windows installer
+      - name: Attach exactly one deb, one AppImage and one Windows installer, and the update manifest for all platforms
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
@@ -111,7 +133,15 @@ jobs:
           sha256sum "${files[@]}"
           # Still a draft: the builds above take most of an hour.
           [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]
-          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          # Each installer is checked against its updater signature and the
+          # launcher's public key before it is named in the manifest. The .deb
+          # entry is added only if the build signed the .deb.
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$RUNNER_TEMP/manifest"
+          deb=()
+          if [ -s "${files[0]}.sig" ]; then deb=(--deb "${files[0]}"); fi
+          node scripts/release-update-manifest.mjs --tag "$RELEASE_TAG" --manifest "$RUNNER_TEMP/manifest/latest.json" \
+            --windows "${files[2]}" --appimage "${files[1]}" "${deb[@]}" --out "$RUNNER_TEMP/latest.json"
+          gh release upload "$RELEASE_TAG" "${files[@]}" "$RUNNER_TEMP/latest.json" --clobber --repo "$GITHUB_REPOSITORY"
 
   publish:
     name: Build and publish (${{ matrix.platform }})

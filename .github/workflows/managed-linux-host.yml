@@ -27,7 +27,17 @@ on:
       - .github/workflows/managed-linux-host.yml
   workflow_dispatch:
   # The release workflow runs this same job and publishes what it accepted.
+  # Only a release signs updater artifacts; a pull request never sees the key.
   workflow_call:
+    inputs:
+      sign_updates:
+        type: boolean
+        default: false
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
 
 permissions:
   contents: read
@@ -74,7 +84,10 @@ jobs:
       - name: Compile the actual Linux Electron workspace
         run: node scripts/build-portable-desktop-ci.mjs --root "${{ runner.temp }}/linux-desktop-build" --pnpm "$(npm root -g)/pnpm/bin/pnpm.mjs"
       - name: Build and verify the normal deb and AppImage installers
-        run: node scripts/build-linux-installers-ci.mjs --root "${{ runner.temp }}/linux-installers" --host "${{ runner.temp }}/linux-host-build/artifact" --desktop "${{ runner.temp }}/linux-desktop-build/artifact"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.sign_updates && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.sign_updates && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        run: node scripts/build-linux-installers-ci.mjs --root "${{ runner.temp }}/linux-installers" --host "${{ runner.temp }}/linux-host-build/artifact" --desktop "${{ runner.temp }}/linux-desktop-build/artifact" ${{ inputs.sign_updates && '--sign-updates' || '' }}
       - name: Install the official Tauri WebDriver
         run: cargo install tauri-driver --locked --version 2.1.0
       # The published 0.4.4 package, by digest. It is installed and opened first
@@ -93,7 +106,9 @@ jobs:
           name: linux-installers
           path: |
             src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb.sig
             src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage.sig
           if-no-files-found: error
           retention-days: 3
           compression-level: 0

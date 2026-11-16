@@ -37,10 +37,38 @@ actual production builds, CI and signed artifact verification are required too.
 Native install/restart and retained running-service acceptance are separate from
 these source tests and must be recorded against the final artifact.
 
-The first implementation is connected to the existing Apple-silicon launcher.
-Windows/Linux need their real launch/transport/service and packaging paths before
-this can be claimed or published as working on those targets. Do not publish a
-root-only installer or change `producerImplemented` to bypass those missing parts.
+The first implementation was connected to the Apple-silicon launcher only.
+
+## Linux and Windows, from 0.4.5
+
+The updater was always compiled into every launcher and 0.4.4 on Linux and
+Windows already polls `latest.json`; it found no entry for its platform, because
+those installers were built without updater signatures. From 0.4.5:
+
+- **Signing.** A release builds the Linux and Windows installers with
+  `scripts/tauri-build.mjs --updates`: updater artifacts signed with the same
+  updater key as the Mac, and no platform code signing. Pull-request builds
+  stay unsigned and never see the key (`sign_updates` on the reusable
+  workflows).
+- **One manifest.** The Apple-silicon release writes `latest.json` first. The
+  `managed-linux-windows` release kind then checks each installer against its
+  signature and the launcher's public key and adds `windows-x86_64`,
+  `windows-x86_64-nsis`, `linux-x86_64-appimage` and, when the .deb was signed,
+  `linux-x86_64-deb` (`scripts/release-update-manifest.mjs`). There is
+  deliberately no plain `linux-x86_64` entry: a .deb installation must not be
+  handed the AppImage. Run the Mac release before the Linux and Windows one; a
+  Mac release run afterwards would write a Mac-only manifest again.
+- **The workspace control on Windows.** The workspace inherits a fourth private
+  pipe as descriptor 5 and its launcher answers the same four requests on it
+  (`serve_pipe` in `managed_updates.rs`). Installing closes the workspace
+  first, as on the other platforms.
+- **Linux .deb.** The updater installs a .deb with `pkexec dpkg -i`, which asks
+  for the administrator password. This path is not exercised by any test.
+
+Not yet proven anywhere: a real update from one released version to the next
+on Linux or Windows. The 0.4.4 Windows launcher has no reachable update
+control, so its users install 0.4.5 by hand; 0.4.4 AppImage users should be
+offered 0.4.5 in the workspace once the manifest carries it.
 
 0.4.2 and 0.4.3 cannot gain this fix through their broken workspace control. Users
 can use the outer launcher's updater or install the verified 0.4.4 download once

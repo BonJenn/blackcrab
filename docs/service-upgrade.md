@@ -50,6 +50,9 @@ Only the manifests listed in `PREDECESSORS` in
 | Apple silicon | 0.4.5 | `eda8408d56339d98d5e6905b417295add611f0afca1af73bb1da60cf5cbb2160` |
 | Linux x64 | 0.4.5 | `3819159dd522d732303965ca5d81679d274e4a7393d8d248bd00388ec5e1baa9` |
 | Windows x64 | 0.4.5 | `608b24056ac3f118a881b35e99a484925a5d962bb4bfd9cd1f30d26d76bae495` |
+| Apple silicon | 0.4.6 | `abc8ff1e6868528a97c45bd2bf37507b90887026ddac6df2e72e2c3d3d034a67` |
+| Linux x64 | 0.4.6 | `251c0544067d2f25ce17add23f06c85da4a1d22708e74d3c8873851e04bfa1f2` |
+| Windows x64 | 0.4.6 | `a17422616ca56e8d0eebbd7f19f3b17964961ab8181b8800a5ebade0c5090ad2` |
 
 Service builds are not byte-reproducible: the same source gives a different
 manifest on every build. So every release has new digests, and the digests of

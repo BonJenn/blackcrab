@@ -1,6 +1,26 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.5 is published (2026-11-17 UTC)
+## Current checkpoint — 0.4.6 is published (2026-11-17 UTC)
+
+v0.4.6 is public on all three platforms, tag on
+f91fcbfa8474e322a344dbe9b661753506b9cf1f; see docs/release-0.4.6.md. It fixes
+two things the owner found on the first Mac updated to 0.4.5: the IDE mode
+button hidden under the panel buttons (PR #344) and the Mac service losing
+its tool search path on re-registration, with `~/.local/bin` never on it
+(PR #345, docs/service-upgrade.md). Its three service manifests are in
+`PREDECESSORS`. Website: BonJenn/blackcrab-landing PR #24.
+
+Known and not fixed: every release re-registers the service because service
+builds are not reproducible, so each update stops running agents once
+(reusing an unchanged signed service payload, as 0.4.1 to 0.4.4 did on Mac,
+would avoid it); Refresh does not re-read the service's search path; several
+hundred service messages still say "T3 Code"; whether the service's "update
+Claude" action can leave an npm install without its native binary (the owner
+saw "claude native binary not installed" after one) is not investigated.
+Lesson recorded twice this release: look at a UI change in a running app and
+test a service change against a real provider install before saying it works.
+
+## Previous checkpoint — 0.4.5 is published (2026-11-17 UTC)
 
 v0.4.5 is public for Apple-silicon Mac, Windows x64 and Linux x64, tag on
 b3b7cbd63fcb1aaa41c49e22bd271a90e2faafe6; see docs/release-0.4.5.md. Never

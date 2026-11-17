@@ -54,7 +54,9 @@ test('renderer records are in the desktop registry and service records in the se
  assert.deepEqual(service.map(record=>record.id),['ide-contract','ide-host','ide-ideGuardedWrite-ts','ide-IdeWorkspaceFileSystem-test-ts']);
  for(const record of service){const bytes=await fs.readFile(new URL('../managed-host/features/'+record.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),record.sha256);}
  const production=JSON.parse(await fs.readFile(new URL('./patches/registry.json',import.meta.url))).filter(record=>record.id.startsWith('ide-mode-045-'));
- assert.deepEqual(production.map(record=>record.target),['packages/contracts/src/project.ts','apps/web/src/components/files/FilePreviewPanel.tsx','apps/web/src/components/ChatView.tsx',...['IdePanel.tsx','ideState.ts','ide-mode.css','IdePanel.browser.test.tsx','IdeCodeEditor.browser.test.tsx'].map(name=>'apps/web/src/components/ide/'+name)]);
+ assert.deepEqual(production.map(record=>record.target),['packages/contracts/src/project.ts','apps/web/src/components/files/FilePreviewPanel.tsx','apps/web/src/components/ChatView.tsx',...['IdePanel.tsx','ideState.ts','ide-mode.css','IdePanel.browser.test.tsx','IdeCodeEditor.browser.test.tsx'].map(name=>'apps/web/src/components/ide/'+name),'apps/web/src/components/ChatView.tsx']);
+ // 0.4.5 shipped the toggle under the window's panel buttons. It now keeps the room the header title used to keep for them.
+ const header=production.at(-1).replacements[0].after;assert.match(header,/reservePanelControls=\{pane === null && !ideEnabled\}/);assert.match(header,/pane === null && \(inlineRightPanelOwnsTitleBar \? "mr-10" : "mr-24"\)/);
  for(const record of production)assert.match(record.file,/^ide-mode\/[A-Za-z.-]+$/);
  // Both sides are built from the same contract: the workspace and its service agree on the fields.
  const [desktop]=production,[shared]=service;

@@ -5,6 +5,7 @@ import { managedNativeDesktopClient } from "./managedNativeDesktopClient";
 import { managedServiceClient } from "./managedServiceClient";
 import { ManagedServiceControls } from "./ManagedServiceControls";
 import { AppUpdates } from "./AppUpdates";
+import { AnalyticsToggle } from "./AnalyticsToggle";
 import { startWorkspace, type WorkspaceStartupClient } from "./workspaceStartup";
 import "./App.css";
 
@@ -78,7 +79,7 @@ export default function App({ client = nativeClient }: { client?: WorkspaceStart
       {busy && <span className="launcher-spinner" aria-hidden="true" />}
       {error && <p role="alert" className="launcher-error">{error}</p>}
       {!busy && <button className="launcher-primary" disabled={settingsBusy} onClick={begin}>{error ? "Try again" : "Return to workspace"}</button>}
-      {controls && <div className="launcher-settings"><fieldset disabled={settingsBusy}><ManagedServiceControls client={client.service} onBusyChange={serviceBusy} /></fieldset><fieldset disabled={settingsBusy}><AppUpdates onBusyChange={updateBusy} /></fieldset></div>}
+      {controls && <div className="launcher-settings"><fieldset disabled={settingsBusy}><ManagedServiceControls client={client.service} onBusyChange={serviceBusy} /></fieldset><fieldset disabled={settingsBusy}><AppUpdates onBusyChange={updateBusy} /></fieldset><AnalyticsToggle /></div>}
     </div>
   </main>;
 }

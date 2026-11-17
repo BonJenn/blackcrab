@@ -138,6 +138,12 @@ agents", Developer Tools with Productivity second, free in all territories, age
 rating 4+, privacy policy and support URLs, description, keywords, five iPhone
 and two iPad screenshots, manual release after approval (the owner's choice).
 
+The store screenshots are promo slides the owner asked for: a serif headline
+over the real simulator screenshot in a plain device frame. `render.py`, the
+fonts (Instrument Serif and DM Sans, both OFL) and the plain captures are in
+P/ios-app-store-release-6. Every caption describes the screen under it; do not
+add a caption for something the screenshot does not show.
+
 What was run in the simulator and what was not is in the pull requests (#339,
 #341) and the handoff checkpoint.
 

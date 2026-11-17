@@ -71,11 +71,10 @@ Store Connect, processed, and attached to App Store version 1.0.0 with the
 listing, screenshots, review contact, demo account, review notes and a demo
 video. Release after approval is manual, at the owner's choice.
 
-**Not yet submitted.** Adding the version to a review submission fails until the
-owner completes three things on the App Store Connect website, which the API
-cannot do: publish the App Privacy answers, and answer two compliance
-questionnaires (codes beginning SECURITYASF and AIGENERATE). The answers that
-match the privacy policy are in docs/mobile-app-store.md. After that, either the
+**Not yet submitted.** The owner published the App Privacy answers on
+2026-11-16. Adding the version to a review submission still fails until they
+answer two compliance questionnaires on the App Store Connect website, which the
+API cannot do (codes beginning SECURITYASF and AIGENERATE). After that, either the
 owner presses Add for Review and Submit, or an agent creates a review submission
 through the API (`/v1/reviewSubmissions`, add the version as an item, set
 `submitted`). Do not rebuild or upload again for this: build 6 is the build.

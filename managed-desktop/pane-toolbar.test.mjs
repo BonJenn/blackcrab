@@ -6,7 +6,8 @@ const source=target=>registry.filter(p=>p.target===target).at(-1).replacements.a
 test('pane controls use header flow when closed and pane-relative placement when open',()=>{
  const view=source('apps/web/src/components/ChatView.tsx');
  assert.match(view,/placement=\{pane === null \? "window" : rightPanelControlsAtRoot \? "pane" : "inline"\}/);
- assert.match(view,/reservePanelControls=\{pane === null\}/);
+ // Outside a pane the window's panel buttons need room at the end of the header: the title keeps it, or the IDE mode toggle when that is the last control.
+ assert.match(view,/reservePanelControls=\{pane === null && !ideEnabled\}/);assert.match(view,/pane === null && \(inlineRightPanelOwnsTitleBar \? "mr-10" : "mr-24"\)/);
  assert.match(view,/inline=\{pane !== null\}/);
  const actions=view.indexOf('{pane ? <PaneHeaderControls');
  assert.ok(actions>0);

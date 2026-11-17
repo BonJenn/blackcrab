@@ -47,6 +47,15 @@ Only the manifests listed in `PREDECESSORS` in
 | Apple silicon | 0.4.0–0.4.4 | `c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83` |
 | Linux x64 | 0.4.4 | `491d73ac66be7a27338adace318d7dd41f3c107b5e4ec3be68b7e1de7a791775` |
 | Windows x64 | 0.4.4 | `54e12d14ab2455530dbce83c3028940595eed637181514264059087610097648` |
+| Apple silicon | 0.4.5 | `eda8408d56339d98d5e6905b417295add611f0afca1af73bb1da60cf5cbb2160` |
+| Linux x64 | 0.4.5 | `3819159dd522d732303965ca5d81679d274e4a7393d8d248bd00388ec5e1baa9` |
+| Windows x64 | 0.4.5 | `608b24056ac3f118a881b35e99a484925a5d962bb4bfd9cd1f30d26d76bae495` |
+
+Service builds are not byte-reproducible: the same source gives a different
+manifest on every build. So every release has new digests, and the digests of
+a release must be added here, from its own build records, before the next
+release is built. A launcher that already carries the installed runtime's
+digest as its own does nothing.
 
 A predecessor is accepted only for stopping, unregistering and confirming
 stopped. It is never attached to, started or issued credentials, and Start,

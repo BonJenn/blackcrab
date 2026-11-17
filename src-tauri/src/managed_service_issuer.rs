@@ -35,15 +35,17 @@ fn invalid() -> String {
     "Background service issuer is unavailable".into()
 }
 /// Service runtimes that earlier releases installed, by manifest digest: 0.4.0
-/// to 0.4.4 on Apple silicon, and 0.4.4 on Linux and Windows. One is accepted
+/// to 0.4.4 and then 0.4.5 on Apple silicon, and 0.4.4 and 0.4.5 on Linux and
+/// Windows. Service builds are not byte-reproducible, so every release has its
+/// own digests and each one must be listed here before the next is built. One is accepted
 /// only to stop and unregister that service and then replace its runtime. It is
 /// never attached to, started, or issued credentials.
 #[cfg(target_os = "macos")]
-const PREDECESSORS: &[&str] = &["c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83"];
+const PREDECESSORS: &[&str] = &["c04c4d4498a552d3c1ca26c2d600ddde7ed513c8c6030d5f7ce79ece15f45e83", "eda8408d56339d98d5e6905b417295add611f0afca1af73bb1da60cf5cbb2160"];
 #[cfg(target_os = "linux")]
-const PREDECESSORS: &[&str] = &["491d73ac66be7a27338adace318d7dd41f3c107b5e4ec3be68b7e1de7a791775"];
+const PREDECESSORS: &[&str] = &["491d73ac66be7a27338adace318d7dd41f3c107b5e4ec3be68b7e1de7a791775", "3819159dd522d732303965ca5d81679d274e4a7393d8d248bd00388ec5e1baa9"];
 #[cfg(windows)]
-const PREDECESSORS: &[&str] = &["54e12d14ab2455530dbce83c3028940595eed637181514264059087610097648"];
+const PREDECESSORS: &[&str] = &["54e12d14ab2455530dbce83c3028940595eed637181514264059087610097648", "608b24056ac3f118a881b35e99a484925a5d962bb4bfd9cd1f30d26d76bae495"];
 #[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
 const PREDECESSORS: &[&str] = &[];
 #[cfg(test)]

@@ -16,6 +16,7 @@ mod managed_launcher;
 #[cfg(any(target_os = "macos", all(test, unix)))]
 mod macos_updater;
 mod managed_updates;
+mod product_events;
 mod managed_payload;
 #[cfg(windows)]
 mod managed_private_windows;
@@ -5217,6 +5218,8 @@ pub fn run() {
             managed_workspace_open,
             managed_launcher::managed_launcher_handoff,
             managed_updates::managed_update,
+            product_events::product_analytics_enabled,
+            product_events::set_product_analytics_enabled,
             managed_bridge::managed_native_pick_folder,
             managed_bridge::managed_native_pick_project_favicon,
             managed_bridge::managed_native_open_external

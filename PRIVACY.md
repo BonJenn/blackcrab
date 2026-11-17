@@ -26,13 +26,17 @@ Snapshots include pending message text, including any attachment paths already
 embedded in that text. Queue responses use the existing host-wide paired-device
 broadcast channel. See [`docs/remote-follow-up-queues.md`](docs/remote-follow-up-queues.md).
 
-Vite development mode does not submit product analytics. For production frontend
-builds, if anonymous analytics are enabled, Blackcrab sends app launch and updater
-events to `https://www.blackcrab.app/api/events`. Those events include platform,
-current version, update target version when applicable, event type, and a
-locally generated anonymous install id. The server hashes that install id before
-storage. Prompts, transcripts, project paths, file contents, and Anthropic
-credentials are not included. This can be turned off in Settings.
+Development builds do not submit product analytics. Installed releases send
+app launch and updater events to `https://www.blackcrab.app/api/events`, from the
+signed outer app (not the workspace). Those events include platform, current
+version, update target version when applicable, event type, and a randomly
+generated anonymous install id kept in the app's data folder
+(`analytics-install-id`). The server hashes that install id before storage.
+Failed updates also include a short error message with the home folder removed.
+Prompts, transcripts, project paths, file contents, and Anthropic credentials
+are not included. Turn it off with "Share anonymous usage data" in the
+workspace settings screen, or set `BLACKCRAB_ANALYTICS=off`. Versions 0.4.2
+through 0.4.6 sent none of these events.
 
 ## Local Storage
 

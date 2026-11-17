@@ -6,6 +6,7 @@ import type { WorkspaceStartupClient } from "./workspaceStartup";
 const events = vi.hoisted(() => new Map<string, () => void>());
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async (name: string, callback: () => void) => { events.set(name, callback); return () => { events.delete(name); }; }) }));
 vi.mock("./AppUpdates", () => ({ AppUpdates: () => <p>App updates</p> }));
+vi.mock("./AnalyticsToggle", () => ({ AnalyticsToggle: () => <p>Usage data</p> }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let host: HTMLDivElement, root: ReturnType<typeof createRoot>;
 beforeEach(() => { host = document.createElement("div"); document.body.append(host); root = createRoot(host); events.clear(); });

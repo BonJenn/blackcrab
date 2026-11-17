@@ -54,6 +54,24 @@ fn manager_value(text:&str,key:&str,separator:&str,expected:&str)->bool {
     let values:Vec<_>=text.lines().filter_map(|line|line.trim().strip_prefix(&prefix)).collect();
     values.len()==1&&(values[0]==expected||serde_json::to_string(expected).ok().as_deref()==Some(values[0]))
 }
+const SEARCH_PATH: &str = "service-search-path";
+/// Keeps the search path of a unit that is about to be removed, for the next
+/// registration to carry over. Folder names only; never an authority.
+fn retain_search_path(root: &Path, unit: &[u8]) -> Result<(), String> {
+    let document: UnitDocument = plist::from_bytes(unit).map_err(|_| invalid())?;
+    let Some(path) = document.environment_variables.get("PATH") else { return Ok(()); };
+    if path.len() > UNIT_LIMIT { return Ok(()); }
+    let temporary = root.join(format!(".{SEARCH_PATH}-{}", random_secret()?));
+    write_new(&temporary, path.as_bytes())?;
+    let result = fs::rename(&temporary, root.join(SEARCH_PATH)).map_err(io_error);
+    if result.is_err() { let _ = fs::remove_file(&temporary); }
+    result
+}
+fn retained_search_path(root: &Path) -> Vec<PathBuf> {
+    let Ok(bytes) = read_small(&root.join(SEARCH_PATH)) else { return Vec::new(); };
+    let Ok(text) = String::from_utf8(bytes) else { return Vec::new(); };
+    std::env::split_paths(&text).collect()
+}
 async fn control_lease(root:&Path)->Result<File,String>{
     let file=OpenOptions::new().read(true).write(true).create(true).truncate(false).mode(0o600)
         .custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC).open(root.join("service-control.lock")).map_err(|_|invalid())?;
@@ -77,11 +95,21 @@ impl ServiceUnitPlan {
         let generation = service_issuer::control_generation(host, &config)?;
         let home = crate::managed_desktop::native_account_home()?;
         let entry = config.artifact_path.join("t3");
+        let usable = |value: &PathBuf| value.is_absolute() && value.to_str().is_some_and(|text| text.chars().all(|c| c >= ' ' || matches!(c, '\t' | '\n' | '\r')));
+        // This launcher's own search path, then the folders the previous
+        // registration searched: re-registering a service (an upgrade does)
+        // must not lose a folder its agents' tools were found in.
         let mut directories: Vec<String> = std::env::var_os("PATH").into_iter()
             .flat_map(|value| std::env::split_paths(&value).collect::<Vec<_>>())
-            .filter(|value| value.is_absolute()).filter_map(|value| value.to_str().map(str::to_owned))
-            .filter(|value| value.chars().all(|c| c >= ' ' || matches!(c, '\t' | '\n' | '\r'))).collect();
+            .chain(retained_search_path(&host.root))
+            .filter(usable).filter_map(|value| value.to_str().map(str::to_owned)).collect();
+        let mut seen = std::collections::BTreeSet::new();
+        directories.retain(|value| seen.insert(value.clone()));
+        // `~/.local/bin` is where Claude's own installer puts `claude`, and it
+        // is usually added to the search path only in interactive shells.
+        let local = home.join(".local/bin");
         for directory in [entry.parent().ok_or_else(invalid)?.to_str().ok_or_else(invalid)?,
+            local.to_str().ok_or_else(invalid)?,
             "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"] {
             if !directories.iter().any(|value| value == directory) { directories.push(directory.into()); }
         }
@@ -265,7 +293,8 @@ impl ServiceUnitPlan {
             service_issuer::require_stopped_for_control(&host,&self.configuration)?;
             if action==Action::Uninstall{
                 if registration.installed{
-                    if self.read_owned_unit()?.is_none(){return Err(invalid());}
+                    let Some(unit)=self.read_owned_unit()? else {return Err(invalid());};
+                    retain_search_path(&self.root,&unit)?;
                     fs::remove_file(&self.unit_path).map_err(io_error)?;
                     File::open(self.unit_path.parent().ok_or_else(invalid)?).and_then(|file|file.sync_all()).map_err(io_error)?;
                 }
@@ -320,6 +349,20 @@ mod tests {
         ServiceUnitPlan::build(Path::new("/private/owner"), &config, 42, Path::new("/Users/test & viewer"), 501, "/opt/homebrew/bin:/usr/bin".into()).unwrap()
     }
     fn encode(document: &UnitDocument) -> Vec<u8> {let mut bytes=Vec::new();plist::to_writer_xml(&mut bytes, document).unwrap();bytes}
+    #[test]
+    fn a_removed_units_search_path_is_kept_for_the_next_registration() {
+        let root = tempfile::tempdir().unwrap();
+        assert!(retained_search_path(root.path()).is_empty());
+        let mut document: UnitDocument = plist::from_bytes(&plan().render().unwrap()).unwrap();
+        document.environment_variables.insert("PATH".into(), "/Users/test/.nvm/versions/node/v22/bin:/opt/homebrew/bin:/usr/bin".into());
+        retain_search_path(root.path(), &encode(&document)).unwrap();
+        assert_eq!(retained_search_path(root.path()), ["/Users/test/.nvm/versions/node/v22/bin", "/opt/homebrew/bin", "/usr/bin"].map(PathBuf::from));
+        // A later removal replaces it; nothing else in the owner directory is touched.
+        document.environment_variables.insert("PATH".into(), "/usr/bin".into());
+        retain_search_path(root.path(), &encode(&document)).unwrap();
+        assert_eq!(retained_search_path(root.path()), [PathBuf::from("/usr/bin")]);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
     #[test]
     fn plist_preserves_original_launchd_lifecycle_and_native_owner_binding() {
         let plan = plan(); let bytes = plan.render().unwrap(); plan.recognizes(&bytes).unwrap();

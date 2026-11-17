@@ -64,6 +64,25 @@ The one window with no installed runtime is between the two renames in step 3;
 the next attempt finds the retired directory and publishes without retiring
 again.
 
+## The service's search path (0.4.6)
+
+On a Mac the launchd unit carries a fixed `PATH`, written when the service is
+registered: the launcher's own search path plus a few standard folders. The
+launcher's path comes from a login shell, which does not read `~/.zshrc`, so a
+folder added only there is missing. 0.4.5's upgrade removes and re-creates the
+unit, so it rebuilt that list and could drop folders an earlier registration
+had; and `~/.local/bin`, where Claude's own installer puts `claude`, was never
+on it. The owner hit this on the first Mac upgraded: "Claude Agent CLI was not
+found on PATH".
+
+From 0.4.6 the Mac unit always includes `~/.local/bin`, and removing a unit
+saves its `PATH` to `service-search-path` in the owner directory, which the
+next registration appends. A service already upgraded by 0.4.5 gets
+`~/.local/bin` when 0.4.6 re-registers it; folders 0.4.5 dropped are not
+recoverable. The service reads its search path once at start, so a tool
+installed later in a folder not on the list needs a link in a listed folder
+(`/opt/homebrew/bin`, `/usr/local/bin`) or a re-registration.
+
 ## Not supported
 
 - Going back. A 0.4.4 launcher refuses a service upgraded by 0.4.5. To go back

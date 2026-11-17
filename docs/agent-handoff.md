@@ -52,25 +52,42 @@ The owner's Mac runs the production service with their data. Do not run a
 0.4.5 launcher on it before the upgrade has passed CI on Linux and Windows and
 the owner has agreed to test the draft.
 
-## Mobile checkpoint — Blackcrab for the App Store (owner request, 2026-11-16)
+## Mobile checkpoint — Blackcrab 1.0.0 (6) is uploaded; submission waits on the owner (2026-11-16)
 
-Separate from the 0.4.5 desktop work above; it uses worktree
-P/ios-app-store-submission and does not touch the desktop release branches.
-The owner asked for: a white app icon with a black, slightly smaller crab; a
-richer Live Activity that shows progress; everything App Review needs (privacy
-policy, in-app account deletion and the rest); the name Blackcrab instead of
-Blackcrab Remote; and submission to Apple, which they authorized in that
-request.
+Separate from the 0.4.5 desktop work above. The owner asked for: a white app
+icon with a black, slightly smaller crab; a richer Live Activity that shows
+progress; everything App Review needs; the name Blackcrab instead of Blackcrab
+Remote; and submission to Apple, which they authorized in that request.
 
-State: the app changes are in this PR (branch feat/ios-app-store-submission).
-Read docs/mobile-app-store.md for what was built and the limits of the Live
-Activity. The website's legal and support pages are live (BonJenn/blackcrab-landing
-PR #22). The App Store Connect listing for app 6780360079 is being filled through
-the API (name Blackcrab, category Developer Tools, free, all territories, age
-rating 4+, privacy policy and support URLs, description). Next: build number 6
-from the merged commit, upload, screenshots, review notes, submit. The record of
-what was submitted follows in the next checkpoint. Do not repeat an upload that
-a later checkpoint records.
+Done and merged to stage (PR #339, then #341 for an iPad pane fix found while
+taking screenshots): the name, icon, Live Activity, in-app account deletion and
+the in-app legal page. Website legal and support pages are live
+(BonJenn/blackcrab-landing PR #22). docs/mobile-app-store.md is the reference:
+what was built, the Live Activity's limit, the reviewer account, the release
+record and the known gaps.
+
+Build 1.0.0 (6) from stage 2045994a114b81a7834ce7674a371839615e2324 is in App
+Store Connect, processed, and attached to App Store version 1.0.0 with the
+listing, screenshots, review contact, demo account, review notes and a demo
+video. Release after approval is manual, at the owner's choice.
+
+**Not yet submitted.** The owner published the App Privacy answers on
+2026-11-16. Adding the version to a review submission still fails until they
+answer two compliance questionnaires on the App Store Connect website, which the
+API cannot do (codes beginning SECURITYASF and AIGENERATE). After that, either the
+owner presses Add for Review and Submit, or an agent creates a review submission
+through the API (`/v1/reviewSubmissions`, add the version as an item, set
+`submitted`). Do not rebuild or upload again for this: build 6 is the build.
+
+Verified in the iOS Simulator (iPhone 17 Pro Max and iPad Pro 13-inch, iOS
+27.0) against an isolated demo host, never the owner's desktop: the icon; the
+lock-screen Live Activity and compact Dynamic Island from the sample card;
+pairing, thread list, conversation and code review; sign-in and account deletion
+end to end with a throwaway account (Clerk returned 404 afterwards); the in-app
+legal page. Not exercised: see "Known gaps" in docs/mobile-app-store.md.
+
+Left on this Mac: simulators "BC iPhone 17 Pro Max" and "BC iPad Pro 13" and
+the demo host in P/ios-demo-host were for this work and can be removed.
 
 ## Previous checkpoint — 0.4.4 is published (2026-11-16 UTC)
 

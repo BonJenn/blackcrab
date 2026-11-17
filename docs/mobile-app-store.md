@@ -83,13 +83,79 @@ App Store Connect API key:
    notes, attach the build, and create and submit a review submission
    (`/v1/reviewSubmissions`).
 
-The API cannot do everything. These are web-only in App Store Connect: the App
-Privacy answers (the nutrition label), agreements, and the EU trader status.
+The API cannot do everything. These are web-only in App Store Connect, and
+adding the version to a review submission fails until they are done:
+
+- the App Privacy answers (the nutrition label), which must be published;
+- the compliance questionnaires App Store Connect asks of a new app. On
+  2026-11-16 the API named two as unfulfilled, with codes beginning
+  `SECURITYASF` and `AIGENERATE`;
+- agreements, and the EU trader status.
+
+The App Privacy answers that match the privacy policy: Contact Info (email
+address, name), Identifiers (user ID, device ID) and User Content (other user
+content: the project and thread titles a computer publishes for notifications),
+each used for App Functionality, linked to the person, not used for tracking.
+Nothing else is collected by Blackcrab: photos, audio and messages go to the
+person's own computer.
 
 Screenshots need a computer to show. Never pair a build under test with a
 person's real desktop: start an isolated host from the pinned upstream showcase
 seed on a spare port and base directory, pair the simulator to that, and stop it
-afterwards.
+afterwards. The one used for 1.0.0 is in P/ios-demo-host (`start.sh`,
+`mint-pairing.sh`, `stop.sh`); it has no live agent runs.
 
 Review notes must say that the app is a companion to the free desktop app and
-give the reviewer a way to see it working.
+give the reviewer a way to see it working. For 1.0.0 that is a screen recording
+attached to App Review Information plus a demo account.
+
+## Reviewer sign-in
+
+Clerk asks for an emailed code when an account signs in from a new device. A
+reviewer cannot receive it. The demo account `app-review@blackcrab.app` was
+created through Clerk's Backend API with `bypass_client_trust: true`, which
+skips that step for that one user; its password is in App Store Connect's App
+Review Information. Recreate it the same way if it is ever deleted (the in-app
+Delete account works on it too). The domain receives no email.
+
+## Release 1.0.0 (6)
+
+Built on 2026-11-16 from stage `2045994a114b81a7834ce7674a371839615e2324`,
+uploaded to App Store Connect (delivery and build
+`7d05b45f-f358-41f2-be5f-2cba3fe9e689`, processed VALID) and attached to App
+Store version 1.0.0. IPA SHA-256
+`d5cd1c9703b6d33087e506a8c4a85fd0a7a373c6f2ee7b784cbc179ca7662dd5`. The build
+report, IPA, screenshots, listing text, review notes and demo video are in
+P/ios-app-store-release-6 (may be absent on another machine).
+
+The archive ran with four compiler workers instead of the script's two, through
+a wrapper on `PATH` that rewrites `-jobs 2`; this Mac (8 cores, 16 GB) handled
+it. Do not run a simulator during the archive: together they drove the load
+average past 100 and stalled the machine.
+
+Listing set through the API: name Blackcrab, subtitle "Steer your coding
+agents", Developer Tools with Productivity second, free in all territories, age
+rating 4+, privacy policy and support URLs, description, keywords, five iPhone
+and two iPad screenshots, manual release after approval (the owner's choice).
+
+The store screenshots are promo slides the owner asked for: a serif headline
+over the real simulator screenshot in a plain device frame. `render.py`, the
+fonts (Instrument Serif and DM Sans, both OFL) and the plain captures are in
+P/ios-app-store-release-6. Every caption describes the screen under it; do not
+add a caption for something the screenshot does not show.
+
+What was run in the simulator and what was not is in the pull requests (#339,
+#341) and the handoff checkpoint.
+
+## Known gaps
+
+- Live step text on a locked phone needs host and relay work (see Live Activity).
+- The desktop app still names the phone app "Blackcrab Remote" in one place
+  (`managed-desktop/patches/blackcrab-product-ui-011.patch`); that belongs to a
+  desktop release.
+- Clerk's sign-in sheet reads "Continue to blackcrab" (the application name in
+  the Clerk dashboard, lower case).
+- There is no support mailbox; the support page points to GitHub Issues.
+- Not exercised before submission: a physical device, relay pushes to a Live
+  Activity, progress written from a running agent, the expanded Dynamic Island,
+  Sign in with Apple and GitHub sign-in to completion, and the PR reviewers list.

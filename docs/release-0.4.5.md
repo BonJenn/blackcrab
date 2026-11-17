@@ -1,7 +1,27 @@
 # Blackcrab 0.4.5
 
-Status: **in preparation, not published.** This file is updated when the
-release is public.
+Status: **published 2026-11-17 (UTC)** at
+https://github.com/BonJenn/blackcrab/releases/tag/v0.4.5, tag `v0.4.5` on
+commit b3b7cbd63fcb1aaa41c49e22bd271a90e2faafe6.
+
+| File | sha256 |
+|---|---|
+| `Blackcrab_0.4.5_aarch64.dmg` | 8bf375f6cab15311f7541878c33551456569bea92bac9a7df14a5f7af66fc22c |
+| `Blackcrab_0.4.5_x64-setup.exe` | c5fd6164e840d3046737d21f5dc96c2a0909af280a9390bd47b4c15f1944db7f |
+| `Blackcrab_0.4.5_amd64.deb` | 271f548567fc85b3b0ae761a93374768156cb99f542c6b46a91cec7357e0496f |
+| `Blackcrab_0.4.5_amd64.AppImage` | 47d9a2fc3ddbd5e2325c11fc278691761b90ffe3aa2988d9f2ebb7dd60ffffec |
+
+Acceptance: the Mac files passed all twelve artifact checks (release run
+43983596832) and **were not launched on any Mac before publication**; the
+owner, away from their Mac, said "im not at home now. just publish it". The
+Linux and Windows files are the ones run 43986764352 installed, opened and
+upgraded from the published 0.4.4. `latest.json` covers all three platforms
+and every entry was checked against its signature. All eight files were then
+fetched anonymously and matched. Both runs used branch `release-build/0.4.5`,
+which is the tagged commit; stage had moved on by one mobile-only merge.
+
+Service manifests of this release, needed by the next one, are listed in
+docs/service-upgrade.md and already in `PREDECESSORS`.
 
 ## What changes
 

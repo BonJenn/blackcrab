@@ -1,6 +1,22 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — building 0.4.5 (owner request, 2026-11-16)
+## Current checkpoint — 0.4.5 is published (2026-11-17 UTC)
+
+v0.4.5 is public for Apple-silicon Mac, Windows x64 and Linux x64, tag on
+b3b7cbd63fcb1aaa41c49e22bd271a90e2faafe6; see docs/release-0.4.5.md. Never
+overwrite the tag or its files. It was published without a Mac launch, on the
+owner's instruction. Evidence: P/mac-release-040-v2llrqsa/workspace-045-delivery.
+The first Mac to run the service upgrade is a user's. If one reports a failed
+upgrade, read docs/service-upgrade.md: the old runtime is in
+`host/runtime/retired/` and the database copy in `host/upgrade-backups/`.
+This release's three service manifests are in `PREDECESSORS`; the next release
+must record its own after it is built. Website: BonJenn/blackcrab-landing
+PR #23. Open: Windows Authenticode signing; a real version-to-version
+self-update on Linux and Windows (0.4.5 to the next release is the first);
+loading a page in the Windows browser pane; a real paired model run. A
+separate thread owns the iOS app and its App Store submission.
+
+## Previous checkpoint — building 0.4.5 (owner request, 2026-11-16)
 
 **State on 2026-11-16:** all five feature PRs are merged (#334 workspace
 features and sidebar sign-in, #335 service upgrade, #336 self-update for

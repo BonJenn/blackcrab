@@ -1,0 +1,20 @@
+--- a/apps/web/src/components/ChatView.tsx
++++ b/apps/web/src/components/ChatView.tsx
+@@ -3389,14 +3389,15 @@
+               parentThreadLink={headerParentThreadLink}
+               onOpenThread={onOpenRelatedThreadStable}
+               rightPanelOpen={inlineRightPanelOwnsTitleBar}
+-              reservePanelControls={pane === null}
++              reservePanelControls={pane === null && !ideEnabled}
+               onNewThreadInProject={handleNewThreadInActiveProjectStable}
+               {...(activeDraftLogicalProjectKey
+                 ? { onOpenProjectSettings: handleOpenDraftProjectSettingsStable }
+                 : {})}
+               {...(threadFindEnabled ? { onFindInThread: openThreadFindStable } : {})}
+             />
+-            {ideEnabled ? <button type="button" className="shrink-0 rounded border px-2 py-1 text-xs [-webkit-app-region:no-drag]" aria-pressed={ideMode} onClick={() => setIdeMode(!ideMode)}>{ideMode ? "Chat mode" : "IDE mode"}</button> : null}
++            {ideEnabled ? <button type="button" // The window's panel buttons sit over the end of this header. The header title normally leaves them room; with this button last, the button does.
++              className={cn("shrink-0 rounded border px-2 py-1 text-xs [-webkit-app-region:no-drag]", pane === null && (inlineRightPanelOwnsTitleBar ? "mr-10" : "mr-24"))} aria-pressed={ideMode} onClick={() => setIdeMode(!ideMode)}>{ideMode ? "Chat mode" : "IDE mode"}</button> : null}
+             {pane ? <PaneHeaderControls index={pane.index} onClose={pane.onClose} /> : null}
+             {pane !== null && inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
+             {pane !== null && !rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}

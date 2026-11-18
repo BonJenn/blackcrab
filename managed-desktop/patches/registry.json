@@ -4864,36 +4864,36 @@
     "target": "apps/web/src/components/ide/IdePanel.tsx",
     "kind": "payload",
     "file": "ide-mode/IdePanel.tsx",
-    "sha256": "c6d5f9ffca9abae8fbb93bcf93e65e2f0b3e16ffa175f4150d1b8676c04653d4",
+    "sha256": "06cf084aa32e5906cb5a351832efb6fce6e19cf843431dd9a314f9234fa51a78",
     "beforeSha256": null,
-    "afterSha256": "c6d5f9ffca9abae8fbb93bcf93e65e2f0b3e16ffa175f4150d1b8676c04653d4"
+    "afterSha256": "06cf084aa32e5906cb5a351832efb6fce6e19cf843431dd9a314f9234fa51a78"
   },
   {
     "id": "ide-mode-045-ideState-ts",
     "target": "apps/web/src/components/ide/ideState.ts",
     "kind": "payload",
     "file": "ide-mode/ideState.ts",
-    "sha256": "b799724573d423aa20c5f894ac3755bf82e028d422e409d2ec59bc4709aa0718",
+    "sha256": "8fe96e3c46c9c2e3b8a5621d9ce8e410a6b101128219bab18e496d1239422e00",
     "beforeSha256": null,
-    "afterSha256": "b799724573d423aa20c5f894ac3755bf82e028d422e409d2ec59bc4709aa0718"
+    "afterSha256": "8fe96e3c46c9c2e3b8a5621d9ce8e410a6b101128219bab18e496d1239422e00"
   },
   {
     "id": "ide-mode-045-ide-mode-css",
     "target": "apps/web/src/components/ide/ide-mode.css",
     "kind": "payload",
     "file": "ide-mode/ide-mode.css",
-    "sha256": "7de1789afab7048f45543e0f0ddfc0e30c12c927bf9201dd1143828896fbc2a3",
+    "sha256": "864ab6387891efca69808fb246d75359816d146218ba7af732c275523c8818c5",
     "beforeSha256": null,
-    "afterSha256": "7de1789afab7048f45543e0f0ddfc0e30c12c927bf9201dd1143828896fbc2a3"
+    "afterSha256": "864ab6387891efca69808fb246d75359816d146218ba7af732c275523c8818c5"
   },
   {
     "id": "ide-mode-045-IdePanel-browser-test-tsx",
     "target": "apps/web/src/components/ide/IdePanel.browser.test.tsx",
     "kind": "payload",
     "file": "ide-mode/IdePanel.browser.test.tsx",
-    "sha256": "21d0f8ecac3b18cccdaabf78ac19bd7b14c233d79de3cf489cba06c008c6072e",
+    "sha256": "7baec5513548dad3cde741e01b06f1deb19aaf9cd0623a3d7517710184fb8931",
     "beforeSha256": null,
-    "afterSha256": "21d0f8ecac3b18cccdaabf78ac19bd7b14c233d79de3cf489cba06c008c6072e"
+    "afterSha256": "7baec5513548dad3cde741e01b06f1deb19aaf9cd0623a3d7517710184fb8931"
   },
   {
     "id": "ide-mode-045-editor-browser-test",

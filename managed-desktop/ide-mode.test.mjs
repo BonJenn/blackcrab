@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {ideWriteFile} from '../managed-host/features/ideGuardedWrite.ts';
-import {ideChanges,receiveFile,workspaceRelativePath,selectionContext} from './patches/ide-mode/ideState.ts';
+import {ideChanges,receiveFile,workspaceRelativePath,selectionContext,changedRegion,enqueueFlash,flashDuration,MAX_QUEUED_FLASHES} from './patches/ide-mode/ideState.ts';
 const fixture=async fn=>{const dir=await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-ide-'));try{await fn(dir);}finally{await fs.rm(dir,{recursive:true,force:true});}};
 test('guarded save preserves old bytes, permissions and an open provider descriptor',()=>fixture(async dir=>{
  const file=path.join(dir,'code.ts');await fs.writeFile(file,'before',{mode:0o640});
@@ -63,4 +63,25 @@ test('renderer records are in the desktop registry and service records in the se
  assert.deepEqual([shared.target,shared.sha256,shared.beforeSha256,shared.afterSha256],[desktop.target,desktop.sha256,desktop.beforeSha256,desktop.afterSha256]);
  // The toggle is part of the workspace, not a build option.
  assert.doesNotMatch(JSON.stringify(production),/VITE_BLACKCRAB_IDE_MODE/);
+});
+
+test('changedRegion finds the first changed line and the added and removed counts',()=>{
+ assert.equal(changedRegion('a\nb','a\nb'),null);
+ assert.deepEqual(changedRegion('a\nb\nc','a\nX\nY\nc'),{firstLine:2,removed:1,added:2});
+ assert.deepEqual(changedRegion('a\nb','a\nb\nc'),{firstLine:3,removed:0,added:1});
+ assert.deepEqual(changedRegion('a\nb\nc','a\nc'),{firstLine:2,removed:1,added:0});
+ assert.deepEqual(changedRegion('','x'),{firstLine:1,removed:0,added:1});
+});
+test('enqueueFlash keeps edits in order, merges a repeated file and drops no-op results',()=>{
+ const f=(key,before,after)=>({key,path:key,before,after});
+ let q=enqueueFlash([],f('a','1','2'));q=enqueueFlash(q,f('b','x','y'));
+ assert.deepEqual(q.map(x=>x.key),['a','b']);
+ q=enqueueFlash(q,f('a','2','3'));
+ assert.deepEqual(q.map(x=>x.key),['b','a']);
+ assert.deepEqual([q[1].before,q[1].after],['1','3']);
+ q=enqueueFlash(q,f('a','3','1'));
+ assert.deepEqual(q.map(x=>x.key),['b']);
+ let many=[];for(let i=0;i<MAX_QUEUED_FLASHES+5;i++)many=enqueueFlash(many,f('k'+i,'0','1'));
+ assert.equal(many.length,MAX_QUEUED_FLASHES);assert.equal(many[0].key,'k5');
+ assert.ok(flashDuration(3)<flashDuration(0));
 });

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {ideWriteFile} from '../managed-host/features/ideGuardedWrite.ts';
-import {ideChanges,receiveFile,workspaceRelativePath,selectionContext,changedRegion,enqueueFlash,flashDuration,MAX_QUEUED_FLASHES} from './patches/ide-mode/ideState.ts';
+import {agentFolder,commonFolder,ideChanges,receiveFile,workspaceRelativePath,selectionContext,changedRegion,enqueueFlash,flashDuration,MAX_QUEUED_FLASHES} from './patches/ide-mode/ideState.ts';
 const fixture=async fn=>{const dir=await fs.mkdtemp(path.join(os.tmpdir(),'blackcrab-ide-'));try{await fn(dir);}finally{await fs.rm(dir,{recursive:true,force:true});}};
 test('guarded save preserves old bytes, permissions and an open provider descriptor',()=>fixture(async dir=>{
  const file=path.join(dir,'code.ts');await fs.writeFile(file,'before',{mode:0o640});
@@ -84,4 +84,29 @@ test('enqueueFlash keeps edits in order, merges a repeated file and drops no-op 
  let many=[];for(let i=0;i<MAX_QUEUED_FLASHES+5;i++)many=enqueueFlash(many,f('k'+i,'0','1'));
  assert.equal(many.length,MAX_QUEUED_FLASHES);assert.equal(many[0].key,'k5');
  assert.ok(flashDuration(3)<flashDuration(0));
+});
+
+const edit=(id,...paths)=>({item:{id,type:'file_change',status:'completed',changes:paths.map(path=>({path,operation:'edit'}))}});
+test('the panel stays in the thread folder for edits inside it, relative or absolute',()=>{
+ assert.deepEqual(agentFolder('/work/app',[edit('1','src/a.ts'),edit('2','/work/app/src/b.ts')]),{folder:'/work/app',outside:false});
+ assert.deepEqual(agentFolder('/work/app',[]),{folder:'/work/app',outside:false});
+});
+test('edits outside the thread folder move the panel to the folder those files share',()=>{
+ assert.deepEqual(agentFolder('/work/app',[edit('1','/Users/me/other/src/a.ts')]),{folder:'/Users/me/other/src',outside:true});
+ assert.deepEqual(agentFolder('/work/app',[edit('1','/Users/me/other/src/a.ts'),edit('2','/Users/me/other/README.md')]),{folder:'/Users/me/other',outside:true});
+ assert.deepEqual(agentFolder('/work/app',[edit('1','/Users/me/other/a.ts','/Users/me/other/b.ts')]),{folder:'/Users/me/other',outside:true});
+});
+test('the panel returns when the agent edits inside the thread folder again',()=>{
+ assert.equal(agentFolder('/work/app',[edit('1','/Users/me/other/a.ts'),edit('2','src/b.ts')]).outside,false);
+ assert.equal(agentFolder('/work/app',[edit('1','src/b.ts'),edit('2','/Users/me/other/a.ts')]).outside,true);
+ assert.equal(agentFolder('/work/app',[{item:{id:'1',type:'command_execution',status:'completed'}}]).outside,false);
+});
+test('files in unrelated folders never widen the panel to a home directory or root',()=>{
+ assert.equal(commonFolder(['/Users/me/a/x.ts','/Users/me/b/y.ts']),'/Users/me/b');
+ assert.equal(commonFolder(['/opt/x.ts','/var/y.ts']),'/var');
+ assert.equal(commonFolder(['/x.ts']),'/');
+});
+test('Windows paths are handled with either separator',()=>{
+ assert.deepEqual(agentFolder('C:\\work\\app',[edit('1','C:\\Users\\me\\other\\src\\a.ts')]),{folder:'C:/Users/me/other/src',outside:true});
+ assert.equal(agentFolder('C:\\work\\app',[edit('1','C:\\work\\app\\a.ts')]).outside,false);
 });

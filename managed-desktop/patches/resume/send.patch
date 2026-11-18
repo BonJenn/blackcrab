@@ -1,0 +1,23 @@
+--- a/apps/web/src/components/chat/useComposerSend.ts
++++ b/apps/web/src/components/chat/useComposerSend.ts
+@@ -1,4 +1,5 @@
+ import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
++import { openCommandPalette } from "../../commandPaletteBus";
+ import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
+ import {
+   mergeDirectPreviewAnnotation,
+@@ -743,6 +744,14 @@
+       composerRef.current?.resetCursorState();
+       return;
+     }
++    // Blackcrab: `/resume` as the whole message opens the conversation search, for any provider.
++    if (composerHoldsOnlyText && /^\/resume\s*$/i.test(trimmed)) {
++      promptRef.current = "";
++      clearComposerDraftContent(composerDraftTarget);
++      composerRef.current?.resetCursorState();
++      openCommandPalette();
++      return;
++    }
+     // Read once: an arm made while this send is in flight belongs to the next message.
+     const freshArm = freshSessionAvailable ? readFreshSessionArm(routeThreadKey) : undefined;
+     if (

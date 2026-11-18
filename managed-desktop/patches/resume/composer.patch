@@ -1,0 +1,28 @@
+--- a/apps/web/src/components/chat/ChatComposer.tsx
++++ b/apps/web/src/components/chat/ChatComposer.tsx
+@@ -10,6 +10,7 @@
+ } from "./runtimeModeConfig";
+ import { isLocalEnvironmentDisabled } from "../../localEnvironment";
+ import { usePrimaryEnvironmentId } from "../../state/environments";
++import { openCommandPalette } from "../../commandPaletteBus";
+ import { useRightPanelStore } from "~/rightPanelStore";
+ import { importPastedComposerText, readPastedComposerContext } from "../composerInlineTokenPaste";
+ import {
+@@ -1940,6 +1941,17 @@
+         if (applied) {
+           setComposerHighlightedItemId(null);
+           setIsComposerModelPickerOpen(true);
++        }
++        return;
++      }
++      if (item.command === "resume") {
++        const applied = applyPromptReplacement(trigger.rangeStart, trigger.rangeEnd, "", {
++          expectedText: snapshot.value.slice(trigger.rangeStart, trigger.rangeEnd),
++          focusEditorAfterReplace: false,
++        });
++        if (applied) {
++          setComposerHighlightedItemId(null);
++          openCommandPalette();
+         }
+         return;
+       }

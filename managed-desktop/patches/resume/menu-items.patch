@@ -1,0 +1,33 @@
+--- a/apps/web/src/components/chat/useComposerMenuItems.ts
++++ b/apps/web/src/components/chat/useComposerMenuItems.ts
+@@ -226,6 +226,19 @@
+           label: "/model",
+           description: "Switch response model for this thread",
+         },
++        // Blackcrab: `/resume` opens an earlier conversation for any provider. Like the
++        // provider commands it works only at the message start.
++        ...(composerTrigger.rangeStart === 0
++          ? ([
++              {
++                id: "slash:resume",
++                type: "slash-command",
++                command: "resume",
++                label: "/resume",
++                description: "Open an earlier conversation",
++              },
++            ] as const)
++          : []),
+         ...(planModeUiEnabled
+           ? ([
+               {
+@@ -305,7 +318,9 @@
+       const visibleProviderSlashCommandItems = providerSlashCommandItems.filter(
+         (item) =>
+           (item.command.name !== "compact" || compactSlashCommandAvailable) &&
+-          (item.command.name !== "clear" || !freshSessionAvailable),
++          (item.command.name !== "clear" || !freshSessionAvailable) &&
++          // Blackcrab's `/resume` replaces the provider's, which is not available here.
++          item.command.name !== "resume",
+       );
+       const slashCommandItems = slashCommandItemsForPromptPosition(
+         [...builtInSlashCommandItems, ...visibleProviderSlashCommandItems, ...skillItems],

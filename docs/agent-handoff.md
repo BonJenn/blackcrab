@@ -1,6 +1,19 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.7 is published (2026-11-18 UTC)
+## Current checkpoint — 0.4.8 is published (2026-11-18 UTC)
+
+v0.4.8 is public on all three platforms, tag on
+1f84b436f0fab24c9ea658eeb1adf21d974e4f5c; see docs/release-0.4.8.md. It adds
+the IDE mode change view (edits flash green and red and the panel follows the
+agent from file to file; PR #352) and stops CI test runs from posting usage
+events (PR #351). Published without a Mac launch; the change view was never
+looked at in a running app. The workspace is rebuilt and labelled 0.4.8; the
+service is 0.4.6's, so it should not re-register on update (untested). The
+first Mac run lacked a stapled ticket and was re-run. Old CI-generated rows
+remain in the production usage database. Evidence:
+P/mac-release-040-v2llrqsa/workspace-048-delivery.
+
+## Previous checkpoint — 0.4.7 is published (2026-11-18 UTC)
 
 v0.4.7 is public on all three platforms, tag on
 cbbc17a5032bcaa0e67423d6eb9caa85c55d7368; see docs/release-0.4.7.md. It

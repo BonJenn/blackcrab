@@ -338,8 +338,9 @@ def inside(seed=False):
     if (QA_HOME / ".blackcrab-desktop-qa").read_text() != "isolated-ci-only\n":
         raise RuntimeError("QA ownership marker missing")
     report = {"passed": False, "agentPromptsSent": 0, "published": False, "sessions": []}
+    # Test launches must not send product events to the real analytics endpoint.
     environment = dict(os.environ, TAURI_WEBVIEW_AUTOMATION="true", APPIMAGE_EXTRACT_AND_RUN="1",
-                       LIBGL_ALWAYS_SOFTWARE="1")
+                       LIBGL_ALWAYS_SOFTWARE="1", BLACKCRAB_ANALYTICS="off")
     processes, handles = [], []
     session = None
     timeline, finished = {}, threading.Event()

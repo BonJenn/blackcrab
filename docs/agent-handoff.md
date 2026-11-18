@@ -1,6 +1,18 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.8 is published (2026-11-18 UTC)
+## Current checkpoint — 0.4.9 is published (2026-11-18 UTC)
+
+v0.4.9 is public on all three platforms, built from
+58d9b8d150a1ebe22e165a211ab9ebb2179a83e2; see docs/release-0.4.9.md for digests
+and run IDs (Mac 44358774766, Linux/Windows 44363422147). It adds /resume for
+every provider (PR #356), IDE mode following the agent into other folders
+(PR #357) and recreation of the private browser owner marker after macOS cleans
+/tmp (PR #355). Final artifact verification passed, including the stapled
+ticket. None of the three changes was looked at in a running app. A Mac stuck on
+0.4.8 with the capability error must install 0.4.9 by hand. Evidence:
+P/mac-release-040-v2llrqsa/workspace-049-delivery.
+
+## Previous checkpoint — 0.4.8 is published (2026-11-18 UTC)
 
 v0.4.8 is public on all three platforms, tag on
 1f84b436f0fab24c9ea658eeb1adf21d974e4f5c; see docs/release-0.4.8.md. It adds

@@ -1,6 +1,22 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.6 is published (2026-11-17 UTC)
+## Current checkpoint — 0.4.7 is published (2026-11-18 UTC)
+
+v0.4.7 is public on all three platforms, tag on
+cbbc17a5032bcaa0e67423d6eb9caa85c55d7368; see docs/release-0.4.7.md. It
+restores the anonymous launch and update events that stopped in 0.4.2 (PR #348,
+`src-tauri/src/product_events.rs`, off switch in settings, PRIVACY.md) and was
+published without a Mac launch. It reuses 0.4.6's notarized workspace and
+service payloads, so the workspace is labelled 0.4.6 and the service should
+not re-register on update: untested. Check the admin dashboard
+(blackcrab.app/admin) for 0.4.7 launches, update checks and update outcomes.
+Website: BonJenn/blackcrab-landing PR #27 (admin colours, GitHub download
+counts, bot flagging) and the release notes entry that follows it.
+The 0.4.2 to 0.4.6 installs have no anonymous id yet and appear as new
+installs when they first report. Evidence:
+P/mac-release-040-v2llrqsa/workspace-047-delivery.
+
+## Previous checkpoint — 0.4.6 is published (2026-11-17 UTC)
 
 v0.4.6 is public on all three platforms, tag on
 f91fcbfa8474e322a344dbe9b661753506b9cf1f; see docs/release-0.4.6.md. It fixes

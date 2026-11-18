@@ -13,6 +13,8 @@ $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows') { throw 'Disposable GitHub Windows runner required' }
 $released = [ordered]@{ version = '0.4.4'; sha256 = '9afeb41f161e5281b1f1b0cda2667e93c99496dcfbe63fd90b0d0d5b1b9f91bb'; manifest = '54e12d14ab2455530dbce83c3028940595eed637181514264059087610097648' }
 $appData = Join-Path $env:APPDATA 'com.bonjenn.blackcrab'
+# Test launches must not send product events to the real analytics endpoint.
+$env:BLACKCRAB_ANALYTICS = 'off'
 if ($Seed) {
   if (-not $SeedRecord) { throw '-SeedRecord is required with -Seed' }
   if ((Get-FileHash -LiteralPath $Seed -Algorithm SHA256).Hash.ToLower() -ne $released.sha256) { throw 'The released installer to upgrade from is not the published one' }

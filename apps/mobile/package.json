@@ -140,7 +140,20 @@
         "expo-video",
         "expo-network",
         "expo-sharing"
-      ]
+      ],
+      "android": {
+        "buildFromSource": [
+          "expo-ui",
+          "expo-notifications",
+          "react-native-screens",
+          "react-native-reanimated",
+          "@react-native-menu/menu",
+          "expo-audio",
+          "expo-video",
+          "expo-network",
+          "expo-sharing"
+        ]
+      }
     },
     "install": {
       "exclude": [

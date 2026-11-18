@@ -32,6 +32,39 @@ export function ideChanges(root: string, events: readonly { readonly item: IdeFi
   }
   return [...files.values()];
 }
+const isAbsolutePath = (path: string) => path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
+/**
+ * The folder the panel should show. It is the thread's own folder unless the agent's latest edits,
+ * since its last edit inside that folder, were to files outside it. Then it is the folder those
+ * files share, which is never as wide as a user's home directory.
+ */
+export function agentFolder(home: string, events: readonly { readonly item: IdeFileEvent }[]): { folder: string; outside: boolean } {
+  let run: string[] = [];
+  for (const { item } of events) {
+    if (item.type !== "file_change") continue;
+    for (const change of item.changes?.length ? item.changes : [{ path: item.fileName ?? "" }]) {
+      if (!change.path) continue;
+      if (workspaceRelativePath(home, change.path) !== null) run = [];
+      else if (isAbsolutePath(change.path)) run.push(change.path.replaceAll("\\", "/"));
+    }
+  }
+  if (run.length === 0) return { folder: home, outside: false };
+  return { folder: commonFolder(run), outside: true };
+}
+export function commonFolder(files: readonly string[]): string {
+  const directory = (file: string) => file.slice(0, Math.max(file.lastIndexOf("/"), 0));
+  const last = directory(files.at(-1)!) || "/";
+  const lists = files.map(file => directory(file).split("/"));
+  const shared: string[] = [];
+  for (let index = 0; index < lists[0]!.length; index += 1) {
+    const part = lists[0]![index]!;
+    if (lists.some(list => list[index] !== part)) break;
+    shared.push(part);
+  }
+  const windows = /^[A-Za-z]:/.test(files[0]!);
+  const depth = shared.filter(Boolean).length;
+  return depth >= (windows ? 4 : 3) ? shared.join("/") : last;
+}
 export interface IdeDraft { base: string; text: string; incoming: string | null; safe: boolean; truncated: boolean; }
 export function receiveFile(previous: IdeDraft | undefined, contents: string, safe: boolean, truncated: boolean): IdeDraft {
   if (previous && previous.text !== previous.base) {

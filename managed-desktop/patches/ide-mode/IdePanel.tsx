@@ -18,7 +18,7 @@ import { useAtomCommand } from "~/state/use-atom-command";
 import { useComposerDraftStore, type DraftId } from "~/composerDraftStore";
 import { nextFileCommentId } from "../files/fileCommentAnnotations";
 import { buildFileReviewComment } from "~/reviewCommentContext";
-import { changedRegion, enqueueFlash, flashDuration, ideChanges, receiveFile, selectionContext, type IdeDraft, type IdeFileEvent, type IdeFlash } from "./ideState";
+import { agentFolder, changedRegion, enqueueFlash, flashDuration, ideChanges, receiveFile, selectionContext, type IdeDraft, type IdeFileEvent, type IdeFlash } from "./ideState";
 import { DIFF_VIEW_UNSAFE_CSS } from "../diffs/StyledDiffCodeView";
 import "./ide-mode.css";
 
@@ -108,12 +108,37 @@ export function IdeChangeFlash(props: { path: string; before: string; after: str
   </div>;
 }
 
-export default function IdePanel(props: {
+type IdePanelProps = {
   environmentId: EnvironmentId; cwd: string; projectName: string;
   composerDraftTarget: ScopedThreadRef | DraftId;
   items: readonly { readonly item: IdeFileEvent }[];
   workspaceMutationId: string | null;
-}) {
+};
+const folderName = (folder: string) => folder.replaceAll("\\", "/").split("/").filter(Boolean).at(-1) ?? folder;
+
+// The agent is not always working in the thread's own folder. When its latest edits are elsewhere,
+// the panel moves to that folder, and "Back" returns to the thread's folder until the agent moves again.
+export default function IdePanel(props: IdePanelProps) {
+  const { folder, outside } = agentFolder(props.cwd, props.items);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const desired = outside && dismissed !== folder ? folder : props.cwd;
+  const shownRef = useRef(desired);
+  const revision = useSyncExternalStore(subscribeDrafts, getDraftRevision);
+  // Unsaved edits stay where they are: the panel does not move away from a file being edited.
+  const editing = useMemo(() => [...drafts].some(([key, value]) => {
+    const [env, root] = JSON.parse(key) as string[];
+    return env === props.environmentId && root === shownRef.current && value.text !== value.base;
+  }), [props.environmentId, revision, desired]);
+  const shown = editing ? shownRef.current : desired;
+  shownRef.current = shown;
+  const elsewhere = shown !== props.cwd;
+  return <IdePanelAt key={shown} {...props} cwd={shown}
+    folderNote={elsewhere
+      ? { text: `The agent is working in ${shown}, outside this thread's folder.`, action: `Show ${props.projectName}`, onAction: () => setDismissed(folder) }
+      : outside ? { text: `The agent is working in ${folder}.`, action: `Show ${folderName(folder)}`, onAction: () => setDismissed(null) } : null} />;
+}
+
+function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action: string; onAction: () => void } | null }) {
   const { environmentId, cwd } = props;
   const changes = ideChanges(cwd, props.items);
   const latest = changes.at(-1);
@@ -285,6 +310,10 @@ export default function IdePanel(props: {
       <button type="button" disabled={!dirty || !writable || !draft?.safe || draft.truncated || draft.incoming !== null || fileSaving || !!error} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</button>
       <button type="button" disabled={!draft} onClick={exportDraft}>Export draft</button>
     </div>
+    {props.folderNote ? <p role="status" className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs">
+      <span className="min-w-0 flex-1 break-all">{props.folderNote.text}</span>
+      <button type="button" onClick={props.folderNote.onAction}>{props.folderNote.action}</button>
+    </p> : null}
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-44 shrink-0 flex-col overflow-auto border-r" aria-label="Workspace files and changes">
         <FileBrowserPanel environmentId={environmentId} cwd={cwd} projectName={props.projectName}

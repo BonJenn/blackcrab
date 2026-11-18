@@ -3,8 +3,8 @@ import { render } from "../../../test/render";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import IdePanel from "./IdePanel";
 
-const host = vi.hoisted(() => ({ files: { "a.ts": "first", "b.ts": "second" } as Record<string,string>, writes: [] as unknown[], comments: [] as unknown[], safe: true }));
-vi.mock("~/state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => async ({ input }: {input:{relativePath:string}}) => ({ _tag: "Success", value: { contents: host.files[input.relativePath], truncated: false, ideSafeWrite: host.safe } }) }));
+const host = vi.hoisted(() => ({ files: { "a.ts": "first", "b.ts": "second" } as Record<string,string>, writes: [] as unknown[], cwds: [] as string[], comments: [] as unknown[], safe: true }));
+vi.mock("~/state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => async ({ input }: {input:{relativePath:string;cwd:string}}) => { host.cwds.push(input.cwd); return ({ _tag: "Success", value: { contents: host.files[input.relativePath], truncated: false, ideSafeWrite: host.safe } }); } }));
 vi.mock("~/state/use-atom-command", () => ({ useAtomCommand: () => async ({input}: {input:{relativePath:string;contents:string;ideExpectedContents:string}}) => {
   host.writes.push(input);
   if (host.files[input.relativePath] !== input.ideExpectedContents) return { _tag: "Success", value: { ideConflict: true } };
@@ -90,4 +90,19 @@ it("does not cover a file with unsaved edits, and the toggle turns the change vi
  await screen.getByRole("textbox",{name:"Test code"}).fill("one");
  await screen.getByRole("button",{name:"Highlighting changes"}).click();
  await expect.element(screen.getByRole("button",{name:"Highlight changes"})).toBeVisible();
+});
+it("moves to the folder the agent is working in when it is not the thread's folder, and back",async()=>{
+ host.files={"c.ts":"outside","d.ts":"home"};
+ await using screen=await render(panel([event("c","/elsewhere/proj/src/c.ts")],"30","/home-fixture"));
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("outside");
+ await expect.element(screen.getByText("The agent is working in /elsewhere/proj/src, outside this thread's folder.")).toBeVisible();
+ expect(host.cwds).toContain("/elsewhere/proj/src");
+ // The thread's folder can be shown again, and the panel says where the agent is.
+ await screen.getByRole("button",{name:"Show Fixture"}).click();
+ await expect.element(screen.getByText("The agent is working in /elsewhere/proj/src.")).toBeVisible();
+ await expect.element(screen.getByRole("button",{name:"Show src"})).toBeVisible();
+ // An edit inside the thread's folder brings the panel home and the note goes away.
+ await screen.rerender(panel([event("c","/elsewhere/proj/src/c.ts"),event("d","d.ts")],"31","/home-fixture"));
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("home");
+ expect(screen.container.textContent).not.toContain("The agent is working in");
 });

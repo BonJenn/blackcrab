@@ -4864,18 +4864,18 @@
     "target": "apps/web/src/components/ide/IdePanel.tsx",
     "kind": "payload",
     "file": "ide-mode/IdePanel.tsx",
-    "sha256": "06cf084aa32e5906cb5a351832efb6fce6e19cf843431dd9a314f9234fa51a78",
+    "sha256": "fac49c487d963e85e741b6203accfae0d0668015dc67ff1482ecafbcaa951297",
     "beforeSha256": null,
-    "afterSha256": "06cf084aa32e5906cb5a351832efb6fce6e19cf843431dd9a314f9234fa51a78"
+    "afterSha256": "fac49c487d963e85e741b6203accfae0d0668015dc67ff1482ecafbcaa951297"
   },
   {
     "id": "ide-mode-045-ideState-ts",
     "target": "apps/web/src/components/ide/ideState.ts",
     "kind": "payload",
     "file": "ide-mode/ideState.ts",
-    "sha256": "8fe96e3c46c9c2e3b8a5621d9ce8e410a6b101128219bab18e496d1239422e00",
+    "sha256": "6ed0e827bf964dacd121c398b45bc93283c44f34a50b5509a7c3a517f519b115",
     "beforeSha256": null,
-    "afterSha256": "8fe96e3c46c9c2e3b8a5621d9ce8e410a6b101128219bab18e496d1239422e00"
+    "afterSha256": "6ed0e827bf964dacd121c398b45bc93283c44f34a50b5509a7c3a517f519b115"
   },
   {
     "id": "ide-mode-045-ide-mode-css",
@@ -4891,9 +4891,9 @@
     "target": "apps/web/src/components/ide/IdePanel.browser.test.tsx",
     "kind": "payload",
     "file": "ide-mode/IdePanel.browser.test.tsx",
-    "sha256": "7baec5513548dad3cde741e01b06f1deb19aaf9cd0623a3d7517710184fb8931",
+    "sha256": "67bd4cdadadfc59f967603c0ffaee37d74edab7ae6916ee37694235573305251",
     "beforeSha256": null,
-    "afterSha256": "7baec5513548dad3cde741e01b06f1deb19aaf9cd0623a3d7517710184fb8931"
+    "afterSha256": "67bd4cdadadfc59f967603c0ffaee37d74edab7ae6916ee37694235573305251"
   },
   {
     "id": "ide-mode-045-editor-browser-test",

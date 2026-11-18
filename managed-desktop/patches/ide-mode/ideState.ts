@@ -44,3 +44,30 @@ export function selectionContext(path: string, contents: string, startLine: numb
   const end = Math.max(startLine, endLine);
   return { filePath: path, startLine: start, endLine: end, contents };
 }
+
+/** What changed between two disk snapshots of one file: the first changed line (1-based, in the new text) and line counts. */
+export interface ChangedRegion { firstLine: number; added: number; removed: number; }
+export function changedRegion(before: string, after: string): ChangedRegion | null {
+  if (before === after) return null;
+  const a = before === "" ? [] : before.split("\n"), b = after === "" ? [] : after.split("\n");
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+  return { firstLine: head + 1, removed: a.length - head - tail, added: b.length - head - tail };
+}
+
+/** A change the panel has seen land on disk and will show briefly. */
+export interface IdeFlash { key: string; path: string; before: string; after: string; }
+export const MAX_QUEUED_FLASHES = 20;
+/** Queue a change. A file already waiting keeps its first "before" so one flash shows everything since; the queue stays short. */
+export function enqueueFlash(queue: readonly IdeFlash[], next: IdeFlash): IdeFlash[] {
+  const waiting = queue.find(f => f.key === next.key);
+  const merged = waiting ? { ...next, before: waiting.before } : next;
+  const rest = queue.filter(f => f.key !== next.key);
+  // A file that ends up as it started has nothing to show.
+  const items = merged.before === merged.after ? rest : [...rest, merged];
+  return items.slice(-MAX_QUEUED_FLASHES);
+}
+/** How long to show a change: long enough to read, shorter when more are waiting. */
+export function flashDuration(waiting: number): number { return waiting > 0 ? 1400 : 2600; }

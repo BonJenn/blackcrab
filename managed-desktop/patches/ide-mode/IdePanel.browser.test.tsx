@@ -20,7 +20,9 @@ vi.mock("../files/FilePreviewPanel", () => ({ useEditableAfterHighlight: () => (
 vi.mock("../files/FileBrowserPanel", () => ({ default: ({onOpenFile}: {onOpenFile:(path:string)=>void}) => <nav><button onClick={()=>onOpenFile("a.ts")}>Open a.ts</button><button onClick={()=>onOpenFile("b.ts")}>Open b.ts</button></nav> }));
 // State/transport test uses a controllable editor boundary. Actual Pierre behavior is covered by
 // upstream fileEditorDismissal and file editor/browser tests, not claimed by this shim.
-vi.mock("@pierre/diffs/react", () => ({ EditProvider: ({children}: {children:React.ReactNode})=>children, Virtualizer: ({children}: {children:React.ReactNode})=>children,
+vi.mock("../diffs/StyledDiffCodeView", () => ({ DIFF_VIEW_UNSAFE_CSS: "" }));
+// A stand-in for the diff view: shows the old and new text so the test can tell which change is on screen.
+vi.mock("@pierre/diffs/react", () => ({ MultiFileDiff: ({oldFile,newFile}: {oldFile:{contents:string};newFile:{contents:string}}) => <pre aria-label="Test diff">{oldFile.contents}{"=>"}{newFile.contents}</pre>, EditProvider: ({children}: {children:React.ReactNode})=>children, Virtualizer: ({children}: {children:React.ReactNode})=>children,
  File: ({file,edit,onEditChange,options}: {file:{contents:string};edit:boolean;onEditChange:(e:unknown)=>void;options:{onLineSelectionEnd:(r:unknown)=>void}}) => <><textarea key={file.contents} aria-label="Test code" defaultValue={file.contents} readOnly={!edit} onChange={e=>onEditChange({file:{contents:e.target.value}})}/><button onClick={()=>options.onLineSelectionEnd({start:1,end:1})}>Select first line</button></> }));
 const env=EnvironmentId.make("ide-test"),thread={environmentId:env,threadId:ThreadId.make("ide-thread")};
 const event=(id:string,path:string)=>({item:{id,type:"file_change",status:"completed",fileName:path}});
@@ -57,4 +59,35 @@ it("old hosts cannot enter an editable IDE session",async()=>{
  await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveAttribute("readonly");
  await expect.element(screen.getByText("Read only:",{exact:false})).toBeVisible();
  host.safe=true;
+});
+it("shows each agent change as a diff in the order it landed, moving between files, then returns to the editor",async()=>{
+ host.files={"a.ts":"one","b.ts":"two"};
+ await using screen=await render(panel([event("a","a.ts"),event("b","b.ts")],"20","/flash-fixture"));
+ // Following selects the newest file; the other changed file is read in the background.
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("two");
+ await new Promise(resolve=>setTimeout(resolve,900));
+ host.files["a.ts"]="one!";host.files["b.ts"]="two!";
+ // Both changes are shown, one after the other. Which comes first depends on which read lands first.
+ const seen=new Map<string,string>();
+ await vi.waitFor(()=>{
+  for(const name of ["a.ts","b.ts"]){
+   if(screen.container.querySelector(`[aria-label='Agent change to ${name}']`))seen.set(name,screen.container.querySelector("[aria-label='Test diff']")?.textContent??"");
+  }
+  expect([...seen.keys()].sort()).toEqual(["a.ts","b.ts"]);
+ },{timeout:8000,interval:40});
+ expect(seen.get("a.ts")).toBe("one=>one!");
+ expect(seen.get("b.ts")).toBe("two=>two!");
+ await expect.element(screen.getByRole("textbox",{name:"Test code"}),{timeout:8000}).toHaveValue("two!");
+});
+it("does not cover a file with unsaved edits, and the toggle turns the change view off",async()=>{
+ host.files={"a.ts":"one","b.ts":"two"};
+ await using screen=await render(panel([event("a","a.ts")],"21","/flash-fixture-2"));
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("one");
+ await screen.getByRole("textbox",{name:"Test code"}).fill("mine");
+ host.files["a.ts"]="agent";
+ await new Promise(resolve=>setTimeout(resolve,1500));
+ expect(screen.container.querySelector("[aria-label='Agent change to a.ts']")).toBeNull();
+ await screen.getByRole("textbox",{name:"Test code"}).fill("one");
+ await screen.getByRole("button",{name:"Highlighting changes"}).click();
+ await expect.element(screen.getByRole("button",{name:"Highlight changes"})).toBeVisible();
 });

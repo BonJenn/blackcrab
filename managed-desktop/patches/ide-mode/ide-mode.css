@@ -6,3 +6,6 @@
 @keyframes blackcrab-ide-open { from { transform:translateX(-24px); opacity:0; } to { transform:translateX(0); opacity:1; } }
 @media (prefers-reduced-motion:reduce) { .blackcrab-ide { animation:none; } }
 @media (max-width:800px) { .blackcrab-ide { width:55%; } .blackcrab-ide aside { width:7rem; } }
+.blackcrab-ide-change { animation:blackcrab-ide-change-in 180ms ease-out; }
+@keyframes blackcrab-ide-change-in { from { opacity:.35; } to { opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .blackcrab-ide-change { animation:none; } }

@@ -532,3 +532,27 @@ and three recorded adapters (`ThreadHeader`, `ThreadRouteScreen`,
 in `mobile-experience/activation/ide-mode.test.mjs`. The pane has not been type-checked
 against a fresh dependency install, built natively, or run on an iPad or simulator, so it
 is source-integrated only. Pane mode (several threads side by side) is a separate change.
+
+### Home screen widget: agent jobs and limits (source only)
+
+The iOS home screen widget previously showed only provider usage limits. It is now
+"Agents & usage": agent jobs next to the limits, laid out per widget family. Small shows
+the job summary, the most important job and one limit bar per provider; medium puts three
+jobs beside the limits; large and extra large list four and six jobs with project and
+model above full limit cards; the lock screen accessory shows the summary and the tightest
+limit. Jobs that need the user, then failed ones, sort first, then running jobs with the
+longest-running first, then recent finishes (one hour). Each row carries a live clock the
+system advances without the app running. Tapping opens the top job.
+
+Job state uses the Live Activity phase rule so the widget and lock screen agree. The
+published picture excludes step counts and message text, is compared before publishing and
+is published at most every 30 seconds, because widget reloads are budgeted. The app
+republishes every five minutes while open; after 15 minutes without a refresh the widget
+says "Open Blackcrab to refresh jobs" through a timeline entry rather than showing old state.
+Android keeps the existing limits-only widget.
+
+The layout and publisher are Blackcrab-owned adapters (`SubscriptionUsage.tsx`,
+`SubscriptionUsageCoordinator.tsx`, an addition `widgetJobs.ts`, and one recorded edit to
+the iOS publisher). Portable tests are in `mobile-experience/activation/widget-jobs.test.mjs`.
+The widget has not been built natively or viewed on a device or in the widget gallery; its
+layouts, spacing and live clocks are unverified until it is.

@@ -230,7 +230,7 @@ function isoOrNull(value: unknown): string | null {
   }
 }
 
-function currentThreads(): ReadonlyArray<ProgressThread> {
+export function currentThreads(): ReadonlyArray<ProgressThread> {
   return appAtomRegistry.get(environmentThreadShells.threadShellsAtom).map((shell) => {
     const source = shell.source;
     const message = source.latestVisibleMessage;
@@ -263,7 +263,7 @@ function currentThreads(): ReadonlyArray<ProgressThread> {
   });
 }
 
-function currentProjects(): ReadonlyArray<ProgressProject> {
+export function currentProjects(): ReadonlyArray<ProgressProject> {
   return appAtomRegistry
     .get(environmentProjects.projectsAtom)
     .map((project) => ({

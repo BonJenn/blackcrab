@@ -1059,6 +1059,80 @@
         }
       ],
       "afterSha256": "6349a92d813a3f7f61d937d5cd3a82563dc1fc7488ac4d727ec4fcf7d138e15b"
+    },
+    {
+      "path": "src/features/threads/thread-inspector-navigation.ts",
+      "beforeSha256": "57a8db6aeb98cae2372a095f3b7aeb04021d43cc565a90d72b36fbdabe0093be",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "export type ThreadInspectorMode = \"route\" | \"git\" | \"files\" | \"preview\";",
+          "after": "export type ThreadInspectorMode = \"route\" | \"git\" | \"files\" | \"ide\" | \"preview\";",
+          "count": 1
+        }
+      ],
+      "afterSha256": "1e4eaa9a647d4a42cbb8ef472e397b053122ead5ad889b3922b58698f1a741e7"
+    },
+    {
+      "path": "src/features/threads/ThreadHeader.tsx",
+      "beforeSha256": "4daedd57a393865a5aa46ee00265f72f4e44def5fc364d92544102c80bf2a90c",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "  readonly onOpenFilesInspector: () => void;\n",
+          "after": "  readonly onOpenFilesInspector: () => void;\n  readonly onOpenIdeInspector?: () => void;\n",
+          "count": 1
+        },
+        {
+          "before": "  const filesVisible = props.inspectorMode === \"files\" && panes.auxiliaryPaneVisible;\n",
+          "after": "  const filesVisible = props.inspectorMode === \"files\" && panes.auxiliaryPaneVisible;\n  const ideVisible = props.inspectorMode === \"ide\" && panes.auxiliaryPaneVisible;\n",
+          "count": 1
+        },
+        {
+          "before": "          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n      ]\n    : [];",
+          "after": "          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n        ...(props.fileInspectorSupported && props.onOpenIdeInspector\n          ? [\n              {\n                accessibilityLabel: ideVisible ? \"Close IDE mode\" : \"Open IDE mode\",\n                icon: \"chevron.left.forwardslash.chevron.right\" as const,\n                selected: ideVisible,\n                disabled: !props.gitControls.canOpenFiles,\n                separateBackground: false,\n                onPress: ideVisible ? toggleAuxiliaryPane : props.onOpenIdeInspector,\n              },\n            ]\n          : []),\n      ]\n    : [];",
+          "count": 1
+        }
+      ],
+      "afterSha256": "e2c5643a1dd81d69456d8777f3a3d81374a7bf8f827518824b729edac85bfbb5"
+    },
+    {
+      "path": "src/features/threads/ThreadRouteScreen.tsx",
+      "beforeSha256": "37878539c4fdc93eb7ed208b36cc0252e30746f1caac995cfd4e4b36f9ad2910",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { ThreadFileNavigatorPane } from \"../files/thread-file-navigator-pane\";",
+          "after": "import { ThreadFileNavigatorPane } from \"../files/thread-file-navigator-pane\";\nimport { ThreadIdePane } from \"../ide/ThreadIdePane\";",
+          "count": 1
+        },
+        {
+          "before": "    return mode === \"files\" && selectedThreadCwd === null ? null : mode;",
+          "after": "    return (mode === \"files\" || mode === \"ide\") && selectedThreadCwd === null ? null : mode;",
+          "count": 1
+        },
+        {
+          "before": "  const handleToggleInspector = () => {",
+          "after": "  const handleOpenIdeInspector = () => {\n    if (selectedThread === null || selectedThreadCwd === null) {\n      return;\n    }\n    navigation.setParams({ inspector: undefined });\n    setChosenInspectorMode(\"ide\");\n    showInspector();\n  };\n  const handleToggleInspector = () => {",
+          "count": 1
+        },
+        {
+          "before": "  const renderPreviewInspector = () =>",
+          "after": "  const renderIdeInspector = () =>\n    selectedThread !== null && selectedThreadCwd !== null ? (\n      <ThreadIdePane\n        cwd={selectedThreadCwd}\n        environmentId={selectedThread.environmentId}\n        projectName={selectedThreadProject?.title ?? \"Code\"}\n        onOpenFiles={handleOpenFilesInspector}\n      />\n    ) : null;\n  const renderPreviewInspector = () =>",
+          "count": 1
+        },
+        {
+          "before": "            { key: \"files\", render: renderFilesInspector, prewarm: true },",
+          "after": "            { key: \"files\", render: renderFilesInspector, prewarm: true },\n            { key: \"ide\", render: renderIdeInspector },",
+          "count": 1
+        },
+        {
+          "before": "                onOpenFilesInspector={handleOpenFilesInspector}",
+          "after": "                onOpenFilesInspector={handleOpenFilesInspector}\n                onOpenIdeInspector={handleOpenIdeInspector}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "4bd3075653a09b391b84291d203fd7c8b627ccc55b8de2ba4f790e8accd04c06"
     }
   ],
   "additions": [
@@ -1086,6 +1160,16 @@
       "path": "src/features/cloud/AccountDeletion.tsx",
       "template": "adapters/AccountDeletion.tsx",
       "sha256": "ee1a5f1d9a870e112b1a2fcba1c1d5a7284b257ba3cffddea82ce5d1c5482653"
+    },
+    {
+      "path": "src/features/ide/ideFollow.ts",
+      "template": "adapters/ideFollow.ts",
+      "sha256": "4eb17c06bb4798e64a9064ac80780c99cdc2de8796ca1d46d85d48c8b25ea8ee"
+    },
+    {
+      "path": "src/features/ide/ThreadIdePane.tsx",
+      "template": "adapters/ThreadIdePane.tsx",
+      "sha256": "42e582fd75f1d2d0270356f2dff1a27022a61c714610078df5ea65a7f552afbb"
     }
   ],
   "rootAdditions": [

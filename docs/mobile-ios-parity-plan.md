@@ -515,3 +515,20 @@ and scoped strict TypeScript checking passed. See
 Four native XCUITest phases passed for a populated baseline, installed upgrade,
 explicit queue retry and cold restart on the recorded combined candidate. Older
 published-release upgrades, attachments and physical-device acceptance remain open.
+
+### iPad IDE mode (source only)
+
+On iPad widths a new "Open IDE mode" button in the thread header opens a code-first
+inspector pane beside the chat. It follows the structured `file_change` items the host
+reports for the thread, newest file last, and shows the host's own diff (with line
+gutter and per-file +/- counts) or the file as it is on disk. Selecting a file pins it
+and pauses following; the follow button resumes. The pane is read-only and never
+invents contents: a change without a host diff shows the file instead. Edit-and-save
+from the desktop IDE experiment is not included because it needs unreleased host support.
+
+It is added through the activation registry: two new files under `src/features/ide/`
+and three recorded adapters (`ThreadHeader`, `ThreadRouteScreen`,
+`thread-inspector-navigation`). The follow logic and adapter wiring have portable tests
+in `mobile-experience/activation/ide-mode.test.mjs`. The pane has not been type-checked
+against a fresh dependency install, built natively, or run on an iPad or simulator, so it
+is source-integrated only. Pane mode (several threads side by side) is a separate change.

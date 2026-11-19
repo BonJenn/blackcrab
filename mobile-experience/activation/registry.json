@@ -467,12 +467,22 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import { ThreadTerminalRouteScreen } from \"./features/terminal/ThreadTerminalRouteScreen\";",
+          "after": "import { ThreadTerminalRouteScreen } from \"./features/terminal/ThreadTerminalRouteScreen\";\nimport { ThreadPanesScreen } from \"./features/panes/ThreadPanesScreen\";",
+          "count": 1
+        },
+        {
+          "before": "    ThreadInspectorFullscreen: createNativeStackScreen({",
+          "after": "    ThreadPanes: createNativeStackScreen({\n      screen: ThreadPanesScreen,\n      options: pageRoute({ title: \"Panes\", header: \"solid\" }),\n    }),\n    ThreadInspectorFullscreen: createNativeStackScreen({",
+          "count": 1
+        },
+        {
           "before": "T3 Connect",
           "after": "Blackcrab Connect",
           "count": 1
         }
       ],
-      "afterSha256": "f724f6afcc4e5acd99c2c7d245133aca998e684f26aad8cc089c4f903f44fd04"
+      "afterSha256": "28929d876781c344fc7abb95d29a3e4572cd8b1e071f38ef8726f9fd0a6b0141"
     },
     {
       "path": "src/connection/platform.ts",
@@ -1062,7 +1072,7 @@
       "replacements": [
         {
           "before": "  readonly onOpenFilesInspector: () => void;\n",
-          "after": "  readonly onOpenFilesInspector: () => void;\n  readonly onOpenIdeInspector?: () => void;\n",
+          "after": "  readonly onOpenFilesInspector: () => void;\n  readonly onOpenIdeInspector?: () => void;\n  readonly onOpenPanes?: () => void;\n",
           "count": 1
         },
         {
@@ -1074,9 +1084,14 @@
           "before": "          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n      ]\n    : [];",
           "after": "          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n        ...(props.fileInspectorSupported && props.onOpenIdeInspector\n          ? [\n              {\n                accessibilityLabel: ideVisible ? \"Close IDE mode\" : \"Open IDE mode\",\n                icon: \"chevron.left.forwardslash.chevron.right\" as const,\n                selected: ideVisible,\n                disabled: !props.gitControls.canOpenFiles,\n                separateBackground: false,\n                onPress: ideVisible ? toggleAuxiliaryPane : props.onOpenIdeInspector,\n              },\n            ]\n          : []),\n      ]\n    : [];",
           "count": 1
+        },
+        {
+          "before": "          : []),\n      ]\n    : [];",
+          "after": "          : []),\n        ...(props.fileInspectorSupported && props.onOpenPanes\n          ? [\n              {\n                accessibilityLabel: \"Open pane mode\",\n                icon: { ios: \"rectangle.split.2x1\", android: \"desktop_windows\" } as const,\n                separateBackground: false,\n                onPress: props.onOpenPanes,\n              },\n            ]\n          : []),\n      ]\n    : [];",
+          "count": 1
         }
       ],
-      "afterSha256": "e2c5643a1dd81d69456d8777f3a3d81374a7bf8f827518824b729edac85bfbb5"
+      "afterSha256": "33dce5755cec67ea07d49a0314bac836b7fc14fbe2435d74a9aec1dffab21eea"
     },
     {
       "path": "src/features/threads/ThreadRouteScreen.tsx",
@@ -1112,9 +1127,47 @@
           "before": "                onOpenFilesInspector={handleOpenFilesInspector}",
           "after": "                onOpenFilesInspector={handleOpenFilesInspector}\n                onOpenIdeInspector={handleOpenIdeInspector}",
           "count": 1
+        },
+        {
+          "before": "import { ThreadIdePane } from \"../ide/ThreadIdePane\";",
+          "after": "import { ThreadIdePane } from \"../ide/ThreadIdePane\";\nimport { paneStore } from \"../panes/paneStore\";",
+          "count": 1
+        },
+        {
+          "before": "  const handleToggleInspector = () => {",
+          "after": "  const handleOpenPanes = () => {\n    if (selectedThread === null) {\n      return;\n    }\n    paneStore.open({\n      environmentId: String(selectedThread.environmentId),\n      threadId: String(selectedThread.id),\n    });\n    navigation.navigate(\"ThreadPanes\");\n  };\n  const handleToggleInspector = () => {",
+          "count": 1
+        },
+        {
+          "before": "                onOpenIdeInspector={handleOpenIdeInspector}",
+          "after": "                onOpenIdeInspector={handleOpenIdeInspector}\n                onOpenPanes={handleOpenPanes}",
+          "count": 1
         }
       ],
-      "afterSha256": "4bd3075653a09b391b84291d203fd7c8b627ccc55b8de2ba4f790e8accd04c06"
+      "afterSha256": "12bdaa03bab77dd0cdb5c32887b3303dc6a2d564b9feff1acc90d568836c03f2"
+    },
+    {
+      "path": "src/features/threads/thread-inspector-preview.tsx",
+      "beforeSha256": "7b3dfbeef46028c90f2896cfb1c1a90a0b1627cbe505b1813d7718b85720ef16",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { ThreadPreviewRoute } from \"./thread-preview-route\";",
+          "after": "import { ThreadPreviewRoute } from \"./thread-preview-route\";\nimport { PaneCellHeader } from \"../panes/PaneCellHeader\";",
+          "count": 1
+        },
+        {
+          "before": "export type ThreadInspectorPresentation =\n  | { readonly onMaximize: () => void }",
+          "after": "export type ThreadInspectorPresentation =\n  | {\n      readonly pane: { readonly subtitle: string | null };\n      readonly onMaximize: () => void;\n      readonly onClose: () => void;\n    }\n  | { readonly onMaximize: () => void }",
+          "count": 1
+        },
+        {
+          "before": "  if (\"onMaximize\" in props) {\n    return (\n      <AppBar",
+          "after": "  if (\"pane\" in props) {\n    return (\n      <PaneCellHeader\n        title={props.title}\n        subtitle={props.pane.subtitle}\n        onMaximize={props.onMaximize}\n        onClose={props.onClose}\n      />\n    );\n  }\n  if (\"onMaximize\" in props) {\n    return (\n      <AppBar",
+          "count": 1
+        }
+      ],
+      "afterSha256": "aa04e4e1cba8490177d6033c49b00c8ce7dc626770801fe459324f527482df8f"
     },
     {
       "path": "src/widgets/SubscriptionUsage.tsx",
@@ -1196,6 +1249,26 @@
       "path": "src/widgets/widgetJobs.ts",
       "template": "adapters/widgetJobs.ts",
       "sha256": "ae6a6d0654cf1e73ab612aece295167fac7c20f8e16064030b75e74c27ca2830"
+    },
+    {
+      "path": "src/features/panes/paneGrid.ts",
+      "template": "adapters/paneGrid.ts",
+      "sha256": "e519c30cb29cb75813dda2be06ae193b7bf4ca49856dfb4e0020de5af39e74ae"
+    },
+    {
+      "path": "src/features/panes/paneStore.ts",
+      "template": "adapters/paneStore.ts",
+      "sha256": "1e9ac1bc7895b162a9d45a09ab91f3dbc49299c7276d3341fa792ab92beb6748"
+    },
+    {
+      "path": "src/features/panes/PaneCellHeader.tsx",
+      "template": "adapters/PaneCellHeader.tsx",
+      "sha256": "9b1c3f0e55f27245b9f4177117579160a1944bc6aa605e84f81b8c0174fc910b"
+    },
+    {
+      "path": "src/features/panes/ThreadPanesScreen.tsx",
+      "template": "adapters/ThreadPanesScreen.tsx",
+      "sha256": "4d5b8b0b848251022c18aae22efcb16eec5a17e1ed8f39c6a6fcbe3f626b4c82"
     }
   ],
   "rootAdditions": [

@@ -181,12 +181,12 @@
           "widgets": [
             {
               "name": "SubscriptionUsage",
-              "displayName": "Subscription usage",
-              "description": "Subscription quotas from your connected Blackcrab environments.",
+              "displayName": "Agents & usage",
+              "description": "What your agents are doing right now, next to your subscription limits.",
               "ios": {
                 "configuration": {
-                  "title": "Subscription usage",
-                  "description": "Shows usage limits for your connected environments.",
+                  "title": "Agents & usage",
+                  "description": "Shows running agent jobs and usage limits for your connected environments.",
                   "parameters": {
                     "codexPeriod": {
                       "title": "Codex limits",

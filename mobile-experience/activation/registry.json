@@ -390,24 +390,6 @@
       "afterSha256": "1ff4e41c733f269efcd373436a13f7c2b6dd924291b89ebe091e36a75a5bd778"
     },
     {
-      "path": "src/widgets/SubscriptionUsage.tsx",
-      "beforeSha256": "f1dce463a3fab447b1932f7a464040ef8f2e2a2cfeab52afd1dd4d624e19616c",
-      "kind": "replace",
-      "replacements": [
-        {
-          "before": "Open T3",
-          "after": "Open Blackcrab",
-          "count": 4
-        },
-        {
-          "before": "in T3",
-          "after": "in Blackcrab",
-          "count": 2
-        }
-      ],
-      "afterSha256": "042369d6c03837ebbe829b5a435172e30e60ab75d018dc3224782592039bdef3"
-    },
-    {
       "path": "src/widgets/SubscriptionUsage.android.tsx",
       "beforeSha256": "7d831d8c386b159767982d7ae49aedb24f79c3eb66764d265d2608edd2659bf1",
       "kind": "replace",
@@ -1133,6 +1115,45 @@
         }
       ],
       "afterSha256": "4bd3075653a09b391b84291d203fd7c8b627ccc55b8de2ba4f790e8accd04c06"
+    },
+    {
+      "path": "src/widgets/SubscriptionUsage.tsx",
+      "beforeSha256": "f1dce463a3fab447b1932f7a464040ef8f2e2a2cfeab52afd1dd4d624e19616c",
+      "kind": "template",
+      "template": "adapters/SubscriptionUsage.tsx",
+      "templateSha256": "3fab23b6123874dc2e3bae94842a73d0e8cb3c9a33035ff307fad0dac7b8e1a1",
+      "afterSha256": "3fab23b6123874dc2e3bae94842a73d0e8cb3c9a33035ff307fad0dac7b8e1a1"
+    },
+    {
+      "path": "src/widgets/SubscriptionUsageCoordinator.tsx",
+      "beforeSha256": "f5474ca08cf96046664cc3ef275449a32ddc2de4d9a7ea1719ef2a0d370d78ad",
+      "kind": "template",
+      "template": "adapters/SubscriptionUsageCoordinator.tsx",
+      "templateSha256": "89b0faa256c2406054888ea4174a50ebcd36d08413cc2cee058ffefb18a57636",
+      "afterSha256": "89b0faa256c2406054888ea4174a50ebcd36d08413cc2cee058ffefb18a57636"
+    },
+    {
+      "path": "src/widgets/publishSubscriptionUsage.ios.ts",
+      "beforeSha256": "6e2c91f80f0dbbbd957d5623126446ad8bde3c0d16168fcc793fbd78282779a8",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import {\n  subscriptionUsageTimeline,\n  type SubscriptionUsageSnapshot,\n} from \"./subscriptionUsageSnapshot\";",
+          "after": "import {\n  subscriptionUsageTimeline,\n  type SubscriptionUsageSnapshot,\n} from \"./subscriptionUsageSnapshot\";\nimport { withJobsDeadline, type WidgetJobs } from \"./widgetJobs\";",
+          "count": 1
+        },
+        {
+          "before": "export async function publishSubscriptionUsage(snapshot: SubscriptionUsageSnapshot) {",
+          "after": "export async function publishSubscriptionUsage(snapshot: SubscriptionUsageSnapshot & { jobs?: WidgetJobs }) {",
+          "count": 1
+        },
+        {
+          "before": "  widget.updateTimeline(subscriptionUsageTimeline(snapshot, Date.now()));",
+          "after": "  const now = Date.now();\n  widget.updateTimeline(withJobsDeadline(subscriptionUsageTimeline(snapshot, now), snapshot.jobs, now));",
+          "count": 1
+        }
+      ],
+      "afterSha256": "4d731536d95e966c19ab8bea3f40385796fd392a28853bc4cf4b6087040e9f86"
     }
   ],
   "additions": [
@@ -1154,7 +1175,7 @@
     {
       "path": "src/features/agent-awareness/liveActivityProgress.ts",
       "template": "adapters/liveActivityProgress.ts",
-      "sha256": "ebe604a01553bb0b7dc8eed13ae5660c51e8fb0221eed8ec39d55cb1c17443cc"
+      "sha256": "8dc38d8d492bcf3616a6b110de7176f903b924585a0fa5da84323a6bbe728957"
     },
     {
       "path": "src/features/cloud/AccountDeletion.tsx",
@@ -1170,6 +1191,11 @@
       "path": "src/features/ide/ThreadIdePane.tsx",
       "template": "adapters/ThreadIdePane.tsx",
       "sha256": "42e582fd75f1d2d0270356f2dff1a27022a61c714610078df5ea65a7f552afbb"
+    },
+    {
+      "path": "src/widgets/widgetJobs.ts",
+      "template": "adapters/widgetJobs.ts",
+      "sha256": "ae6a6d0654cf1e73ab612aece295167fac7c20f8e16064030b75e74c27ca2830"
     }
   ],
   "rootAdditions": [

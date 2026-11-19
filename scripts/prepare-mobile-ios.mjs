@@ -73,11 +73,11 @@ export async function sourceInventory(repoRoot, includeWorkingTree = false) {
   return { repo, files, dirty, revision: (await git(repo, ['rev-parse', 'HEAD'])).trim(), excluded: tracked.filter(confidential) };
 }
 
-export async function createSourceSnapshot({ repoRoot = defaultRepo, stagingParent = process.platform === 'darwin' ? '/private/tmp' : os.tmpdir(), includeWorkingTree = false } = {}) {
+export async function createSourceSnapshot({ repoRoot = defaultRepo, stagingParent = process.platform === 'darwin' ? '/private/tmp' : os.tmpdir(), includeWorkingTree = false, prefix = 'blackcrab-ios-' } = {}) {
   const inventory = await sourceInventory(repoRoot, includeWorkingTree);
   const parent = await fs.realpath(stagingParent);
   if (/\s/.test(parent) || inside(inventory.repo, parent)) throw new Error('Staging parent must be a physical whitespace-free directory outside the repository.');
-  const directory = await fs.mkdtemp(path.join(parent, 'blackcrab-ios-'));
+  const directory = await fs.mkdtemp(path.join(parent, prefix));
   const root = await fs.realpath(directory), repo = path.join(root, 'repo');
   await fs.mkdir(repo);
   const records = [];

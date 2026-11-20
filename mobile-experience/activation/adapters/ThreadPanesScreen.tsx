@@ -1,6 +1,7 @@
+import { HeaderHeightContext } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { isListedThreadLineage } from "@t3tools/contracts";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { use, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Pressable, ScrollView, View, type LayoutChangeEvent } from "react-native";
 
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
@@ -105,6 +106,8 @@ function ThreadChoice(props: {
 
 export function ThreadPanesScreen() {
   const navigation = useNavigation();
+  // The screen's native bar floats over its content, so everything below it starts one bar lower.
+  const barHeight = use(HeaderHeightContext) ?? 0;
   const panes = useSyncExternalStore(paneStore.subscribe, paneStore.getSnapshot);
   const shells = useVisibleThreadShells();
   const projects = useProjects();
@@ -152,7 +155,7 @@ export function ThreadPanesScreen() {
   };
 
   return (
-    <View className="flex-1 bg-screen">
+    <View className="flex-1 bg-screen" style={{ paddingTop: barHeight }}>
       <AppBar
         title="Panes"
         subtitle={panes.length === 0 ? null : `${panes.length} of ${MAX_PANES} open`}

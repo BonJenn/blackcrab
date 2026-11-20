@@ -3,7 +3,7 @@
     "name": "Blackcrab",
     "slug": "blackcrab-remote",
     "scheme": ["blackcrab-remote", "blackcrab"],
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

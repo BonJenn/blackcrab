@@ -147,6 +147,14 @@ add a caption for something the screenshot does not show.
 What was run in the simulator and what was not is in the pull requests (#339,
 #341) and the handoff checkpoint.
 
+## Version 1.1.0
+
+Version 1.0.0 (build 6) is live (App Store state READY_FOR_SALE on 2026-11-19), so
+changes ship as version 1.1.0 with a higher build number. 1.1.0 adds iPad IDE mode,
+iPad pane mode, and the "Agents & usage" home screen widget (PRs #361, #362, #364).
+Only `apps/mobile/app.json` carries the version; `apps/mobile/package.json` stays at
+1.0.0 because changing it changes the lockfile. See "Release 1.1.0" below once built.
+
 ## Known gaps
 
 - Live step text on a locked phone needs host and relay work (see Live Activity).

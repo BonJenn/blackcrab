@@ -1,5 +1,33 @@
 # Blackcrab parity and release handoff
 
+## Mobile iPad features checkpoint — IDE mode and widget merged, pane mode open (2026-11-19)
+
+Source only. None of this has been built natively or seen on an iPad, simulator or
+widget gallery, so it is not accepted behavior and is not in any TestFlight build.
+
+- PR #361 (iPad IDE mode follow pane, read-only) merged into stage as 60ffed7.
+- PR #362 (home screen widget "Agents & usage": jobs next to limits, iOS only)
+  merged as 8fa49ba. The widget `name` stays `SubscriptionUsage`; the new display
+  name needs a native rebuild.
+- PR #364 (pane mode, up to four threads side by side, each a full thread with its
+  own composer and model picker) is a draft on branch `feat/ipad-pane-mode`, rebased
+  on stage, worktree `~/.t3/worktrees/blackcrab/feat-ipad-pane-mode`. It is watched
+  for CI. Stage 3 of the plan is still to do: an iPad simulator run against an inert
+  fixture host with zero provider runs. It needs a native build and the owner's go-ahead.
+- Mechanism: all three go through the activation registry (`build-registry.py`,
+  regenerated `registry.json`, 68 adapters). Do not edit vendor or `.generated`.
+  Whoever merges second regenerates `registry.json`.
+- Tests: `node --test mobile-experience/activation/*.test.mjs` passes 91 of 93. The two
+  failures (`native-links`, installed widgets plugin) and five react-compiler tests fail
+  identically on untouched stage because the borrowed `node_modules` lacks `expo-widgets`
+  and `@expo/metro-config`. Type-check ran only on a scratch overlay of the pinned source.
+- Unverified for pane mode: composer focus and keyboard with several composers, hardware
+  shortcuts, several streaming transcripts, other screens' native headers. The open pane
+  set is in memory and is not restored after a restart.
+- No build or process is running. Worktrees: `feat-ipad-ide-mode` (merged, on the widget
+  branch) and `feat-ipad-pane-mode`; each uses a symlinked `node_modules` from the main
+  checkout and may be removed once the PRs are done.
+
 ## Current checkpoint — 0.4.9 is published (2026-11-18 UTC)
 
 v0.4.9 is public on all three platforms, built from

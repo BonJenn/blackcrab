@@ -1,3 +1,6 @@
+Mobile iPad IDE mode, widget and pane mode: see the "Mobile iPad features checkpoint" at the
+top of docs/agent-handoff.md (PR #364 is the open one). Source only, nothing verified on a device.
+
 Continue the authorized Blackcrab parity task and0.4.4 release for Mac, Windows
 and Linux. Read AGENTS.md and the CURRENT docs/agent-handoff.md checkpoint first.
 Keep paired AGENTS.md/CLAUDE.md identical; preserve dirty main checkout and user data.

@@ -1268,7 +1268,7 @@
     {
       "path": "src/features/panes/ThreadPanesScreen.tsx",
       "template": "adapters/ThreadPanesScreen.tsx",
-      "sha256": "4d5b8b0b848251022c18aae22efcb16eec5a17e1ed8f39c6a6fcbe3f626b4c82"
+      "sha256": "c5d722605a8f137e3b0e3e0a7aa9523208b2041f7dae1af4f3da3227e8cd8baa"
     }
   ],
   "rootAdditions": [

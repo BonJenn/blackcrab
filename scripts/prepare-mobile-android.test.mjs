@@ -4,7 +4,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { androidBuildEnvironment, gradleReleaseArguments, vendorOutputRelocationInitScript, publicBuildConfiguration, stageGhosttyHeaders, GHOSTTY_REFERENCE } from './prepare-mobile-android.mjs';
+import { androidBuildEnvironment, gradleReleaseArguments, vendorOutputRelocationInitScript, publicBuildConfiguration, stageGhosttyHeaders, readUploadKeyProperties, prepareMobileAndroid, GHOSTTY_REFERENCE } from './prepare-mobile-android.mjs';
+import { createUploadKey } from './create-android-upload-key.mjs';
 
 const blobSha = text => createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0${text}`).digest('hex');
 const D = GHOSTTY_REFERENCE.directory;
@@ -72,4 +73,38 @@ test('only validated public Blackcrab values are forwarded to the build', () => 
   const env = androidBuildEnvironment('/stage', { javaHome: '/jdk', androidHome: '/sdk' }, { original: { PATH: '/usr/bin', EXPO_TOKEN: 'secret' }, publicConfig: config });
   assert.equal(env.BLACKCRAB_UPDATE_CHANNEL, 'preview');
   assert.equal(env.EXPO_TOKEN, undefined);
+});
+
+test('bundle task and signing init script carry no secret values', () => {
+  assert.ok(gradleReleaseArguments({ task: 'bundleRelease' }).includes('bundleRelease'));
+  assert.throws(() => gradleReleaseArguments({ task: 'publishRelease' }), /Unsupported Gradle task/);
+  const script = vendorOutputRelocationInitScript('/tmp/out', { signingProperties: '/Users/x/.keys/upload-key.properties' });
+  assert.match(script, /blackcrabUpload/);
+  assert.match(script, /getProperty\('storePassword'\)/);
+  assert.doesNotMatch(vendorOutputRelocationInitScript('/tmp/out'), /blackcrabUpload/);
+  assert.throws(() => vendorOutputRelocationInitScript('/tmp/out', { signingProperties: '/tmp/has space/k.properties' }), /absolute without whitespace/);
+});
+
+test('an AAB cannot be built without the upload key', async () => {
+  await assert.rejects(prepareMobileAndroid({ mode: 'build', artifact: 'aab' }), /upload key|Native SDK58|Native Android preparation/);
+  await assert.rejects(prepareMobileAndroid({ mode: 'build', artifact: 'zip' }), /--artifact apk or --artifact aab|Native SDK58|Native Android preparation/);
+});
+
+const keytool = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin/keytool') : undefined;
+test('upload key creation is private, redacted and never overwrites', { skip: !keytool && 'JAVA_HOME not set' }, async () => {
+  const dir = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'bc-key-')), 'signing');
+  try {
+    const result = await createUploadKey({ keytool, directory: dir, validityDays: 30 });
+    assert.match(result.certificateSha256, /^[0-9A-F]{2}(:[0-9A-F]{2}){31}$/);
+    assert.equal((await fs.stat(result.propertiesFile)).mode & 0o077, 0);
+    assert.equal((await fs.stat(result.storeFile)).mode & 0o077, 0);
+    assert.equal((await fs.stat(dir)).mode & 0o077, 0);
+    assert.doesNotMatch(JSON.stringify(result), /Password|storePassword/i);
+    const props = await readUploadKeyProperties(result.propertiesFile);
+    assert.equal(props.keyAlias, 'blackcrab-upload');
+    assert.doesNotMatch(JSON.stringify(props), /assword/);
+    await assert.rejects(createUploadKey({ keytool, directory: dir }), /Refusing to overwrite/);
+    await fs.chmod(result.propertiesFile, 0o644);
+    await assert.rejects(readUploadKeyProperties(result.propertiesFile), /readable only by its owner/);
+  } finally { await fs.rm(path.dirname(dir), { recursive: true, force: true }); }
 });

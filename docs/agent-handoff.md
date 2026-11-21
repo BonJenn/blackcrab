@@ -1,32 +1,37 @@
 # Blackcrab parity and release handoff
 
-## Mobile iPad features checkpoint — IDE mode and widget merged, pane mode open (2026-11-19)
+## Mobile iPad features checkpoint — 1.1.0 submitted for App Review (2026-11-21)
 
-Source only. None of this has been built natively or seen on an iPad, simulator or
-widget gallery, so it is not accepted behavior and is not in any TestFlight build.
+Version 1.1.0 (build 8) is `WAITING_FOR_REVIEW` in App Store Connect (review
+submission `d97df479-ec7d-43e5-8f67-7aa4079c7ffc`, submitted 2026-11-21 19:56 UTC, manual
+release). It is not approved or live. 1.0.0 (build 6) is still the live version.
 
-- PR #361 (iPad IDE mode follow pane, read-only) merged into stage as 60ffed7.
-- PR #362 (home screen widget "Agents & usage": jobs next to limits, iOS only)
-  merged as 8fa49ba. The widget `name` stays `SubscriptionUsage`; the new display
-  name needs a native rebuild.
-- PR #364 (pane mode, up to four threads side by side, each a full thread with its
-  own composer and model picker) is a draft on branch `feat/ipad-pane-mode`, rebased
-  on stage, worktree `~/.t3/worktrees/blackcrab/feat-ipad-pane-mode`. It is watched
-  for CI. Stage 3 of the plan is still to do: an iPad simulator run against an inert
-  fixture host with zero provider runs. It needs a native build and the owner's go-ahead.
-- Mechanism: all three go through the activation registry (`build-registry.py`,
-  regenerated `registry.json`, 68 adapters). Do not edit vendor or `.generated`.
-  Whoever merges second regenerates `registry.json`.
-- Tests: `node --test mobile-experience/activation/*.test.mjs` passes 91 of 93. The two
-  failures (`native-links`, installed widgets plugin) and five react-compiler tests fail
-  identically on untouched stage because the borrowed `node_modules` lacks `expo-widgets`
-  and `@expo/metro-config`. Type-check ran only on a scratch overlay of the pinned source.
-- Unverified for pane mode: composer focus and keyboard with several composers, hardware
-  shortcuts, several streaming transcripts, other screens' native headers. The open pane
-  set is in memory and is not restored after a restart.
-- No build or process is running. Worktrees: `feat-ipad-ide-mode` (merged, on the widget
-  branch) and `feat-ipad-pane-mode`; each uses a symlinked `node_modules` from the main
-  checkout and may be removed once the PRs are done.
+- Source: stage `720c268`. IDE mode (#361), widget "Agents & usage" (#362), pane mode (#364),
+  version bump (#365) and the pane header inset fix (#366).
+- Build 8: signed with distribution certificate `0ED8DF3F…`, entitlements verified on the app,
+  widgets and sharing targets; IPA SHA-256 `c5ae4d401791f026f835ce6e2133fdfcda30888d42308d55a5e58ff4db048421`;
+  delivery `74832d57-c363-4001-b3ab-4596dba80d98`; processing VALID; attached to 1.1.0; in the
+  TestFlight groups "Blackcrab Internal Release" and "Team (Expo)" (internal state IN_BETA_TESTING).
+  Nobody has been confirmed to have installed it from TestFlight.
+- Build 7 (stage `c412afb`, same version) is also in TestFlight. It has the pane header defect
+  fixed in #366 and was not submitted.
+- Runtime evidence (iPad simulator, Release build, iOS 26.2, isolated demo host, no provider
+  runs): the app launches and pairs; IDE mode opens its "Following agent changes" pane but only
+  its empty state was seen because the fixture threads are static; pane mode opens, two panes sit
+  side by side with their own composers, the model picker opens from inside a pane, closing a pane
+  works, and the headers and buttons are visible after #366. Not verified: the widget (never on a
+  device, simulator or widget gallery), IDE mode following a live edit, a model switch inside a
+  pane (the fixture offers one model), keyboard and focus across several composers, landscape,
+  and Split View widths. The evidence is a simulator build of the #366 branch head `5253bb8` (same source as
+  stage `720c268`), not the uploaded IPA itself.
+- Next: wait for the review result. If rejected, read the message in App Store Connect and fix on
+  a branch from stage. Release is manual, so an approved version still needs an explicit release.
+- No build or process is running. The API key, staging directories, DerivedData and QA simulator
+  from this work were deleted. `/private/tmp/blackcrab-toolchain` (Node 26.12.1) remains.
+  Worktree `feat-ipad-pane-mode` (borrowed `node_modules`) may be removed.
+- Tests: `node --test mobile-experience/activation/*.test.mjs` passes except `native-links` and
+  the installed widgets plugin, which fail identically on untouched stage (borrowed
+  `node_modules` lacks `expo-widgets` and `@expo/metro-config`).
 
 ## Current checkpoint — 0.4.9 is published (2026-11-18 UTC)
 

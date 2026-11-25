@@ -1,6 +1,6 @@
 [package]
 name = "blackcrab"
-version = "0.4.6"
+version = "0.4.10"
 description = "A desktop workspace for coding agents, projects and remote access."
 authors = ["Jonathan Benn"]
 license = "Apache-2.0"
@@ -51,6 +51,7 @@ flate2 = "=1.1.9"
 hmac = "0.12.1"
 reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls-no-provider"] }
 rustls = { version = "0.23.39", default-features = false, features = ["std", "ring", "tls12"] }
+rustls-platform-verifier = "0.6"
 rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

@@ -1,0 +1,103 @@
+import { useState } from "react";
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import type { ScopedThreadRef } from "@t3tools/contracts";
+import { collectSidebarSubagents, type Child } from "./sidebarSubagents.logic";
+import { useQuietThreadProjection, useHiddenThreadKeys } from "../../state/entities";
+import { useSubagentActions } from "../chat/useSubagentActions";
+
+type Navigation = { current: ScopedThreadRef | null; open: (ref: ScopedThreadRef) => void };
+
+function ChildRow({
+  child,
+  current,
+  open,
+  groupKey,
+}: Navigation & { child: Child; groupKey: string }) {
+  const actions = useSubagentActions(current, child.ref, child.title);
+  return (
+    <button
+      type="button"
+      aria-current={
+        current && scopedThreadKey(current) === scopedThreadKey(child.ref) ? "page" : undefined
+      }
+      data-sidebar-row={scopedThreadKey(child.ref)}
+      data-sidebar-parent={groupKey}
+      {...actions}
+      onClick={() => open(child.ref)}
+      className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-accent"
+    >
+      <span
+        aria-label={child.status}
+        title={child.status}
+        className={child.running ? "text-primary" : "text-muted-foreground"}
+      >
+        ●
+      </span>
+      <span className="truncate">{child.title}</span>
+    </button>
+  );
+}
+
+function ChildGroup({
+  childrenById,
+  current,
+  open,
+  running,
+  parentKey,
+}: Navigation & { parentKey: string; childrenById: Map<string, Child>; running: boolean }) {
+  const [expanded, setExpanded] = useState(running);
+  const groupKey = `subagents:${parentKey}`;
+  return (
+    <li className="ml-6 border-l pl-2">
+      <button
+        type="button"
+        data-sidebar-row={groupKey}
+        data-sidebar-parent={parentKey}
+        aria-expanded={expanded}
+        className="text-xs text-muted-foreground"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? "▾" : "▸"} Subagents ({childrenById.size})
+      </button>
+      {expanded &&
+        Array.from(childrenById.values(), (child) => (
+          <ChildRow
+            key={scopedThreadKey(child.ref)}
+            child={child}
+            groupKey={groupKey}
+            current={current}
+            open={open}
+          />
+        ))}
+    </li>
+  );
+}
+
+export function SidebarSubagents({
+  parent,
+  shells,
+  activeFamily,
+  current,
+  open,
+}: Navigation & {
+  parent: ScopedThreadRef;
+  activeFamily: boolean;
+  shells: readonly EnvironmentThreadShell[];
+}) {
+  const agents = useQuietThreadProjection(activeFamily ? parent : null)?.projection.subagents;
+  const hidden = useHiddenThreadKeys();
+  const childrenById = collectSidebarSubagents(parent, shells, agents, hidden);
+  if (!childrenById.size) return null;
+  const running = Array.from(childrenById.values()).some((child) => child.running);
+  return (
+    <ChildGroup
+      parentKey={scopedThreadKey(parent)}
+      key={String(running)}
+      running={running}
+      childrenById={childrenById}
+      current={current}
+      open={open}
+    />
+  );
+}

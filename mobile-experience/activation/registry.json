@@ -390,24 +390,6 @@
       "afterSha256": "1ff4e41c733f269efcd373436a13f7c2b6dd924291b89ebe091e36a75a5bd778"
     },
     {
-      "path": "src/widgets/SubscriptionUsage.tsx",
-      "beforeSha256": "f1dce463a3fab447b1932f7a464040ef8f2e2a2cfeab52afd1dd4d624e19616c",
-      "kind": "replace",
-      "replacements": [
-        {
-          "before": "Open T3",
-          "after": "Open Blackcrab",
-          "count": 4
-        },
-        {
-          "before": "in T3",
-          "after": "in Blackcrab",
-          "count": 2
-        }
-      ],
-      "afterSha256": "042369d6c03837ebbe829b5a435172e30e60ab75d018dc3224782592039bdef3"
-    },
-    {
       "path": "src/widgets/SubscriptionUsage.android.tsx",
       "beforeSha256": "7d831d8c386b159767982d7ae49aedb24f79c3eb66764d265d2608edd2659bf1",
       "kind": "replace",
@@ -485,12 +467,22 @@
       "kind": "replace",
       "replacements": [
         {
+          "before": "import { ThreadTerminalRouteScreen } from \"./features/terminal/ThreadTerminalRouteScreen\";",
+          "after": "import { ThreadTerminalRouteScreen } from \"./features/terminal/ThreadTerminalRouteScreen\";\nimport { ThreadPanesScreen } from \"./features/panes/ThreadPanesScreen\";",
+          "count": 1
+        },
+        {
+          "before": "    ThreadInspectorFullscreen: createNativeStackScreen({",
+          "after": "    ThreadPanes: createNativeStackScreen({\n      screen: ThreadPanesScreen,\n      options: pageRoute({ title: \"Panes\", header: \"solid\" }),\n    }),\n    ThreadInspectorFullscreen: createNativeStackScreen({",
+          "count": 1
+        },
+        {
           "before": "T3 Connect",
           "after": "Blackcrab Connect",
           "count": 1
         }
       ],
-      "afterSha256": "f724f6afcc4e5acd99c2c7d245133aca998e684f26aad8cc089c4f903f44fd04"
+      "afterSha256": "28929d876781c344fc7abb95d29a3e4572cd8b1e071f38ef8726f9fd0a6b0141"
     },
     {
       "path": "src/connection/platform.ts",
@@ -1059,6 +1051,162 @@
         }
       ],
       "afterSha256": "6349a92d813a3f7f61d937d5cd3a82563dc1fc7488ac4d727ec4fcf7d138e15b"
+    },
+    {
+      "path": "src/features/threads/thread-inspector-navigation.ts",
+      "beforeSha256": "57a8db6aeb98cae2372a095f3b7aeb04021d43cc565a90d72b36fbdabe0093be",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "export type ThreadInspectorMode = \"route\" | \"git\" | \"files\" | \"preview\";",
+          "after": "export type ThreadInspectorMode = \"route\" | \"git\" | \"files\" | \"ide\" | \"preview\";",
+          "count": 1
+        }
+      ],
+      "afterSha256": "1e4eaa9a647d4a42cbb8ef472e397b053122ead5ad889b3922b58698f1a741e7"
+    },
+    {
+      "path": "src/features/threads/ThreadHeader.tsx",
+      "beforeSha256": "4daedd57a393865a5aa46ee00265f72f4e44def5fc364d92544102c80bf2a90c",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "  readonly onOpenFilesInspector: () => void;\n",
+          "after": "  readonly onOpenFilesInspector: () => void;\n  readonly onOpenIdeInspector?: () => void;\n  readonly onOpenPanes?: () => void;\n",
+          "count": 1
+        },
+        {
+          "before": "  const filesVisible = props.inspectorMode === \"files\" && panes.auxiliaryPaneVisible;\n",
+          "after": "  const filesVisible = props.inspectorMode === \"files\" && panes.auxiliaryPaneVisible;\n  const ideVisible = props.inspectorMode === \"ide\" && panes.auxiliaryPaneVisible;\n",
+          "count": 1
+        },
+        {
+          "before": "          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n      ]\n    : [];",
+          "after": "          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n        ...(props.fileInspectorSupported && props.onOpenIdeInspector\n          ? [\n              {\n                accessibilityLabel: ideVisible ? \"Close IDE mode\" : \"Open IDE mode\",\n                icon: \"chevron.left.forwardslash.chevron.right\" as const,\n                selected: ideVisible,\n                disabled: !props.gitControls.canOpenFiles,\n                separateBackground: false,\n                onPress: ideVisible ? toggleAuxiliaryPane : props.onOpenIdeInspector,\n              },\n            ]\n          : []),\n      ]\n    : [];",
+          "count": 1
+        },
+        {
+          "before": "          : []),\n      ]\n    : [];",
+          "after": "          : []),\n        ...(props.fileInspectorSupported && props.onOpenPanes\n          ? [\n              {\n                accessibilityLabel: \"Open pane mode\",\n                icon: { ios: \"rectangle.split.2x1\", android: \"desktop_windows\" } as const,\n                separateBackground: false,\n                onPress: props.onOpenPanes,\n              },\n            ]\n          : []),\n      ]\n    : [];",
+          "count": 1
+        }
+      ],
+      "afterSha256": "33dce5755cec67ea07d49a0314bac836b7fc14fbe2435d74a9aec1dffab21eea"
+    },
+    {
+      "path": "src/features/threads/ThreadRouteScreen.tsx",
+      "beforeSha256": "37878539c4fdc93eb7ed208b36cc0252e30746f1caac995cfd4e4b36f9ad2910",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { ThreadFileNavigatorPane } from \"../files/thread-file-navigator-pane\";",
+          "after": "import { ThreadFileNavigatorPane } from \"../files/thread-file-navigator-pane\";\nimport { ThreadIdePane } from \"../ide/ThreadIdePane\";",
+          "count": 1
+        },
+        {
+          "before": "    return mode === \"files\" && selectedThreadCwd === null ? null : mode;",
+          "after": "    return (mode === \"files\" || mode === \"ide\") && selectedThreadCwd === null ? null : mode;",
+          "count": 1
+        },
+        {
+          "before": "  const handleToggleInspector = () => {",
+          "after": "  const handleOpenIdeInspector = () => {\n    if (selectedThread === null || selectedThreadCwd === null) {\n      return;\n    }\n    navigation.setParams({ inspector: undefined });\n    setChosenInspectorMode(\"ide\");\n    showInspector();\n  };\n  const handleToggleInspector = () => {",
+          "count": 1
+        },
+        {
+          "before": "  const renderPreviewInspector = () =>",
+          "after": "  const renderIdeInspector = () =>\n    selectedThread !== null && selectedThreadCwd !== null ? (\n      <ThreadIdePane\n        cwd={selectedThreadCwd}\n        environmentId={selectedThread.environmentId}\n        projectName={selectedThreadProject?.title ?? \"Code\"}\n        onOpenFiles={handleOpenFilesInspector}\n      />\n    ) : null;\n  const renderPreviewInspector = () =>",
+          "count": 1
+        },
+        {
+          "before": "            { key: \"files\", render: renderFilesInspector, prewarm: true },",
+          "after": "            { key: \"files\", render: renderFilesInspector, prewarm: true },\n            { key: \"ide\", render: renderIdeInspector },",
+          "count": 1
+        },
+        {
+          "before": "                onOpenFilesInspector={handleOpenFilesInspector}",
+          "after": "                onOpenFilesInspector={handleOpenFilesInspector}\n                onOpenIdeInspector={handleOpenIdeInspector}",
+          "count": 1
+        },
+        {
+          "before": "import { ThreadIdePane } from \"../ide/ThreadIdePane\";",
+          "after": "import { ThreadIdePane } from \"../ide/ThreadIdePane\";\nimport { paneStore } from \"../panes/paneStore\";",
+          "count": 1
+        },
+        {
+          "before": "  const handleToggleInspector = () => {",
+          "after": "  const handleOpenPanes = () => {\n    if (selectedThread === null) {\n      return;\n    }\n    paneStore.open({\n      environmentId: String(selectedThread.environmentId),\n      threadId: String(selectedThread.id),\n    });\n    navigation.navigate(\"ThreadPanes\");\n  };\n  const handleToggleInspector = () => {",
+          "count": 1
+        },
+        {
+          "before": "                onOpenIdeInspector={handleOpenIdeInspector}",
+          "after": "                onOpenIdeInspector={handleOpenIdeInspector}\n                onOpenPanes={handleOpenPanes}",
+          "count": 1
+        }
+      ],
+      "afterSha256": "12bdaa03bab77dd0cdb5c32887b3303dc6a2d564b9feff1acc90d568836c03f2"
+    },
+    {
+      "path": "src/features/threads/thread-inspector-preview.tsx",
+      "beforeSha256": "7b3dfbeef46028c90f2896cfb1c1a90a0b1627cbe505b1813d7718b85720ef16",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import { ThreadPreviewRoute } from \"./thread-preview-route\";",
+          "after": "import { ThreadPreviewRoute } from \"./thread-preview-route\";\nimport { PaneCellHeader } from \"../panes/PaneCellHeader\";",
+          "count": 1
+        },
+        {
+          "before": "export type ThreadInspectorPresentation =\n  | { readonly onMaximize: () => void }",
+          "after": "export type ThreadInspectorPresentation =\n  | {\n      readonly pane: { readonly subtitle: string | null };\n      readonly onMaximize: () => void;\n      readonly onClose: () => void;\n    }\n  | { readonly onMaximize: () => void }",
+          "count": 1
+        },
+        {
+          "before": "  if (\"onMaximize\" in props) {\n    return (\n      <AppBar",
+          "after": "  if (\"pane\" in props) {\n    return (\n      <PaneCellHeader\n        title={props.title}\n        subtitle={props.pane.subtitle}\n        onMaximize={props.onMaximize}\n        onClose={props.onClose}\n      />\n    );\n  }\n  if (\"onMaximize\" in props) {\n    return (\n      <AppBar",
+          "count": 1
+        }
+      ],
+      "afterSha256": "aa04e4e1cba8490177d6033c49b00c8ce7dc626770801fe459324f527482df8f"
+    },
+    {
+      "path": "src/widgets/SubscriptionUsage.tsx",
+      "beforeSha256": "f1dce463a3fab447b1932f7a464040ef8f2e2a2cfeab52afd1dd4d624e19616c",
+      "kind": "template",
+      "template": "adapters/SubscriptionUsage.tsx",
+      "templateSha256": "3fab23b6123874dc2e3bae94842a73d0e8cb3c9a33035ff307fad0dac7b8e1a1",
+      "afterSha256": "3fab23b6123874dc2e3bae94842a73d0e8cb3c9a33035ff307fad0dac7b8e1a1"
+    },
+    {
+      "path": "src/widgets/SubscriptionUsageCoordinator.tsx",
+      "beforeSha256": "f5474ca08cf96046664cc3ef275449a32ddc2de4d9a7ea1719ef2a0d370d78ad",
+      "kind": "template",
+      "template": "adapters/SubscriptionUsageCoordinator.tsx",
+      "templateSha256": "89b0faa256c2406054888ea4174a50ebcd36d08413cc2cee058ffefb18a57636",
+      "afterSha256": "89b0faa256c2406054888ea4174a50ebcd36d08413cc2cee058ffefb18a57636"
+    },
+    {
+      "path": "src/widgets/publishSubscriptionUsage.ios.ts",
+      "beforeSha256": "6e2c91f80f0dbbbd957d5623126446ad8bde3c0d16168fcc793fbd78282779a8",
+      "kind": "replace",
+      "replacements": [
+        {
+          "before": "import {\n  subscriptionUsageTimeline,\n  type SubscriptionUsageSnapshot,\n} from \"./subscriptionUsageSnapshot\";",
+          "after": "import {\n  subscriptionUsageTimeline,\n  type SubscriptionUsageSnapshot,\n} from \"./subscriptionUsageSnapshot\";\nimport { withJobsDeadline, type WidgetJobs } from \"./widgetJobs\";",
+          "count": 1
+        },
+        {
+          "before": "export async function publishSubscriptionUsage(snapshot: SubscriptionUsageSnapshot) {",
+          "after": "export async function publishSubscriptionUsage(snapshot: SubscriptionUsageSnapshot & { jobs?: WidgetJobs }) {",
+          "count": 1
+        },
+        {
+          "before": "  widget.updateTimeline(subscriptionUsageTimeline(snapshot, Date.now()));",
+          "after": "  const now = Date.now();\n  widget.updateTimeline(withJobsDeadline(subscriptionUsageTimeline(snapshot, now), snapshot.jobs, now));",
+          "count": 1
+        }
+      ],
+      "afterSha256": "4d731536d95e966c19ab8bea3f40385796fd392a28853bc4cf4b6087040e9f86"
     }
   ],
   "additions": [
@@ -1080,12 +1228,47 @@
     {
       "path": "src/features/agent-awareness/liveActivityProgress.ts",
       "template": "adapters/liveActivityProgress.ts",
-      "sha256": "ebe604a01553bb0b7dc8eed13ae5660c51e8fb0221eed8ec39d55cb1c17443cc"
+      "sha256": "8dc38d8d492bcf3616a6b110de7176f903b924585a0fa5da84323a6bbe728957"
     },
     {
       "path": "src/features/cloud/AccountDeletion.tsx",
       "template": "adapters/AccountDeletion.tsx",
       "sha256": "ee1a5f1d9a870e112b1a2fcba1c1d5a7284b257ba3cffddea82ce5d1c5482653"
+    },
+    {
+      "path": "src/features/ide/ideFollow.ts",
+      "template": "adapters/ideFollow.ts",
+      "sha256": "4eb17c06bb4798e64a9064ac80780c99cdc2de8796ca1d46d85d48c8b25ea8ee"
+    },
+    {
+      "path": "src/features/ide/ThreadIdePane.tsx",
+      "template": "adapters/ThreadIdePane.tsx",
+      "sha256": "42e582fd75f1d2d0270356f2dff1a27022a61c714610078df5ea65a7f552afbb"
+    },
+    {
+      "path": "src/widgets/widgetJobs.ts",
+      "template": "adapters/widgetJobs.ts",
+      "sha256": "ae6a6d0654cf1e73ab612aece295167fac7c20f8e16064030b75e74c27ca2830"
+    },
+    {
+      "path": "src/features/panes/paneGrid.ts",
+      "template": "adapters/paneGrid.ts",
+      "sha256": "e519c30cb29cb75813dda2be06ae193b7bf4ca49856dfb4e0020de5af39e74ae"
+    },
+    {
+      "path": "src/features/panes/paneStore.ts",
+      "template": "adapters/paneStore.ts",
+      "sha256": "1e9ac1bc7895b162a9d45a09ab91f3dbc49299c7276d3341fa792ab92beb6748"
+    },
+    {
+      "path": "src/features/panes/PaneCellHeader.tsx",
+      "template": "adapters/PaneCellHeader.tsx",
+      "sha256": "9b1c3f0e55f27245b9f4177117579160a1944bc6aa605e84f81b8c0174fc910b"
+    },
+    {
+      "path": "src/features/panes/ThreadPanesScreen.tsx",
+      "template": "adapters/ThreadPanesScreen.tsx",
+      "sha256": "c5d722605a8f137e3b0e3e0a7aa9523208b2041f7dae1af4f3da3227e8cd8baa"
     }
   ],
   "rootAdditions": [

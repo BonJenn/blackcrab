@@ -515,3 +515,74 @@ and scoped strict TypeScript checking passed. See
 Four native XCUITest phases passed for a populated baseline, installed upgrade,
 explicit queue retry and cold restart on the recorded combined candidate. Older
 published-release upgrades, attachments and physical-device acceptance remain open.
+
+### iPad IDE mode (source only)
+
+On iPad widths a new "Open IDE mode" button in the thread header opens a code-first
+inspector pane beside the chat. It follows the structured `file_change` items the host
+reports for the thread, newest file last, and shows the host's own diff (with line
+gutter and per-file +/- counts) or the file as it is on disk. Selecting a file pins it
+and pauses following; the follow button resumes. The pane is read-only and never
+invents contents: a change without a host diff shows the file instead. Edit-and-save
+from the desktop IDE experiment is not included because it needs unreleased host support.
+
+It is added through the activation registry: two new files under `src/features/ide/`
+and three recorded adapters (`ThreadHeader`, `ThreadRouteScreen`,
+`thread-inspector-navigation`). The follow logic and adapter wiring have portable tests
+in `mobile-experience/activation/ide-mode.test.mjs`. The pane has not been type-checked
+against a fresh dependency install, built natively, or run on an iPad or simulator, so it
+is source-integrated only. Pane mode (several threads side by side) is a separate change.
+
+### Home screen widget: agent jobs and limits (source only)
+
+The iOS home screen widget previously showed only provider usage limits. It is now
+"Agents & usage": agent jobs next to the limits, laid out per widget family. Small shows
+the job summary, the most important job and one limit bar per provider; medium puts three
+jobs beside the limits; large and extra large list four and six jobs with project and
+model above full limit cards; the lock screen accessory shows the summary and the tightest
+limit. Jobs that need the user, then failed ones, sort first, then running jobs with the
+longest-running first, then recent finishes (one hour). Each row carries a live clock the
+system advances without the app running. Tapping opens the top job.
+
+Job state uses the Live Activity phase rule so the widget and lock screen agree. The
+published picture excludes step counts and message text, is compared before publishing and
+is published at most every 30 seconds, because widget reloads are budgeted. The app
+republishes every five minutes while open; after 15 minutes without a refresh the widget
+says "Open Blackcrab to refresh jobs" through a timeline entry rather than showing old state.
+Android keeps the existing limits-only widget.
+
+The layout and publisher are Blackcrab-owned adapters (`SubscriptionUsage.tsx`,
+`SubscriptionUsageCoordinator.tsx`, an addition `widgetJobs.ts`, and one recorded edit to
+the iOS publisher). Portable tests are in `mobile-experience/activation/widget-jobs.test.mjs`.
+The widget has not been built natively or viewed on a device or in the widget gallery; its
+layouts, spacing and live clocks are unverified until it is.
+
+### iPad pane mode (source only)
+
+A new "Open pane mode" button in the thread header (beside Files and IDE mode, on the same
+widths) opens a Panes screen that shows up to four threads side by side. The thread you
+came from is the first pane. Each pane is a complete thread: its own transcript, composer,
+model picker, approvals and handoff, so several models run in parallel, one per pane, and a
+single pane can still switch models mid-conversation. The plus button lists the other
+threads to open; each pane's bar can open its thread full screen or close it.
+
+Layout follows the real area, so Split View and Stage Manager are respected: panes are never
+squeezed under 380 by 300 points. Two panes sit in columns; three use columns or one tall pane
+beside two stacked; four form a grid. Panes that cannot fit at the current size stay open
+and appear as chips above the area, and tapping one brings it to the front. A narrow window
+shows one pane. Panes that stay on screen keep their state when another opens or closes. The
+open set lives for the app session; it is not restored after a restart.
+
+It is built on the thread preview route the inspector already uses, so each pane resolves its
+thread from its own route. Pane bars are drawn inside the pane because only one native
+navigation bar can exist per screen. Added through the registry: four new files under
+`src/features/panes/` and four recorded adapters (`Stack`, `ThreadHeader`, `ThreadRouteScreen`,
+`thread-inspector-preview`). Layout and state logic and the adapter wiring have portable tests
+in `mobile-experience/activation/pane-mode.test.mjs`.
+
+Not verified: a fresh dependency install typecheck, a native build, and any run on an iPad or
+simulator. Specific unknowns are the software keyboard and composer focus with several composers
+on screen, hardware keyboard shortcuts (they follow the focused pane or the whole screen), a
+streaming transcript in several panes at once, and the native bar of other screens interacting
+with a pane. Those need a simulator run against an inert fixture host before this counts as
+accepted.

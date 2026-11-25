@@ -1,0 +1,45 @@
+--- a/apps/web/src/components/chat/ChatHeader.tsx
++++ b/apps/web/src/components/chat/ChatHeader.tsx
+@@ -10,7 +10,7 @@
+   isAtomCommandInterrupted,
+   squashAtomCommandFailure,
+ } from "@t3tools/client-runtime/state/runtime";
+-import { ChevronDownIcon } from "lucide-react";
++import { MonitorIcon, ChevronDownIcon } from "lucide-react";
+ import {
+   memo,
+   useEffect,
+@@ -30,6 +30,7 @@
+ import { useAtomValue } from "@effect/atom-react";
+ import { useOrchestrationCommand } from "../../state/use-orchestration-command";
+ import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
++import { useEnvironment } from "../../state/environments";
+ import { ProjectFavicon } from "../ProjectFavicon";
+ import {
+   WorkspaceBreadcrumb,
+@@ -86,6 +87,8 @@
+   onOpenProjectSettings,
+   onFindInThread,
+ }: ChatHeaderProps) {
++  const environment = useEnvironment(activeThreadEnvironmentId);
++  const machineLabel = environment?.serverConfig?.environment.label ?? environment?.label;
+   const activeProjectName = activeProject?.isScratch ? "No project" : activeProject?.title;
+   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
+   const interfaceFont = useClientSettings((settings) => settings.fontFamilySans);
+@@ -290,6 +293,16 @@
+       )}
+       onContextMenu={handleHeaderContextMenu}
+     >
++      {machineLabel && (
++        <span
++          className="inline-flex min-w-0 max-w-[30%] items-center gap-1 text-xs text-muted-foreground"
++          title={`Machine: ${machineLabel}`}
++        >
++          <MonitorIcon aria-hidden="true" className="size-3.5 shrink-0" />
++          <span className="sr-only">Machine: </span>
++          <span className="truncate">{machineLabel}</span>
++        </span>
++      )}
+       <WorkspaceBreadcrumb
+         ariaLabel="Thread breadcrumb"
+         className="flex-1 overflow-clip [overflow-clip-margin:2px]"

@@ -3,8 +3,8 @@ import { render } from "../../../test/render";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import IdePanel from "./IdePanel";
 
-const host = vi.hoisted(() => ({ files: { "a.ts": "first", "b.ts": "second" } as Record<string,string>, writes: [] as unknown[], comments: [] as unknown[], safe: true }));
-vi.mock("~/state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => async ({ input }: {input:{relativePath:string}}) => ({ _tag: "Success", value: { contents: host.files[input.relativePath], truncated: false, ideSafeWrite: host.safe } }) }));
+const host = vi.hoisted(() => ({ files: { "a.ts": "first", "b.ts": "second" } as Record<string,string>, writes: [] as unknown[], cwds: [] as string[], comments: [] as unknown[], safe: true }));
+vi.mock("~/state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => async ({ input }: {input:{relativePath:string;cwd:string}}) => { host.cwds.push(input.cwd); return ({ _tag: "Success", value: { contents: host.files[input.relativePath], truncated: false, ideSafeWrite: host.safe } }); } }));
 vi.mock("~/state/use-atom-command", () => ({ useAtomCommand: () => async ({input}: {input:{relativePath:string;contents:string;ideExpectedContents:string}}) => {
   host.writes.push(input);
   if (host.files[input.relativePath] !== input.ideExpectedContents) return { _tag: "Success", value: { ideConflict: true } };
@@ -20,7 +20,9 @@ vi.mock("../files/FilePreviewPanel", () => ({ useEditableAfterHighlight: () => (
 vi.mock("../files/FileBrowserPanel", () => ({ default: ({onOpenFile}: {onOpenFile:(path:string)=>void}) => <nav><button onClick={()=>onOpenFile("a.ts")}>Open a.ts</button><button onClick={()=>onOpenFile("b.ts")}>Open b.ts</button></nav> }));
 // State/transport test uses a controllable editor boundary. Actual Pierre behavior is covered by
 // upstream fileEditorDismissal and file editor/browser tests, not claimed by this shim.
-vi.mock("@pierre/diffs/react", () => ({ EditProvider: ({children}: {children:React.ReactNode})=>children, Virtualizer: ({children}: {children:React.ReactNode})=>children,
+vi.mock("../diffs/StyledDiffCodeView", () => ({ DIFF_VIEW_UNSAFE_CSS: "" }));
+// A stand-in for the diff view: shows the old and new text so the test can tell which change is on screen.
+vi.mock("@pierre/diffs/react", () => ({ MultiFileDiff: ({oldFile,newFile}: {oldFile:{contents:string};newFile:{contents:string}}) => <pre aria-label="Test diff">{oldFile.contents}{"=>"}{newFile.contents}</pre>, EditProvider: ({children}: {children:React.ReactNode})=>children, Virtualizer: ({children}: {children:React.ReactNode})=>children,
  File: ({file,edit,onEditChange,options}: {file:{contents:string};edit:boolean;onEditChange:(e:unknown)=>void;options:{onLineSelectionEnd:(r:unknown)=>void}}) => <><textarea key={file.contents} aria-label="Test code" defaultValue={file.contents} readOnly={!edit} onChange={e=>onEditChange({file:{contents:e.target.value}})}/><button onClick={()=>options.onLineSelectionEnd({start:1,end:1})}>Select first line</button></> }));
 const env=EnvironmentId.make("ide-test"),thread={environmentId:env,threadId:ThreadId.make("ide-thread")};
 const event=(id:string,path:string)=>({item:{id,type:"file_change",status:"completed",fileName:path}});
@@ -57,4 +59,63 @@ it("old hosts cannot enter an editable IDE session",async()=>{
  await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveAttribute("readonly");
  await expect.element(screen.getByText("Read only:",{exact:false})).toBeVisible();
  host.safe=true;
+});
+it("shows each agent change as a diff in the order it landed, moving between files, then returns to the editor",async()=>{
+ host.files={"a.ts":"one","b.ts":"two"};
+ await using screen=await render(panel([event("a","a.ts"),event("b","b.ts")],"20","/flash-fixture"));
+ // Following selects the newest file; the other changed file is read in the background.
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("two");
+ await new Promise(resolve=>setTimeout(resolve,900));
+ host.files["a.ts"]="one!";host.files["b.ts"]="two!";
+ // Both changes are shown, one after the other. Which comes first depends on which read lands first.
+ const seen=new Map<string,string>();
+ await vi.waitFor(()=>{
+  for(const name of ["a.ts","b.ts"]){
+   if(screen.container.querySelector(`[aria-label='Agent change to ${name}']`))seen.set(name,screen.container.querySelector("[aria-label='Test diff']")?.textContent??"");
+  }
+  expect([...seen.keys()].sort()).toEqual(["a.ts","b.ts"]);
+ },{timeout:8000,interval:40});
+ expect(seen.get("a.ts")).toBe("one=>one!");
+ expect(seen.get("b.ts")).toBe("two=>two!");
+ await expect.element(screen.getByRole("textbox",{name:"Test code"}),{timeout:8000}).toHaveValue("two!");
+});
+it("does not cover a file with unsaved edits, and the toggle turns the change view off",async()=>{
+ host.files={"a.ts":"one","b.ts":"two"};
+ await using screen=await render(panel([event("a","a.ts")],"21","/flash-fixture-2"));
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("one");
+ await screen.getByRole("textbox",{name:"Test code"}).fill("mine");
+ host.files["a.ts"]="agent";
+ await new Promise(resolve=>setTimeout(resolve,1500));
+ expect(screen.container.querySelector("[aria-label='Agent change to a.ts']")).toBeNull();
+ await screen.getByRole("textbox",{name:"Test code"}).fill("one");
+ await screen.getByRole("button",{name:"Highlighting changes"}).click();
+ await expect.element(screen.getByRole("button",{name:"Highlight changes"})).toBeVisible();
+});
+it("moves to the folder the agent is working in when it is not the thread's folder, and back",async()=>{
+ host.files={"c.ts":"outside","d.ts":"home"};
+ await using screen=await render(panel([event("c","/elsewhere/proj/src/c.ts")],"30","/home-fixture"));
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("outside");
+ await expect.element(screen.getByText("The agent is working in /elsewhere/proj/src, outside this thread's folder.")).toBeVisible();
+ expect(host.cwds).toContain("/elsewhere/proj/src");
+ // The thread's folder can be shown again, and the panel says where the agent is.
+ await screen.getByRole("button",{name:"Show Fixture"}).click();
+ await expect.element(screen.getByText("The agent is working in /elsewhere/proj/src.")).toBeVisible();
+ await expect.element(screen.getByRole("button",{name:"Show src"})).toBeVisible();
+ // An edit inside the thread's folder brings the panel home and the note goes away.
+ await screen.rerender(panel([event("c","/elsewhere/proj/src/c.ts"),event("d","d.ts")],"31","/home-fixture"));
+ await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("home");
+ expect(screen.container.textContent).not.toContain("The agent is working in");
+});
+
+it("shows growing provider text before disk changes and visits both files from a batch", async () => {
+  const writing = (path: string, newStr: string) => ({
+    item: { ...event(path, path).item, status: "running", newStr },
+  });
+  await using screen = await render(panel([], "1", "/generation"));
+  await screen.rerender(panel([writing("a.ts", "const "), writing("b.ts", "export {}")], "2", "/generation"));
+  const preview = screen.getByLabelText("Generated code preview");
+  await expect.element(preview).toHaveTextContent("const");
+  await screen.rerender(panel([writing("a.ts", "const a = 1"), writing("b.ts", "export {}")], "3", "/generation"));
+  await expect.element(preview).toHaveTextContent("const a = 1");
+  await expect.element(preview).toHaveTextContent("export {}");
 });

@@ -1,0 +1,95 @@
+import { useEffect, useRef, type PointerEvent, type MouseEvent } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import type { ScopedThreadRef } from "@t3tools/contracts";
+import { settlePromise } from "@t3tools/client-runtime/state/runtime";
+import { readLocalApi } from "../../localApi";
+import { buildThreadRouteParams } from "../../threadRoutes";
+import { canOpenThreadWindow, openThreadWindow } from "../../lib/threadWindow";
+import { canAddPane, openThreadInPane } from "../panes/paneActions";
+import {
+  dropThreadContext,
+  endThreadContextDrag,
+  moveThreadContextDrag,
+} from "./threadContextDrag";
+
+export function useSubagentActions(
+  current: ScopedThreadRef | null,
+  target: ScopedThreadRef | null,
+  title: string,
+) {
+  const navigate = useNavigate();
+  const start = useRef<{ id: number; x: number; y: number } | null>(null);
+  const dragging = useRef(false);
+  const suppressClick = useRef(false);
+  useEffect(
+    () => () => {
+      if (dragging.current) endThreadContextDrag();
+    },
+    [],
+  );
+  function finish(event: PointerEvent, drop: boolean) {
+    if (start.current?.id !== event.pointerId) return;
+    start.current = null;
+    if (dragging.current) {
+      dragging.current = false;
+      suppressClick.current = true;
+      try {
+        if (drop && target) dropThreadContext({ x: event.clientX, y: event.clientY }, [target]);
+      } finally {
+        endThreadContextDrag();
+      }
+    }
+  }
+  return {
+    onPointerDown(event: PointerEvent) {
+      if (!target || !event.isPrimary || event.button !== 0) return;
+      event.stopPropagation();
+      suppressClick.current = false;
+      start.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      (event.target instanceof Element ? event.target : event.currentTarget).setPointerCapture(
+        event.pointerId,
+      );
+    },
+    onPointerMove(event: PointerEvent) {
+      const origin = start.current;
+      if (!origin || origin.id !== event.pointerId) return;
+      if (!dragging.current && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 5)
+        return;
+      dragging.current = true;
+      moveThreadContextDrag({ x: event.clientX, y: event.clientY }, { title, count: 1 });
+    },
+    onPointerUp: (event: PointerEvent) => finish(event, true),
+    onLostPointerCapture: (event: PointerEvent) => finish(event, false),
+    onPointerCancel: (event: PointerEvent) => finish(event, false),
+    onClickCapture(event: MouseEvent) {
+      if (suppressClick.current && event.detail !== 0) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      suppressClick.current = false;
+    },
+    async onContextMenu(event: MouseEvent) {
+      if (!target) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const api = readLocalApi();
+      if (!api) return;
+      const result = await settlePromise(() =>
+        api.contextMenu.show(
+          [
+            { id: "pane", label: "Make a pane", disabled: !canAddPane(current) },
+            { id: "window", label: "Make a new window", disabled: !canOpenThreadWindow() },
+          ],
+          { x: event.clientX, y: event.clientY },
+        ),
+      );
+      if (result._tag === "Failure") return;
+      const action = result.value;
+      if (action === "window") openThreadWindow(target);
+      if (action === "pane" && canAddPane(current))
+        openThreadInPane(current, target, (ref) => {
+          void navigate({ to: "/$environmentId/$threadId", params: buildThreadRouteParams(ref) });
+        });
+    },
+  };
+}

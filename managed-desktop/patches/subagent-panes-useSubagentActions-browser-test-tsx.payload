@@ -1,0 +1,108 @@
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { expect, it, vi } from "vite-plus/test";
+import { act, render } from "../../../test/render";
+import { THREAD_CONTEXT_DROP_EVENT } from "./threadContextDrag";
+import { useSubagentActions } from "./useSubagentActions";
+import { usePaneLayoutStore } from "../../paneLayoutStore";
+import { readLocalApi } from "../../localApi";
+
+const parent = { environmentId: EnvironmentId.make("env"), threadId: ThreadId.make("parent") };
+const child = { ...parent, threadId: ThreadId.make("child") };
+
+function Source({ open }: { open: () => void }) {
+  const actions = useSubagentActions(parent, child, "Child");
+  return (
+    <button {...actions} onClick={open}>
+      Child
+    </button>
+  );
+}
+
+it("drags the child and suppresses the trailing click, then allows an ordinary click", async () => {
+  const open = vi.fn();
+  await using screen = await render(
+    <>
+      <Source open={open} />
+      <div data-thread-context-drop>Pane</div>
+    </>,
+  );
+  const source = screen.container.querySelector("button")!;
+  const pane = screen.container.querySelector("[data-thread-context-drop]")!;
+  const dropped = vi.fn();
+  pane.addEventListener(THREAD_CONTEXT_DROP_EVENT, (event) =>
+    dropped((event as CustomEvent).detail),
+  );
+  using _capture = vi.spyOn(source, "setPointerCapture").mockImplementation(() => {});
+  using _hit = vi.spyOn(document, "elementFromPoint").mockReturnValue(pane);
+  const pointer = (type: string, clientX: number) =>
+    source.dispatchEvent(
+      new PointerEvent(type, { bubbles: true, pointerId: 1, isPrimary: true, clientX }),
+    );
+  const click = () => source.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+  await act(() => {
+    pointer("pointerdown", 1);
+    pointer("pointermove", 15);
+    pointer("pointerup", 15);
+    click();
+  });
+  expect(dropped).toHaveBeenCalledExactlyOnceWith([child]);
+  expect(open).not.toHaveBeenCalled();
+  await act(() => {
+    pointer("pointerdown", 1);
+    pointer("pointerup", 1);
+    click();
+  });
+  expect(open).toHaveBeenCalledOnce();
+});
+
+it("offers pane and window actions with current capability flags", async () => {
+  const api = readLocalApi()!;
+  using show = vi.spyOn(api.contextMenu, "show").mockResolvedValue(null);
+  await using screen = await render(<Source open={() => {}} />);
+  await act(() => {
+    screen.container
+      .querySelector("button")!
+      .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 12, clientY: 18 }));
+  });
+  expect(show).toHaveBeenCalledWith(
+    [
+      { id: "pane", label: "Make a pane", disabled: false },
+      { id: "window", label: "Make a new window", disabled: true },
+    ],
+    { x: 12, y: 18 },
+  );
+});
+
+it("opens the selected child in the requested desktop window", async () => {
+  const openWindow = vi.fn();
+  const api = readLocalApi()!;
+  using _menu = vi.spyOn(api.contextMenu, "show").mockResolvedValue("window");
+  vi.stubGlobal("desktopBridge", { openWindow });
+  try {
+    await using screen = await render(<Source open={() => {}} />);
+    await act(() => {
+      screen.container
+        .querySelector("button")!
+        .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    });
+    expect(openWindow).toHaveBeenCalledExactlyOnceWith("/env/child");
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("makes a pane beside the parent and focuses the child", async () => {
+  const initial = usePaneLayoutStore.getState();
+  using _restore = { [Symbol.dispose]: () => usePaneLayoutStore.setState(initial, true) };
+  initial.reset();
+  using _menu = vi.spyOn(readLocalApi()!.contextMenu, "show").mockResolvedValue("pane");
+  await using screen = await render(<Source open={() => {}} />);
+  await act(() => {
+    screen.container
+      .querySelector("button")!
+      .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+  });
+  const { panes, focusedIndex } = usePaneLayoutStore.getState();
+  expect(panes.map((pane) => pane.ref)).toEqual([parent, child]);
+  expect(panes[focusedIndex]?.ref).toEqual(child);
+});

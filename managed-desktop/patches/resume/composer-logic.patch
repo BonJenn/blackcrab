@@ -1,0 +1,20 @@
+--- a/apps/web/src/composer-logic.ts
++++ b/apps/web/src/composer-logic.ts
+@@ -18,7 +18,7 @@
+ import { resolveShortcutCommand, type ShortcutEventLike } from "./keybindings";
+ 
+ export type ComposerTriggerKind = "path" | "pull-request" | "slash-command" | "skill";
+-export type ComposerSlashCommand = "model" | "plan" | "default" | "side" | "btw" | "clear";
++export type ComposerSlashCommand = "model" | "plan" | "default" | "side" | "btw" | "clear" | "resume";
+ export type ComposerSubmissionIntent = "foreground" | "background" | "alternate";
+ 
+ export interface ComposerTrigger {
+@@ -320,7 +320,7 @@
+ 
+ export function parseStandaloneComposerSlashCommand(
+   text: string,
+-): Exclude<ComposerSlashCommand, "model" | "side" | "btw" | "clear"> | null {
++): Exclude<ComposerSlashCommand, "model" | "side" | "btw" | "clear" | "resume"> | null {
+   const match = /^\/(plan|default)\s*$/i.exec(text.trim());
+   if (!match) {
+     return null;

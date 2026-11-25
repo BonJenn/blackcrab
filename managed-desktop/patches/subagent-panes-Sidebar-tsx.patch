@@ -1,0 +1,66 @@
+--- a/apps/web/src/components/Sidebar.tsx
++++ b/apps/web/src/components/Sidebar.tsx
+@@ -1,3 +1,4 @@
++import { SidebarSubagents } from "./sidebar/SidebarSubagents";
+ import { attachSidebarTree } from "../lib/sidebarTree";
+ import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
+ import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
+@@ -70,6 +71,7 @@
+   SettingsIcon,
+ } from "lucide-react";
+ import {
++  Fragment,
+   useEffect,
+   useLayoutEffect,
+   useReducer,
+@@ -1104,6 +1106,20 @@
+           ),
+         );
+   const threads = useQuietThreadShells();
++  const childrenByParent = new Map<string, EnvironmentThreadShell[]>();
++  for (const child of threads) {
++    if (child.archivedAt) continue;
++    const parent =
++      child.delegatedFrom ??
++      (child.lineage.relationshipToParent === "subagent" && child.lineage.parentThreadId
++        ? scopeThreadRef(child.environmentId, child.lineage.parentThreadId)
++        : null);
++    if (!parent) continue;
++    const key = scopedThreadKey(parent);
++    const siblings = childrenByParent.get(key);
++    if (siblings) siblings.push(child);
++    else childrenByParent.set(key, [child]);
++  }
+   const routeRowThreadKey =
+     routeThreadRef === null
+       ? null
+@@ -3349,9 +3365,8 @@
+                           : isCard
+                             ? "card"
+                             : "slim";
+-                        return (
++                        const row = (
+                           <SortableThreadRow
+-                            key={threadKey}
+                             sortableId={threadKey}
+                             contextDrag={isContextDrag}
+                             sortableDisabled={
+@@ -3449,6 +3464,18 @@
+                             onAcknowledgeWoke={acknowledgeWoke}
+                             onFileDropThreads={handleThreadFileDrop}
+                           />
++                        );
++                        return (
++                          <Fragment key={threadKey}>
++                            {row}
++                            <SidebarSubagents
++                              activeFamily={routeRowThreadKey === threadKey}
++                              parent={scopeThreadRef(thread.environmentId, thread.id)}
++                              shells={childrenByParent.get(threadKey) ?? EMPTY_THREADS}
++                              current={routeThreadRef}
++                              open={navigateToThread}
++                            />
++                          </Fragment>
+                         );
+                       };
+                       const from = isContextDrag ? null : (dragState?.activeSection ?? null);

@@ -110,7 +110,7 @@ add('src/components/CompactBrandTitle.tsx',[
 ])
 # The Live Activity layout is Blackcrab's own; see adapters/AgentActivity.tsx.
 add('src/widgets/AgentActivity.tsx',template='adapters/AgentActivity.tsx')
-for widget in ['src/widgets/SubscriptionUsage.tsx','src/widgets/SubscriptionUsage.android.tsx']:
+for widget in ['src/widgets/SubscriptionUsage.android.tsx']:
  text=(src/widget).read_text(); replacements=[]
  for a,b in [('Open T3','Open Blackcrab'),('in T3','in Blackcrab')]:
   if a in text: replacements.append((a,b,text.count(a)))
@@ -163,6 +163,11 @@ account_recovery = {
   ('const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 'const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });', 1),
  ],
  # In-app account deletion: on the Blackcrab Connect page of the account screen.
+ # Pane mode: a screen that shows several threads side by side.
+ 'src/Stack.tsx': [
+  ('import { ThreadTerminalRouteScreen } from "./features/terminal/ThreadTerminalRouteScreen";','import { ThreadTerminalRouteScreen } from "./features/terminal/ThreadTerminalRouteScreen";\nimport { ThreadPanesScreen } from "./features/panes/ThreadPanesScreen";',1),
+  ('    ThreadInspectorFullscreen: createNativeStackScreen({','    ThreadPanes: createNativeStackScreen({\n      screen: ThreadPanesScreen,\n      options: pageRoute({ title: "Panes", header: "solid" }),\n    }),\n    ThreadInspectorFullscreen: createNativeStackScreen({',1),
+ ],
  'src/features/cloud/T3ConnectProfilePage.tsx': [
   ('import {\n  deregisterManagedRelayEnvironmentCommand,', 'import { DeleteAccountSection } from "./AccountDeletion";\nimport {\n  deregisterManagedRelayEnvironmentCommand,', 1),
   ('        Connections on this device are managed in Settings.\n      </Text>\n', '        Connections on this device are managed in Settings.\n      </Text>\n      <DeleteAccountSection />\n', 1),
@@ -236,6 +241,42 @@ for native_list_file in ['src/features/review/ReviewSheet.tsx','src/features/pul
 add('src/features/settings/lib/legal-document-url.ts',[
  ('https://t3.codes','https://www.blackcrab.app',1),
 ])
+# IDE mode: a code-first inspector pane that follows the files the agent changes. New files only
+# add the pane; the three adapters below add its mode, its entry button and its route wiring.
+add('src/features/threads/thread-inspector-navigation.ts',[
+ ('export type ThreadInspectorMode = "route" | "git" | "files" | "preview";','export type ThreadInspectorMode = "route" | "git" | "files" | "ide" | "preview";',1),
+])
+add('src/features/threads/ThreadHeader.tsx',[
+ ('  readonly onOpenFilesInspector: () => void;\n','  readonly onOpenFilesInspector: () => void;\n  readonly onOpenIdeInspector?: () => void;\n  readonly onOpenPanes?: () => void;\n',1),
+ ('  const filesVisible = props.inspectorMode === "files" && panes.auxiliaryPaneVisible;\n','  const filesVisible = props.inspectorMode === "files" && panes.auxiliaryPaneVisible;\n  const ideVisible = props.inspectorMode === "ide" && panes.auxiliaryPaneVisible;\n',1),
+ ('          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n      ]\n    : [];','          onPress: filesVisible ? toggleAuxiliaryPane : props.onOpenFilesInspector,\n        },\n        ...(props.fileInspectorSupported && props.onOpenIdeInspector\n          ? [\n              {\n                accessibilityLabel: ideVisible ? "Close IDE mode" : "Open IDE mode",\n                icon: "chevron.left.forwardslash.chevron.right" as const,\n                selected: ideVisible,\n                disabled: !props.gitControls.canOpenFiles,\n                separateBackground: false,\n                onPress: ideVisible ? toggleAuxiliaryPane : props.onOpenIdeInspector,\n              },\n            ]\n          : []),\n      ]\n    : [];',1),
+ ('          : []),\n      ]\n    : [];','          : []),\n        ...(props.fileInspectorSupported && props.onOpenPanes\n          ? [\n              {\n                accessibilityLabel: "Open pane mode",\n                icon: { ios: "rectangle.split.2x1", android: "desktop_windows" } as const,\n                separateBackground: false,\n                onPress: props.onOpenPanes,\n              },\n            ]\n          : []),\n      ]\n    : [];',1),
+])
+add('src/features/threads/ThreadRouteScreen.tsx',[
+ ('import { ThreadFileNavigatorPane } from "../files/thread-file-navigator-pane";','import { ThreadFileNavigatorPane } from "../files/thread-file-navigator-pane";\nimport { ThreadIdePane } from "../ide/ThreadIdePane";',1),
+ ('    return mode === "files" && selectedThreadCwd === null ? null : mode;','    return (mode === "files" || mode === "ide") && selectedThreadCwd === null ? null : mode;',1),
+ ('  const handleToggleInspector = () => {','  const handleOpenIdeInspector = () => {\n    if (selectedThread === null || selectedThreadCwd === null) {\n      return;\n    }\n    navigation.setParams({ inspector: undefined });\n    setChosenInspectorMode("ide");\n    showInspector();\n  };\n  const handleToggleInspector = () => {',1),
+ ('  const renderPreviewInspector = () =>','  const renderIdeInspector = () =>\n    selectedThread !== null && selectedThreadCwd !== null ? (\n      <ThreadIdePane\n        cwd={selectedThreadCwd}\n        environmentId={selectedThread.environmentId}\n        projectName={selectedThreadProject?.title ?? "Code"}\n        onOpenFiles={handleOpenFilesInspector}\n      />\n    ) : null;\n  const renderPreviewInspector = () =>',1),
+ ('            { key: "files", render: renderFilesInspector, prewarm: true },','            { key: "files", render: renderFilesInspector, prewarm: true },\n            { key: "ide", render: renderIdeInspector },',1),
+ ('                onOpenFilesInspector={handleOpenFilesInspector}','                onOpenFilesInspector={handleOpenFilesInspector}\n                onOpenIdeInspector={handleOpenIdeInspector}',1),
+ ('import { ThreadIdePane } from "../ide/ThreadIdePane";','import { ThreadIdePane } from "../ide/ThreadIdePane";\nimport { paneStore } from "../panes/paneStore";',1),
+ ('  const handleToggleInspector = () => {','  const handleOpenPanes = () => {\n    if (selectedThread === null) {\n      return;\n    }\n    paneStore.open({\n      environmentId: String(selectedThread.environmentId),\n      threadId: String(selectedThread.id),\n    });\n    navigation.navigate("ThreadPanes");\n  };\n  const handleToggleInspector = () => {',1),
+ ('                onOpenIdeInspector={handleOpenIdeInspector}','                onOpenIdeInspector={handleOpenIdeInspector}\n                onOpenPanes={handleOpenPanes}',1),
+])
+add('src/features/threads/thread-inspector-preview.tsx',[
+ ('import { ThreadPreviewRoute } from "./thread-preview-route";','import { ThreadPreviewRoute } from "./thread-preview-route";\nimport { PaneCellHeader } from "../panes/PaneCellHeader";',1),
+ ('export type ThreadInspectorPresentation =\n  | { readonly onMaximize: () => void }','export type ThreadInspectorPresentation =\n  | {\n      readonly pane: { readonly subtitle: string | null };\n      readonly onMaximize: () => void;\n      readonly onClose: () => void;\n    }\n  | { readonly onMaximize: () => void }',1),
+ ('  if ("onMaximize" in props) {\n    return (\n      <AppBar','  if ("pane" in props) {\n    return (\n      <PaneCellHeader\n        title={props.title}\n        subtitle={props.pane.subtitle}\n        onMaximize={props.onMaximize}\n        onClose={props.onClose}\n      />\n    );\n  }\n  if ("onMaximize" in props) {\n    return (\n      <AppBar',1),
+])
+# The home screen widget shows agent jobs next to provider limits. The layout and the
+# coordinator are Blackcrab's own; the iOS publisher adds the moment the jobs picture goes stale.
+add('src/widgets/SubscriptionUsage.tsx',template='adapters/SubscriptionUsage.tsx')
+add('src/widgets/SubscriptionUsageCoordinator.tsx',template='adapters/SubscriptionUsageCoordinator.tsx')
+add('src/widgets/publishSubscriptionUsage.ios.ts',[
+ ('import {\n  subscriptionUsageTimeline,\n  type SubscriptionUsageSnapshot,\n} from "./subscriptionUsageSnapshot";','import {\n  subscriptionUsageTimeline,\n  type SubscriptionUsageSnapshot,\n} from "./subscriptionUsageSnapshot";\nimport { withJobsDeadline, type WidgetJobs } from "./widgetJobs";',1),
+ ('export async function publishSubscriptionUsage(snapshot: SubscriptionUsageSnapshot) {','export async function publishSubscriptionUsage(snapshot: SubscriptionUsageSnapshot & { jobs?: WidgetJobs }) {',1),
+ ('  widget.updateTimeline(subscriptionUsageTimeline(snapshot, Date.now()));','  const now = Date.now();\n  widget.updateTimeline(withJobsDeadline(subscriptionUsageTimeline(snapshot, now), snapshot.jobs, now));',1),
+])
 entry='''/** Root must invoke once at process boot with proof that no old managed reader was ever started. */
 import type {ComponentType} from "react";
 import {makeActivationOwner} from "./owned-activation-owner.mjs";
@@ -252,5 +293,12 @@ additions.append({'path':'src/features/cloud/AccountConnectionStatus.tsx','templ
 additions.append({'path':'src/features/layout/workspace/navigationHaptics.ts','template':'adapters/navigationHaptics.ts','sha256':sha((root/'adapters/navigationHaptics.ts').read_bytes())})
 additions.append({'path':'src/features/agent-awareness/liveActivityProgress.ts','template':'adapters/liveActivityProgress.ts','sha256':sha((root/'adapters/liveActivityProgress.ts').read_bytes())})
 additions.append({'path':'src/features/cloud/AccountDeletion.tsx','template':'adapters/AccountDeletion.tsx','sha256':sha((root/'adapters/AccountDeletion.tsx').read_bytes())})
+additions.append({'path':'src/features/ide/ideFollow.ts','template':'adapters/ideFollow.ts','sha256':sha((root/'adapters/ideFollow.ts').read_bytes())})
+additions.append({'path':'src/features/ide/ThreadIdePane.tsx','template':'adapters/ThreadIdePane.tsx','sha256':sha((root/'adapters/ThreadIdePane.tsx').read_bytes())})
+additions.append({'path':'src/widgets/widgetJobs.ts','template':'adapters/widgetJobs.ts','sha256':sha((root/'adapters/widgetJobs.ts').read_bytes())})
+additions.append({'path':'src/features/panes/paneGrid.ts','template':'adapters/paneGrid.ts','sha256':sha((root/'adapters/paneGrid.ts').read_bytes())})
+additions.append({'path':'src/features/panes/paneStore.ts','template':'adapters/paneStore.ts','sha256':sha((root/'adapters/paneStore.ts').read_bytes())})
+additions.append({'path':'src/features/panes/PaneCellHeader.tsx','template':'adapters/PaneCellHeader.tsx','sha256':sha((root/'adapters/PaneCellHeader.tsx').read_bytes())})
+additions.append({'path':'src/features/panes/ThreadPanesScreen.tsx','template':'adapters/ThreadPanesScreen.tsx','sha256':sha((root/'adapters/ThreadPanesScreen.tsx').read_bytes())})
 (root/'registry.json').write_text(json.dumps({'schema':1,'kind':'blackcrab-full-mobile-ui-owned-adapters','generatorSha256':sha((root/'generator.mjs').read_bytes()),'upstreamCommit':'7f02de2eb8e253e0ec23f005b3cfff8e2c963be8','adapters':records,'additions':additions,'rootAdditions':[{'path':'owned-cloud-config.cjs','template':'adapters/owned-cloud-config.cjs','sha256':sha((root/'adapters/owned-cloud-config.cjs').read_bytes())},{'path':'owned-cloud-config.d.cts','template':'adapters/owned-cloud-config.d.cts','sha256':sha((root/'adapters/owned-cloud-config.d.cts').read_bytes())},{'path':'owned-root-lifecycle.mjs','template':'adapters/owned-root-lifecycle.mjs','sha256':sha((root/'adapters/owned-root-lifecycle.mjs').read_bytes())},{'path':'owned-root-lifecycle.d.mts','template':'adapters/owned-root-lifecycle.d.mts','sha256':sha((root/'adapters/owned-root-lifecycle.d.mts').read_bytes())},{'path':'OwnedActivation.ts','template':'adapters/OwnedActivation.ts','sha256':sha((root/'adapters/OwnedActivation.ts').read_bytes())},{'path':'owned-activation-owner.mjs','template':'owner.mjs','sha256':sha((root/'owner.mjs').read_bytes())},{'path':'owned-activation-owner.d.mts','template':'owner.d.mts','sha256':sha((root/'owner.d.mts').read_bytes())}], 'handoff':{'readyForMount':False,'sourceIntegrated':True,'nativeValidationPending':True,'owner':'process-lifetime; one original foundation/connection registry','requiredBeforeImport':['Remove managed reader imports/state/effect/Workspaces tab from legacy root so that no old managed reader is ever created.','On fresh process boot assert old reader never started, then call activateFullNativeUI exactly once before rendering. Never dispose/restart full foundation in-process.','Integrate unchanged legacy Hosts/queues as an explicit separate navigation destination without a second managed foundation.','Use reviewed Blackcrab native config/modules from current platform handoff; never evaluate copied upstream app.config/EAS.','Restart process after foundation changes; no retry after partial module-install failure.'],'identity':{'name':'Blackcrab','scheme':'blackcrab-remote','iosBundleIdentifier':'dev.blackcrab.remote','upstreamCloudEnabled':False,'ownedCloudConfiguration':'explicit BLACKCRAB public build variables; no inherited upstream account or relay','upstreamOTAEnabled':False,'ownedOTAConfiguration':'explicit BLACKCRAB_EAS_PROJECT_ID and BLACKCRAB_UPDATE_CHANNEL; native updates disabled without owned configuration'},'serviceLifetime':{'moduleAppInitializers':['SplashScreen.preventAutoHideAsync','hydrateWorkspaceSelections','installUiRuntimeMemoryWarningGc','subscribeComposerDraftModelReconciliation','installAppearanceRuntime','installSubscriptionUsageRefresh','installPermissionUpdateNotice','installThreadOutboxDelivery','installComposerAttachmentUploads','startIncomingShareInbox','installAgentNotificationNavigation','installAppShortcuts','installAppUpdateChecks (owned native configuration)','installShowcaseCapture (owned disabled)'],'foundations':['lib/runtime.runtime','connection/runtime.connectionAtomRuntime','state/atom-registry.appAtomRegistry','derived Atom runtimes sharing Runtime.layer']}}},indent=2)+'\n')
 print('Pinned adapters',len(records))

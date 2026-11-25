@@ -147,6 +147,29 @@ add a caption for something the screenshot does not show.
 What was run in the simulator and what was not is in the pull requests (#339,
 #341) and the handoff checkpoint.
 
+## Version 1.1.0
+
+Version 1.0.0 (build 6) is live (App Store state READY_FOR_SALE on 2026-11-19), so
+changes ship as version 1.1.0 with a higher build number. 1.1.0 adds iPad IDE mode,
+iPad pane mode, and the "Agents & usage" home screen widget (PRs #361, #362, #364).
+Only `apps/mobile/app.json` carries the version; `apps/mobile/package.json` stays at
+1.0.0 because changing it changes the lockfile. See "Release 1.1.0" below.
+
+### Release 1.1.0
+
+- Source: stage `720c268`. Build 8 from `prepare-mobile-ios.mjs --mode archive`; IPA SHA-256
+  `c5ae4d401791f026f835ce6e2133fdfcda30888d42308d55a5e58ff4db048421`; delivery
+  `74832d57-c363-4001-b3ab-4596dba80d98`; uploaded with `xcrun altool --upload-package`
+  (the archive report keeps `signing.uploaded` false because the script never uploads).
+- Build 7 (`c412afb`) was uploaded first and reached TestFlight, then a simulator pass found the
+  pane headers hidden under the native bar (#366). It was replaced by build 8 and not submitted.
+- Version 1.1.0 was created as a manual-release draft; the 1.0.0 listing text, screenshots and
+  review details carried over; What's New was added and build 8 attached.
+- Review submission `d97df479-ec7d-43e5-8f67-7aa4079c7ffc` was submitted 2026-11-21 19:56 UTC and
+  is `WAITING_FOR_REVIEW`. It is not approved, and nothing is released.
+- Not verified before submission: the widget and IDE mode following a live edit. The submitted
+  IPA itself was not run; a simulator build of the same source line was.
+
 ## Known gaps
 
 - Live step text on a locked phone needs host and relay work (see Live Activity).

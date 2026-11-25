@@ -1,6 +1,80 @@
 # Blackcrab parity and release handoff
 
-## Current checkpoint — 0.4.6 is published (2026-11-17 UTC)
+## Mobile iPad features checkpoint — 1.1.0 submitted for App Review (2026-11-21)
+
+Version 1.1.0 (build 8) is `WAITING_FOR_REVIEW` in App Store Connect (review
+submission `d97df479-ec7d-43e5-8f67-7aa4079c7ffc`, submitted 2026-11-21 19:56 UTC, manual
+release). It is not approved or live. 1.0.0 (build 6) is still the live version.
+
+- Source: stage `720c268`. IDE mode (#361), widget "Agents & usage" (#362), pane mode (#364),
+  version bump (#365) and the pane header inset fix (#366).
+- Build 8: signed with distribution certificate `0ED8DF3F…`, entitlements verified on the app,
+  widgets and sharing targets; IPA SHA-256 `c5ae4d401791f026f835ce6e2133fdfcda30888d42308d55a5e58ff4db048421`;
+  delivery `74832d57-c363-4001-b3ab-4596dba80d98`; processing VALID; attached to 1.1.0; in the
+  TestFlight groups "Blackcrab Internal Release" and "Team (Expo)" (internal state IN_BETA_TESTING).
+  Nobody has been confirmed to have installed it from TestFlight.
+- Build 7 (stage `c412afb`, same version) is also in TestFlight. It has the pane header defect
+  fixed in #366 and was not submitted.
+- Runtime evidence (iPad simulator, Release build, iOS 26.2, isolated demo host, no provider
+  runs): the app launches and pairs; IDE mode opens its "Following agent changes" pane but only
+  its empty state was seen because the fixture threads are static; pane mode opens, two panes sit
+  side by side with their own composers, the model picker opens from inside a pane, closing a pane
+  works, and the headers and buttons are visible after #366. Not verified: the widget (never on a
+  device, simulator or widget gallery), IDE mode following a live edit, a model switch inside a
+  pane (the fixture offers one model), keyboard and focus across several composers, landscape,
+  and Split View widths. The evidence is a simulator build of the #366 branch head `5253bb8` (same source as
+  stage `720c268`), not the uploaded IPA itself.
+- Next: wait for the review result. If rejected, read the message in App Store Connect and fix on
+  a branch from stage. Release is manual, so an approved version still needs an explicit release.
+- No build or process is running. The API key, staging directories, DerivedData and QA simulator
+  from this work were deleted. `/private/tmp/blackcrab-toolchain` (Node 26.12.1) remains.
+  Worktree `feat-ipad-pane-mode` (borrowed `node_modules`) may be removed.
+- Tests: `node --test mobile-experience/activation/*.test.mjs` passes except `native-links` and
+  the installed widgets plugin, which fail identically on untouched stage (borrowed
+  `node_modules` lacks `expo-widgets` and `@expo/metro-config`).
+
+## Current checkpoint — 0.4.9 is published (2026-11-18 UTC)
+
+v0.4.9 is public on all three platforms, built from
+58d9b8d150a1ebe22e165a211ab9ebb2179a83e2; see docs/release-0.4.9.md for digests
+and run IDs (Mac 44358774766, Linux/Windows 44363422147). It adds /resume for
+every provider (PR #356), IDE mode following the agent into other folders
+(PR #357) and recreation of the private browser owner marker after macOS cleans
+/tmp (PR #355). Final artifact verification passed, including the stapled
+ticket. None of the three changes was looked at in a running app. A Mac stuck on
+0.4.8 with the capability error must install 0.4.9 by hand. Evidence:
+P/mac-release-040-v2llrqsa/workspace-049-delivery.
+
+## Previous checkpoint — 0.4.8 is published (2026-11-18 UTC)
+
+v0.4.8 is public on all three platforms, tag on
+1f84b436f0fab24c9ea658eeb1adf21d974e4f5c; see docs/release-0.4.8.md. It adds
+the IDE mode change view (edits flash green and red and the panel follows the
+agent from file to file; PR #352) and stops CI test runs from posting usage
+events (PR #351). Published without a Mac launch; the change view was never
+looked at in a running app. The workspace is rebuilt and labelled 0.4.8; the
+service is 0.4.6's, so it should not re-register on update (untested). The
+first Mac run lacked a stapled ticket and was re-run. Old CI-generated rows
+remain in the production usage database. Evidence:
+P/mac-release-040-v2llrqsa/workspace-048-delivery.
+
+## Previous checkpoint — 0.4.7 is published (2026-11-18 UTC)
+
+v0.4.7 is public on all three platforms, tag on
+cbbc17a5032bcaa0e67423d6eb9caa85c55d7368; see docs/release-0.4.7.md. It
+restores the anonymous launch and update events that stopped in 0.4.2 (PR #348,
+`src-tauri/src/product_events.rs`, off switch in settings, PRIVACY.md) and was
+published without a Mac launch. It reuses 0.4.6's notarized workspace and
+service payloads, so the workspace is labelled 0.4.6 and the service should
+not re-register on update: untested. Check the admin dashboard
+(blackcrab.app/admin) for 0.4.7 launches, update checks and update outcomes.
+Website: BonJenn/blackcrab-landing PR #27 (admin colours, GitHub download
+counts, bot flagging) and the release notes entry that follows it.
+The 0.4.2 to 0.4.6 installs have no anonymous id yet and appear as new
+installs when they first report. Evidence:
+P/mac-release-040-v2llrqsa/workspace-047-delivery.
+
+## Previous checkpoint — 0.4.6 is published (2026-11-17 UTC)
 
 v0.4.6 is public on all three platforms, tag on
 f91fcbfa8474e322a344dbe9b661753506b9cf1f; see docs/release-0.4.6.md. It fixes

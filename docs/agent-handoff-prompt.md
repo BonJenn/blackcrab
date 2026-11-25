@@ -1,3 +1,7 @@
+Mobile iPad IDE mode, widget and pane mode ship as version 1.1.0 (build 8), submitted for App Review
+on 2026-11-21 and waiting; see the "Mobile iPad features checkpoint" at the top of docs/agent-handoff.md.
+Pane mode and IDE mode were seen on an iPad simulator; the widget never has been.
+
 Continue the authorized Blackcrab parity task and0.4.4 release for Mac, Windows
 and Linux. Read AGENTS.md and the CURRENT docs/agent-handoff.md checkpoint first.
 Keep paired AGENTS.md/CLAUDE.md identical; preserve dirty main checkout and user data.

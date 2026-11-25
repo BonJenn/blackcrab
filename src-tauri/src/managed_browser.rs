@@ -133,7 +133,17 @@ impl Capability {
         let owner = self.validate_location(owner)?;
         let directory = self.path.parent().ok_or_else(refused)?;
         match fs::symlink_metadata(directory) {
-            Ok(_) => return self.validate(&owner),
+            Ok(_) => {
+                if self.validate(&owner).is_ok() {
+                    return Ok(());
+                }
+                // macOS also deletes old files from /private/tmp without a
+                // reboot, leaving the directory and its socket but not the
+                // owner marker. Restore only that one file, and only when the
+                // directory is still ours (canonical, 0700, our uid) and holds
+                // nothing but a valid private socket.
+                return self.restore_missing_marker(&owner, directory);
+            }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(_) => return Err(refused()),
         }
@@ -164,6 +174,43 @@ impl Capability {
         // in all cases the destination must pass the original strict checks.
         let _ = crate::managed_payload::publish_no_replace(stage.path(), directory);
         self.validate(&owner)
+    }
+
+    fn restore_missing_marker(&self, owner: &Path, directory: &Path) -> Result<(), String> {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt};
+        private_directory(directory)?;
+        let marker_path = directory.join(MARKER);
+        match fs::symlink_metadata(&marker_path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            _ => return Err(refused()),
+        }
+        for entry in fs::read_dir(directory).map_err(|_| refused())? {
+            let entry = entry.map_err(|_| refused())?;
+            let stat = entry.metadata().map_err(|_| refused())?;
+            if entry.path() != self.path
+                || !stat.file_type().is_socket()
+                || stat.uid() != unsafe { libc::geteuid() }
+                || stat.mode() & 0o777 != 0o600
+            {
+                return Err(refused());
+            }
+        }
+        let marker = serde_json::to_vec(&Marker {
+            schema: 1,
+            owner: owner.to_path_buf(),
+        })
+        .map_err(|_| refused())?;
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&marker_path)
+            .map_err(|_| refused())?;
+        file.write_all(&marker)
+            .and_then(|_| file.sync_all())
+            .map_err(|_| refused())?;
+        self.validate(owner)
     }
 
     pub(super) fn validate(&self, owner: &Path) -> Result<(), String> {
@@ -328,13 +375,10 @@ mod tests {
     }
     #[test]
     fn managed_browser_recovery_never_replaces_untrusted_existing_entries() {
-        for variant in 0..5 {
+        for variant in 1..5 {
             let f = Fixture::new();
             let directory = f.capability.path.parent().unwrap();
             match variant {
-                0 => {
-                    fs::remove_file(directory.join(MARKER)).unwrap();
-                }
                 1 => {
                     fs::set_permissions(directory, fs::Permissions::from_mode(0o755)).unwrap();
                 }
@@ -352,9 +396,6 @@ mod tests {
             assert!(f.capability.ensure_runtime_directory(&f.owner).is_err());
             // No deletion/replacement can turn the same unsafe state into valid.
             assert!(f.capability.validate(&f.owner).is_err());
-            if variant == 0 {
-                assert!(!directory.join(MARKER).exists());
-            }
             if variant == 4 {
                 assert!(fs::symlink_metadata(directory)
                     .unwrap()
@@ -362,6 +403,32 @@ mod tests {
                     .is_symlink());
             }
         }
+    }
+    #[test]
+    fn managed_browser_restores_only_a_marker_removed_by_tmp_cleanup() {
+        use std::os::unix::fs::MetadataExt;
+        let f = Fixture::new();
+        let directory = f.capability.path.parent().unwrap();
+        let socket = std::os::unix::net::UnixListener::bind(&f.capability.path).unwrap();
+        fs::set_permissions(&f.capability.path, fs::Permissions::from_mode(0o600)).unwrap();
+        let inode = fs::metadata(&f.capability.path).unwrap().ino();
+        fs::remove_file(directory.join(MARKER)).unwrap();
+        assert!(f.capability.validate(&f.owner).is_err());
+        f.capability.ensure_runtime_directory(&f.owner).unwrap();
+        f.capability.validate(&f.owner).unwrap();
+        assert_eq!(fs::metadata(&f.capability.path).unwrap().ino(), inode);
+        drop(socket);
+        // Anything else in the directory, or loose permissions, is not repaired.
+        let g = Fixture::new();
+        let directory = g.capability.path.parent().unwrap();
+        fs::remove_file(directory.join(MARKER)).unwrap();
+        fs::write(directory.join("extra"), b"x").unwrap();
+        assert!(g.capability.ensure_runtime_directory(&g.owner).is_err());
+        assert!(!directory.join(MARKER).exists());
+        fs::remove_file(directory.join("extra")).unwrap();
+        fs::set_permissions(directory, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(g.capability.ensure_runtime_directory(&g.owner).is_err());
+        assert!(!directory.join(MARKER).exists());
     }
     #[test]
     fn managed_browser_concurrent_recovery_publishes_one_complete_directory() {

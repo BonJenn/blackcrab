@@ -82,16 +82,18 @@ pub(crate) fn init(app: &tauri::AppHandle) {
         bytes: None,
     })));
     let _ = APP.set(app.clone());
+    crate::product_events::launch(app);
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(15)).await;
         loop {
-            let _ = request(
+            let _ = request_inner(
                 &app,
                 Request {
                     action: Action::Check,
                     expected_version: None,
                 },
+                false,
             );
             tokio::time::sleep(Duration::from_secs(4 * 60 * 60)).await;
         }
@@ -118,6 +120,10 @@ fn allowed(inner: &Inner, request: &Request) -> bool {
     }
 }
 pub(crate) fn request(app: &tauri::AppHandle, request: Request) -> Reply {
+    request_inner(app, request, true)
+}
+/// `manual` is false only for the background check the app schedules itself.
+fn request_inner(app: &tauri::AppHandle, request: Request, manual: bool) -> Reply {
     let accepted = {
         let owner = lock(app);
         let mut inner = owner.0.lock().unwrap();
@@ -161,16 +167,16 @@ pub(crate) fn request(app: &tauri::AppHandle, request: Request) -> Reply {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             match request.action {
-                Action::Check => check(&app).await,
-                Action::Download => download(&app).await,
-                Action::Install => install(&app).await,
+                Action::Check => check(&app, manual).await,
+                Action::Download => download(&app, manual).await,
+                Action::Install => install(&app, manual).await,
                 Action::Status => {}
             }
         });
     }
     reply
 }
-async fn check(app: &tauri::AppHandle) {
+async fn check(app: &tauri::AppHandle, manual: bool) {
     let result = async {
         app.updater_builder()
             .timeout(Duration::from_secs(30))
@@ -179,6 +185,10 @@ async fn check(app: &tauri::AppHandle) {
             .await
     }
     .await;
+    let reported = match &result {
+        Ok(update) => Ok(update.as_ref().map(|u| u.version.clone())),
+        Err(error) => Err(error.to_string()),
+    };
     change(app, |inner| match result {
         Ok(update) => {
             // Keep a verified queued installer when the feed is unchanged or
@@ -212,10 +222,17 @@ async fn check(app: &tauri::AppHandle) {
                 Some("Could not check for updates. Check your connection and try again.".into());
         }
     });
+    match reported {
+        Ok(version) => crate::product_events::update_check(app, version.as_deref(), manual).await,
+        Err(error) => {
+            crate::product_events::update_failed(app, "check", &error, None, manual).await
+        }
+    }
 }
 
-async fn download(app: &tauri::AppHandle) {
+async fn download(app: &tauri::AppHandle, manual: bool) {
     let mut update = lock(app).0.lock().unwrap().update.clone().unwrap();
+    let target = update.version.clone();
     update.timeout = Some(Duration::from_secs(30 * 60));
     let progress_app = app.clone();
     // The updater verifies the downloaded bytes using the release signing key.
@@ -235,6 +252,7 @@ async fn download(app: &tauri::AppHandle) {
             || {},
         )
         .await;
+    let failure = result.as_ref().err().map(|error| error.to_string());
     change(app, |inner| match result {
         Ok(bytes) => {
             inner.bytes = Some(bytes);
@@ -250,8 +268,11 @@ async fn download(app: &tauri::AppHandle) {
                 Some("Download or signature verification failed. Try downloading again.".into());
         }
     });
+    if let Some(error) = failure {
+        crate::product_events::update_failed(app, "download", &error, Some(&target), manual).await;
+    }
 }
-async fn install(app: &tauri::AppHandle) {
+async fn install(app: &tauri::AppHandle, manual: bool) {
     app.state::<crate::managed_launcher::LauncherState>()
         .pause_for_update();
     crate::managed_launcher::show(app, "blackcrab-open-settings");
@@ -278,6 +299,13 @@ async fn install(app: &tauri::AppHandle) {
         let mut inner = owner.0.lock().unwrap();
         (inner.update.clone().unwrap(), inner.bytes.take().unwrap())
     };
+    let target = update.version.clone();
+    // Bounded, so a slow network cannot hold the install back.
+    let _ = tokio::time::timeout(
+        Duration::from_secs(3),
+        crate::product_events::update_started(app, &target),
+    )
+    .await;
     let result = tauri::async_runtime::spawn_blocking(move || {
         #[cfg(target_os = "macos")]
         let result = crate::macos_updater::install(&bytes, &update.version);
@@ -291,6 +319,10 @@ async fn install(app: &tauri::AppHandle) {
             app.restart();
         }
         failure => {
+            let reason = match &failure {
+                Ok((Err(error), _)) => error.clone(),
+                _ => "The install task did not finish".to_string(),
+            };
             change(app, |inner| {
                 inner.snapshot.installing = false;
                 let detail = match failure {
@@ -308,6 +340,8 @@ async fn install(app: &tauri::AppHandle) {
                 .into();
                 inner.snapshot.message = Some(detail.unwrap_or_else(|| "Could not install the update. Your projects are kept. Try again or download Blackcrab from blackcrab.app.".into()));
             });
+            crate::product_events::update_failed(app, "install", &reason, Some(&target), manual)
+                .await;
         }
     }
 }

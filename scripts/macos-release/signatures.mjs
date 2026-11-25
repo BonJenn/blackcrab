@@ -6,6 +6,12 @@ import {promisify} from 'node:util';
 const exec = promisify(execFile);
 const magic = new Set(['feedface', 'cefaedfe', 'feedfacf', 'cffaedfe', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca']);
 
+// The host artifact keeps its upstream entry paths for runtime compatibility.
+export function hostSigningIdentifier(relative) {
+  if (relative === 't3') return 'com.bonjenn.blackcrab.host';
+  if (relative === 'resource-monitor/t3-resource-monitor') return 'com.bonjenn.blackcrab.resource-monitor';
+}
+
 export function validateSigningIdentity(identity, teamId) {
   if (!/^[A-Z0-9]{10}$/.test(teamId ?? '') ||
       typeof identity !== 'string' ||
@@ -15,10 +21,10 @@ export function validateSigningIdentity(identity, teamId) {
   }
 }
 
-export function validateSignatureDetails(details, {teamId, identity, executable = true}) {
+export function validateSignatureDetails(details, {teamId, identity, identifier, executable = true}) {
   validateSigningIdentity(identity, teamId);
   const lines = new Set(details.trim().split(/\r?\n/));
-  if (!lines.has(`TeamIdentifier=${teamId}`) || !lines.has(`Authority=${identity}`) ||
+  if ((identifier !== undefined && !lines.has(`Identifier=${identifier}`)) || !lines.has(`TeamIdentifier=${teamId}`) || !lines.has(`Authority=${identity}`) ||
       !/^Timestamp=.+$/m.test(details) || /^(?:Signature=adhoc|Timestamp=none)$/m.test(details) ||
       (executable && !/^CodeDirectory .*flags=.*\bruntime\b/m.test(details))) {
     throw Error('Release code signature lacks the required identity, timestamp, or hardened runtime');

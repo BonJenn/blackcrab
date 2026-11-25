@@ -5,7 +5,7 @@ import {promisify} from 'node:util';
 import {verifyArtifact as verifyDesktop} from '../../managed-desktop/artifact.mjs';
 import {verifyArtifact as verifyHost} from '../../managed-host/artifact.mjs';
 import {verifyServiceProfileArtifact} from '../../managed-host/service-profile.mjs';
-import {validateSigningIdentity, machoFiles, verifySignature} from './signatures.mjs';
+import {hostSigningIdentifier, validateSigningIdentity, machoFiles, verifySignature} from './signatures.mjs';
 
 const exec = promisify(execFile);
 export function validateReleaseProvenance(provenance, {identity, teamId}) {
@@ -30,7 +30,7 @@ export async function verifyManagedReleasePayloads({desktop, host, serviceHost, 
     validateReleaseProvenance(provenance, {identity, teamId});
     const binaries = await machoFiles(root);
     if (!binaries.length) throw Error('Managed release payload contains no native code');
-    for (const relative of binaries) await verifySignature(path.join(root, relative), {identity, teamId});
+    for (const relative of binaries) await verifySignature(path.join(root, relative), {identity, teamId, identifier: role === 'desktop' ? undefined : hostSigningIdentifier(relative)});
     if (role === 'desktop') {
       const app = path.join(root, 'Blackcrab.app');
       await verifySignature(app, {identity, teamId}, {deep:true});

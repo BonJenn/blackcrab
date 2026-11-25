@@ -140,7 +140,7 @@ export default function IdePanel(props: IdePanelProps) {
 
 function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action: string; onAction: () => void } | null }) {
   const { environmentId, cwd } = props;
-  const changes = ideChanges(cwd, props.items);
+  const changes = useMemo(() => ideChanges(cwd, props.items), [cwd, props.items]);
   const latest = changes.at(-1);
   const [selected, setSelected] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
@@ -187,10 +187,33 @@ function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action:
     }
   }, [environmentId, cwd]);
 
-  // The host event selects a path, never speculative newStr/diff bytes. Disk reads provide content.
+  const observed = useRef<Map<string, string> | null>(null);
+  const [visits, setVisits] = useState<string[]>([]);
   useEffect(() => {
-    if (follow && latest && !dirty && !saving && !flash) { setSelected(latest.path); setRange(null); }
-  }, [follow, latest?.token, latest?.path, dirty, saving, flash]);
+    const previous = observed.current;
+    observed.current = follow ? new Map(changes.map(file => [file.path, file.id])) : null;
+    if (!follow || dirty || saving) { setVisits([]); return; }
+    const incoming = previous
+      ? changes.filter(file => previous.get(file.path) !== file.id)
+      : changes.filter(file => file.running);
+    if (!incoming.length && !previous && latest) incoming.push(latest);
+    if (incoming.length) setVisits(queue => [...queue, ...incoming.map(file => file.path).filter(path => !queue.includes(path))]);
+  }, [changes, follow, dirty, saving, latest]);
+  const visiting = visits[0];
+  useEffect(() => {
+    if (!visiting || !follow || dirty || saving) return;
+    setSelected(visiting);
+    setRange(null);
+    const timer = setTimeout(() => setVisits(queue => queue.slice(1)), 850);
+    return () => clearTimeout(timer);
+  }, [visiting, follow, dirty, saving]);
+  const activeFile = changes.find(file => file.path === selected);
+  const preview = follow && !dirty && !saving && (activeFile?.running || visiting === selected)
+    ? activeFile?.preview : undefined;
+  const previewRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (previewRef.current) previewRef.current.scrollTop = previewRef.current.scrollHeight;
+  }, [selected, preview]);
 
   // Refresh snapshots after host events and while viewing. One request at a time, fenced on switch.
   useEffect(() => {
@@ -252,6 +275,7 @@ function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action:
       const timer = setTimeout(() => setFlash(null), flashDuration(flashQueue.current.length));
       return () => clearTimeout(timer);
     }
+    if (visiting || preview !== undefined || dirty) return;
     const next = flashQueue.current.find(item => follow || item.path === selected);
     if (!next) return;
     flashQueue.current = flashQueue.current.filter(item => item !== next);
@@ -259,7 +283,7 @@ function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action:
     if (nextDraft && nextDraft.text !== nextDraft.base) { setQueueVersion(version => version + 1); return; }
     if (follow) { setSelected(next.path); setRange(null); }
     setFlash(next);
-  }, [showChanges, flash, follow, selected, queueVersion, revision]);
+  }, [showChanges, flash, follow, selected, queueVersion, revision, visiting, preview, dirty]);
 
   const change = (text: string) => {
     if (!selected || !draft || savingRef.current) return;
@@ -324,7 +348,7 @@ function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action:
         {pending.length > 0 ? <details open className="border-t p-2 text-xs"><summary>Unsaved drafts</summary>{pending.map(path => <button className="block" type="button" key={path} onClick={() => select(path)}>{path}</button>)}</details> : null}
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <p className="border-b px-2 py-1 text-xs text-muted-foreground">Live host snapshots · updates appear when written to disk. {dirty ? "Follow paused while editing." : ""}</p>
+        <p className="border-b px-2 py-1 text-xs text-muted-foreground">{preview !== undefined ? (activeFile?.running ? "Generating code" : "Generated change") : "Workspace file"} {dirty ? "Follow paused while editing." : ""}</p>
         {draftStorageWarning ? <p role="alert" className="p-2 text-xs">{draftStorageWarning}</p> : null}
         {error ? <p role="alert" className="p-2 text-xs">{error}</p> : null}
         {notice ? <p role="status" className="p-2 text-xs break-all">{notice}</p> : null}
@@ -333,7 +357,8 @@ function IdePanelAt(props: IdePanelProps & { folderNote: { text: string; action:
           <pre className="overflow-auto">{draft.incoming}</pre>
           <button type="button" disabled={saving} onClick={() => { if (!selected || !draft || draft.incoming === null) return; setDraft(keyFor(environmentId, cwd, selected), { ...draft, base: draft.incoming, incoming: null });  setNotice("Incoming version acknowledged. Edit your draft to merge it, then Save."); }}>Use incoming as save baseline; keep my draft</button>
         </details> : null}
-        {flash && selected && flash.key === selectedKey && !dirty ? <DiffWorkerPoolProvider><IdeChangeFlash key={`${flash.key}:${flash.after.length}`} path={flash.path} before={flash.before} after={flash.after} /></DiffWorkerPoolProvider>
+        {preview !== undefined ? <pre ref={previewRef} aria-label="Generated code preview" className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs">{preview}</pre>
+          : flash && selected && flash.key === selectedKey && !dirty ? <DiffWorkerPoolProvider><IdeChangeFlash key={`${flash.key}:${flash.after.length}`} path={flash.path} before={flash.before} after={flash.after} /></DiffWorkerPoolProvider>
           : draft && selected ? <DiffWorkerPoolProvider><IdeCodeEditor key={selected} path={selected} contents={draft.text}
           writable={writable && draft.safe && !draft.truncated && !fileSaving && !error} onChange={change} onSelection={setRange} /></DiffWorkerPoolProvider> : <p className="p-4 text-sm">Open a file from the tree or wait for an agent file-change event.</p>}
         {range ? <form className="flex gap-2 border-t p-2" onSubmit={event => { event.preventDefault(); ask(); }}>

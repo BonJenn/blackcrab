@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {validateSigningIdentity, validateSignatureDetails, verifySigningDelta, machoFiles} from './signatures.mjs';
+import {hostSigningIdentifier, validateSigningIdentity, validateSignatureDetails, verifySigningDelta, machoFiles} from './signatures.mjs';
 
 const options = {identity: 'Developer ID Application: Example (ABCDEFGHIJ)', teamId: 'ABCDEFGHIJ'};
 const valid = `CodeDirectory v=20500 size=1 flags=0x10000(runtime) hashes=1+1 location=embedded
@@ -22,6 +22,15 @@ test('distribution requires the intended Developer ID team, a secure timestamp a
   ]) assert.throws(() => validateSignatureDetails(value, options));
   for (const identity of ['-', 'Developer ID Application: Example (WRONGTEAM1)', options.identity + '\n']) {
     assert.throws(() => validateSigningIdentity(identity, options.teamId));
+  }
+});
+
+test('Blackcrab host signatures reject upstream executable identities', () => {
+  for (const file of ['t3', 'resource-monitor/t3-resource-monitor']) {
+    const identifier = hostSigningIdentifier(file);
+    assert.match(identifier, /^com\.bonjenn\.blackcrab\./);
+    validateSignatureDetails(valid + '\nIdentifier=' + identifier, {...options, identifier});
+    assert.throws(() => validateSignatureDetails(valid + '\nIdentifier=' + path.basename(file), {...options, identifier}));
   }
 });
 

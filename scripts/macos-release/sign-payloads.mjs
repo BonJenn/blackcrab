@@ -6,7 +6,7 @@ import {promisify, parseArgs} from 'node:util';
 import {verifyArtifact as verifyDesktop, writeManifest, inventory, fileDigest, MANIFEST, ELECTRON} from '../../managed-desktop/artifact.mjs';
 import {writeArtifactManifest, MANIFEST_FILE} from '../../managed-host/artifact.mjs';
 import {verifyServiceProfileArtifact} from '../../managed-host/service-profile.mjs';
-import {validateSigningIdentity, machoFiles, verifySignature, verifySigningDelta} from './signatures.mjs';
+import {hostSigningIdentifier, validateSigningIdentity, machoFiles, verifySignature, verifySigningDelta} from './signatures.mjs';
 
 const exec = promisify(execFile), here = path.dirname(fileURLToPath(import.meta.url));
 const hostEntries = manifest => manifest.files.map(entry => ({...entry, type: 'file'}));
@@ -63,13 +63,15 @@ export async function signManagedPayloads({desktop, serviceHost, output, identit
     });
     // Node SEA, native add-ons, spawn helper and resource monitor all need signed code.
     for (const relative of [...hostBinaries.filter(file => file !== 't3'), 't3']) {
+      const identifier = hostSigningIdentifier(relative);
       await exec('/usr/bin/codesign', ['--force', '--sign', identity, '--options', 'runtime', '--timestamp',
         ...(keychain ? ['--keychain', keychain] : []),
+        ...(identifier ? ['--identifier', identifier] : []),
         ...(relative === 't3' ? ['--entitlements', path.join(here, 'host-entitlements.plist')] : []),
         path.join(signedHost, relative)], {timeout: 300000, maxBuffer: 1024 * 1024});
     }
     for (const [root, binaries] of [[signedDesktop, desktopBinaries], [signedHost, hostBinaries]]) {
-      for (const relative of binaries) await verifySignature(path.join(root, relative), {identity, teamId});
+      for (const relative of binaries) await verifySignature(path.join(root, relative), {identity, teamId, identifier: root === signedHost ? hostSigningIdentifier(relative) : undefined});
     }
     await verifySignature(app, {identity, teamId}, {deep: true});
     const desktopChanges = verifySigningDelta(desktopManifest.files, await inventory(signedDesktop), desktopBinaries);

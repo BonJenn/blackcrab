@@ -1,0 +1,33 @@
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { threadKey } from "@t3tools/client-runtime/state/entities";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { expect, it } from "vite-plus/test";
+import { collectSidebarSubagents } from "./sidebarSubagents.logic";
+
+const environmentId = EnvironmentId.make("local");
+const parent = { environmentId, threadId: ThreadId.make("parent") };
+const id = ThreadId.make("child");
+const shell = { environmentId, id, title: "Subagent: /root/code_review", runtime: null };
+const ref = { environmentId, threadId: id };
+
+it("shows a started child once, including when only the parent reports it", () => {
+  const started = { childThreadId: id, title: null, status: "waiting" as const };
+  const grouped = collectSidebarSubagents(parent, [shell], [started], new Set());
+  expect([...grouped.values()]).toEqual([
+    { ref, title: "Code Review", status: "waiting", running: true },
+  ]);
+  expect(
+    collectSidebarSubagents(parent, [], [started], new Set()).get(scopedThreadKey(ref))?.running,
+  ).toBe(true);
+  const finished = { ...started, status: "completed" as const };
+  expect(
+    collectSidebarSubagents(parent, [], [started, finished], new Set()).get(scopedThreadKey(ref))
+      ?.running,
+  ).toBe(false);
+  expect(collectSidebarSubagents(parent, [], [finished], new Set([threadKey(ref)])).size).toBe(0);
+});
+
+it("keeps same-ID children from different environments distinct", () => {
+  const remote = { ...shell, environmentId: EnvironmentId.make("remote") };
+  expect(collectSidebarSubagents(parent, [shell, remote], [], new Set()).size).toBe(2);
+});

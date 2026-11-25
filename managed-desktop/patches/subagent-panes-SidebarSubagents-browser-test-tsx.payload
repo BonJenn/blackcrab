@@ -1,0 +1,42 @@
+import { EnvironmentId, ThreadId, type OrchestrationV2Subagent } from "@t3tools/contracts";
+import { expect, it, vi } from "vite-plus/test";
+import { render } from "../../../test/render";
+import { SidebarSubagents } from "./SidebarSubagents";
+
+const state = vi.hoisted(() => ({ status: "running" as OrchestrationV2Subagent["status"] }));
+vi.mock("../../state/entities", () => ({
+  useQuietThreadProjection: () => ({
+    projection: {
+      subagents: [
+        {
+          childThreadId: "child",
+          title: "Review",
+          status: state.status,
+        },
+      ],
+    },
+  }),
+  useHiddenThreadKeys: () => new Set(),
+}));
+
+it("expands for a running child, collapses on completion and allows reopening", async () => {
+  const current = { environmentId: EnvironmentId.make("env"), threadId: ThreadId.make("parent") };
+  const open = vi.fn();
+  const list = () => (
+    <ul>
+      <SidebarSubagents activeFamily parent={current} current={current} shells={[]} open={open} />
+    </ul>
+  );
+  await using screen = await render(list());
+  const disclosure = screen.getByRole("button", { name: /Subagents/ });
+  const child = screen.getByRole("button", { name: /Review/ });
+  await expect.element(disclosure).toHaveAttribute("aria-expanded", "true");
+  await child.click();
+  expect(open).toHaveBeenCalledWith({ ...current, threadId: "child" });
+  state.status = "completed";
+  await screen.rerender(list());
+  await expect.element(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect.element(child).not.toBeInTheDocument();
+  await disclosure.click();
+  await expect.element(child).toBeVisible();
+});

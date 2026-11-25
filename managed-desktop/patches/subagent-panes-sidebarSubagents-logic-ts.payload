@@ -1,0 +1,49 @@
+import { threadKey } from "@t3tools/client-runtime/state/entities";
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { formatSubagentDisplayTitle } from "@t3tools/client-runtime/state/subagent-display";
+import {
+  threadRuntimeIsActive,
+  type EnvironmentThreadShell,
+} from "@t3tools/client-runtime/state/models";
+import {
+  isOrchestrationV2WorkActive,
+  type ScopedThreadRef,
+  type OrchestrationV2Subagent,
+} from "@t3tools/contracts";
+
+export type Child = { ref: ScopedThreadRef; title: string; status: string; running: boolean };
+export function collectSidebarSubagents(
+  parent: ScopedThreadRef,
+  shells: readonly Pick<EnvironmentThreadShell, "environmentId" | "id" | "runtime" | "title">[],
+  agents:
+    | readonly Pick<OrchestrationV2Subagent, "childThreadId" | "title" | "status">[]
+    | undefined,
+  hidden: ReadonlySet<string>,
+) {
+  const childrenById = new Map<string, Child>();
+  for (const shell of shells) {
+    const ref = scopeThreadRef(shell.environmentId, shell.id);
+    childrenById.set(scopedThreadKey(ref), {
+      ref,
+      title: formatSubagentDisplayTitle(shell.title),
+      status: shell.runtime?.status ?? "idle",
+      running: threadRuntimeIsActive(shell.runtime),
+    });
+  }
+  const shellRows = new Map(childrenById);
+  for (const agent of agents ?? []) {
+    if (!agent.childThreadId) continue;
+    const ref = scopeThreadRef(parent.environmentId, agent.childThreadId);
+    const key = scopedThreadKey(ref);
+    if (hidden.has(threadKey(ref))) continue;
+    const shell = shellRows.get(key);
+    const running = isOrchestrationV2WorkActive(agent.status) || Boolean(shell?.running);
+    childrenById.set(key, {
+      ref,
+      title: formatSubagentDisplayTitle(agent.title ?? shell?.title ?? "Subagent"),
+      status: shell?.running ? shell.status : agent.status,
+      running,
+    });
+  }
+  return childrenById;
+}

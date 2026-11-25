@@ -5,6 +5,8 @@ export interface IdeFileEvent {
   readonly type: string;
   readonly status: string;
   readonly fileName?: string | undefined;
+  readonly newStr?: string | undefined;
+  readonly diffStr?: string | undefined;
   readonly changes?: readonly { readonly path: string; readonly operation: string }[] | undefined;
 }
 export function workspaceRelativePath(root: string, file: string): string | null {
@@ -20,14 +22,16 @@ export function workspaceRelativePath(root: string, file: string): string | null
   return parts.join("/");
 }
 export function ideChanges(root: string, events: readonly { readonly item: IdeFileEvent }[]) {
-  const files = new Map<string, { path: string; status: string; token: string }>();
+  const files = new Map<string, { path: string; status: string; token: string; id: string; preview: string | undefined; running: boolean }>();
   for (const { item } of events) {
     if (item.type !== "file_change") continue;
     for (const change of item.changes?.length ? item.changes : [{ path: item.fileName ?? "", operation: "edit" }]) {
       const path = workspaceRelativePath(root, change.path);
       if (!path) continue;
       files.delete(path);
-      files.set(path, { path, status: `${change.operation} · ${item.status}`, token: JSON.stringify([item.id, item.updatedAt, item.status, path]) });
+      const singleFile = (item.changes?.length ?? 0) <= 1;
+      const preview = singleFile ? item.newStr ?? item.diffStr : undefined;
+      files.set(path, { path, id: item.id, preview, running: item.status === "running" || item.status === "pending", status: `${change.operation} · ${item.status}`, token: JSON.stringify([item.id, item.updatedAt, item.status, path]) });
     }
   }
   return [...files.values()];

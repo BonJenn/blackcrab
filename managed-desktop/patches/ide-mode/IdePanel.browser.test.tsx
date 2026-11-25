@@ -106,3 +106,16 @@ it("moves to the folder the agent is working in when it is not the thread's fold
  await expect.element(screen.getByRole("textbox",{name:"Test code"})).toHaveValue("home");
  expect(screen.container.textContent).not.toContain("The agent is working in");
 });
+
+it("shows growing provider text before disk changes and visits both files from a batch", async () => {
+  const writing = (path: string, newStr: string) => ({
+    item: { ...event(path, path).item, status: "running", newStr },
+  });
+  await using screen = await render(panel([], "1", "/generation"));
+  await screen.rerender(panel([writing("a.ts", "const "), writing("b.ts", "export {}")], "2", "/generation"));
+  const preview = screen.getByLabelText("Generated code preview");
+  await expect.element(preview).toHaveTextContent("const");
+  await screen.rerender(panel([writing("a.ts", "const a = 1"), writing("b.ts", "export {}")], "3", "/generation"));
+  await expect.element(preview).toHaveTextContent("const a = 1");
+  await expect.element(preview).toHaveTextContent("export {}");
+});

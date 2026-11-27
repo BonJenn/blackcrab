@@ -9,10 +9,16 @@ with Gradle. It reports tool logs and SHA-256 hashes in `artifacts/build-report.
 
 ## What the product is
 
-A **sideloadable Release APK** (default arm64-v8a only), signed with the debug keystore
-Expo generates. It installs on a device or emulator. It is **not** a Play Store artifact:
-an upload-key-signed AAB, a Play Console app, Play signing and a tester track are
-separate, unfinished steps. Do not describe the APK as distribution-ready.
+Two artifacts, never interchangeable:
+
+- **Sideloadable Release APK** (default, arm64-v8a only), signed with the debug keystore
+  Expo generates. It installs on a device or emulator and is **not** a Play Store artifact.
+- **Play bundle (AAB)** (`--artifact aab`, default ABIs `armeabi-v7a,arm64-v8a,x86_64`),
+  signed with the Blackcrab **upload key**. The script refuses to build an AAB without it.
+
+A Play Console app, enrolling in Play App Signing, a tester track and a store listing are
+separate steps that need the Blackcrab Play account. Do not describe either artifact as
+distribution-ready until that has been done and verified.
 
 ## Toolchain
 
@@ -50,6 +56,39 @@ Blackcrab-owned Expo project (`BLACKCRAB_EAS_PROJECT_ID`, see
 [mobile updates](mobile-updates.md)). The local verification builds used the placeholder
 `00000000-0000-4000-8000-000000000000` with updates disabled; that value proves nothing
 about ownership and must not be used for a release.
+
+## Play signing
+
+Play App Signing: Google keeps the app signing key; Blackcrab keeps only an **upload key**
+that proves uploads are its own.
+
+```sh
+node scripts/create-android-upload-key.mjs --java-home "$HOME/.blackcrab-android/jdk/Contents/Home"
+```
+
+This creates `~/.blackcrab-android/signing/` (mode 700) with `upload-keystore.p12`,
+`upload-key.properties` (passwords; mode 600) and `upload-certificate.pem` (public). It
+prints only paths and the certificate SHA-256, never overwrites an existing key and keeps
+passwords out of arguments, logs and reports. **Back this directory up somewhere private.**
+Losing the key forces a Play upload-key reset; it is never committed.
+
+```sh
+node scripts/prepare-mobile-android.mjs --mode build --artifact aab \
+  --upload-key-properties "$HOME/.blackcrab-android/signing/upload-key.properties" \
+  ...the same toolchain and --eas-project-id flags as above
+```
+
+Gradle reads the secrets from the properties file at build time through the init script.
+The script then runs `jarsigner -verify`, requires the AAB signer certificate to equal
+`upload-certificate.pem`, and checks the owned package identity and embedded JS bundle.
+The report records the public certificate SHA-256 only.
+
+Before the first Play upload: create the app in Play Console with package
+`dev.blackcrab.remote`, enrol in Play App Signing, and set an increasing Android
+`versionCode` for every upload because Play rejects reused codes (`apps/mobile/app.json`
+does not set one yet, so Expo builds with 1). Store listing, data-safety declarations and,
+for some account types, closed-testing requirements are Play Console account actions, not
+build steps; check the account's current requirements.
 
 ## Android-specific build adaptations
 
@@ -95,8 +134,9 @@ unverified; do not relabel this smoke test as parity acceptance.
 ## Checks
 
 ```sh
-node --test scripts/prepare-mobile-android.test.mjs
+JAVA_HOME=/path/to/jdk-17 node --test scripts/prepare-mobile-android.test.mjs
 ```
 
 Covers header blob verification and path safety, Gradle argument and init-script
-generation, and build-environment isolation.
+generation, build-environment isolation, upload-key creation (needs `JAVA_HOME`; skipped
+otherwise) and the refusal to build an unsigned AAB.

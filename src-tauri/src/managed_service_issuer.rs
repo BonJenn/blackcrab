@@ -669,6 +669,30 @@ fn verify_installed_copy(directory: &Path, file: &Path, expected: &str) -> Resul
     }
     Ok(())
 }
+/// Read-only attachment selection. Never takes the service-owner lease, mints
+/// an envelope, changes the journal, or starts a process. The caller owns the
+/// configuration snapshot is checked; the compiled manifest remains the trust anchor.
+pub(super) fn attachment_selection(host: &ManagedHost, expected_config: &Configuration) -> Result<(String, String)> {
+    let expected = option_env!("BLACKCRAB_EMBEDDED_HOST_MANIFEST_SHA256")
+        .filter(|value| hex_digest(value)).ok_or_else(invalid)?;
+    let binding: Binding = serde_json::from_slice(&private_bytes(&host.root.join(BINDING), LIMIT)?)
+        .map_err(|_| invalid())?;
+    if binding.schema != 1 || !hex_digest(&binding.self_sha256)
+        || binding.manifest_sha256 != expected || !safe_number(binding.generation)
+        || binding.version != "0.1.7" || !valid_environment(&binding.environment_id) {
+        return Err(invalid());
+    }
+    let issuer = host.root.join("issuer");
+    managed_payload::private_dir(&issuer).map_err(|_| invalid())?;
+    let directory = issuer.join(&binding.self_sha256);
+    verify_installed_copy(&directory, &directory.join("blackcrab-issuer"), &binding.self_sha256)?;
+    let config = verify_selection(host, &binding)?;
+    if serde_json::to_value(&config).map_err(|_| invalid())? != serde_json::to_value(expected_config).map_err(|_| invalid())? {
+        return Err(invalid());
+    }
+    Ok((binding.manifest_sha256, binding.version))
+}
+
 fn verify_selection(host: &ManagedHost, binding: &Binding) -> Result<Configuration> {
     managed_payload::private_dir(&host.root).map_err(|_| invalid())?;
     if private_bytes(&host.root.join(".blackcrab-managed-host"), 64)? != MARKER.as_bytes() {
